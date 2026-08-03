@@ -628,6 +628,14 @@ class Settings {
 	 * written for. Now one number, raisable, and overshoot is reported
 	 * rather than swallowed.
 	 *
+	 * Raised from 8 to 50 in v1.384.2. Eight was a guardrail, not a limit:
+	 * the kits live in wpie_settings, which does not autoload, and one kit
+	 * weighs about 450 bytes, so fifty of them are two thirds of a kilobyte
+	 * short of nothing. The number that mattered was the one an agency runs
+	 * into, and an agency licensed for twenty-five sites has more than eight
+	 * clients. The ceiling stays only so a runaway import cannot bloat the
+	 * editor bootstrap, which still carries the kits into the page.
+	 *
 	 * @since 1.353.0
 	 *
 	 * @return int Maximum number of kits (at least one).
@@ -638,9 +646,9 @@ class Settings {
 		 *
 		 * @since 1.353.0
 		 *
-		 * @param int $max Default: 8.
+		 * @param int $max Default: 50.
 		 */
-		return max( 1, (int) apply_filters( 'wpie_max_brand_kits', 8 ) );
+		return max( 1, (int) apply_filters( 'wpie_max_brand_kits', 50 ) );
 	}
 
 	/**

@@ -18,9 +18,10 @@ import { useEscape } from '../components/use-escape';
 import { HelpLink } from './help-dialog';
 
 // Server default; a site can raise it with the wpie_max_brand_kits filter,
-// and then the bootstrap carries the real number (v1.353.0). Hardcoding 8 on
-// both sides meant a raised limit still stopped at the dialog.
-const MAX_KITS = 8;
+// and then the bootstrap carries the real number (v1.353.0). Hardcoding it on
+// both sides meant a raised limit still stopped at the dialog. Kept in step
+// with Settings::max_kits(), which went from 8 to 50 in v1.384.2.
+const MAX_KITS = 50;
 const MAX_COLORS = 12;
 const MAX_FONTS = 3;
 const MAX_VARS = 24;
