@@ -1,0 +1,25 @@
+/*
+ * WunderPaint editor styles.
+ *
+ * BARREL (v1.345.0). The rules live in ./editor/*.css; this file only pulls
+ * them in, and the ORDER BELOW IS THE CASCADE. Several rules in this codebase
+ * win on source order rather than specificity - editor.css:7564 documents one
+ * such dependency - so these lines are not alphabetical and must not be
+ * sorted. Adding a file means deciding where in the cascade it belongs.
+ *
+ * The @import lines never reach a browser: webpack inlines them at build time
+ * into a single build/index.css, exactly as if the file had never been split.
+ * That is checked - the built stylesheet is byte-identical to the one this
+ * split replaced.
+ */
+
+@import './editor/tokens.css';
+@import './editor/editor-shell.css';
+@import './editor/overlays.css';
+@import './editor/controls.css';
+@import './editor/help.css';
+@import './editor/ai.css';
+@import './editor/modals.css';
+@import './editor/tabs.css';
+@import './editor/workspaces.css';
+@import './editor/studios.css';

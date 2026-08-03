@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-forest-fog",
+ "name": "Forest Fog",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#134e4a",
+   "at": 0
+  },
+  {
+   "color": "#4ade80",
+   "at": 1
+  }
+ ]
+}

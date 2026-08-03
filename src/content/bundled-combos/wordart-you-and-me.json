@@ -1,0 +1,199 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-you-and-me",
+	"label": "You and Me",
+	"category": "wordart",
+	"w": 509,
+	"h": 343,
+	"layers": [
+		{
+			"id": "usdh11q",
+			"type": "text",
+			"name": "&",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 114.11,
+			"y": 185.08,
+			"w": 88.68877272831702,
+			"h": 120.93923553861404,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "&",
+			"fontSize": 166.94373687208738,
+			"fontFamily": "Shrikhand",
+			"weight": 700,
+			"color": "#000000",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": "#450a0a",
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "pattern",
+			"gradientStops": [
+				{
+					"color": "#000032",
+					"at": 0
+				},
+				{
+					"color": "#ff6a00",
+					"at": 1
+				}
+			],
+			"gradientAngle": 0,
+			"pattern": "stripes",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"rings": null,
+				"reflection": null,
+				"chromatic": null,
+				"confetti": null
+			}
+		},
+		{
+			"id": "eaxlfnw",
+			"type": "text",
+			"name": "Me",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 226.99,
+			"y": 125.02,
+			"w": 282.19154959009967,
+			"h": 217.78020858842285,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "Me",
+			"fontSize": 166.94373687208738,
+			"fontFamily": "Shrikhand",
+			"weight": 700,
+			"color": "#d5382b",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": "#450a0a",
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "pattern",
+			"gradientStops": [
+				{
+					"color": "#000032",
+					"at": 0
+				},
+				{
+					"color": "#ff6a00",
+					"at": 1
+				}
+			],
+			"gradientAngle": 0,
+			"pattern": "stripes",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"rings": null,
+				"reflection": null,
+				"chromatic": null,
+				"confetti": {
+					"density": 97,
+					"size": 12,
+					"seed": 10
+				}
+			}
+		},
+		{
+			"id": "s70i8h8",
+			"type": "text",
+			"name": "You",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 374.4637070751164,
+			"h": 217.78020858842285,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "You",
+			"fontSize": 166.94373687208738,
+			"fontFamily": "Shrikhand",
+			"weight": 700,
+			"color": "#d5382b",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": "#450a0a",
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "pattern",
+			"gradientStops": [
+				{
+					"color": "#000032",
+					"at": 0
+				},
+				{
+					"color": "#ff6a00",
+					"at": 1
+				}
+			],
+			"gradientAngle": 0,
+			"pattern": "stripes",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"rings": null,
+				"reflection": null,
+				"chromatic": null,
+				"confetti": {
+					"density": 53,
+					"size": 10,
+					"seed": 10
+				}
+			},
+			"outlineDash": "dashed"
+		}
+	]
+}

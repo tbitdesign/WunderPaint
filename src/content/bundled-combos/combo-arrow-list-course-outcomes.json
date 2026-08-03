@@ -1,0 +1,150 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-arrow-list-course-outcomes",
+	"label": "Arrow List - Course Outcomes",
+	"w": 390,
+	"h": 158,
+	"layers": [
+		{
+			"id": "100r2c9",
+			"type": "text",
+			"name": "Arrow List - Course Outcomes",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 300,
+			"h": 34,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "What you'll learn",
+			"fontSize": 26,
+			"fontFamily": "Bitter",
+			"weight": 800,
+			"color": "#111827",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.1,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "What you'll ",
+					"s": null
+				},
+				{
+					"text": "learn",
+					"s": {
+						"color": "#7c3aed"
+					}
+				}
+			]
+		},
+		{
+			"id": "puh5vcu",
+			"type": "text",
+			"name": "Arrow List - Course Outcomes",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 46,
+			"w": 390,
+			"h": 112,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "→  Build a brand from scratch\n→  Price your work with confidence\n→  Land your first five clients\n→  Automate the busywork",
+			"fontSize": 16,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#374151",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.65,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "→  ",
+					"s": {
+						"weight": 700,
+						"color": "#7c3aed"
+					}
+				},
+				{
+					"text": "Build a brand from scratch\n",
+					"s": null
+				},
+				{
+					"text": "→  ",
+					"s": {
+						"weight": 700,
+						"color": "#7c3aed"
+					}
+				},
+				{
+					"text": "Price your work with confidence\n",
+					"s": null
+				},
+				{
+					"text": "→  ",
+					"s": {
+						"weight": 700,
+						"color": "#7c3aed"
+					}
+				},
+				{
+					"text": "Land your first five clients\n",
+					"s": null
+				},
+				{
+					"text": "→  ",
+					"s": {
+						"weight": 700,
+						"color": "#7c3aed"
+					}
+				},
+				{
+					"text": "Automate the busywork",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

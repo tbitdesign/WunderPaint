@@ -1,0 +1,99 @@
+{
+ "format": "wpie-combo@1",
+ "id": "combo-btnw-grad-rose",
+ "label": "Rose Pill",
+ "category": "buttons",
+ "w": 340,
+ "h": 96,
+ "layers": [
+  {
+   "id": "swr",
+   "type": "shape",
+   "name": "Pill",
+   "visible": true,
+   "locked": false,
+   "opacity": 1,
+   "blend": "normal",
+   "x": 10,
+   "y": 8,
+   "w": 320,
+   "h": 80,
+   "rot": 0,
+   "mask": null,
+   "filter": "none",
+   "adjust": null,
+   "styles": {
+    "dropShadow": {
+     "angle": 90,
+     "distance": 6,
+     "blur": 14,
+     "spread": 0,
+     "color": "#e11d48",
+     "opacity": 0.28
+    }
+   },
+   "shape": "rect",
+   "fill": "#3b66ff",
+   "stroke": null,
+   "strokeW": 0,
+   "radius": 40,
+   "sides": 6,
+   "pattern": "none",
+   "patternData": null,
+   "fillType": "gradient",
+   "gradientStops": [
+    {
+     "color": "#e11d48",
+     "at": 0
+    },
+    {
+     "color": "#f43f5e",
+     "at": 1
+    }
+   ],
+   "gradientAngle": 24
+  },
+  {
+   "id": "tws",
+   "type": "text",
+   "name": "Label",
+   "visible": true,
+   "locked": false,
+   "opacity": 1,
+   "blend": "normal",
+   "x": 10,
+   "y": 8,
+   "w": 320,
+   "h": 80,
+   "rot": 0,
+   "mask": null,
+   "filter": "none",
+   "adjust": null,
+   "styles": null,
+   "text": "Subscribe",
+   "fontSize": 26,
+   "fontFamily": "Manrope",
+   "weight": 800,
+   "color": "#ffffff",
+   "align": "center",
+   "valign": "middle",
+   "letterSpacing": 0,
+   "lineHeight": 1.15,
+   "curve": 0,
+   "italic": false,
+   "underline": false,
+   "fixedWidth": true,
+   "outlineColor": null,
+   "outlineW": 0,
+   "shadowOn": false,
+   "shadowColor": "#000000",
+   "bgColor": null,
+   "bgRadius": 8,
+   "fillType": "solid",
+   "gradientStops": null,
+   "gradientAngle": 0,
+   "pattern": "none",
+   "patternData": null
+  }
+ ]
+}

@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-starburst",
+	"name": "Starburst",
+	"pathD": "M 50 0 L 58 30 L 85 15 L 70 42 L 100 50 L 70 58 L 85 85 L 58 70 L 50 100 L 42 70 L 15 85 L 30 58 L 0 50 L 30 42 L 15 15 L 42 30 Z"
+}

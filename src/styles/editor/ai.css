@@ -1,0 +1,722 @@
+/*
+ * AI generate dialog, dynamic-template post preview and Automate Posts.
+ *
+ * Split out of editor.css in v1.345.0, which had reached 11.030 lines - the
+ * largest hand-written file in the plugin. Load ORDER IS THE CASCADE: this
+ * file is pulled in by editor.css at its original position and must stay
+ * there.
+ */
+
+/* ============ AI GENERATE DIALOG (v1.31) ============ */
+#wpie-root .tray-chip-gen {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+#wpie-root .gen-kinds {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .gen-kinds .ai-btn {
+	flex: 1;
+}
+
+#wpie-root .gen-prompt,
+#wpie-root .gen-text {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 8px 10px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+	font-size: 13px;
+	font-family: inherit;
+	resize: vertical;
+}
+
+#wpie-root .gen-text {
+	margin-top: 8px;
+}
+
+#wpie-root .gen-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 10px;
+}
+
+#wpie-root .gen-actions-end {
+	margin-top: 12px;
+}
+
+#wpie-root .gen-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 12px;
+	margin-top: 14px;
+}
+
+#wpie-root .gen-card {
+	border: 1px solid var(--ed-border);
+	border-radius: 8px;
+	overflow: hidden;
+	background: var(--ed-panel);
+}
+
+#wpie-root .gen-prev-illu img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+#wpie-root .gen-prev {
+	height: 110px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px;
+	box-sizing: border-box;
+
+	/* Previews always render on white — the generated text and elements come
+	   back in dark colours, which would vanish on the dark panel. */
+	background: #fff;
+}
+
+#wpie-root .gen-prev-el {
+	color: #1a1d21;
+}
+
+#wpie-root .gen-prev-el svg {
+	width: 64px;
+	height: 64px;
+}
+
+#wpie-root .gen-prev-text {
+	flex-direction: column;
+	gap: 2px;
+	overflow: hidden;
+	text-align: center;
+}
+
+#wpie-root .gen-card-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 8px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .gen-card-foot span {
+	font-size: 11px;
+	color: var(--ed-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .gen-card-foot .ai-btn {
+	padding: 3px 10px;
+	font-size: 11px;
+}
+
+/* Layout popover (E1 dynamic layouts) */
+#wpie-root .layout-popover {
+	z-index: 90;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 480px;
+	max-height: 70vh;
+	padding: 10px;
+	overflow-y: auto;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 8px;
+	box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
+}
+
+#wpie-root .layout-pop-head {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ed-text);
+}
+
+#wpie-root .layout-pop-head span {
+	flex: 1;
+}
+
+#wpie-root .layout-tiles {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px;
+}
+
+#wpie-root .layout-tile {
+	display: grid;
+	place-items: center;
+	height: 96px;
+	padding: 0;
+	overflow: hidden;
+	cursor: pointer;
+	background: #f0f0f1;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+}
+
+#wpie-root .layout-tile img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+#wpie-root .layout-tile.active {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+#wpie-root .layout-tile-loading {
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--ed-border-strong);
+	border-top-color: var(--accent);
+	border-radius: 50%;
+	animation: wpie-spin 0.8s linear infinite;
+}
+
+/* AI suggestions section in the layout popover (E2) */
+#wpie-root .layout-pop-ai {
+	padding-top: 8px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .layout-pop-ai-head {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 6px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ed-text);
+}
+
+#wpie-root .layout-pop-ai-head span {
+	font-weight: 400;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .layout-pop-ai-row {
+	display: flex;
+	gap: 6px;
+	align-items: stretch;
+}
+
+#wpie-root .layout-pop-ai-row input {
+	flex: 1;
+	min-height: 0;
+	height: auto;
+	padding: 7px 10px;
+	font-size: 12px;
+	color: var(--ed-text);
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+}
+
+/* Combo category chips (v1.54): dialog row + tray column */
+#wpie-root .library-cats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .library-cats button {
+	padding: 4px 10px;
+	font-size: 12px;
+	color: var(--ed-text);
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 999px;
+}
+
+#wpie-root .library-cats button.active {
+	color: #fff;
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+#wpie-root .tray-cats-col {
+	display: flex;
+	flex-direction: column;
+	flex-wrap: wrap;
+	gap: 3px;
+	align-content: flex-start;
+	max-height: 100%;
+	padding-right: 4px;
+}
+
+#wpie-root .tray-cats-col .tray-cat.active {
+	color: #fff;
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+/* Photo category cards in the tray (v1.55) */
+
+/* Stock category tiles are plain labeled cards since v1.120.3; only the
+   background-image preview needs sizing (no intrinsic width). */
+#wpie-root .tray-photo-cat {
+	flex: 0 0 118px;
+}
+
+#wpie-root .tray-photo-cat .tray-tile-preview {
+	background-color: var(--ed-panel-alt);
+	background-position: center;
+	background-size: cover;
+}
+
+#wpie-root .tray-search-card {
+	color: var(--ed-text);
+	border-style: dashed;
+}
+
+#wpie-root .tray-search-card .tray-tile-preview {
+	color: var(--ed-text-muted);
+	background: none;
+}
+
+/* ---------------- dynamic templates E1: post preview ---------------- */
+
+#wpie-root .post-picker {
+	display: flex;
+	flex-direction: column;
+	width: 440px;
+	max-width: 92vw;
+	height: auto;
+	max-height: min(620px, 90vh);
+}
+
+#wpie-root .post-picker .dsm-body {
+	gap: 10px;
+}
+
+/* Brand-kit row in the post-preview dialog (v1.251.0). */
+#wpie-root .post-picker-kitrow {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+#wpie-root .post-picker-kitrow .dsm-label { white-space: nowrap; }
+
+#wpie-root .post-picker-kitrow .dsm-select { flex: 1; min-width: 0; }
+
+#wpie-root .post-picker-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 320px;
+	overflow: auto;
+}
+
+#wpie-root .post-picker-empty {
+	padding: 18px 6px;
+	font-size: 12px;
+	color: var(--ed-text-muted);
+	text-align: center;
+}
+
+#wpie-root .post-picker-row {
+	display: grid;
+	grid-template-columns: 34px 1fr auto;
+	gap: 8px;
+	align-items: center;
+	padding: 5px 6px;
+	text-align: left;
+	cursor: pointer;
+	background: none;
+	border: 1px solid transparent;
+	border-radius: 4px;
+}
+
+#wpie-root .post-picker-row:hover {
+	background: var(--ed-panel-alt);
+	border-color: var(--ed-border);
+}
+
+#wpie-root .post-picker-row img,
+#wpie-root .post-picker-thumb {
+	width: 34px;
+	height: 26px;
+	background: var(--ed-panel-alt);
+	border-radius: 3px;
+	object-fit: cover;
+}
+
+#wpie-root .post-picker-title {
+	overflow: hidden;
+	font-size: 12px;
+	color: var(--ed-text);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .post-picker-meta {
+	font-size: 11px;
+	color: var(--ed-text-muted);
+	white-space: nowrap;
+}
+
+#wpie-root .preview-post-chip {
+	position: absolute;
+	top: 10px;
+	left: 50%;
+	z-index: 8;
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	max-width: 60%;
+	padding: 4px 6px 4px 10px;
+	font-size: 12px;
+	color: var(--ed-text);
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border);
+	border-radius: 20px;
+	box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
+	transform: translateX(-50%);
+}
+
+#wpie-root .preview-post-chip > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .preview-post-chip > button {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	font-size: 13px;
+	line-height: 1;
+	color: var(--ed-text-muted);
+	cursor: pointer;
+	background: none;
+	border: 0;
+	border-radius: 50%;
+}
+
+#wpie-root .preview-post-chip > button:hover {
+	color: var(--ed-text);
+	background: var(--ed-panel-alt);
+}
+
+/* ------------------- Automate Posts dialog (redesign v1.68) ------------------- */
+
+#wpie-root .automate-warn {
+	padding: 8px 12px;
+	font-size: 11.5px;
+	line-height: 1.45;
+	color: var(--ed-text);
+	background: color-mix(in srgb, #e8a33d 12%, transparent);
+	border: 1px solid color-mix(in srgb, #e8a33d 40%, transparent);
+	border-radius: 6px;
+}
+
+#wpie-root .automate-mapping {
+	display: grid;
+	flex: none;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 6px 14px;
+	max-height: 140px;
+	padding: 10px 12px;
+	overflow-y: auto;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+}
+
+#wpie-root .automate-mapping label {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 8px;
+	align-items: center;
+	font-size: 11.5px;
+	color: var(--ed-text);
+}
+
+#wpie-root .automate-mapping label span {
+	overflow: hidden;
+	font-size: var(--fs-md);
+	font-weight: var(--fw-semibold);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .automate-mapping select {
+	max-width: 140px;
+}
+
+#wpie-root .automate-posts,
+#wpie-root .automate-row:not(.automate-row-head):hover {
+	background-color: var(--ed-panel-alt);
+}
+
+#wpie-root .automate-row img,
+#wpie-root .automate-row .post-picker-thumb {
+	width: 36px;
+	height: 27px;
+	background: var(--ed-panel-alt);
+	border-radius: 4px;
+	object-fit: cover;
+}
+
+#wpie-root .automate-chips {
+	display: flex;
+	gap: 4px;
+}
+
+#wpie-root .automate-chips .chip {
+	padding: 2px 7px;
+	font-size: 10px;
+	font-style: normal;
+	color: var(--ed-text-muted);
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 10px;
+}
+
+#wpie-root .automate-chips .chip-gen {
+	color: #fff;
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+#wpie-root .automate-more {
+	margin: 6px auto;
+}
+
+#wpie-root .job-dot {
+	width: 8px;
+	height: 8px;
+	background: var(--ed-text-dim);
+	border-radius: 50%;
+}
+
+#wpie-root .job-background,
+#wpie-root .job-render,
+#wpie-root .job-save {
+	background: #e8a33d;
+	animation: wpie-job-pulse 1.2s ease-in-out infinite;
+}
+
+#wpie-root .job-done {
+	background: #3ecf6e;
+}
+
+#wpie-root .job-error {
+	background: #e05252;
+}
+
+@keyframes wpie-job-pulse {
+
+	50% { opacity: 0.35; }
+}
+
+#wpie-root .automate-ref-btn {
+	position: relative;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+#wpie-root .automate-ref {
+	position: relative;
+	display: inline-flex;
+}
+
+#wpie-root .automate-ref img {
+	width: 44px;
+	height: 30px;
+	object-fit: cover;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+}
+
+#wpie-root .automate-ref button {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	font-size: 11px;
+	line-height: 1;
+	color: #fff;
+	cursor: pointer;
+	background: var(--ed-text-dim);
+	border: 0;
+	border-radius: 50%;
+}
+
+/* AI background section: style textarea + reference image (v1.68.3). */
+#wpie-root .automate-bg-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .automate-bg-meta-label {
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .automate-bg-meta-hint {
+	margin-left: auto;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .automate-bg-meta select.automate-kit {
+	max-width: 150px;
+}
+
+
+/* Image fit controls (v1.69): mode segmented buttons + anchor grid. */
+#wpie-root .fit-modes {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .fit-modes button {
+	flex: 1;
+	padding: 5px 0;
+	font-size: 11px;
+	color: var(--ed-text-dim);
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+}
+
+#wpie-root .fit-modes button.active {
+	color: var(--accent);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .fit-anchor {
+	display: grid;
+	grid-template-columns: repeat(3, 16px);
+	gap: 3px;
+}
+
+#wpie-root .fit-anchor button {
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 3px;
+}
+
+#wpie-root .fit-anchor button.active {
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+/* My Assets: user categories (v1.74). */
+#wpie-root .asset-cats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+#wpie-root .asset-cats > button,
+#wpie-root .asset-cat {
+	display: inline-flex;
+	gap: 2px;
+	align-items: center;
+	padding: 4px 10px;
+	font-size: 12px;
+	color: var(--ed-text-dim);
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 14px;
+}
+
+#wpie-root .asset-cat {
+	padding: 0;
+}
+
+#wpie-root .asset-cat > button {
+	padding: 4px 2px 4px 10px;
+	color: inherit;
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: 14px 0 0 14px;
+}
+
+#wpie-root .asset-cats > button.active,
+#wpie-root .asset-cat.active {
+	color: var(--accent);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .asset-cat-tool {
+	padding: 4px 3px;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	opacity: 0;
+}
+
+#wpie-root .asset-cat:hover .asset-cat-tool,
+#wpie-root .asset-cat.active .asset-cat-tool {
+	opacity: 1;
+}
+
+#wpie-root .asset-cat-tool:hover {
+	color: var(--accent);
+}
+
+#wpie-root .asset-cats .asset-cat-add {
+	color: var(--ed-text-muted);
+	background: transparent;
+	border-style: dashed;
+}
+
+/* Dragging an asset card over a category chip (v1.266). */
+#wpie-root .asset-cats > button.drop-target,
+#wpie-root .asset-cat.drop-target {
+	color: var(--accent);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+	border-style: dashed;
+}
+
+#wpie-root .asset-drop-hint {
+	margin: -4px 0 10px;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .library-tpl[draggable='true'] {
+	cursor: grab;
+}

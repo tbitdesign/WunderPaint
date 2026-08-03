@@ -1,0 +1,123 @@
+WunderPaint — Third-Party Licenses
+======================================
+
+WunderPaint is licensed under the GNU General Public License,
+version 2 or later (GPL-2.0-or-later); see license.txt for the full text.
+
+This file lists the third-party components that are BUNDLED with and
+distributed as part of the plugin, together with their licenses and
+copyright/attribution notices. Every component is under a license that is
+compatible with the GPL.
+
+A note on Apache-2.0 components: the Apache License 2.0 is compatible with
+GPL version 3 but not with GPL version 2 on its own. Because this plugin is
+licensed as "GPL-2.0-OR-LATER", the "or later" option permits GPLv3, under
+which the Apache-2.0 components below may be combined and redistributed.
+
+
+Bundled JavaScript libraries
+----------------------------
+
+ag-psd — PSD read/write
+  MIT License. Copyright (c) 2016 Agamnentzar.
+
+gifenc — animated GIF encoding
+  MIT License. Copyright (c) 2017 Matt DesLauriers.
+
+jszip — ZIP reading/writing (project files, exports)
+  Dual-licensed MIT or GPL-3.0-or-later; used here under the MIT License.
+  Copyright (c) 2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger,
+  António Afonso. Includes pako (MIT AND Zlib, Copyright (C) 2014-2017 Vitaly
+  Puzrin and Andrei Tuputcyn), lie (MIT, Copyright (c) 2014-2018 Calvin
+  Metcalf, Jordan Harband), readable-stream (MIT, Copyright Node.js
+  contributors) and setimmediate (MIT, Copyright (c) 2012 Barnesandnoble.com).
+
+onnxruntime-web — local (in-browser) neural-network inference
+  MIT License. Copyright (c) Microsoft Corporation. The CPU WebAssembly
+  pair ships inside the plugin under assets/ort/ (since v1.316.0). The distributed WebAssembly
+  build includes: flatbuffers (Apache-2.0, Copyright Google Inc.), long
+  (Apache-2.0, Copyright Daniel Wirtz), protobufjs (BSD-3-Clause, Copyright (c)
+  2016 Daniel Wirtz), guid-typescript (ISC), platform (MIT, Copyright
+  2014-2020 Benjamin Tan) and onnxruntime-common (MIT, Microsoft Corporation).
+
+@huggingface/transformers (transformers.js) — in-browser runtime for the local
+AI features (Smart Select, Depth Blur, Blur Faces, local alt text, semantic
+image search)
+  Apache License 2.0. Copyright Hugging Face and the transformers.js
+  contributors; the library was previously published as @xenova/transformers.
+  Bundled from npm into build/ by webpack since v1.316.0 - nothing is fetched
+  from a CDN. Its CPU ONNX-runtime WebAssembly ships alongside it in
+  assets/ort/ (Microsoft Corporation, MIT, with the Apache-2.0/BSD-3-Clause
+  components noted under onnxruntime-web above). The full Apache-2.0 text is
+  in node_modules/@huggingface/transformers/LICENSE.
+
+
+vtracer-wasm — colour image vectorization (the Vectorize command)
+  MIT License. Copyright (c) 2025 jsscheller. A WebAssembly build of VTracer
+  (https://github.com/visioncortex/vtracer, MIT, Copyright (c) 2020 Vision
+  Cortex). Ships as build/*.wasm.
+
+imagetracerjs — vectorization fallback where WebAssembly is unavailable
+  The Unlicense (public domain). By Andras Jankovics.
+
+qrcode — QR-code generation
+  MIT License. Copyright (c) 2012 Ryan Day. Includes dijkstrajs (MIT) and
+  pngjs (MIT, Copyright (c) 2015 Luke Page & original contributors).
+
+upng-js — APNG encoding
+  MIT License. Copyright (c) 2017 Photopea.
+
+
+Bundled build-time assets (embedded into the plugin build)
+----------------------------------------------------------
+
+Tabler Icons — user-interface icon paths
+  MIT License. Copyright (c) 2020-present Paweł Kuna.
+  Used for the icon library chunk (src/icons-lib) and, since v1.51, for
+  curated editor UI icons (assets/ui-icons -> src/ui-icons.json).
+
+unicode-emoji-json — emoji metadata
+  MIT License. Copyright (c) Mesach Harmasendro.
+
+
+Bundled machine-learning model
+------------------------------
+
+U^2-Netp segmentation model (assets/models/u2netp.onnx)
+  Used for local, in-browser background removal and subject selection
+  (no image data leaves the browser). Based on U^2-Net by Xuebin Qin et al.
+  Apache License 2.0. See assets/models/NOTICE.txt for attribution and a copy
+  of the Apache-2.0 license reference. Compatible with this plugin via the
+  "or later" clause of GPL-2.0-or-later (see the note above).
+
+
+Bundled fonts (self-hosted in assets/fonts/)
+--------------------------------------------
+
+Ten families ship inside the plugin and are served from your own site:
+Roboto, Open Sans, Inter, Montserrat, Poppins, Oswald, Bebas Neue, Anton,
+Playfair Display and Lora. The woff2 files are sourced from the @fontsource
+project (https://fontsource.org).
+
+  License: SIL Open Font License, Version 1.1 (OFL-1.1) for all ten. A copy of
+  the OFL is provided in assets/fonts/OFL.txt. Copyright belongs to the
+  respective font authors (see each family's project). The OFL is directly
+  GPL-compatible.
+
+The rest of the catalogue is not bundled. An administrator can download it
+once to the site's own uploads folder, after which those families are served
+locally as well, or opt into loading them from the Google Fonts CDN instead
+(Settings, Fonts). Nothing is fetched from a font CDN unless that option is
+switched on.
+
+
+Provided by WordPress at runtime (NOT bundled)
+----------------------------------------------
+
+The @wordpress/* packages (element, i18n, hooks, api-fetch, components, …) are
+provided by WordPress itself at runtime and are not shipped in this plugin.
+WordPress and these packages are licensed under the GPL.
+
+Build-only tooling (webpack/@wordpress/scripts, ESLint, Jest, Playwright,
+node-canvas, @fontsource sources) is used only to build the plugin and is not
+distributed with it.

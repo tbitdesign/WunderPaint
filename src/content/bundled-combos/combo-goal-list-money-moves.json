@@ -1,0 +1,179 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-goal-list-money-moves",
+	"label": "Goal List - Money Moves",
+	"w": 344,
+	"h": 220,
+	"layers": [
+		{
+			"id": "l4l0vz4",
+			"type": "text",
+			"name": "Goal List - Money Moves",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 344,
+			"h": 37,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "2027 MONEY MOVES",
+			"fontSize": 28,
+			"fontFamily": "Montserrat",
+			"weight": 800,
+			"color": "#111827",
+			"align": "left",
+			"letterSpacing": 1,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "naowref",
+			"type": "text",
+			"name": "Goal List - Money Moves",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 50,
+			"w": 300,
+			"h": 130,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "→ Max the 401(k)\n→ 6-month emergency fund\n→ Kill the card debt\n→ Automate the index fund",
+			"fontSize": 18,
+			"fontFamily": "Montserrat",
+			"weight": 500,
+			"color": "#1f2937",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.7,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "→ ",
+					"s": {
+						"weight": 800,
+						"color": "#059669"
+					}
+				},
+				{
+					"text": "Max the 401(k)\n",
+					"s": null
+				},
+				{
+					"text": "→ ",
+					"s": {
+						"weight": 800,
+						"color": "#059669"
+					}
+				},
+				{
+					"text": "6-month emergency fund\n",
+					"s": null
+				},
+				{
+					"text": "→ ",
+					"s": {
+						"weight": 800,
+						"color": "#059669"
+					}
+				},
+				{
+					"text": "Kill the card debt\n",
+					"s": null
+				},
+				{
+					"text": "→ ",
+					"s": {
+						"weight": 800,
+						"color": "#059669"
+					}
+				},
+				{
+					"text": "Automate the index fund",
+					"s": null
+				}
+			]
+		},
+		{
+			"id": "mrqpjyn",
+			"type": "text",
+			"name": "Goal List - Money Moves",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 190,
+			"w": 190,
+			"h": 30,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "REVIEW QUARTERLY",
+			"fontSize": 11,
+			"fontFamily": "Montserrat",
+			"weight": 700,
+			"color": "#ffffff",
+			"align": "center",
+			"letterSpacing": 2,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": "#059669",
+			"bgRadius": 14,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		}
+	],
+	"category": "lists"
+}

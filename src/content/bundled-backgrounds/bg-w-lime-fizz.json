@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-lime-fizz",
+ "name": "Lime Fizz",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#bef264",
+   "at": 0
+  },
+  {
+   "color": "#4ade80",
+   "at": 1
+  }
+ ]
+}

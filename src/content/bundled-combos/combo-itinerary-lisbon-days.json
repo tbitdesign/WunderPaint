@@ -1,0 +1,138 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-itinerary-lisbon-days",
+	"label": "Itinerary - Lisbon Days",
+	"w": 511,
+	"h": 224,
+	"layers": [
+		{
+			"id": "q7szn67",
+			"type": "text",
+			"name": "Itinerary - Lisbon Days",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 511,
+			"h": 55,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "LISBON IN FOUR DAYS",
+			"fontSize": 42,
+			"fontFamily": "Bebas Neue",
+			"weight": 400,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 2,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "45kovve",
+			"type": "text",
+			"name": "Itinerary - Lisbon Days",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 64,
+			"w": 470,
+			"h": 160,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "DAY 1  Old town on foot\nDAY 2  Coastal train to Cascais\nDAY 3  Sintra palace loop\nDAY 4  Wine tasting in Alentejo",
+			"fontSize": 24,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.55,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "DAY 1  ",
+					"s": {
+						"weight": 800,
+						"color": "#0891b2"
+					}
+				},
+				{
+					"text": "Old town on foot\n",
+					"s": null
+				},
+				{
+					"text": "DAY 2  ",
+					"s": {
+						"weight": 800,
+						"color": "#0891b2"
+					}
+				},
+				{
+					"text": "Coastal train to Cascais\n",
+					"s": null
+				},
+				{
+					"text": "DAY 3  ",
+					"s": {
+						"weight": 800,
+						"color": "#0891b2"
+					}
+				},
+				{
+					"text": "Sintra palace loop\n",
+					"s": null
+				},
+				{
+					"text": "DAY 4  ",
+					"s": {
+						"weight": 800,
+						"color": "#0891b2"
+					}
+				},
+				{
+					"text": "Wine tasting in Alentejo",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

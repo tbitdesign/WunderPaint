@@ -1,0 +1,2040 @@
+/*
+ * The shared modal chrome. CONTAINS THE PUBLIC dsm-* SURFACE - see the
+ * warning at the top of the DS MODALS block and docs/extending.md.
+ *
+ * Split out of editor.css in v1.345.0, which had reached 11.030 lines - the
+ * largest hand-written file in the plugin. Load ORDER IS THE CASCADE: this
+ * file is pulled in by editor.css at its original position and must stay
+ * there.
+ */
+
+/* ============ DS MODALS (v1.76): shared chrome from the modal designs ==== */
+
+/*
+ * PUBLIC EXTENSION SURFACE. Twenty-one of the dsm-* classes below are part of
+ * the documented contract in docs/extending.md section 6, because 24 of the
+ * shipped packages build their dialogs out of them (1149 uses). Renaming one
+ * breaks those packages silently: CSS does not error, the dialog just arrives
+ * unstyled in someone else's plugin.
+ *
+ * Stable, do not rename: dsm-head, dsm-titles, dsm-title, dsm-sub,
+ * dsm-title-row, dsm-close, dsm-x, dsm-body, dsm-foot, dsm-actions, dsm-label,
+ * dsm-hint, dsm-input, dsm-select, dsm-range, dsm-checkrow, dsm-seg, dsm-tile,
+ * dsm-badge, dsm-chip, dsm-mono.
+ *
+ * Every OTHER dsm-* class in this file belongs to the editor's own screens and
+ * is free to change. If you add one that packages should be able to use, add
+ * it to the table in docs/extending.md in the same commit.
+ */
+#wpie-root .dsm {
+	display: flex;
+	flex-direction: column;
+	max-width: 100%;
+	max-height: 100%;
+	overflow: hidden;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-xl);
+	box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .dsm-head {
+	display: flex;
+	flex: none;
+	gap: 11px;
+	align-items: flex-start;
+	padding: 15px 16px;
+	border-bottom: 1px solid var(--border-hairline);
+
+	/* Drag handle (v1.264): the header moves its dialog. */
+	cursor: grab;
+	user-select: none;
+}
+
+body.wpie-modal-dragging,
+body.wpie-modal-dragging #wpie-root .dsm-head {
+	cursor: grabbing;
+}
+
+#wpie-root .dsm-badge {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+
+	/* Brand icon (v1.88.1): no tile, the mark stands free; currentColor
+	   keeps its light parts readable in both themes. */
+	color: var(--text-primary);
+}
+
+#wpie-root .dsm-titles {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .dsm-title-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+#wpie-root .dsm-title {
+	font-size: var(--fs-lg);
+	font-weight: var(--fw-semibold);
+	letter-spacing: var(--ls-tight);
+}
+
+#wpie-root .dsm-chip-ai {
+	display: inline-flex;
+	gap: 4px;
+	align-items: center;
+	height: 18px;
+	padding: 0 7px;
+	font-size: 10px;
+	font-weight: var(--fw-semibold);
+	color: var(--status-ai);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
+	background: rgba(139, 92, 246, 0.16);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .dsm-chip-ai svg {
+	width: 11px;
+	height: 11px;
+}
+
+#wpie-root .dsm-sub {
+	margin-top: 2px;
+	font-size: var(--fs-sm);
+	color: var(--text-muted);
+}
+
+/* .dsm-x is the extensions' close-button class (all studios + minis
+   build their heads with it) - style it identically to .dsm-close so
+   every extension dialog gets the full-size, hoverable button. */
+#wpie-root .dsm-close,
+#wpie-root .dsm-x {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	font-size: 20px;
+	line-height: 1;
+	border: 0;
+	background: transparent;
+	color: var(--text-secondary);
+	cursor: pointer;
+	border-radius: var(--r-md);
+	transition:
+		background var(--dur-fast) var(--ease),
+		color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-close:hover,
+#wpie-root .dsm-x:hover {
+	color: var(--text-primary);
+	background: var(--surface-raised);
+}
+
+#wpie-root .dsm-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 16px;
+	min-height: 0;
+	padding: 16px;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+#wpie-root .dsm-sect {
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+}
+
+#wpie-root .dsm-label {
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semibold);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
+}
+
+#wpie-root .dsm-label em {
+	font-style: normal;
+	font-weight: var(--fw-regular);
+	color: var(--text-disabled);
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+#wpie-root .dsm-row-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+#wpie-root .dsm-count {
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	color: var(--text-disabled);
+}
+
+#wpie-root .dsm-foot {
+	display: flex;
+	flex: none;
+	gap: 8px;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	background: var(--bg-app);
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dsm-hint {
+	display: flex;
+	gap: 7px;
+	align-items: center;
+	font-size: var(--fs-xs);
+	color: var(--text-muted);
+}
+
+#wpie-root .dsm-actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+/* Selectable tiles (asset types) */
+#wpie-root .dsm-tile {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	padding: 12px 8px;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-medium);
+	color: var(--text-secondary);
+	cursor: pointer;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease),
+		color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-tile:hover {
+	background: var(--surface-raised);
+}
+
+#wpie-root .dsm-tile.active {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-tile svg {
+	width: 20px;
+	height: 20px;
+}
+
+/* Prompt suggestion chips */
+#wpie-root .dsm-chip {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	height: 28px;
+	padding: 0 12px;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-medium);
+	color: var(--text-secondary);
+	white-space: nowrap;
+	cursor: pointer;
+	background: var(--surface-raised);
+	border: 1px solid var(--border-strong);
+	border-radius: var(--r-pill);
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-chip:hover {
+	color: var(--text-primary);
+	border-color: var(--wp-400);
+}
+
+#wpie-root .dsm-chip svg {
+	width: 12px;
+	height: 12px;
+	color: var(--text-disabled);
+}
+
+/* Style preset cards (design assistant) */
+#wpie-root .dsm-preset {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding: 10px;
+	text-align: left;
+	cursor: pointer;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-preset:hover {
+	background: var(--surface-raised);
+}
+
+#wpie-root .dsm-preset.active {
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-preset .swatch {
+	flex: none;
+	width: 26px;
+	height: 26px;
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .dsm-preset b {
+	display: block;
+	overflow: hidden;
+	font-size: 12.5px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dsm-preset small {
+	display: block;
+	font-size: 10.5px;
+	line-height: 1.3;
+	color: var(--text-muted);
+}
+
+/* DS modal form primitives (v1.76): inset input, segmented control,
+   settings card, count badge, source item, empty drop area. */
+#wpie-root .dsm-input {
+	height: 32px;
+	padding: 0 11px;
+	font-size: var(--fs-sm);
+	color: var(--text-primary);
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+/* Modal rows align at 32px (inputs, selects, ai-btn); the input variant
+   needs the element in the selector to outrank the 26px global recipe. */
+#wpie-root input.dsm-input {
+	height: 32px;
+	min-height: 32px;
+}
+
+#wpie-root .dsm-input.mono {
+	font-family: var(--font-mono);
+}
+
+#wpie-root .dsm-chip-count {
+	display: inline-flex;
+	align-items: center;
+	height: 18px;
+	padding: 0 7px;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	font-weight: var(--fw-semibold);
+	color: var(--accent);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
+	background: var(--accent-soft);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .dsm-card {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 14px;
+	background: var(--bg-app);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .dsm-seg {
+	display: inline-flex;
+	gap: 2px;
+	padding: 2px;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .dsm-seg button {
+	height: 24px;
+	padding: 0 10px;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-medium);
+	color: var(--text-secondary);
+	white-space: nowrap;
+	cursor: pointer;
+	border-radius: var(--r-sm);
+	transition:
+		background var(--dur-fast) var(--ease),
+		color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-seg button.active {
+	color: var(--text-primary);
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-sm);
+}
+
+#wpie-root .dsm-item {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	height: 46px;
+	padding: 0 8px;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .dsm-item .thumb {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	color: var(--text-disabled);
+	background: var(--surface-raised);
+	border-radius: var(--r-xs);
+}
+
+#wpie-root .dsm-item .meta {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--fs-sm);
+	color: var(--text-secondary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dsm-item .meta small {
+	display: block;
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	color: var(--text-disabled);
+}
+
+#wpie-root .dsm-empty {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	height: 80px;
+	font-size: var(--fs-sm);
+	color: var(--text-disabled);
+	border: 1px dashed var(--border-strong);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .dsm-range {
+	width: 100%;
+	accent-color: var(--accent);
+}
+
+#wpie-root .dsm-mono {
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	color: var(--text-muted);
+}
+
+/* Purple AI banner (create dialog AI tab, v1.76). */
+#wpie-root .dsm-banner-ai {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 10px 12px;
+	font-size: var(--fs-sm);
+	color: var(--status-ai);
+	background: rgba(139, 92, 246, 0.12);
+	border: 1px solid rgba(139, 92, 246, 0.3);
+	border-radius: var(--r-md);
+}
+
+/* Automate Posts (DS redesign v1.76): two-column layout + queue. */
+#wpie-root .automate-dialog {
+	width: 940px;
+	height: min(720px, 90vh);
+}
+
+#wpie-root .automate-grid {
+	display: grid;
+	flex: 1;
+	grid-template-columns: 1fr 320px;
+	min-height: 0;
+	overflow: hidden;
+}
+
+#wpie-root .automate-config {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 16px;
+	overflow-x: hidden;
+	overflow-y: auto;
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .automate-tpl {
+	gap: 4px;
+	padding: 8px;
+}
+
+#wpie-root .automate-tpl img {
+	width: 100%;
+	height: 56px;
+	object-fit: cover;
+	border-radius: var(--r-xs);
+}
+
+#wpie-root .automate-tpl-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 56px;
+	color: var(--text-disabled);
+	background: var(--surface-raised);
+	border-radius: var(--r-xs);
+}
+
+#wpie-root .automate-tpl-name {
+	max-width: 100%;
+	overflow: hidden;
+	font-size: 11.5px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dsm-toggle-row {
+	display: flex;
+	gap: 11px;
+	align-items: center;
+	padding: 9px 4px;
+	text-align: left;
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dsm-toggle-row .t {
+	display: block;
+	font-size: 12.5px;
+	color: var(--text-primary);
+}
+
+#wpie-root .dsm-toggle-row .d {
+	display: block;
+	margin-top: 1px;
+	font-size: var(--fs-xs);
+	color: var(--text-muted);
+}
+
+#wpie-root .dsm-toggle {
+	position: relative;
+	flex: none;
+	width: 30px;
+	height: 17px;
+	background: var(--wp-500);
+	border-radius: var(--r-pill);
+	transition: background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-toggle .knob {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 13px;
+	height: 13px;
+	background: var(--wp-100);
+	border-radius: 50%;
+	transition: transform var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-toggle.on {
+	background: var(--accent);
+}
+
+#wpie-root .dsm-toggle.on .knob {
+	transform: translateX(13px);
+}
+
+#wpie-root .automate-selectall {
+	font-size: 11.5px;
+	font-weight: var(--fw-medium);
+	color: var(--accent);
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+}
+
+#wpie-root .dsm-postrow {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding: 7px 8px;
+	text-align: left;
+	cursor: pointer;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-postrow:hover {
+	background: var(--surface-raised);
+}
+
+#wpie-root .dsm-postrow.active {
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-postrow .thumb {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 38px;
+	height: 38px;
+	color: var(--text-disabled);
+	object-fit: cover;
+	background: var(--surface-raised);
+	border-radius: var(--r-xs);
+}
+
+#wpie-root .dsm-postrow .meta {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: 12.5px;
+	color: var(--text-primary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dsm-postrow .meta small {
+	display: block;
+	margin-top: 2px;
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	color: var(--text-disabled);
+}
+
+#wpie-root .dsm-check {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	color: #fff;
+	background: var(--surface-raised);
+	border: 1px solid var(--border-strong);
+	border-radius: var(--r-xs);
+	transition:
+		background var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-check.on {
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+#wpie-root .automate-queue {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	background: var(--bg-app);
+}
+
+#wpie-root .automate-queue-head {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	padding: 13px 14px;
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .automate-clear {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	font-size: 11.5px;
+	color: var(--text-muted);
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+}
+
+/* Armed second step of "Clear all": unmistakably destructive. */
+#wpie-root .automate-clear-armed {
+	color: #fff;
+	background: #c0392b;
+	border-radius: 5px;
+	padding: 2px 8px;
+}
+
+#wpie-root .automate-clear:hover {
+	color: var(--text-primary);
+}
+
+#wpie-root .automate-queue-list {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px 12px;
+	overflow-y: auto;
+}
+
+#wpie-root .automate-queue-card {
+	display: flex;
+	gap: 9px;
+	align-items: flex-start;
+	padding: 9px 10px;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .automate-queue-card .meta {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--fs-sm);
+	color: var(--text-primary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .automate-queue-card .meta small {
+	display: block;
+	margin-top: 2px;
+	font-size: 10.5px;
+	color: var(--text-muted);
+	white-space: normal;
+}
+
+#wpie-root .automate-queue-foot {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	padding: 11px 14px;
+	border-top: 1px solid var(--border-hairline);
+}
+
+/* AI panel inline checkbox + kit picker (brand details, v1.77). */
+#wpie-root .ai-inline-check {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 6px;
+	font-size: var(--fs-sm);
+	color: var(--text-secondary);
+}
+
+#wpie-root .ai-inline-check label {
+	display: flex;
+	flex-shrink: 0;
+	gap: 7px;
+	align-items: center;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+#wpie-root .ai-inline-check select {
+	flex: 1;
+	min-width: 0;
+}
+
+/* AI panel tooltip (v1.78.7): the tool-rail bubble, anchored above the
+   button; long action hints wrap instead of forming a mile-wide strip.
+   --tip-ax keeps the arrow on the button when the bubble clamps to the
+   viewport edge. */
+#wpie-root .ai-tip {
+	position: fixed;
+	z-index: 600;
+	max-width: 240px;
+	padding: 5px 9px;
+	font-size: 11px;
+	line-height: 1.45;
+	color: #fff;
+	text-align: left;
+	pointer-events: none;
+	background: #1a1d21;
+	border-radius: 4px;
+	box-shadow: var(--shadow-lg);
+	transform: translate(-50%, -100%);
+	animation: wpie-tip-in 0.12s ease-out 0.45s both;
+}
+
+#wpie-root .ai-tip::after {
+	position: absolute;
+	top: 100%;
+	left: calc(50% + var(--tip-ax, 0px));
+	content: "";
+	border: 4px solid transparent;
+	border-top-color: #1a1d21;
+	transform: translateX(-50%);
+}
+
+/* -------------- DS select (shared dropdown recipe, v1.77.3) -------------- */
+
+/* Placed late on purpose: equal-specificity legacy rules (.create-form
+   select, .stock-dialog select, …) lose the source-order tie against it. */
+#wpie-root select.dsm-select {
+	width: 100%;
+
+	/* wp-admin's `.wp-core-ui select` caps every select at max-width 25rem
+	 * (400px); override it so the dropdown fills the dialog (v1.218.0). This is
+	 * the real reason selects never grew past 400px - a width:!important could
+	 * not beat an unrelated max-width. */
+	min-width: 0;
+	max-width: none;
+	height: 32px;
+	padding: 0 24px 0 9px;
+	overflow: hidden;
+	font-size: var(--fs-sm);
+	line-height: normal;
+	color: var(--text-primary);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+	appearance: none;
+	background-color: var(--surface-input);
+	background-image: var(--select-chevron);
+	background-repeat: no-repeat;
+	background-position: right 8px center;
+
+	/* wp-admin styles selects with background-size 16px 16px; without an
+	   explicit size here its value leaks in and inflates the chevron. */
+	background-size: 10px 6px;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root select.dsm-select:hover:not(:disabled) {
+	border-color: var(--border-strong);
+}
+
+#wpie-root select.dsm-select:focus {
+	border-color: var(--accent);
+	outline: none;
+	box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+#wpie-root select.dsm-select:disabled {
+	cursor: default;
+	opacity: 0.45;
+}
+
+#wpie-root select.dsm-select option {
+	color: var(--text-primary);
+	background: var(--surface-panel);
+}
+
+#wpie-root select.dsm-select.sm {
+	height: 22px;
+	padding: 0 19px 0 6px;
+	font-size: var(--fs-xs);
+	background-position: right 5px center;
+}
+
+/* For rows shared with 32px text inputs (e.g. Create's W/H unit). */
+#wpie-root select.dsm-select.lg {
+	height: 32px;
+}
+
+/* Two-column field grid + inset text inputs for DS modal forms (v1.217.0). */
+#wpie-root .dsm-grid2 {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 7px;
+	width: 100%;
+}
+
+/* Let the inset inputs shrink to the grid cell instead of their intrinsic
+   text width, so the columns stay even (v1.217.0). */
+#wpie-root .dsm-grid2 .dsm-input {
+	min-width: 0;
+}
+
+#wpie-root .dsm-input:focus {
+	border-color: var(--accent);
+	outline: none;
+	box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+#wpie-root .dsm-input::placeholder {
+	color: var(--text-muted);
+}
+
+/* Titlebar post-preview toggle. */
+#wpie-root .ed-titlebar button.preview-active {
+	color: #fff;
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+/* ----------------------------- about dialog ---------------------------- */
+
+#wpie-root .about-dialog {
+	display: flex;
+	max-height: 86vh;
+	flex-direction: column;
+}
+
+#wpie-root .about-dialog .export-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 10px;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+#wpie-root .about-dialog a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+/* Text links only; the website button keeps its button look. */
+#wpie-root .about-dialog a:not(.ai-btn):hover {
+	text-decoration: underline;
+}
+
+#wpie-root .about-lead {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--ed-text);
+}
+
+#wpie-root .about-para {
+	margin: 0;
+	font-size: 12.5px;
+	line-height: 1.6;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .about-outdated {
+	margin: 0;
+	font-size: 11.5px;
+	color: var(--warning, #dba617);
+}
+
+#wpie-root .about-acc-group {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 2px;
+}
+
+#wpie-root .about-acc {
+	overflow: hidden;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+}
+
+#wpie-root .about-acc > summary {
+	display: flex;
+	gap: 9px;
+	align-items: center;
+	padding: 10px 12px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ed-text);
+	list-style: none;
+	cursor: pointer;
+	user-select: none;
+}
+
+#wpie-root .about-acc > summary::-webkit-details-marker {
+	display: none;
+}
+
+#wpie-root .about-acc > summary::before {
+	flex: none;
+	width: 6px;
+	height: 6px;
+	border-right: 1.5px solid var(--ed-text-muted);
+	border-bottom: 1.5px solid var(--ed-text-muted);
+	transform: rotate(-45deg);
+	transition: transform 0.15s ease;
+	content: '';
+}
+
+#wpie-root .about-acc[open] > summary::before {
+	transform: rotate(45deg);
+}
+
+#wpie-root .about-acc[open] > summary {
+	border-bottom: 1px solid var(--ed-border);
+}
+
+#wpie-root .about-acc-body {
+	max-height: 240px;
+	overflow: auto;
+}
+
+#wpie-root .about-acc-body pre {
+	margin: 0;
+	padding: 12px;
+	font-family: var( --font-mono, ui-monospace, 'SFMono-Regular', monospace );
+	font-size: 10.5px;
+	line-height: 1.5;
+	color: var(--ed-text-muted);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+#wpie-root .about-acc-load {
+	display: block;
+	padding: 12px;
+	font-size: 11.5px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .about-copy {
+	margin: 2px 0 0;
+	padding-top: 12px;
+	font-size: 11.5px;
+	color: var(--ed-text-muted);
+	text-align: center;
+	border-top: 1px solid var(--ed-border);
+}
+
+/* --------------------------- smart refine card -------------------------- */
+
+/* Mirrors the navigator's spacing (right 12 / 34 from the edge). */
+#wpie-root .textfx-pop {
+	position: absolute;
+	top: 34px;
+	right: 12px;
+	z-index: 60;
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+	width: 250px;
+	max-height: calc(100% - 90px);
+	overflow-y: auto;
+	padding: 12px 14px;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 10px;
+	box-shadow: 0 10px 32px rgb(0 0 0 / 35%);
+}
+
+/* Selection next-step bar (v1.365.0): names what a selection is FOR. */
+#wpie-root .sel-actions {
+	position: absolute;
+	bottom: 18px;
+	left: 50%;
+	z-index: 30;
+	display: flex;
+	gap: 4px;
+	padding: 4px;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 8px;
+	box-shadow: 0 6px 22px rgb(0 0 0 / 35%);
+	transform: translateX(-50%);
+}
+
+#wpie-root .sel-actions-btn {
+	display: inline-flex;
+	gap: 5px;
+	align-items: center;
+	padding: 5px 9px;
+	font-size: 11.5px;
+	color: var(--ed-text);
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: 5px;
+}
+
+#wpie-root .sel-actions-btn:hover {
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .sel-actions-close {
+	padding: 5px 6px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .smart-refine {
+	position: absolute;
+	top: 18px;
+	right: 18px;
+	z-index: 60;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	width: 230px;
+	padding: 12px 14px;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 10px;
+	box-shadow: 0 10px 32px rgb(0 0 0 / 35%);
+}
+
+#wpie-root .smart-refine-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+#wpie-root .smart-refine-title {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ed-text);
+}
+
+#wpie-root .smart-refine-field {
+	display: grid;
+	grid-template-columns: 86px 1fr;
+	gap: 8px;
+	align-items: center;
+	font-size: 11px;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .smart-refine-field input[type="range"] {
+	width: 100%;
+}
+
+#wpie-root .smart-refine-cta {
+	width: 100%;
+}
+
+#wpie-root .smart-refine-hint {
+	font-size: 10.5px;
+	line-height: 1.35;
+	color: var(--ed-text-muted);
+	text-align: center;
+}
+
+#wpie-root .smart-refine-close {
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	color: var(--ed-text-muted);
+	cursor: pointer;
+	background: none;
+	border: 0;
+	border-radius: 5px;
+}
+
+#wpie-root .smart-refine-close:hover {
+	color: var(--ed-text);
+	background: var(--ed-panel-alt);
+}
+
+/* ---------------------------- watermark dialog -------------------------- */
+
+#wpie-root .watermark-dialog {
+	width: 1200px;
+	max-width: 96vw;
+}
+
+#wpie-root .wm-columns {
+	display: grid;
+	grid-template-columns: 300px 1fr;
+	gap: 18px;
+	align-items: start;
+}
+
+#wpie-root .wm-columns .media-picker {
+	margin-top: 0;
+}
+
+#wpie-root .wm-settings-row {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	margin-top: 10px;
+}
+
+#wpie-root .wm-sliders {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .wm-editor {
+	display: grid;
+	grid-template-columns: 1fr 320px;
+	gap: 18px;
+}
+
+#wpie-root .wm-editor-preview {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	align-items: center;
+}
+
+#wpie-root .wm-preview {
+	width: 320px;
+	height: 200px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 8px;
+}
+
+#wpie-root .wm-pos-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 18px);
+	grid-auto-rows: 18px;
+	gap: 2px;
+	margin-bottom: 12px;
+}
+
+#wpie-root .wm-pos {
+	position: relative;
+	padding: 0;
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 5px;
+}
+
+#wpie-root .wm-pos span {
+	position: absolute;
+	inset: 3px;
+	background: var(--ed-border-strong);
+	border-radius: 2px;
+}
+
+#wpie-root .wm-pos.active {
+	border-color: var(--accent);
+}
+
+#wpie-root .wm-pos.active span {
+	background: var(--accent);
+}
+
+/* Reusable in-modal media picker (v1.133.2). */
+#wpie-root .media-picker {
+	margin-top: 12px;
+	border: 1px solid var(--ed-border);
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+#wpie-root .media-picker-search {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	height: 34px;
+	padding: 0 10px;
+	color: var(--ed-text-muted);
+	background: var(--ed-panel-alt);
+	border-bottom: 1px solid var(--ed-border);
+}
+
+#wpie-root .media-picker-search input {
+	flex: 1;
+	height: 32px;
+	padding: 0;
+	font-size: 12px;
+	color: var(--ed-text);
+	background: none;
+	border: 0;
+	outline: none;
+	box-shadow: none;
+}
+
+#wpie-root .media-picker-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+	grid-auto-rows: 110px;
+	gap: 8px;
+	padding: 10px;
+	overflow-y: auto;
+	background: var(--ed-panel);
+}
+
+#wpie-root .media-picker-empty {
+	grid-column: 1 / -1;
+	padding: 16px;
+	font-size: 12px;
+	color: var(--ed-text-muted);
+	text-align: center;
+}
+
+#wpie-root .media-picker-tile {
+	position: relative;
+	aspect-ratio: 1;
+	padding: 0;
+	overflow: hidden;
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 5px;
+}
+
+#wpie-root .media-picker-tile:hover {
+	border-color: var(--accent);
+}
+
+#wpie-root .media-picker-tile img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+#wpie-root .wm-image-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+#wpie-root .wm-image-thumb {
+	width: 44px;
+	height: 44px;
+	object-fit: contain;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+}
+
+#wpie-root .media-picker-count {
+	min-width: 20px;
+	padding: 1px 6px;
+	font-size: 11px;
+	font-weight: 700;
+	color: #fff;
+	text-align: center;
+	background: var(--accent);
+	border-radius: 9px;
+}
+
+#wpie-root .media-picker-tile.selected {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent);
+}
+
+#wpie-root .media-picker-check {
+	position: absolute;
+	right: 3px;
+	bottom: 3px;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	color: #fff;
+	background: var(--accent);
+	border-radius: 50%;
+}
+
+#wpie-root .wm-source {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	align-items: center;
+	width: 64px;
+	padding: 4px;
+	font-size: 10px;
+	color: var(--ed-text-muted);
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+}
+
+#wpie-root .wm-source img {
+	width: 100%;
+	height: 36px;
+	object-fit: contain;
+}
+
+#wpie-root .wm-source span {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .wm-source.active {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent);
+}
+
+#wpie-root .wm-hint {
+	margin-bottom: 8px;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .wm-stage-toggle {
+	display: flex;
+	gap: 4px;
+	margin-top: 6px;
+}
+
+#wpie-root .wm-stage-toggle button {
+	padding: 3px 10px;
+	font-size: 11px;
+	color: var(--ed-text-dim);
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 5px;
+}
+
+#wpie-root .wm-stage-toggle button.active {
+	color: #fff;
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+#wpie-root .wm-error {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--danger);
+}
+
+/* --------------------------- system status dialog ----------------------- */
+
+#wpie-root .status-dialog {
+	width: 640px;
+	max-width: 92vw;
+}
+
+#wpie-root .status-grid {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+#wpie-root .status-card {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	align-items: flex-start;
+	padding: 10px 12px;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 8px;
+}
+
+#wpie-root .status-card-ic {
+	color: var(--accent);
+}
+
+#wpie-root .status-card-value {
+	font-size: 17px;
+	font-weight: 700;
+	color: var(--ed-text);
+}
+
+#wpie-root .status-card-label {
+	font-size: 10.5px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .status-section {
+	margin-bottom: 14px;
+}
+
+#wpie-root .status-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 3px 0;
+	font-size: 12px;
+	color: var(--ed-text);
+}
+
+#wpie-root .status-muted {
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .status-dot {
+	width: 8px;
+	height: 8px;
+	background: var(--ed-border-strong);
+	border-radius: 50%;
+}
+
+#wpie-root .status-dot.on {
+	background: var(--success, #00a32a);
+}
+
+#wpie-root .status-log {
+	max-height: 180px;
+	padding: 8px;
+	overflow-y: auto;
+	font-family: var(--font-mono, monospace);
+	font-size: 10.5px;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+}
+
+#wpie-root .status-log-row {
+	display: flex;
+	gap: 8px;
+	padding: 1px 0;
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+#wpie-root .status-log-time {
+	flex: 0 0 auto;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .status-log-src {
+	flex: 0 0 42px;
+	font-weight: 600;
+	color: var(--ed-text-muted);
+}
+
+/* Semantic search index hint (v1.131.0). */
+#wpie-root .library-index-hint {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin: 2px 0 8px;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+/* Inside the horizontal tray strip (v1.131.3). */
+#wpie-root .tray-strip .library-index-hint {
+	flex: 0 0 auto;
+	align-self: center;
+	margin: 0 4px;
+	white-space: nowrap;
+}
+
+/* ------------------------- library hero search -------------------------- */
+
+#wpie-root .library-global-search {
+	flex: 0 0 auto;
+	width: 230px;
+	min-height: 30px;
+	padding: 4px 10px;
+	margin-right: 4px;
+	font-size: 12.5px;
+	color: var(--ed-text);
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 15px;
+}
+
+#wpie-root .library-global-search:focus {
+	border-color: var(--accent);
+	outline: none;
+}
+
+/* --------------------------- extensions dialog -------------------------- */
+
+#wpie-root .extensions-dialog {
+	width: min(1100px, 94vw);
+}
+
+#wpie-root .extensions-dialog .ext-body {
+	display: flex;
+	min-height: 0;
+	height: min(72vh, 680px);
+}
+
+#wpie-root .ext-side {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: 2px;
+	width: 200px;
+	padding: 10px 8px;
+	overflow-y: auto;
+	border-right: 1px solid var(--ed-border);
+}
+
+#wpie-root .ext-side-head {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	margin: 10px 6px 4px;
+	font-size: 10px;
+	color: var(--ed-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+#wpie-root .ext-side-head:first-child {
+	margin-top: 2px;
+}
+
+#wpie-root .ext-side-item {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	width: 100%;
+	padding: 6px 8px;
+	font-size: 12.5px;
+	color: var(--ed-text);
+	text-align: left;
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: 6px;
+}
+
+#wpie-root .ext-side-item:hover {
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .ext-side-item.on {
+	background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+#wpie-root .ext-side-item .n {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .ext-side-item .c {
+	font-size: 10.5px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .ext-side-item .badge {
+	padding: 0 6px;
+	font-size: 10px;
+	color: var(--ed-panel);
+	background: var(--accent);
+	border-radius: 999px;
+}
+
+#wpie-root .ext-main {
+	flex: 1;
+	min-width: 0;
+	padding: 14px;
+	overflow-y: auto;
+}
+
+#wpie-root .ext-main-heading {
+	margin-bottom: 12px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ed-text);
+}
+
+#wpie-root .ext-foot {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	padding: 10px 14px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .ext-foot-api {
+	margin-left: auto;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .ext-search {
+	width: 200px;
+	padding: 5px 10px;
+	margin-left: auto;
+	font-size: 12px;
+	color: var(--ed-text);
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 999px;
+	outline: none;
+}
+
+#wpie-root .ext-search:focus {
+	border-color: var(--accent);
+}
+
+#wpie-root .ext-empty {
+	padding: 22px 10px;
+	font-size: 12px;
+	color: var(--ed-text-muted);
+	text-align: center;
+}
+
+#wpie-root .ext-chip {
+	padding: 1px 7px;
+	font-size: 10px;
+	color: var(--ed-text-muted);
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 999px;
+	white-space: nowrap;
+}
+
+#wpie-root .ext-chip-off {
+	color: var(--danger, #d63638);
+	border-color: var(--danger, #d63638);
+}
+
+#wpie-root .ext-chip-update {
+	color: var(--accent);
+	border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+#wpie-root .ext-chip-pro {
+	color: #f4b24a;
+	border-color: color-mix(in srgb, #f4b24a 55%, transparent);
+}
+
+/* Extension cards (library and catalog share one look). */
+#wpie-root .ext-gallery-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 12px;
+}
+
+#wpie-root .ext-card {
+	display: flex;
+	flex-direction: column;
+	cursor: pointer;
+	border: 1px solid var(--ed-border);
+	border-radius: 10px;
+	overflow: hidden;
+	background: var(--ed-panel-alt);
+	transition: border-color 0.15s ease;
+}
+
+#wpie-root .ext-card:hover {
+	border-color: color-mix(in srgb, var(--accent) 45%, var(--ed-border));
+}
+
+#wpie-root .ext-card-locked {
+	opacity: 0.82;
+}
+
+#wpie-root .ext-card-body {
+	padding: 10px 12px;
+	flex: 1;
+}
+
+#wpie-root .ext-card-title {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	flex-wrap: wrap;
+	font-size: 13px;
+}
+
+#wpie-root .ext-card-desc {
+	margin-top: 5px;
+	font-size: 11px;
+	line-height: 1.45;
+	color: var(--ed-text-muted);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+#wpie-root .ext-card-flags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	margin-top: 5px;
+}
+
+#wpie-root .ext-card-flags:empty {
+	display: none;
+}
+
+#wpie-root .ext-chip-ok {
+	color: var(--ok, #2fac66);
+	border-color: color-mix(in srgb, var(--ok, #2fac66) 55%, transparent);
+}
+
+#wpie-root .ext-card-foot {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .ext-card-foot .t {
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .ext-card-foot .dsm-toggle {
+	padding: 0;
+	cursor: pointer;
+	border: 0;
+}
+
+#wpie-root .ext-detail {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	max-width: 720px;
+}
+
+#wpie-root .ext-detail-back {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	align-self: flex-start;
+	padding: 4px 8px 4px 2px;
+	font-size: 12px;
+	color: var(--ed-text-muted);
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: 6px;
+}
+
+#wpie-root .ext-detail-back:hover {
+	color: var(--ed-text);
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .ext-detail-back svg {
+	transform: rotate(180deg);
+}
+
+#wpie-root .ext-detail-title {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	font-size: 16px;
+}
+
+#wpie-root .ext-detail-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 12px;
+	align-items: center;
+	font-size: 11.5px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .ext-detail-meta a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+#wpie-root .ext-detail-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+#wpie-root .ext-detail-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 14px;
+}
+
+#wpie-root .ext-detail-links a,
+#wpie-root .ext-detail-links a:hover {
+	text-decoration: none;
+}
+
+#wpie-root .ext-detail-hint {
+	padding: 8px 10px;
+	font-size: 11.5px;
+	line-height: 1.5;
+	color: var(--ed-text-muted);
+	background: var(--ed-panel-alt);
+	border: 1px dashed var(--ed-border);
+	border-radius: 6px;
+}
+
+#wpie-root .ext-detail-desc {
+	font-size: 12.5px;
+	line-height: 1.65;
+	color: var(--ed-text-dim);
+	white-space: pre-line;
+}
+
+#wpie-root .ext-row-error {
+	margin-top: 6px;
+	padding: 5px 8px;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--danger, #d63638);
+	background: color-mix(in srgb, var(--danger, #d63638) 8%, transparent);
+	border-radius: 4px;
+}
+
+/* ------------------------------ brand mark ----------------------------- */
+
+#wpie-root .wpie-brandmark {
+	display: inline-flex;
+	gap: calc(var(--brand-h) * 0.36);
+	align-items: center;
+	color: var(--ed-text);
+
+	/* The frame's back plate sits a shade lighter than the lettering so the
+	   two halves of the icon read as depth (2026-07-25 wordmark, light
+	   variant). On dark chrome both go white.
+	   The value matches assets/icon-wpie.svg, which is the plate colour
+	   everywhere else the mark appears - keep the two in step. */
+	--brand-plate: #94a3b8;
+}
+
+#wpie-root[data-theme="dark"] .wpie-brandmark {
+	--brand-plate: #fff;
+}
+
+#wpie-root .wpie-brandmark-tile {
+	display: grid;
+	place-items: center;
+	width: var(--brand-h);
+	height: var(--brand-h);
+	font-size: calc(var(--brand-h) * 0.42);
+	font-weight: 800;
+	letter-spacing: 0.02em;
+	color: #fff;
+	background: #3b66ff;
+	border-radius: calc(var(--brand-h) * 0.14);
+}
+
+#wpie-root .wpie-brandmark-text {
+	font-size: calc(var(--brand-h) * 0.6);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* ---------------- right-click brush size HUD (v1.64) ---------------- */
+
+#wpie-root .brush-hud {
+	position: fixed;
+	z-index: 60;
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding: 10px 12px;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+	box-shadow: 0 6px 24px rgb(0 0 0 / 35%);
+}
+
+#wpie-root .brush-hud-preview {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 48px;
+	height: 48px;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 5px;
+}
+
+#wpie-root .brush-hud-dot {
+	background: var(--ed-text);
+	border-radius: 50%;
+}
+
+#wpie-root .brush-hud-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+#wpie-root .brush-hud-rows label {
+	display: grid;
+	grid-template-columns: 58px 120px 44px;
+	gap: 8px;
+	align-items: center;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .brush-hud-rows b {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--ed-text);
+	text-align: right;
+}
+
+/* Color row (v1.128.3): picker + the 5 most recent colors, no label. */
+#wpie-root .brush-hud-colors {
+	display: flex;
+	grid-column: 2 / -1;
+	gap: 3px;
+	align-items: center;
+}
+
+#wpie-root .brush-hud-colors > span:first-child {
+	margin-right: 8px;
+}
+
+#wpie-root .brush-hud-recent {
+	width: 14px;
+	height: 14px;
+	padding: 0;
+	cursor: pointer;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 3px;
+}
+
+/* Titlebar stays dark in both themes, keep the brand lettering light. The
+   plate follows it, otherwise the light theme would put the grey variant on
+   dark chrome. */
+#wpie-root .ed-titlebar .wpie-brandmark {
+	color: #fdfdfd;
+	--brand-plate: #fff;
+}

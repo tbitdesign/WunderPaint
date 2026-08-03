@@ -1,0 +1,65 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-hero-love-accent-serif",
+	"label": "Hero - Love Accent Serif",
+	"w": 560,
+	"h": 160,
+	"layers": [
+		{
+			"id": "zh3ksu3",
+			"type": "text",
+			"name": "Hero - Love Accent Serif",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 560,
+			"h": 160,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Build products\npeople love",
+			"fontSize": 66,
+			"fontFamily": "Archivo",
+			"weight": 800,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": -1,
+			"lineHeight": 1.08,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Build products\npeople ",
+					"s": null
+				},
+				{
+					"text": "love",
+					"s": {
+						"family": "Playfair Display",
+						"italic": true,
+						"color": "#e63946"
+					}
+				}
+			]
+		}
+	],
+	"category": "headlines"
+}

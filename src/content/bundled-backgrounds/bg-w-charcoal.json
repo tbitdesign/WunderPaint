@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-charcoal",
+ "name": "Charcoal",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#111827",
+   "at": 0
+  },
+  {
+   "color": "#374151",
+   "at": 1
+  }
+ ]
+}

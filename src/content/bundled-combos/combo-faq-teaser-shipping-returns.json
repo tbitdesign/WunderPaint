@@ -1,0 +1,143 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-faq-teaser-shipping-returns",
+	"label": "FAQ Teaser - Shipping & Returns",
+	"w": 380,
+	"h": 168,
+	"layers": [
+		{
+			"id": "mfymvsl",
+			"type": "text",
+			"name": "FAQ Teaser - Shipping & Returns",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 380,
+			"h": 34,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "You asked, we answered",
+			"fontSize": 26,
+			"fontFamily": "Lora",
+			"weight": 700,
+			"color": "#111827",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.1,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "You asked, ",
+					"s": null
+				},
+				{
+					"text": "we answered",
+					"s": {
+						"italic": true,
+						"color": "#0e7490"
+					}
+				}
+			]
+		},
+		{
+			"id": "rjqil0v",
+			"type": "text",
+			"name": "FAQ Teaser - Shipping & Returns",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 46,
+			"w": 350,
+			"h": 122,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Q: How fast is delivery?\nA: Two business days, tracked.\n\nQ: Can I return an item?\nA: Yes, free returns for 30 days.",
+			"fontSize": 15,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#4b5563",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.55,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Q: ",
+					"s": {
+						"weight": 800,
+						"color": "#0e7490"
+					}
+				},
+				{
+					"text": "How fast is delivery?\n",
+					"s": {
+						"weight": 700,
+						"color": "#111827"
+					}
+				},
+				{
+					"text": "A: Two business days, tracked.\n\n",
+					"s": null
+				},
+				{
+					"text": "Q: ",
+					"s": {
+						"weight": 800,
+						"color": "#0e7490"
+					}
+				},
+				{
+					"text": "Can I return an item?\n",
+					"s": {
+						"weight": 700,
+						"color": "#111827"
+					}
+				},
+				{
+					"text": "A: Yes, free returns for 30 days.",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

@@ -1,0 +1,179 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-bullet-list-release-notes",
+	"label": "Bullet List - Release Notes",
+	"w": 480,
+	"h": 248,
+	"layers": [
+		{
+			"id": "bovpqzk",
+			"type": "text",
+			"name": "Bullet List - Release Notes",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 300,
+			"h": 22,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "WHAT'S NEW",
+			"fontSize": 15,
+			"fontFamily": "Archivo",
+			"weight": 700,
+			"color": "#6d28d9",
+			"align": "left",
+			"letterSpacing": 4,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "z9bnfnf",
+			"type": "text",
+			"name": "Bullet List - Release Notes",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 30,
+			"w": 480,
+			"h": 46,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Version 4.0 Highlights",
+			"fontSize": 34,
+			"fontFamily": "Archivo",
+			"weight": 800,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "xgwp3ri",
+			"type": "text",
+			"name": "Bullet List - Release Notes",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 92,
+			"w": 480,
+			"h": 156,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "• Real-time collaboration\n• Offline mode on mobile\n• 2x faster exports\n• Fresh dark theme",
+			"fontSize": 25,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.45,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "• ",
+					"s": {
+						"weight": 700,
+						"color": "#6d28d9"
+					}
+				},
+				{
+					"text": "Real-time collaboration\n",
+					"s": null
+				},
+				{
+					"text": "• ",
+					"s": {
+						"weight": 700,
+						"color": "#6d28d9"
+					}
+				},
+				{
+					"text": "Offline mode on mobile\n",
+					"s": null
+				},
+				{
+					"text": "• ",
+					"s": {
+						"weight": 700,
+						"color": "#6d28d9"
+					}
+				},
+				{
+					"text": "2x faster exports\n",
+					"s": null
+				},
+				{
+					"text": "• ",
+					"s": {
+						"weight": 700,
+						"color": "#6d28d9"
+					}
+				},
+				{
+					"text": "Fresh dark theme",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

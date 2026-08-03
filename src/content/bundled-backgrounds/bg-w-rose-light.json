@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-rose-light",
+ "name": "Rose Light",
+ "kind": "radial",
+ "stops": [
+  {
+   "color": "#ffe4e6",
+   "at": 0
+  },
+  {
+   "color": "#fb7185",
+   "at": 1
+  }
+ ]
+}

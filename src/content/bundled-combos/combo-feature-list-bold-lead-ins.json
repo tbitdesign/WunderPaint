@@ -1,0 +1,130 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-feature-list-bold-lead-ins",
+	"label": "Feature List - Bold Lead-ins",
+	"w": 520,
+	"h": 188,
+	"layers": [
+		{
+			"id": "z74mtkd",
+			"type": "text",
+			"name": "Feature List - Bold Lead-ins",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 520,
+			"h": 42,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "WHY TEAMS SWITCH",
+			"fontSize": 32,
+			"fontFamily": "Space Grotesk",
+			"weight": 700,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 1,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "toxsjwv",
+			"type": "text",
+			"name": "Feature List - Bold Lead-ins",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 56,
+			"w": 520,
+			"h": 132,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Fast - renders in under a second\nSecure - end-to-end encryption\nSimple - no setup required",
+			"fontSize": 26,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.55,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Fast",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 800,
+						"color": "#2563eb"
+					}
+				},
+				{
+					"text": " - renders in under a second\n",
+					"s": null
+				},
+				{
+					"text": "Secure",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 800,
+						"color": "#2563eb"
+					}
+				},
+				{
+					"text": " - end-to-end encryption\n",
+					"s": null
+				},
+				{
+					"text": "Simple",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 800,
+						"color": "#2563eb"
+					}
+				},
+				{
+					"text": " - no setup required",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

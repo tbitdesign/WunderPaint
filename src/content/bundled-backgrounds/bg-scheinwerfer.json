@@ -1,0 +1,16 @@
+{
+	"format": "wpie-background@1",
+	"id": "bg-scheinwerfer",
+	"name": "Scheinwerfer",
+	"kind": "radial",
+	"stops": [
+		{
+			"color": "rgba(255,255,255,0.9)",
+			"at": 0
+		},
+		{
+			"color": "rgba(255,255,255,0)",
+			"at": 1
+		}
+	]
+}

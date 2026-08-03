@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-sparkle",
+	"name": "Sparkle",
+	"pathD": "M 50 0 C 55 35 65 45 100 50 C 65 55 55 65 50 100 C 45 65 35 55 0 50 C 35 45 45 35 50 0 Z"
+}

@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-location-pin",
+	"name": "Location Pin",
+	"pathD": "M 50 2 C 30 2 15 18 15 38 C 15 62 50 98 50 98 C 50 98 85 62 85 38 C 85 18 70 2 50 2 Z M 50 52 C 42 52 36 46 36 38 C 36 30 42 24 50 24 C 58 24 64 30 64 38 C 64 46 58 52 50 52 Z"
+}

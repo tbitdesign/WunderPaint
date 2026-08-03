@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-iris",
+ "name": "Iris",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#6366f1",
+   "at": 0
+  },
+  {
+   "color": "#a855f7",
+   "at": 1
+  }
+ ]
+}

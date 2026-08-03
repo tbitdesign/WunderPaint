@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-blush",
+ "name": "Blush",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#fecdd3",
+   "at": 0
+  },
+  {
+   "color": "#fda4af",
+   "at": 1
+  }
+ ]
+}

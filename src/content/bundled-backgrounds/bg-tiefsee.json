@@ -1,0 +1,16 @@
+{
+	"format": "wpie-background@1",
+	"id": "bg-tiefsee",
+	"name": "Tiefsee",
+	"kind": "linear",
+	"stops": [
+		{
+			"color": "#0b3d5c",
+			"at": 0
+		},
+		{
+			"color": "#1fa2a6",
+			"at": 1
+		}
+	]
+}

@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-warm-spotlight",
+ "name": "Warm Spotlight",
+ "kind": "radial",
+ "stops": [
+  {
+   "color": "#fef3c7",
+   "at": 0
+  },
+  {
+   "color": "#f59e0b",
+   "at": 1
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-aurora",
+ "name": "Aurora",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#22d3ee",
+   "at": 0
+  },
+  {
+   "color": "#34d399",
+   "at": 0.5
+  },
+  {
+   "color": "#a3e635",
+   "at": 1
+  }
+ ]
+}

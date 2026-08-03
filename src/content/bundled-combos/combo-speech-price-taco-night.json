@@ -1,0 +1,99 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-speech-price-taco-night",
+	"label": "Speech Price, Taco Night",
+	"w": 406,
+	"h": 190,
+	"layers": [
+		{
+			"id": "re94jit",
+			"type": "shape",
+			"name": "Speech Price, Taco Night",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 48,
+			"y": 0,
+			"w": 310,
+			"h": 190,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"shape": "speech",
+			"fill": "#d97706",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "tkmj2dq",
+			"type": "text",
+			"name": "Speech Price, Taco Night",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 18,
+			"w": 406,
+			"h": 120,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "TACO TUESDAY\n$2 EACH",
+			"fontSize": 54,
+			"fontFamily": "Anton",
+			"weight": 400,
+			"color": "#ffffff",
+			"align": "center",
+			"letterSpacing": 0,
+			"lineHeight": 1.2,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "TACO TUESDAY\n",
+					"s": {
+						"size": 44,
+						"family": "Amatic SC",
+						"weight": 700,
+						"color": "#ffffff",
+						"ls": 2
+					}
+				},
+				{
+					"text": "$2 EACH",
+					"s": {
+						"size": 54,
+						"family": "Anton",
+						"color": "#ffffff"
+					}
+				}
+			]
+		}
+	],
+	"category": "sales"
+}

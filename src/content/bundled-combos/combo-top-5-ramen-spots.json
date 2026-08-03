@@ -1,0 +1,195 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-top-5-ramen-spots",
+	"label": "Top 5 - Ramen Spots",
+	"w": 330,
+	"h": 282,
+	"layers": [
+		{
+			"id": "vye6jwx",
+			"type": "text",
+			"name": "Top 5 - Ramen Spots",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 190,
+			"h": 16,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "THE DEFINITIVE",
+			"fontSize": 12,
+			"fontFamily": "Archivo",
+			"weight": 700,
+			"color": "#dc2626",
+			"align": "left",
+			"letterSpacing": 5,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "oos25cp",
+			"type": "text",
+			"name": "Top 5 - Ramen Spots",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 22,
+			"w": 330,
+			"h": 60,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "TOP 5 RAMEN",
+			"fontSize": 46,
+			"fontFamily": "Abril Fatface",
+			"weight": 400,
+			"color": "#1c1917",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "0nibmbk",
+			"type": "text",
+			"name": "Top 5 - Ramen Spots",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 96,
+			"w": 300,
+			"h": 186,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "1  Tonkotsu King\n2  Menya Blue\n3  Golden Broth Bar\n4  Shoyu Society\n5  Midnight Noodle Co.",
+			"fontSize": 19,
+			"fontFamily": "Archivo",
+			"weight": 500,
+			"color": "#1c1917",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.7,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "1  ",
+					"s": {
+						"size": 24,
+						"family": "Abril Fatface",
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Tonkotsu King\n",
+					"s": null
+				},
+				{
+					"text": "2  ",
+					"s": {
+						"size": 24,
+						"family": "Abril Fatface",
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Menya Blue\n",
+					"s": null
+				},
+				{
+					"text": "3  ",
+					"s": {
+						"size": 24,
+						"family": "Abril Fatface",
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Golden Broth Bar\n",
+					"s": null
+				},
+				{
+					"text": "4  ",
+					"s": {
+						"size": 24,
+						"family": "Abril Fatface",
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Shoyu Society\n",
+					"s": null
+				},
+				{
+					"text": "5  ",
+					"s": {
+						"size": 24,
+						"family": "Abril Fatface",
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Midnight Noodle Co.",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

@@ -1,0 +1,202 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-book-club-october-queue",
+	"label": "Book Club - October Queue",
+	"w": 400,
+	"h": 226,
+	"layers": [
+		{
+			"id": "a3aej1c",
+			"type": "text",
+			"name": "Book Club - October Queue",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 400,
+			"h": 48,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "October Book Club",
+			"fontSize": 36,
+			"fontFamily": "Playfair Display",
+			"weight": 500,
+			"color": "#1c1917",
+			"align": "center",
+			"letterSpacing": 0,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": true,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "uqo3m48",
+			"type": "shape",
+			"name": "Book Club - October Queue",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 170,
+			"y": 60,
+			"w": 60,
+			"h": 4,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"shape": "rect",
+			"fill": "#b45309",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 2,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "nmzir3x",
+			"type": "text",
+			"name": "Book Club - October Queue",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 82,
+			"w": 400,
+			"h": 144,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "The Sea Within · Ada Kline\nSalt & Stone · Marcus Bell\nWhat the River Keeps · Iris Chen\nThe Orchard Year · Tomi Okafor",
+			"fontSize": 19,
+			"fontFamily": "Lora",
+			"weight": 400,
+			"color": "#1c1917",
+			"align": "center",
+			"letterSpacing": 0,
+			"lineHeight": 1.8,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "The Sea Within",
+					"s": {
+						"weight": 600
+					}
+				},
+				{
+					"text": " · ",
+					"s": {
+						"color": "#a8a29e"
+					}
+				},
+				{
+					"text": "Ada Kline\n",
+					"s": {
+						"size": 16,
+						"italic": true,
+						"color": "#b45309"
+					}
+				},
+				{
+					"text": "Salt & Stone",
+					"s": {
+						"weight": 600
+					}
+				},
+				{
+					"text": " · ",
+					"s": {
+						"color": "#a8a29e"
+					}
+				},
+				{
+					"text": "Marcus Bell\n",
+					"s": {
+						"size": 16,
+						"italic": true,
+						"color": "#b45309"
+					}
+				},
+				{
+					"text": "What the River Keeps",
+					"s": {
+						"weight": 600
+					}
+				},
+				{
+					"text": " · ",
+					"s": {
+						"color": "#a8a29e"
+					}
+				},
+				{
+					"text": "Iris Chen\n",
+					"s": {
+						"size": 16,
+						"italic": true,
+						"color": "#b45309"
+					}
+				},
+				{
+					"text": "The Orchard Year",
+					"s": {
+						"weight": 600
+					}
+				},
+				{
+					"text": " · ",
+					"s": {
+						"color": "#a8a29e"
+					}
+				},
+				{
+					"text": "Tomi Okafor",
+					"s": {
+						"size": 16,
+						"italic": true,
+						"color": "#b45309"
+					}
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

@@ -1,0 +1,394 @@
+/*
+ * Design tokens, the legacy --ed-* aliases and the unified control scale.
+ * Must load FIRST: everything below reads these custom properties.
+ *
+ * Split out of editor.css in v1.345.0, which had reached 11.030 lines - the
+ * largest hand-written file in the plugin. Load ORDER IS THE CASCADE: this
+ * file is pulled in by editor.css at its original position and must stay
+ * there.
+ */
+
+/* WunderPaint — design tokens (v1.75, from the WunderPaint Design
+ * System, claude.ai/design) + the legacy --ed-* aliases every existing rule
+ * uses. The dark ramp is the DS source of truth (sampled from the product);
+ * the light ramp is derived with the same semantics. Scoped under
+ * #wpie-root (spec 10). */
+#wpie-root {
+	font-family: var(--font-ui);
+	font-size: 13px;
+	color: var(--ed-text);
+	background: var(--ed-bg);
+	-webkit-font-smoothing: antialiased;
+
+	/* WordPress admin chrome (media modal bridge) */
+	--wp-bg: #f0f0f1;
+	--wp-sidebar: #1d2327;
+	--wp-sidebar-hover: #2c3338;
+	--wp-sidebar-text: #c3c4c7;
+	--wp-sidebar-text-active: #fff;
+	--wp-accent: #2271b1;
+	--wp-accent-hover: #135e96;
+	--wp-border: #c3c4c7;
+	--wp-border-light: #dcdcde;
+	--wp-text: #1d2327;
+	--wp-text-dim: #50575e;
+	--wp-text-muted: #787c82;
+	--wp-card: #fff;
+
+	/* ---- DS neutral ramp — LIGHT (derived; dark overrides below) ---- */
+	--wp-canvas: #c9ccd1;
+	--wp-900: #f4f5f7;
+	--wp-input: #fafbfc;
+	--wp-topbar: #1d2327; /* the top bar stays dark in both themes */
+	--wp-surface: #fff;
+	--wp-raised: #eef0f3;
+	--wp-600: #e3e5e8;
+	--wp-500: #d0d4d9;
+	--wp-400: #a6adb8;
+	--wp-350: #7a8699;
+	--wp-300: #5b6068;
+	--wp-200: #3a3f47;
+	--wp-100: #1a1d21;
+	--wp-white: #fff;
+	--surface-active: #e5eaf0;
+
+	/* ---- DS primary (WP blue, both themes) ---- */
+	--blue-700: #2743b0;
+	--blue-600: #2f52d6;
+	--blue-500: #3b66ff;
+	--blue-400: #5c82ff;
+	--blue-300: #8aa4ff;
+	--blue-tint: rgba(59, 102, 255, 0.14);
+
+	/* ---- DS semantic status (both themes) ---- */
+	--green-500: #22c55e;
+	--amber-500: #f5a524;
+	--red-500: #ef4444;
+	--purple-500: #8b5cf6;
+
+	/* ---- DS semantic aliases ---- */
+	--bg-app: var(--wp-900);
+	--bg-canvas: var(--wp-canvas);
+	--surface-panel: var(--wp-surface);
+	--surface-topbar: var(--wp-topbar);
+	--surface-raised: var(--wp-raised);
+	--surface-input: var(--wp-input);
+	--text-primary: var(--wp-100);
+	--text-secondary: var(--wp-300);
+	--text-muted: var(--wp-350);
+	--text-disabled: var(--wp-400);
+	--text-on-accent: var(--wp-white);
+	--border-hairline: var(--wp-600);
+	--border-strong: var(--wp-500);
+	--accent: var(--blue-500);
+	--accent-hover: var(--blue-400);
+	--accent-pressed: var(--blue-600);
+	--accent-soft: var(--blue-tint);
+	--focus-ring: var(--blue-300);
+	--status-online: var(--green-500);
+	--status-warn: var(--amber-500);
+	--status-error: var(--red-500);
+	--status-ai: var(--purple-500);
+
+	/* ---- DS type scale ---- */
+	--fs-2xs: 10px;
+	--fs-xs: 11px;
+	--fs-sm: 12px;
+	--fs-md: 13px;
+	--fs-lg: 15px;
+	--fs-xl: 18px;
+	--fs-2xl: 24px;
+	--fw-regular: 400;
+	--fw-medium: 500;
+	--fw-semibold: 600;
+	--fw-bold: 700;
+	--lh-tight: 1.2;
+	--lh-snug: 1.35;
+	--lh-normal: 1.5;
+	--ls-caps: 0.06em;
+	--ls-tight: -0.01em;
+
+	/* ---- DS spacing / radius / borders / motion ---- */
+	--sp-1: 2px;
+	--sp-2: 4px;
+	--sp-3: 6px;
+	--sp-4: 8px;
+	--sp-5: 10px;
+	--sp-6: 12px;
+	--sp-7: 16px;
+	--sp-8: 20px;
+	--sp-9: 24px;
+	--sp-10: 32px;
+	--r-xs: 3px;
+	--r-sm: 4px;
+	--r-md: 6px;
+	--r-lg: 8px;
+	--r-xl: 12px;
+	--r-pill: 999px;
+	--bw: 1px;
+	--dur-fast: 120ms;
+	--dur: 180ms;
+	--ease: cubic-bezier(0.4, 0, 0.2, 1);
+	--ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--focus-ring);
+
+	/* ---- Shadows (light; dark overrides below) ---- */
+	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+	--shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+	--shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.18);
+	--shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--wp-600);
+
+	/* ---- Legacy editor aliases (every existing rule reads these) ---- */
+	--ed-bg: var(--bg-app);
+	--ed-panel: var(--surface-panel);
+	--ed-panel-alt: var(--surface-input);
+	--ed-border: var(--border-hairline);
+	--ed-border-strong: var(--border-strong);
+	--ed-text: var(--text-primary);
+	--ed-text-dim: var(--text-secondary);
+	--ed-text-muted: var(--text-muted);
+	--ed-hover: var(--surface-raised);
+	--ed-active: var(--surface-active);
+	--ed-canvas-bg: var(--bg-canvas);
+	--ed-checker-a: #fff;
+	--ed-checker-b: #e8eaed;
+	--danger: var(--status-error);
+	--success: var(--status-online);
+	--warning: var(--status-warn);
+	--radius: var(--r-sm);
+	--radius-lg: var(--r-md);
+
+	/* ---- Extension aliases (v1.335) ----
+	 * Fifteen extension stylesheets read these names and every use carries a
+	 * hardcoded fallback, so nothing looked broken - the packs simply never
+	 * followed the user's accent and stayed on the default blue. They are
+	 * part of the public CSS surface (docs/extending.md); never rename. */
+	--ed-accent: var(--accent);
+	--ed-panel-2: var(--ed-panel-alt);
+	--ed-warn: var(--warning);
+	--ed-warning: var(--warning);
+	--ed-ok: var(--success);
+	--btn-radius: var(--r-md);
+
+	--font-ui: -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen-sans, ubuntu, cantarell, "Helvetica Neue", sans-serif;
+	--font-mono: ui-monospace, "SF Mono", menlo, consolas, "Liberation Mono", monospace;
+
+	color-scheme: light;
+
+	/* Native controls follow the accent, once, for the whole editor.
+	 *
+	 * accent-color is inherited, so this reaches every slider, checkbox and
+	 * radio anywhere below - including the ones extensions render, since
+	 * their dialogs live inside #wpie-root.
+	 *
+	 * Why it belongs here and not on each control: there are 34 range
+	 * inputs in the core and exactly three of them used to set this
+	 * themselves (.slider-row, .ed-easy-row, one in modals.css). The other
+	 * 31 fell back to the browser default, a light blue that has nothing to
+	 * do with the theme - visible in the navigator's zoom slider, in the
+	 * canvas popovers and in the tool options. Per-control declarations
+	 * cannot fix that class of problem: the next new slider would be light
+	 * blue again, and nobody would think to look here.
+	 *
+	 * The colour picker's alpha slider is unaffected either way: it sets
+	 * appearance:none and paints its own track and thumb. */
+	accent-color: var(--accent);
+
+	/* Dropdown chevron for .dsm-select (theme-tinted, dark overrides below). */
+	--select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b6068' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+#wpie-root[data-theme="dark"] {
+
+	/* Tell the browser to draw its own controls dark. Without this the native
+	   calendar button inside <input type="date"> is painted black on a black
+	   field and is simply invisible; the same goes for time and colour inputs
+	   and for the pickers they open. Doing it with color-scheme rather than
+	   inverting the icon keeps the popup itself readable too. */
+	color-scheme: dark;
+
+	/* ---- DS neutral ramp — DARK (source of truth) ---- */
+	--wp-canvas: #0d0e10;
+	--wp-900: #16181c;
+	--wp-input: #191b1f;
+	--wp-surface: #1e2024;
+	--wp-raised: #262930;
+	--wp-600: #2a2d33;
+	--wp-500: #3a3f47;
+	--wp-400: #5c6470;
+	--wp-350: #718ca4;
+	--wp-300: #a8acae;
+	--wp-200: #d4d7db;
+	--wp-100: #f3f5f7;
+	--surface-active: #2e333b;
+
+	--ed-checker-a: #2a2d33;
+	--ed-checker-b: #232529;
+
+	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+	--shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+	--shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--wp-600);
+	--select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a8acae' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+#wpie-root *,
+ #wpie-root *::before,
+ #wpie-root *::after {
+	box-sizing: border-box;
+}
+
+#wpie-root button {
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: 0;
+	cursor: pointer;
+	padding: 0;
+}
+
+#wpie-root input,
+ #wpie-root textarea,
+ #wpie-root select {
+	font: inherit;
+	color: inherit;
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		box-shadow var(--dur-fast) var(--ease);
+}
+
+/* ---------------- Unified control scale (v1.300) ----------------
+   wp-admin forces min-height: 40px onto inputs and leaves plain
+   selects caret-less, so panel forms looked bloated and uneven. One
+   base recipe for every RAW input/select inside the editor: 26px tall,
+   same surface, same radius, every select with the same chevron.
+   Context recipes that size deliberately (toolbar 32px, .dsm-input,
+   .dsm-select, .sel-size…) override this by source order/specificity. */
+#wpie-root input[type="text"],
+#wpie-root input[type="number"],
+#wpie-root input[type="search"],
+#wpie-root input[type="password"],
+#wpie-root input[type="email"],
+#wpie-root input[type="url"],
+#wpie-root select {
+	box-sizing: border-box;
+	height: var(--ctl-h, 26px);
+	min-height: var(--ctl-h, 26px);
+	padding: 0 7px;
+	font-size: var(--fs-sm);
+	line-height: normal;
+	background-color: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root select {
+	max-width: none;
+	padding-right: 22px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+	appearance: none;
+	background-image: var(--select-chevron);
+	background-repeat: no-repeat;
+	background-position: right 7px center;
+	background-size: 10px 6px;
+}
+
+#wpie-root input[type="text"]:focus,
+#wpie-root input[type="number"]:focus,
+#wpie-root input[type="search"]:focus,
+#wpie-root input[type="password"]:focus,
+#wpie-root input[type="email"]:focus,
+#wpie-root input[type="url"]:focus,
+#wpie-root select:focus {
+	border-color: var(--accent);
+	outline: none;
+	box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* CI checkboxes/radios (v1.300): the browser-native wp-admin controls
+   never matched the dark editor chrome. */
+#wpie-root input[type="checkbox"],
+#wpie-root input[type="radio"] {
+	display: inline-grid;
+	flex: none;
+	place-content: center;
+	width: 15px;
+	height: 15px;
+	min-height: 0;
+	margin: 0;
+	vertical-align: middle;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	background: var(--surface-input);
+	border: 1px solid var(--border-strong);
+	border-radius: 4px;
+	box-shadow: none;
+	transition:
+		background var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease);
+}
+
+#wpie-root input[type="radio"] {
+	border-radius: 50%;
+}
+
+#wpie-root input[type="checkbox"]::before,
+#wpie-root input[type="radio"]::before {
+	width: 9px;
+	height: 9px;
+	margin: 0;
+	content: "";
+	background: transparent;
+	transform: none;
+}
+
+#wpie-root input[type="checkbox"]:checked,
+#wpie-root input[type="radio"]:checked {
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+#wpie-root input[type="checkbox"]:checked::before {
+	background: #fff;
+	clip-path: polygon( 12% 52%, 24% 40%, 42% 58%, 76% 14%, 90% 26%, 44% 84% );
+}
+
+#wpie-root input[type="radio"]:checked::before {
+	background: #fff;
+	border-radius: 50%;
+	transform: scale(0.6);
+}
+
+#wpie-root input[type="checkbox"]:focus-visible,
+#wpie-root input[type="radio"]:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Attachment Modal */
+#wpie-root .modal-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.7);
+	z-index: 100;
+	display: grid;
+	place-items: center;
+	padding: 24px;
+	transition: background var(--dur-fast, 0.2s) var(--ease, ease);
+}
+
+/* A dragged-away dialog clears its dim (v1.264.1): moving it around is
+   about seeing the canvas behind, so the backdrop goes fully clear and
+   (v1.265) lets pointer events through to the editor - the dialog itself
+   stays interactive. */
+#wpie-root .modal-backdrop.wpie-backdrop-clear {
+	background: transparent;
+	pointer-events: none;
+}
+
+#wpie-root .modal-backdrop.wpie-backdrop-clear > * {
+	pointer-events: auto;
+}

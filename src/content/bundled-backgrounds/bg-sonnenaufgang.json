@@ -1,0 +1,16 @@
+{
+	"format": "wpie-background@1",
+	"id": "bg-sonnenaufgang",
+	"name": "Sonnenaufgang",
+	"kind": "linear",
+	"stops": [
+		{
+			"color": "#ff8a5c",
+			"at": 0
+		},
+		{
+			"color": "#ffd76f",
+			"at": 1
+		}
+	]
+}

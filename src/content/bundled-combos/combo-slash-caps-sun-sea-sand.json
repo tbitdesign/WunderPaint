@@ -1,0 +1,128 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-slash-caps-sun-sea-sand",
+	"label": "Slash Caps - Sun Sea Sand",
+	"w": 780,
+	"h": 94,
+	"layers": [
+		{
+			"id": "lqh2ms8",
+			"type": "text",
+			"name": "Slash Caps - Sun Sea Sand",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 780,
+			"h": 63,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "SUN / SEA / SAND / REPEAT",
+			"fontSize": 48,
+			"fontFamily": "Poppins",
+			"weight": 700,
+			"color": "#0f172a",
+			"align": "center",
+			"letterSpacing": 1,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "SUN ",
+					"s": null
+				},
+				{
+					"text": "/",
+					"s": {
+						"color": "#0891b2"
+					}
+				},
+				{
+					"text": " SEA ",
+					"s": null
+				},
+				{
+					"text": "/",
+					"s": {
+						"color": "#0891b2"
+					}
+				},
+				{
+					"text": " SAND ",
+					"s": null
+				},
+				{
+					"text": "/",
+					"s": {
+						"color": "#0891b2"
+					}
+				},
+				{
+					"text": " REPEAT",
+					"s": null
+				}
+			]
+		},
+		{
+			"id": "36xyuqp",
+			"type": "text",
+			"name": "Slash Caps - Sun Sea Sand",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 235,
+			"y": 74,
+			"w": 310,
+			"h": 20,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "SUMMER ESCAPES FROM $299",
+			"fontSize": 15,
+			"fontFamily": "Poppins",
+			"weight": 600,
+			"color": "#64748b",
+			"align": "center",
+			"letterSpacing": 2,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		}
+	],
+	"category": "headlines"
+}

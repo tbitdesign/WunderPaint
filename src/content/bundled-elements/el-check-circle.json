@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-check-circle",
+	"name": "Check Circle",
+	"pathD": "M 50 2 C 24 2 2 24 2 50 C 2 76 24 98 50 98 C 76 98 98 76 98 50 C 98 24 76 2 50 2 Z M 44 70 L 24 50 L 32 42 L 44 54 L 70 28 L 78 36 Z"
+}

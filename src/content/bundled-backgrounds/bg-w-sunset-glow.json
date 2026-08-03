@@ -1,0 +1,20 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-sunset-glow",
+ "name": "Sunset Glow",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#ff9a62",
+   "at": 0
+  },
+  {
+   "color": "#ff5f8f",
+   "at": 0.55
+  },
+  {
+   "color": "#7c3aed",
+   "at": 1
+  }
+ ]
+}

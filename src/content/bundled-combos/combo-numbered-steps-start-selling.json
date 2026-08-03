@@ -1,0 +1,127 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-numbered-steps-start-selling",
+	"label": "Numbered Steps - Start Selling",
+	"w": 440,
+	"h": 190,
+	"layers": [
+		{
+			"id": "j4vxw6g",
+			"type": "text",
+			"name": "Numbered Steps - Start Selling",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 440,
+			"h": 42,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "THREE STEPS. DONE.",
+			"fontSize": 32,
+			"fontFamily": "Montserrat",
+			"weight": 800,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 1,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "fqebaig",
+			"type": "text",
+			"name": "Numbered Steps - Start Selling",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 58,
+			"w": 440,
+			"h": 132,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "1. Create your free account\n2. Connect your store\n3. Watch orders roll in",
+			"fontSize": 26,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.55,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "1. ",
+					"s": {
+						"weight": 800,
+						"color": "#ea580c"
+					}
+				},
+				{
+					"text": "Create your free account\n",
+					"s": null
+				},
+				{
+					"text": "2. ",
+					"s": {
+						"weight": 800,
+						"color": "#ea580c"
+					}
+				},
+				{
+					"text": "Connect your store\n",
+					"s": null
+				},
+				{
+					"text": "3. ",
+					"s": {
+						"weight": 800,
+						"color": "#ea580c"
+					}
+				},
+				{
+					"text": "Watch orders roll in",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

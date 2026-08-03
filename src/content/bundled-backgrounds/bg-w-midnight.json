@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-midnight",
+ "name": "Midnight",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#0f172a",
+   "at": 0
+  },
+  {
+   "color": "#1e3a8a",
+   "at": 1
+  }
+ ]
+}

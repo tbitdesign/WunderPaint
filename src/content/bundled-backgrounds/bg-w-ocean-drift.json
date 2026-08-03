@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-ocean-drift",
+ "name": "Ocean Drift",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#43c6e8",
+   "at": 0
+  },
+  {
+   "color": "#3b66ff",
+   "at": 1
+  }
+ ]
+}

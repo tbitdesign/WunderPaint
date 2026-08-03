@@ -1,0 +1,20 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-candy-pop",
+ "name": "Candy Pop",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#f472b6",
+   "at": 0
+  },
+  {
+   "color": "#fb7185",
+   "at": 0.5
+  },
+  {
+   "color": "#fbbf24",
+   "at": 1
+  }
+ ]
+}

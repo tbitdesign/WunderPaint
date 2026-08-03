@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-berry-crush",
+ "name": "Berry Crush",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#9d174d",
+   "at": 0
+  },
+  {
+   "color": "#e11d48",
+   "at": 1
+  }
+ ]
+}

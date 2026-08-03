@@ -1,0 +1,594 @@
+/*
+ * Input and confirm dialogs, submenus, accessibility helpers, navigator,
+ * font picker, layer search, context bar, brush presets, the onboarding
+ * tour and focus rings.
+ *
+ * Split out of editor.css in v1.345.0, which had reached 11.030 lines - the
+ * largest hand-written file in the plugin. Load ORDER IS THE CASCADE: this
+ * file is pulled in by editor.css at its original position and must stay
+ * there.
+ */
+
+/* ============ INPUT/CONFIRM DIALOGS (v0.4.1) ============ */
+#wpie-root .wpie-input-dialog {
+	display: grid;
+	gap: 10px;
+	width: 400px;
+	max-width: 92vw;
+	padding: 16px;
+	color: var(--ed-text);
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-xl);
+	box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .wpie-input-dialog-title {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+#wpie-root .wpie-input-dialog-message {
+	font-size: 12px;
+	color: var(--ed-text-dim);
+	line-height: 1.5;
+}
+
+#wpie-root .wpie-input-dialog-label {
+	display: block;
+	font-size: 11px;
+	color: var(--ed-text-dim);
+	margin-bottom: 4px;
+}
+
+#wpie-root .wpie-input-dialog input,
+#wpie-root .wpie-input-dialog select {
+	width: 100%;
+	height: 32px;
+	padding: 0 10px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+	background-color: var(--ed-panel-alt);
+	color: var(--ed-text);
+	font-size: 13px;
+}
+
+/* Optional second field (a select) below the main input (v1.266). */
+#wpie-root .wpie-input-dialog-check {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--ed-text);
+	cursor: pointer;
+}
+
+#wpie-root .wpie-input-dialog-second {
+	margin-top: 12px;
+}
+
+#wpie-root .wpie-input-dialog-buttons {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+#wpie-root .wpie-input-dialog .ai-btn.danger {
+	background: var(--danger, #d63638);
+}
+
+/* ============ MENU SUBMENUS (v0.4.1) ============ */
+#wpie-root .ed-subwrap {
+	position: relative;
+}
+
+#wpie-root .ed-subwrap .ed-item.has-sub {
+	width: 100%;
+}
+
+#wpie-root .ed-submenu {
+	position: absolute;
+	left: calc(100% - 4px);
+	top: -6px;
+	min-width: 180px;
+	max-height: 70vh;
+	overflow-y: auto;
+}
+
+/* A submenu that hosts NESTED submenus must not clip them: overflow
+   would swallow the absolutely-positioned next level (v1.246.2). */
+#wpie-root .ed-submenu.has-nested {
+	max-height: none;
+	overflow: visible;
+}
+
+/* ============ A11Y (B5, v0.5) ============ */
+
+/* Small icon buttons get a comfortable hit area. */
+#wpie-root .layers-footer button,
+#wpie-root .color-fg-bg .swap {
+	min-width: 20px;
+	min-height: 20px;
+}
+
+/* ============ NAVIGATOR (F1, v0.5) ============ */
+#wpie-root .ed-navigator {
+	position: absolute;
+	right: 12px;
+	bottom: 34px;
+	z-index: 45;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+	box-shadow: var(--shadow-lg);
+	padding: 6px;
+	display: grid;
+	gap: 6px;
+	justify-items: center;
+}
+
+#wpie-root .ed-navigator-thumb {
+	position: relative;
+	overflow: hidden;
+	background: var(--ed-canvas-bg);
+	border-radius: 3px;
+	cursor: grab;
+	touch-action: none;
+}
+
+#wpie-root .ed-navigator-thumb img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+
+#wpie-root .ed-navigator-view {
+	position: absolute;
+	border: 1.5px solid var(--accent);
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+	pointer-events: none;
+}
+
+#wpie-root .ed-navigator-zoom {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+}
+
+#wpie-root .ed-navigator-zoom input[type='range'] {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .ed-navigator-zoom button {
+	font-size: 10px;
+	font-family: var(--font-mono);
+	color: var(--ed-text-dim);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 3px;
+	padding: 2px 5px;
+	background: var(--ed-panel-alt);
+	cursor: pointer;
+	min-width: 42px;
+}
+
+/* ============ FONT PICKER (F3, v0.5) ============ */
+#wpie-root .font-picker {
+	position: relative;
+	display: inline-block;
+}
+
+#wpie-root .font-picker-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	width: 100%;
+	height: 26px;
+	padding: 0 8px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 3px;
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+#wpie-root .font-picker-label {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .font-picker-pop {
+
+	/* Position/size come inline (fixed + anchor rect, v1.9.2) — absolute
+	   popups get clipped by the bar's overflow. */
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+	box-shadow: var(--shadow-lg);
+	padding: 6px;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+#wpie-root .font-picker-pop input[type='search'] {
+	width: 100%;
+	height: 28px;
+	padding: 0 8px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+	font-size: 12px;
+}
+
+#wpie-root .font-picker-search {
+	flex: none;
+	padding: 6px;
+	border-bottom: 1px solid var(--ed-border);
+}
+
+#wpie-root .font-picker-search input {
+	width: 100%;
+	padding: 5px 8px;
+	font-size: 12px;
+	color: var(--ed-text);
+	background: var(--ed-bg);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 5px;
+	outline: none;
+}
+
+#wpie-root .font-picker-search input:focus {
+	border-color: var(--accent, #3b66ff);
+}
+
+#wpie-root .font-picker-list {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+#wpie-root .font-picker-group {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--ed-text-muted);
+	padding: 6px 6px 2px;
+}
+
+#wpie-root .font-picker-list button {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 5px 8px;
+	font-size: 15px;
+	color: var(--ed-text);
+	border-radius: 3px;
+	cursor: pointer;
+	background: none;
+	border: 0;
+}
+
+#wpie-root .font-picker-list button:hover {
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .font-picker-list button.active {
+	background: var(--accent);
+	color: #fff;
+}
+
+/* ============ LAYER SEARCH + LABELS (F6, v0.5) ============ */
+#wpie-root .layers-search {
+	padding: 6px 10px 2px;
+}
+
+#wpie-root .layers-search input {
+	width: 100%;
+	height: 26px;
+	padding: 0 8px;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+	font-size: 12px;
+}
+
+#wpie-root .ctx-label-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 6px 12px;
+	font-size: 12px;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .ctx-label-row span {
+	margin-right: 4px;
+}
+
+#wpie-root .ctx-label-swatch {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	border: 1px solid var(--ed-border-strong);
+	cursor: pointer;
+	font-size: 10px;
+	color: var(--ed-text-dim);
+	padding: 0;
+}
+
+/* ============ CONTEXT BAR (F4, v0.5) ============ */
+#wpie-root .ed-context-bar {
+	position: absolute;
+	z-index: 44;
+	display: flex;
+	gap: 2px;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+	box-shadow: var(--shadow-lg);
+	padding: 3px;
+}
+
+/* Direct children only — the color popover renders INSIDE the bar and a
+   bare `button` selector blew its swatches up to 26px (v1.15.3). */
+#wpie-root .ed-context-bar > button {
+	width: 26px;
+	height: 26px;
+	display: grid;
+	place-items: center;
+	border-radius: 4px;
+	color: var(--ed-text-dim);
+	cursor: pointer;
+	background: none;
+	border: 0;
+	font-size: 13px;
+}
+
+#wpie-root .ed-context-bar > button:hover {
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+}
+
+/* Align & distribute flyout in the context bar (v1.24.13) */
+#wpie-root .cb-align {
+	position: relative;
+	display: flex;
+}
+
+#wpie-root .cb-align > button {
+	width: 26px;
+	height: 26px;
+	display: grid;
+	place-items: center;
+	border-radius: 4px;
+	color: var(--ed-text-dim);
+	cursor: pointer;
+	background: none;
+	border: 0;
+}
+
+#wpie-root .cb-align > button:hover,
+#wpie-root .cb-align > button[ aria-expanded='true' ] {
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+}
+
+#wpie-root .cb-align-pop {
+	z-index: 60;
+	padding: 6px;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 8px;
+	box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .cb-align-grid {
+	display: grid;
+	grid-template-columns: repeat( 6, 1fr );
+	gap: 3px;
+}
+
+#wpie-root .cb-align-dist {
+	display: flex;
+	gap: 3px;
+	margin-top: 5px;
+}
+
+#wpie-root .cb-align-pop button {
+	width: 24px;
+	height: 24px;
+	display: grid;
+	place-items: center;
+	border-radius: 4px;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	color: var(--ed-text-dim);
+	cursor: pointer;
+}
+
+#wpie-root .cb-align-dist button {
+	flex: 1;
+}
+
+#wpie-root .cb-align-pop button:hover:not( :disabled ) {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+}
+
+#wpie-root .cb-align-pop button:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+/* ============ BRUSH PRESETS (F9, v0.5) ============ */
+#wpie-root .brush-preset-chip {
+	font-size: 11px;
+	padding: 3px 8px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 10px;
+	background: var(--ed-panel-alt);
+	color: var(--ed-text-dim);
+	cursor: pointer;
+}
+
+/* Brush-tip picker: trigger button + dropdown grid (v1.21, v1.22). */
+#wpie-root .brush-tip-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	height: 24px;
+	min-height: 24px;
+	padding: 0 4px 0 2px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+	background: var(--ed-panel-alt);
+	color: var(--ed-text-dim);
+	cursor: pointer;
+}
+
+#wpie-root .brush-tip-toggle img {
+	display: block;
+	width: 40px;
+	height: 22px;
+	object-fit: contain;
+}
+
+#wpie-root .brush-tip-toggle .caret {
+	font-size: 9px;
+}
+
+#wpie-root .brush-tip-panel {
+	display: grid;
+	grid-template-columns: repeat( 3, 1fr );
+	gap: 6px;
+	width: 220px;
+	max-height: 340px;
+	padding: 8px;
+	overflow-y: auto;
+	background: var(--ed-panel);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 8px;
+	box-shadow: 0 8px 28px rgba( 0, 0, 0, 0.35 );
+}
+
+#wpie-root .brush-tip {
+	height: 40px;
+	padding: 0;
+	border: 1px solid var(--ed-border);
+	border-radius: 5px;
+	background: var(--ed-panel-alt);
+	display: grid;
+	place-items: center;
+	cursor: pointer;
+	overflow: hidden;
+}
+
+#wpie-root .brush-tip img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+#wpie-root .brush-tip.active {
+	border-color: var(--accent);
+	box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+#wpie-root .brush-preset-chip:hover {
+	color: var(--ed-text);
+	border-color: var(--accent);
+}
+
+/* ============ ONBOARDING TOUR (F14, v0.5) ============ */
+
+/* The container itself stays transparent: dimming comes ONLY from the
+   spot's punched-out shadow, so the highlighted element keeps its full
+   brightness (a container background would darken it too). */
+#wpie-root .wpie-tour {
+	position: fixed;
+	inset: 0;
+	z-index: 800;
+}
+
+#wpie-root .wpie-tour-spot {
+	position: fixed;
+	border-radius: 8px;
+	box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), 0 0 0 2px var(--accent);
+	background: transparent;
+	pointer-events: none;
+}
+
+/* Fallback dim for steps whose target element is not on screen. */
+#wpie-root .wpie-tour-veil {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	pointer-events: none;
+}
+
+#wpie-root .wpie-tour > .wpie-tour-spot ~ .wpie-tour-box,
+#wpie-root .wpie-tour-box {
+	position: fixed;
+	width: 320px;
+	background: var(--ed-panel);
+	color: var(--ed-text);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 8px;
+	box-shadow: var(--shadow-lg);
+	padding: 14px;
+	display: grid;
+	gap: 8px;
+}
+
+#wpie-root .wpie-tour-step {
+	font-size: 10px;
+	color: var(--ed-text-muted);
+	font-family: var(--font-mono);
+}
+
+#wpie-root .wpie-tour-title {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+#wpie-root .wpie-tour-body {
+	font-size: 12px;
+	color: var(--ed-text-dim);
+	line-height: 1.5;
+}
+
+#wpie-root .wpie-tour-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+/* ============ FOCUS RINGS (F17, v0.5; DS focus color v1.75.1) ============ */
+#wpie-root button:focus-visible,
+#wpie-root [role='button']:focus-visible {
+	outline: 2px solid var(--focus-ring);
+	outline-offset: 1px;
+}
+
+/* Text-entry controls (v1.9.2): the 2px outline got clipped into stray
+   blue slivers by compact containers everywhere — a tinted border +
+   inner ring reads cleanly instead. */
+#wpie-root input:focus-visible,
+#wpie-root select:focus-visible,
+#wpie-root textarea:focus-visible {
+	outline: none;
+	border-color: var(--accent);
+	box-shadow: inset 0 0 0 1px var(--accent);
+}

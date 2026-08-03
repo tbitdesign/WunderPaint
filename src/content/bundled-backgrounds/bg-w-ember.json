@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-ember",
+ "name": "Ember",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#7c2d12",
+   "at": 0
+  },
+  {
+   "color": "#f97316",
+   "at": 1
+  }
+ ]
+}

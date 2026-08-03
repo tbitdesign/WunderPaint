@@ -1,0 +1,154 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-checklist-fitness-membership",
+	"label": "Checklist - Fitness Membership",
+	"w": 430,
+	"h": 162,
+	"layers": [
+		{
+			"id": "vfyu9lv",
+			"type": "text",
+			"name": "Checklist - Fitness Membership",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 430,
+			"h": 37,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Train smarter, not longer",
+			"fontSize": 28,
+			"fontFamily": "Poppins",
+			"weight": 800,
+			"color": "#111827",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.1,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Train ",
+					"s": null
+				},
+				{
+					"text": "smarter",
+					"s": {
+						"color": "#16a34a"
+					}
+				},
+				{
+					"text": ", not longer",
+					"s": null
+				}
+			]
+		},
+		{
+			"id": "m0mf2rk",
+			"type": "text",
+			"name": "Checklist - Fitness Membership",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 48,
+			"w": 360,
+			"h": 114,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "✓  Personalized workout plans\n✓  400+ guided video sessions\n✓  Progress tracking & streaks\n✓  Coach chat, 7 days a week",
+			"fontSize": 17,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#374151",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.6,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "✓  ",
+					"s": {
+						"weight": 800,
+						"color": "#16a34a"
+					}
+				},
+				{
+					"text": "Personalized workout plans\n",
+					"s": null
+				},
+				{
+					"text": "✓  ",
+					"s": {
+						"weight": 800,
+						"color": "#16a34a"
+					}
+				},
+				{
+					"text": "400+ guided video sessions\n",
+					"s": null
+				},
+				{
+					"text": "✓  ",
+					"s": {
+						"weight": 800,
+						"color": "#16a34a"
+					}
+				},
+				{
+					"text": "Progress tracking & streaks\n",
+					"s": null
+				},
+				{
+					"text": "✓  ",
+					"s": {
+						"weight": 800,
+						"color": "#16a34a"
+					}
+				},
+				{
+					"text": "Coach chat, 7 days a week",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

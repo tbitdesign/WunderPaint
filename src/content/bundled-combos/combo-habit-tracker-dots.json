@@ -1,0 +1,199 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-habit-tracker-dots",
+	"label": "Habit Tracker - Dots",
+	"w": 280,
+	"h": 192,
+	"layers": [
+		{
+			"id": "m7593wp",
+			"type": "text",
+			"name": "Habit Tracker - Dots",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 240,
+			"h": 30,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "HABIT STREAK",
+			"fontSize": 22,
+			"fontFamily": "Poppins",
+			"weight": 700,
+			"color": "#111827",
+			"align": "left",
+			"letterSpacing": 5,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "ruzi4na",
+			"type": "text",
+			"name": "Habit Tracker - Dots",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 1,
+			"y": 36,
+			"w": 150,
+			"h": 16,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "WEEK OF JULY 6",
+			"fontSize": 11,
+			"fontFamily": "Poppins",
+			"weight": 500,
+			"color": "#9ca3af",
+			"align": "left",
+			"letterSpacing": 3,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "9kw05q1",
+			"type": "text",
+			"name": "Habit Tracker - Dots",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 66,
+			"w": 280,
+			"h": 126,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "●●●●●○○  Hydrate\n●●●●○○○  Move 30 min\n●●●●●●○  Read 20 pages\n●●●○○○○  Lights out 11pm",
+			"fontSize": 17,
+			"fontFamily": "Poppins",
+			"weight": 500,
+			"color": "#1f2937",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.75,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "●●●●●",
+					"s": {
+						"color": "#ec4899"
+					}
+				},
+				{
+					"text": "○○",
+					"s": {
+						"color": "#d1d5db"
+					}
+				},
+				{
+					"text": "  Hydrate\n",
+					"s": null
+				},
+				{
+					"text": "●●●●",
+					"s": {
+						"color": "#ec4899"
+					}
+				},
+				{
+					"text": "○○○",
+					"s": {
+						"color": "#d1d5db"
+					}
+				},
+				{
+					"text": "  Move 30 min\n",
+					"s": null
+				},
+				{
+					"text": "●●●●●●",
+					"s": {
+						"color": "#ec4899"
+					}
+				},
+				{
+					"text": "○",
+					"s": {
+						"color": "#d1d5db"
+					}
+				},
+				{
+					"text": "  Read 20 pages\n",
+					"s": null
+				},
+				{
+					"text": "●●●",
+					"s": {
+						"color": "#ec4899"
+					}
+				},
+				{
+					"text": "○○○○",
+					"s": {
+						"color": "#d1d5db"
+					}
+				},
+				{
+					"text": "  Lights out 11pm",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-funkeln",
+	"name": "Funkeln",
+	"pathD": "M 50 6 C 54 34 66 46 94 50 C 66 54 54 66 50 94 C 46 66 34 54 6 50 C 34 46 46 34 50 6 Z"
+}

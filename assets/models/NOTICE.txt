@@ -1,0 +1,37 @@
+U^2-Netp segmentation model — NOTICE
+====================================
+
+File: u2netp.onnx
+
+This machine-learning model is used by WunderPaint for local, in-browser
+background removal and subject selection. Inference runs entirely on the
+client via onnxruntime-web; no image data is transmitted to any server.
+
+Model
+-----
+U^2-Net / U^2-Netp ("U-square Net"), the portable (small) variant.
+
+Original work:
+  "U^2-Net: Going Deeper with Nested U-Structure for Salient Object Detection"
+  Xuebin Qin, Zichen Zhang, Chenyang Huang, Masood Dehghan, Osmar R. Zaiane,
+  Martin Jagersand. Pattern Recognition, 2020.
+  Project: https://github.com/xuebinqin/U-2-Net
+
+License
+-------
+Apache License, Version 2.0. A copy of the license is provided alongside this
+notice in APACHE-2.0.txt.
+
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+  use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
+Compatibility
+-------------
+WunderPaint is licensed GPL-2.0-OR-LATER. The Apache License 2.0 is
+compatible with GPL version 3, so this component is redistributed under the
+GPLv3 permitted by the "or later" clause.

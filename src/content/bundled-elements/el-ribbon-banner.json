@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-ribbon-banner",
+	"name": "Ribbon Banner",
+	"pathD": "M 0 25 L 14 50 L 0 75 L 22 75 L 22 25 Z M 26 25 L 74 25 L 74 75 L 26 75 Z M 78 25 L 100 25 L 86 50 L 100 75 L 78 75 Z"
+}

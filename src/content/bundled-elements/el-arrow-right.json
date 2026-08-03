@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-arrow-right",
+	"name": "Arrow Right",
+	"pathD": "M 4 38 L 60 38 L 60 20 L 96 50 L 60 80 L 60 62 L 4 62 Z"
+}

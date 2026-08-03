@@ -1,0 +1,199 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-you-are-wonderful",
+	"label": "You are Wonderful",
+	"category": "wordart",
+	"w": 566,
+	"h": 276,
+	"layers": [
+		{
+			"id": "7qe3jw8",
+			"type": "text",
+			"name": "You",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 80.36,
+			"y": 0,
+			"w": 455.4186214726037,
+			"h": 228.5838335246071,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "You",
+			"fontSize": 175.0094975422773,
+			"fontFamily": "Berkshire Swash",
+			"weight": 700,
+			"color": "#1a1d21",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": "#6e4c0b",
+			"outlineW": 1,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "gradient",
+			"gradientStops": [
+				{
+					"at": 0,
+					"color": "#f9e58a"
+				},
+				{
+					"at": 0.42,
+					"color": "#c9992e"
+				},
+				{
+					"at": 0.55,
+					"color": "#f6e27a"
+				},
+				{
+					"at": 1,
+					"color": "#8f6413"
+				}
+			],
+			"gradientAngle": 90,
+			"pattern": "none",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"bevel": {
+					"depth": 2
+				},
+				"warp": {
+					"type": "arcLower",
+					"bend": -30
+				}
+			},
+			"gradientKind": "linear"
+		},
+		{
+			"id": "zpvxapi",
+			"type": "text",
+			"name": "Wonderful",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 126.28,
+			"w": 566.2011110223295,
+			"h": 149.3116342462828,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "Wonderful",
+			"fontSize": 114.31671996981028,
+			"fontFamily": "Berkshire Swash",
+			"weight": 700,
+			"color": "#1a1d21",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": "#6e4c0b",
+			"outlineW": 1,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "gradient",
+			"gradientStops": [
+				{
+					"at": 0,
+					"color": "#f9e58a"
+				},
+				{
+					"at": 0.42,
+					"color": "#c9992e"
+				},
+				{
+					"at": 0.55,
+					"color": "#f6e27a"
+				},
+				{
+					"at": 1,
+					"color": "#8f6413"
+				}
+			],
+			"gradientAngle": 90,
+			"pattern": "none",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"bevel": {
+					"depth": 2
+				},
+				"warp": {
+					"type": "arcLower",
+					"bend": 50
+				}
+			},
+			"gradientKind": "linear"
+		},
+		{
+			"id": "3oo5u6n",
+			"type": "text",
+			"name": "are",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 232.94,
+			"y": 106.02,
+			"w": 238.45852177047684,
+			"h": 87.4648536225197,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "are",
+			"fontSize": 66.96527855474164,
+			"fontFamily": "Berkshire Swash",
+			"weight": 700,
+			"color": "#1a1d21",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null
+		}
+	]
+}

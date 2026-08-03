@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-price-tag",
+	"name": "Price Tag",
+	"pathD": "M 55 4 L 96 45 L 55 86 L 8 86 C 5 86 4 85 4 82 L 4 8 C 4 5 5 4 8 4 Z M 22 30 C 22 35 26 39 31 39 C 36 39 40 35 40 30 C 40 25 36 21 31 21 C 26 21 22 25 22 30 Z"
+}

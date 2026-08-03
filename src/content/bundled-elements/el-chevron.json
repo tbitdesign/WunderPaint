@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-chevron",
+	"name": "Chevron",
+	"pathD": "M 20 10 L 55 10 L 80 50 L 55 90 L 20 90 L 45 50 Z"
+}

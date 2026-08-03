@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-teal-glow",
+ "name": "Teal Glow",
+ "kind": "radial",
+ "stops": [
+  {
+   "color": "#2dd4bf",
+   "at": 0
+  },
+  {
+   "color": "#0f766e",
+   "at": 1
+  }
+ ]
+}

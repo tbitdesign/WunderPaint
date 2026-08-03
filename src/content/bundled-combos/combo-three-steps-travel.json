@@ -1,0 +1,146 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-three-steps-travel",
+	"label": "Three Steps - Travel",
+	"w": 416,
+	"h": 157,
+	"layers": [
+		{
+			"id": "0eskx1j",
+			"type": "text",
+			"name": "Three Steps - Travel",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 416,
+			"h": 39,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Three steps to takeoff",
+			"fontSize": 30,
+			"fontFamily": "DM Serif Display",
+			"weight": 400,
+			"color": "#1c1917",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.1,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Three steps to ",
+					"s": null
+				},
+				{
+					"text": "takeoff",
+					"s": {
+						"italic": true,
+						"color": "#ea580c"
+					}
+				}
+			]
+		},
+		{
+			"id": "u0fiild",
+			"type": "text",
+			"name": "Three Steps - Travel",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 50,
+			"w": 370,
+			"h": 107,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "1   Pick your destination\n2   Lock in flights and stays\n3   Pack light and go",
+			"fontSize": 17,
+			"fontFamily": "Archivo",
+			"weight": 400,
+			"color": "#374151",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.75,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "1",
+					"s": {
+						"size": 24,
+						"family": "Playfair Display",
+						"weight": 700,
+						"color": "#ea580c"
+					}
+				},
+				{
+					"text": "   Pick your destination\n",
+					"s": null
+				},
+				{
+					"text": "2",
+					"s": {
+						"size": 24,
+						"family": "Playfair Display",
+						"weight": 700,
+						"color": "#ea580c"
+					}
+				},
+				{
+					"text": "   Lock in flights and stays\n",
+					"s": null
+				},
+				{
+					"text": "3",
+					"s": {
+						"size": 24,
+						"family": "Playfair Display",
+						"weight": 700,
+						"color": "#ea580c"
+					}
+				},
+				{
+					"text": "   Pack light and go",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

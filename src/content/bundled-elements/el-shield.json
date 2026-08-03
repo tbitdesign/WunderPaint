@@ -1,0 +1,6 @@
+{
+	"format": "wpie-element@1",
+	"id": "el-shield",
+	"name": "Shield",
+	"pathD": "M 50 2 C 65 10 80 14 92 15 L 92 50 C 92 75 75 90 50 98 C 25 90 8 75 8 50 L 8 15 C 20 14 35 10 50 2 Z"
+}

@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-lavender-mist",
+ "name": "Lavender Mist",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#c4b5fd",
+   "at": 0
+  },
+  {
+   "color": "#f0abfc",
+   "at": 1
+  }
+ ]
+}

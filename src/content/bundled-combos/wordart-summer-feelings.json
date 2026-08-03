@@ -1,0 +1,169 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-summer-feelings",
+	"label": "Summer Feelings",
+	"category": "wordart",
+	"w": 629,
+	"h": 221,
+	"layers": [
+		{
+			"id": "3765o19",
+			"type": "text",
+			"name": "Summer",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 628.9565217391304,
+			"h": 170.82608695652172,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"size": 1,
+					"color": "#e79204",
+					"position": "inside",
+					"opacity": 1
+				},
+				"dropShadow": null,
+				"innerShadow": null,
+				"outerGlow": {
+					"color": "#ffd500",
+					"opacity": 0.8,
+					"blur": 12,
+					"spread": 0
+				},
+				"colorOverlay": null,
+				"gradientOverlay": null,
+				"innerGlow": null,
+				"bevel": null,
+				"satin": null,
+				"patternOverlay": null
+			},
+			"parent": null,
+			"text": "Summer",
+			"fontSize": 130.78872282608694,
+			"fontFamily": "Oleo Script",
+			"weight": 700,
+			"color": "#1a1d21",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 35,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "gradient",
+			"gradientStops": [
+				{
+					"color": "#fbbe00",
+					"at": 0
+				},
+				{
+					"color": "#ff6a00",
+					"at": 1
+				}
+			],
+			"gradientAngle": 291,
+			"pattern": "stripes",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"echo": null,
+				"rings": null,
+				"imageFill": null,
+				"burst": null
+			}
+		},
+		{
+			"id": "mxb5w5v",
+			"type": "text",
+			"name": "Feelings",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 170.8,
+			"y": 157.3,
+			"w": 287.3478260869565,
+			"h": 64,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": null,
+				"dropShadow": {
+					"color": "#d6a200",
+					"opacity": 1,
+					"angle": 42,
+					"distance": 2,
+					"blur": 0,
+					"spread": 1
+				},
+				"innerShadow": null,
+				"outerGlow": null,
+				"colorOverlay": null,
+				"gradientOverlay": null,
+				"innerGlow": null,
+				"bevel": null,
+				"satin": null,
+				"patternOverlay": null
+			},
+			"parent": null,
+			"text": "Feelings",
+			"fontSize": 49,
+			"fontFamily": "Fugaz One",
+			"weight": 700,
+			"color": "#382600",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": [
+				{
+					"at": 0,
+					"color": "#ffe259"
+				},
+				{
+					"at": 0.55,
+					"color": "#ff8a00"
+				},
+				{
+					"at": 1,
+					"color": "#e5484d"
+				}
+			],
+			"gradientAngle": 90,
+			"pattern": "dots",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {},
+			"gradientKind": "linear"
+		}
+	]
+}

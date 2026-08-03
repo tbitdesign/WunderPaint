@@ -1,0 +1,250 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-glitch-in-the-system",
+	"label": "Glitch in the System",
+	"category": "wordart",
+	"w": 496,
+	"h": 335,
+	"layers": [
+		{
+			"id": "4zf9unq",
+			"type": "text",
+			"name": "Glitch",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 496.3043478260869,
+			"h": 174.3478260869565,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": null,
+				"dropShadow": null,
+				"innerShadow": null,
+				"outerGlow": null,
+				"colorOverlay": null,
+				"gradientOverlay": null,
+				"innerGlow": null,
+				"bevel": {
+					"size": 1,
+					"strength": 0.72,
+					"direction": "up"
+				},
+				"satin": null,
+				"patternOverlay": null
+			},
+			"parent": null,
+			"text": "Glitch",
+			"fontSize": 133.48505434782606,
+			"fontFamily": "Inter",
+			"weight": 700,
+			"color": "#6e9dff",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "gradient",
+			"gradientStops": [
+				{
+					"color": "#6e9dff",
+					"at": 0
+				},
+				{
+					"color": "#0014ff",
+					"at": 1
+				},
+				{
+					"color": "#00f7ff",
+					"at": 0.5105263157894737
+				}
+			],
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"glitch": {
+					"strength": 8,
+					"slices": 7,
+					"seed": 14
+				}
+			}
+		},
+		{
+			"id": "skjn1kv",
+			"type": "text",
+			"name": "System",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 9.39,
+			"y": 198.91,
+			"w": 477.52173913043464,
+			"h": 135.60869565217388,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": null,
+				"dropShadow": null,
+				"innerShadow": null,
+				"outerGlow": null,
+				"colorOverlay": null,
+				"gradientOverlay": null,
+				"innerGlow": null,
+				"bevel": {
+					"size": 1,
+					"strength": 0.72,
+					"direction": "up"
+				},
+				"satin": null,
+				"patternOverlay": null
+			},
+			"parent": null,
+			"text": "System",
+			"fontSize": 103.82540760869563,
+			"fontFamily": "Inter",
+			"weight": 700,
+			"color": "#6e9dff",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "gradient",
+			"gradientStops": [
+				{
+					"color": "#6e9dff",
+					"at": 0
+				},
+				{
+					"color": "#0014ff",
+					"at": 1
+				},
+				{
+					"color": "#00f7ff",
+					"at": 0.5105263157894737
+				}
+			],
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"glitch": {
+					"strength": 8,
+					"slices": 7,
+					"seed": 14
+				}
+			}
+		},
+		{
+			"id": "6v9nzrr",
+			"type": "text",
+			"name": "in the",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 123.26,
+			"y": 133.85,
+			"w": 249.78260869565224,
+			"h": 81,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": null,
+				"dropShadow": null,
+				"innerShadow": null,
+				"outerGlow": null,
+				"colorOverlay": null,
+				"gradientOverlay": null,
+				"innerGlow": null,
+				"bevel": {
+					"size": 1,
+					"strength": 0.72,
+					"direction": "up"
+				},
+				"satin": null,
+				"patternOverlay": null
+			},
+			"parent": null,
+			"text": "in the",
+			"fontSize": 62,
+			"fontFamily": "Inter",
+			"weight": 700,
+			"color": "#6e9dff",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.05,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "gradient",
+			"gradientStops": [
+				{
+					"color": "#6e9dff",
+					"at": 0
+				},
+				{
+					"color": "#0014ff",
+					"at": 1
+				},
+				{
+					"color": "#00f7ff",
+					"at": 0.5105263157894737
+				}
+			],
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": null,
+			"lineStyles": null,
+			"textFX": {
+				"glitch": {
+					"strength": 8,
+					"slices": 7,
+					"seed": 14
+				}
+			}
+		}
+	]
+}

@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-coral-reef",
+ "name": "Coral Reef",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#fb7185",
+   "at": 0
+  },
+  {
+   "color": "#f97316",
+   "at": 1
+  }
+ ]
+}

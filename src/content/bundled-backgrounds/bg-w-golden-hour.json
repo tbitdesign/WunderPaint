@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-golden-hour",
+ "name": "Golden Hour",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#f9d976",
+   "at": 0
+  },
+  {
+   "color": "#f39f5f",
+   "at": 1
+  }
+ ]
+}

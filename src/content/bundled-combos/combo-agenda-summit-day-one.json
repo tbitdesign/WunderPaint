@@ -1,0 +1,179 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-agenda-summit-day-one",
+	"label": "Agenda - Summit Day One",
+	"w": 400,
+	"h": 252,
+	"layers": [
+		{
+			"id": "wwm93qd",
+			"type": "text",
+			"name": "Agenda - Summit Day One",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 260,
+			"h": 58,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "DAY ONE",
+			"fontSize": 44,
+			"fontFamily": "Anton",
+			"weight": 400,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 1,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "uap6svq",
+			"type": "text",
+			"name": "Agenda - Summit Day One",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 60,
+			"w": 340,
+			"h": 20,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "MAKERS SUMMIT · JUNE 14",
+			"fontSize": 14,
+			"fontFamily": "Inter",
+			"weight": 700,
+			"color": "#dc2626",
+			"align": "left",
+			"letterSpacing": 2,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "7oeh146",
+			"type": "text",
+			"name": "Agenda - Summit Day One",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 92,
+			"w": 400,
+			"h": 160,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "9:00   Doors and coffee\n9:45   Opening keynote\n11:15  Breakout sessions\n1:00   Lunch on the lawn",
+			"fontSize": 24,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#1a1d21",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.55,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "9:00   ",
+					"s": {
+						"weight": 800,
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Doors and coffee\n",
+					"s": null
+				},
+				{
+					"text": "9:45   ",
+					"s": {
+						"weight": 800,
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Opening keynote\n",
+					"s": null
+				},
+				{
+					"text": "11:15  ",
+					"s": {
+						"weight": 800,
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Breakout sessions\n",
+					"s": null
+				},
+				{
+					"text": "1:00   ",
+					"s": {
+						"weight": 800,
+						"color": "#dc2626"
+					}
+				},
+				{
+					"text": "Lunch on the lawn",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

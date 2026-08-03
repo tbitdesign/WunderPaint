@@ -1,0 +1,1441 @@
+/*
+ * Personal workspaces, the Alt Text Assistant and the Media Library Manager.
+ *
+ * Split out of editor.css in v1.345.0, which had reached 11.030 lines - the
+ * largest hand-written file in the plugin. Load ORDER IS THE CASCADE: this
+ * file is pulled in by editor.css at its original position and must stay
+ * there.
+ */
+
+/* ============================================================
+   Personal Workspaces (v1.184.0)
+   All rules are scoped under #wpie-root to match the specificity
+   of the base editor styles; unscoped rules would lose to them.
+   ============================================================ */
+
+/* Toolbar icon size (default md = the built-in 18px). */
+#wpie-root[data-ws-tools="sm"] .ed-toolbar .ed-tool svg { width: 15px; height: 15px; }
+
+#wpie-root[data-ws-tools="lg"] .ed-toolbar .ed-tool svg { width: 22px; height: 22px; }
+
+#wpie-root[data-ws-tools="lg"] .ed-toolbar .ed-tool { min-height: 40px; }
+
+/* Interactive picker overlay. */
+#wpie-root.wpie-ws-picking [data-ws] { cursor: pointer; }
+
+#wpie-root.wpie-ws-picking .wpie-ws-off {
+	outline: 2px dashed var(--danger, #d63638);
+	outline-offset: -2px;
+	opacity: 0.5;
+}
+
+#wpie-root .wpie-ws-hl {
+	position: fixed;
+	z-index: 100000;
+	pointer-events: none;
+	border: 2px solid var(--accent);
+	background: var(--accent-soft, rgba(59, 102, 255, 0.13));
+	border-radius: 4px;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+#wpie-root .wpie-ws-hl-label {
+	position: absolute;
+	left: 0;
+	top: -22px;
+	font: 600 11px/1 var(--font-mono, ui-monospace, monospace);
+	background: var(--accent);
+	color: #fff;
+	padding: 3px 6px;
+	border-radius: 3px;
+	white-space: nowrap;
+}
+
+#wpie-root .wpie-ws-pickbar {
+	position: fixed;
+	left: 50%;
+	bottom: 22px;
+	transform: translateX(-50%);
+	z-index: 100001;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 10px 12px 10px 16px;
+	background: var(--surface-raised, #23262d);
+	color: var(--text-primary);
+	border: 1px solid var(--border-hairline);
+	border-radius: 10px;
+	box-shadow: var(--shadow-lg);
+	font-size: var(--fs-sm);
+	max-width: 92vw;
+}
+
+/* Manager dialog: wide, with a scrolling body and a real footer. */
+#wpie-root .wpie-ws-dialog {
+	width: min(1000px, 96vw);
+	max-height: 88vh;
+	display: flex;
+	flex-direction: column;
+}
+
+#wpie-root .wpie-ws-body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+#wpie-root .wpie-ws-side {
+	flex: 0 0 250px;
+	padding: 14px;
+	overflow-y: auto;
+	background: var(--bg-app);
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .wpie-ws-main {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 14px 16px;
+	overflow-y: auto;
+}
+
+#wpie-root .wpie-ws-lbl {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--text-secondary);
+	margin-bottom: 6px;
+}
+
+/* Preset cards. */
+#wpie-root .wpie-ws-preset {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 9px 11px;
+	margin: 6px 0;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+	background: var(--surface-input);
+	color: var(--text-primary);
+	cursor: pointer;
+	transition: border-color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .wpie-ws-preset:hover { border-color: var(--accent); }
+
+#wpie-root .wpie-ws-preset.active {
+	border-color: var(--accent);
+	box-shadow: inset 0 0 0 1px var(--accent);
+	background: var(--accent-soft, rgba(59, 102, 255, 0.13));
+}
+
+#wpie-root .wpie-ws-preset .name { display: block; font-weight: 600; font-size: var(--fs-sm); }
+
+#wpie-root .wpie-ws-preset .desc { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+/* Saved workspaces. */
+#wpie-root .wpie-ws-empty { font-size: 12px; color: var(--text-secondary); margin: 4px 2px 8px; }
+
+#wpie-root .wpie-ws-saved {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: 5px 0;
+	padding: 2px;
+	border: 1px solid transparent;
+	border-radius: var(--r-md);
+}
+
+#wpie-root .wpie-ws-saved.active { border-color: var(--accent); }
+
+#wpie-root .wpie-ws-apply {
+	flex: 0 0 auto;
+	width: 22px;
+	background: none;
+	border: none;
+	color: var(--accent);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+#wpie-root .wpie-ws-rename {
+	flex: 1 1 auto;
+	min-width: 0;
+	height: 26px;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+	color: var(--text-primary);
+	font-size: 12px;
+	padding: 0 7px;
+}
+
+#wpie-root .wpie-ws-mini {
+	flex: 0 0 auto;
+	width: 24px;
+	height: 26px;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+	color: var(--text-secondary);
+	cursor: pointer;
+}
+
+#wpie-root .wpie-ws-mini:hover { color: var(--text-primary); border-color: var(--accent); }
+
+/* Right column: appearance + visibility checklist. */
+#wpie-root .wpie-ws-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+#wpie-root .wpie-ws-row .wpie-ws-lbl { margin-bottom: 0; }
+
+#wpie-root .wpie-ws-pickbtn { width: 100%; margin-bottom: 14px; }
+
+#wpie-root .wpie-ws-group { margin-bottom: 14px; }
+
+#wpie-root .wpie-ws-checks {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2px 14px;
+}
+
+#wpie-root .wpie-ws-check {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	font-size: 12.5px;
+	padding: 3px 0;
+	cursor: pointer;
+	color: var(--text-primary);
+}
+
+#wpie-root .wpie-ws-check input { flex: 0 0 auto; margin: 0; }
+
+#wpie-root .wpie-ws-check span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Footer name field. */
+#wpie-root .wpie-ws-foot-name {
+	height: 30px;
+	width: 190px;
+	max-width: 40vw;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+	color: var(--text-primary);
+	font-size: 12px;
+	padding: 0 9px;
+}
+
+@media ( max-width: 720px ) {
+
+	#wpie-root .wpie-ws-body { flex-direction: column; }
+
+	#wpie-root .wpie-ws-side {
+		flex: none;
+		border-right: none;
+		border-bottom: 1px solid var(--border-hairline);
+	}
+
+	#wpie-root .wpie-ws-checks { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================================
+   Alt Text Assistant (v1.188.0): two-column premium layout.
+   ============================================================ */
+
+/* Self-contained container (does NOT reuse .stock-dialog, whose grid +
+   fixed 780x620 fought this flex layout and made the tiles overlap). */
+#wpie-root .wpie-alt-dialog {
+	width: min(1040px, 96vw);
+	height: min(820px, 94vh);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	color: var(--ed-text);
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-xl);
+	box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .wpie-alt-dialog > .dsm-head,
+#wpie-root .wpie-alt-dialog > .dsm-foot { flex: 0 0 auto; }
+
+#wpie-root .wpie-alt-body { display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+
+#wpie-root .wpie-alt-side {
+	flex: 0 0 250px;
+	padding: 14px;
+	overflow-y: auto;
+	background: var(--bg-app);
+	border-right: 1px solid var(--border-hairline);
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+#wpie-root .wpie-alt-main { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+#wpie-root .wpie-alt-lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+
+/* Engine tiles. */
+#wpie-root .wpie-alt-engines { display: grid; gap: 6px; }
+
+#wpie-root .wpie-alt-engine {
+	display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+	text-align: left; padding: 8px 10px; border-radius: var(--r-md);
+	border: 1px solid var(--border-hairline); background: var(--surface-input);
+	color: var(--text-primary); cursor: pointer;
+}
+
+#wpie-root .wpie-alt-engine:hover { border-color: var(--accent); }
+
+#wpie-root .wpie-alt-engine.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft, rgba(59,102,255,.12)); }
+
+#wpie-root .wpie-alt-engine .name { font-weight: 600; font-size: var(--fs-sm); }
+
+#wpie-root .wpie-alt-engine .desc { font-size: 10.5px; color: var(--text-secondary); }
+
+#wpie-root .wpie-alt-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; padding: 2px 0; cursor: pointer; color: var(--text-primary); }
+
+#wpie-root .wpie-alt-check input { margin: 0; }
+
+#wpie-root .wpie-alt-select,
+#wpie-root .wpie-alt-search {
+	width: 100%; height: 30px; box-sizing: border-box;
+	background: var(--surface-input); border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm); color: var(--text-primary); font-size: 12px; padding: 0 8px;
+}
+
+#wpie-root .wpie-alt-cost { font-size: 11px; color: var(--text-secondary); }
+
+/* Toolbar + grid. */
+#wpie-root .wpie-alt-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border-hairline); }
+
+#wpie-root .wpie-alt-grid {
+	flex: 1 1 auto; overflow-y: auto; padding: 12px;
+	display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; align-content: start;
+}
+
+#wpie-root .wpie-alt-tile {
+	position: relative; display: block; height: 116px; border-radius: 8px; overflow: hidden;
+	border: 2px solid var(--border-hairline); background: var(--surface-input); cursor: pointer; padding: 0; content-visibility: auto; contain-intrinsic-size: 130px;
+}
+
+#wpie-root .wpie-alt-tile.sel { border-color: var(--accent); }
+
+#wpie-root .wpie-alt-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+#wpie-root .wpie-alt-tile .tick { position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 4px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; display: grid; place-items: center; }
+
+#wpie-root .wpie-alt-tile.sel .tick { background: var(--accent); }
+
+#wpie-root .wpie-alt-tile .badge { position: absolute; bottom: 4px; left: 4px; background: var(--danger, #d63638); color: #fff; font-size: 9px; border-radius: 3px; padding: 1px 4px; }
+
+#wpie-root .wpie-alt-tile .edit {
+	position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 4px;
+	background: rgba(0,0,0,.5); color: #fff; border: none; cursor: pointer; opacity: 0;
+	display: grid; place-items: center; transition: opacity var(--dur-fast) var(--ease);
+}
+
+#wpie-root .wpie-alt-tile:hover .edit { opacity: 1; }
+
+#wpie-root .wpie-alt-tile .meta {
+	position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 6px 5px;
+	background: linear-gradient(transparent, rgba(0,0,0,.82)); color: #fff; font-size: 10px;
+	opacity: 0; transition: opacity var(--dur-fast) var(--ease); pointer-events: none;
+}
+
+#wpie-root .wpie-alt-tile:hover .meta { opacity: 1; }
+
+#wpie-root .wpie-alt-tile .meta b { font-weight: 600; }
+
+#wpie-root .wpie-alt-tile .meta span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Per-image editor overlay + review inputs. */
+#wpie-root .wpie-alt-editwrap { position: absolute; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 5; padding: 20px; }
+
+#wpie-root .wpie-alt-editor { width: min(460px, 92%); max-height: 86%; overflow-y: auto; background: var(--surface-panel); border: 1px solid var(--border-hairline); border-radius: var(--r-lg, 10px); padding: 14px; display: grid; gap: 8px; box-shadow: var(--shadow-lg); }
+
+#wpie-root .wpie-alt-field { display: grid; gap: 2px; font-size: 11px; }
+
+#wpie-root .wpie-alt-field > span { color: var(--text-secondary); }
+
+#wpie-root .wpie-alt-field input,
+#wpie-root .wpie-alt-field textarea {
+	font-size: 12px; background: var(--surface-input); color: var(--text-primary);
+	border: 1px solid var(--border-hairline); border-radius: var(--r-sm); padding: 5px 7px; resize: vertical;
+}
+
+#wpie-root .wpie-alt-row { display: flex; gap: 12px; border: 1px solid var(--border-hairline); border-radius: 8px; padding: 10px; }
+
+#wpie-root .wpie-alt-row img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; flex: 0 0 auto; }
+
+@media ( max-width: 720px ) {
+
+	#wpie-root .wpie-alt-body { flex-direction: column; }
+
+	#wpie-root .wpie-alt-side { flex: none; border-right: none; border-bottom: 1px solid var(--border-hairline); }
+}
+
+/* =====================================================================
+   Media Library Manager (v1.189.0): full-screen folders/tags/search shell.
+   Same fixed-height tile pattern as the alt grid (aspect-ratio on buttons
+   is unreliable); all scoped under #wpie-root to keep specificity.
+   ===================================================================== */
+#wpie-root .wpie-mlm-dialog {
+	width: min(1400px, 97vw); height: min(880px, 95vh);
+	display: flex; flex-direction: column; overflow: hidden;
+	color: var(--ed-text); background: var(--surface-panel);
+	border: 1px solid var(--border-hairline); border-radius: var(--r-xl); box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .wpie-mlm-dialog > .dsm-head { flex: 0 0 auto; gap: 12px; align-items: center; }
+
+#wpie-root .wpie-mlm-searchwrap {
+	flex: 1 1 auto; display: flex; align-items: center; gap: 6px; max-width: 460px; margin-left: auto;
+	background: var(--surface-input); border: 1px solid var(--border-hairline);
+	border-radius: 999px; padding: 0 10px; height: 34px; box-sizing: border-box;
+}
+
+#wpie-root .wpie-mlm-searchwrap .ico { color: var(--text-secondary); display: grid; place-items: center; flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-search { flex: 1 1 auto; min-width: 60px; border: none; background: transparent; color: var(--text-primary); font-size: 13px; height: 32px; outline: none; }
+
+#wpie-root .wpie-mlm-searchwrap .clr { border: none; background: transparent; color: var(--text-secondary); cursor: pointer; display: grid; place-items: center; flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-searchwrap .clr:hover { color: var(--text-primary); }
+
+#wpie-root .wpie-mlm-body { display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+
+/* Demo-mode note (v1.307): one quiet strip under the manager header. */
+#wpie-root .wpie-mlm-demo-note {
+	flex: 0 0 auto;
+	padding: 7px 18px;
+	font-size: var(--fs-sm);
+	color: var(--ed-text-muted);
+	background: color-mix(in srgb, var(--accent) 8%, transparent);
+	border-bottom: 1px solid var(--ed-border);
+}
+
+#wpie-root .wpie-mlm-side {
+	flex: 0 0 268px; overflow-y: auto; background: var(--bg-app);
+	border-right: 1px solid var(--border-hairline); padding: 10px;
+	display: flex; flex-direction: column; gap: 4px;
+}
+
+#wpie-root .wpie-mlm-sec { display: flex; flex-direction: column; gap: 2px; }
+
+#wpie-root .wpie-mlm-sec + .wpie-mlm-sec { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-hairline); }
+
+#wpie-root .wpie-mlm-sechead {
+	display: flex; align-items: center; justify-content: space-between; gap: 6px;
+	font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+	color: var(--text-secondary); padding: 2px 4px 4px;
+}
+
+#wpie-root .wpie-mlm-sechead button {
+	border: none; background: transparent; color: var(--text-secondary); cursor: pointer;
+	display: grid; place-items: center; border-radius: 4px; width: 22px; height: 22px;
+}
+
+#wpie-root .wpie-mlm-sechead button:hover { background: var(--surface-hover, rgba(127,127,127,.15)); color: var(--text-primary); }
+
+#wpie-root .wpie-mlm-row {
+	display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+	cursor: pointer; color: var(--text-primary); font-size: 13px; position: relative;
+}
+
+#wpie-root .wpie-mlm-row:hover { background: var(--surface-hover, rgba(127,127,127,.12)); }
+
+#wpie-root .wpie-mlm-row.active { background: var(--accent-soft, rgba(59,102,255,.15)); color: var(--accent); }
+
+#wpie-root .wpie-mlm-row.drop { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--accent-soft, rgba(59,102,255,.12)); }
+
+#wpie-root .wpie-mlm-row .ico { display: grid; place-items: center; color: var(--text-secondary); flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-row.active .ico { color: var(--accent); }
+
+#wpie-root .wpie-mlm-row .nm { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#wpie-root .wpie-mlm-row .ct {
+	margin-left: auto; flex: 0 0 auto; min-width: 22px; text-align: center;
+	font-size: 10.5px; font-variant-numeric: tabular-nums; line-height: 18px;
+	color: var(--text-secondary); background: var(--surface-input);
+	border-radius: 999px; padding: 0 6px;
+}
+
+#wpie-root .wpie-mlm-row.active .ct { color: var(--accent); background: var(--accent-soft, rgba(59,102,255,.12)); }
+
+#wpie-root .wpie-mlm-row .acts { display: none; gap: 2px; flex: 0 0 auto; margin-left: 4px; }
+
+#wpie-root .wpie-mlm-row:hover .acts { display: flex; }
+
+#wpie-root .wpie-mlm-row:hover .ct { display: none; }
+
+#wpie-root .wpie-mlm-row .acts button {
+	border: none; background: transparent; color: var(--text-secondary); cursor: pointer;
+	width: 20px; height: 20px; border-radius: 4px; display: grid; place-items: center;
+}
+
+#wpie-root .wpie-mlm-row .acts button:hover { background: var(--surface-panel); color: var(--text-primary); }
+
+#wpie-root .wpie-mlm-empty { font-size: 12px; color: var(--text-secondary); padding: 4px 8px; }
+
+#wpie-root .wpie-mlm-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 0; }
+
+#wpie-root .wpie-mlm-chip {
+	display: inline-flex; align-items: center; border-radius: 999px; overflow: hidden;
+	max-width: 100%; background: var(--surface-input); border: 1px solid var(--border-hairline);
+}
+
+#wpie-root .wpie-mlm-chip.active { border-color: var(--accent); background: var(--accent-soft, rgba(59,102,255,.14)); }
+
+#wpie-root .wpie-mlm-chip .lbl { display: inline-flex; align-items: center; gap: 5px; min-width: 0; border: none; background: transparent; color: var(--text-primary); font-size: 12px; padding: 3px 4px 3px 10px; cursor: pointer; }
+
+#wpie-root .wpie-mlm-chip .lbl .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+
+#wpie-root .wpie-mlm-chip .lbl b { flex: 0 0 auto; color: var(--text-secondary); font-weight: 600; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+
+#wpie-root .wpie-mlm-chip.active .lbl b { color: var(--accent); }
+
+#wpie-root .wpie-mlm-chip .x { border: none; background: transparent; color: var(--text-secondary); cursor: pointer; display: grid; place-items: center; padding: 0 7px 0 3px; flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-chip .x:hover { color: var(--danger, #d63638); }
+
+#wpie-root .wpie-mlm-tagmore {
+	display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 6px; padding: 4px 8px;
+	border: none; background: none; cursor: pointer; border-radius: 6px;
+	color: var(--text-secondary); font: inherit; font-size: 12px;
+}
+
+#wpie-root .wpie-mlm-tagmore:hover { background: var(--surface-hover, rgba(127,127,127,.12)); color: var(--text-primary); }
+
+#wpie-root .wpie-mlm-tagmore .chev { font-size: 10px; }
+
+#wpie-root .wpie-mlm-cluster {
+	margin-top: 6px; display: flex; align-items: center; gap: 6px; justify-content: center;
+	width: 100%; padding: 7px; border-radius: 6px; cursor: pointer; font-size: 12.5px;
+	border: 1px dashed var(--border-hairline); background: transparent; color: var(--text-primary);
+}
+
+#wpie-root .wpie-mlm-cluster:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+#wpie-root .wpie-mlm-cluster:disabled { opacity: .5; cursor: not-allowed; }
+
+#wpie-root .wpie-mlm-index {
+	font-size: 11.5px; color: var(--text-secondary);
+	display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 6px; background: var(--surface-input);
+}
+
+#wpie-root .wpie-mlm-index button { align-self: flex-start; border: 1px solid var(--border-hairline); background: var(--surface-panel); color: var(--text-primary); border-radius: 5px; padding: 3px 8px; font-size: 12px; cursor: pointer; }
+
+#wpie-root .wpie-mlm-main { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+
+#wpie-root .wpie-mlm-tools { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-hairline); flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-viewname { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+
+#wpie-root .wpie-mlm-count { font-size: 12px; color: var(--text-secondary); flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-spacer { flex: 1 1 auto; }
+
+#wpie-root .wpie-mlm-grid {
+	flex: 1 1 auto; overflow-y: auto; padding: 12px;
+	display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; align-content: start;
+}
+
+#wpie-root .wpie-mlm-tile {
+	position: relative; display: block; height: 130px; border-radius: 8px; overflow: hidden;
+	border: 2px solid var(--border-hairline); background: var(--surface-input); cursor: pointer; padding: 0;
+}
+
+#wpie-root .wpie-mlm-tile.sel { border-color: var(--accent); }
+
+#wpie-root .wpie-mlm-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Non-image files (audio, PDF, documents): mime icon + type label instead
+   of a broken thumbnail (v1.243). */
+#wpie-root .wpie-mlm-filetile {
+	display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center;
+	width: 100%; height: 100%; background: var(--bg-app);
+}
+
+#wpie-root .wpie-mlm-filetile img { width: 42px; height: 42px; object-fit: contain; }
+
+#wpie-root .wpie-mlm-filetile b {
+	font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--ls-caps);
+	color: var(--text-muted);
+}
+
+#wpie-root .wpie-mlm-tile .tick { position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 4px; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center; }
+
+#wpie-root .wpie-mlm-tile.sel .tick { background: var(--accent); }
+
+#wpie-root .wpie-mlm-tile .badge { position: absolute; bottom: 4px; left: 4px; background: var(--danger, #d63638); color: #fff; font-size: 9px; border-radius: 3px; padding: 1px 4px; }
+
+#wpie-root .wpie-mlm-tile .edit {
+	position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 4px;
+	background: rgba(0,0,0,.5); color: #fff; border: none; cursor: pointer; opacity: 0;
+	display: grid; place-items: center; transition: opacity var(--dur-fast) var(--ease);
+}
+
+#wpie-root .wpie-mlm-tile:hover .edit { opacity: 1; }
+
+/* Copy-URL sits under the edit pencil, same hover reveal (v1.244). */
+#wpie-root .wpie-mlm-tile .copy {
+	position: absolute; top: 28px; right: 4px; width: 20px; height: 20px; border-radius: 4px;
+	background: rgba(0,0,0,.5); color: #fff; border: none; cursor: pointer; opacity: 0;
+	display: grid; place-items: center; transition: opacity var(--dur-fast) var(--ease);
+}
+
+#wpie-root .wpie-mlm-tile:hover .copy { opacity: 1; }
+
+/* Preview eye under copy, same hover reveal (v1.244.1). */
+#wpie-root .wpie-mlm-tile .view {
+	position: absolute; top: 52px; right: 4px; width: 20px; height: 20px; border-radius: 4px;
+	background: rgba(0,0,0,.5); color: #fff; border: none; cursor: pointer; opacity: 0;
+	display: grid; place-items: center; transition: opacity var(--dur-fast) var(--ease);
+}
+
+#wpie-root .wpie-mlm-tile:hover .view { opacity: 1; }
+
+/* Large preview lightbox (v1.244.1): image/video/audio/PDF over the
+   manager, arrow keys step through the current list. */
+#wpie-root .wpie-mlm-preview {
+	position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.75);
+	display: grid; place-items: center;
+}
+
+#wpie-root .wpie-mlm-preview .inner {
+	position: relative; display: flex; flex-direction: column; gap: 10px;
+	max-width: 94vw; max-height: 94vh;
+}
+
+#wpie-root .wpie-mlm-preview .stage {
+	display: grid; place-items: center; min-width: min(640px, 90vw); min-height: 200px;
+	overflow: hidden; border-radius: var(--r-md);
+}
+
+#wpie-root .wpie-mlm-preview .stage img,
+#wpie-root .wpie-mlm-preview .stage video {
+	max-width: 94vw; max-height: calc(94vh - 70px); object-fit: contain; border-radius: var(--r-md);
+}
+
+#wpie-root .wpie-mlm-preview .stage iframe {
+	width: min(1100px, 94vw); height: calc(94vh - 70px); border: none; border-radius: var(--r-md); background: #fff;
+}
+
+#wpie-root .wpie-mlm-preview .audiobox,
+#wpie-root .wpie-mlm-preview .docbox {
+	display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center;
+	min-width: min(520px, 90vw); padding: 40px 24px; color: var(--text-primary);
+	background: var(--surface-panel); border: 1px solid var(--border-hairline); border-radius: var(--r-md);
+}
+
+#wpie-root .wpie-mlm-preview .audiobox img,
+#wpie-root .wpie-mlm-preview .docbox img { width: 56px; height: 56px; object-fit: contain; }
+
+#wpie-root .wpie-mlm-preview .audiobox audio { width: min(460px, 84vw); }
+
+#wpie-root .wpie-mlm-preview .bar {
+	display: flex; gap: 8px; align-items: center; padding: 8px 10px;
+	background: var(--surface-panel); border: 1px solid var(--border-hairline); border-radius: var(--r-md);
+}
+
+#wpie-root .wpie-mlm-preview .bar .info { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+
+#wpie-root .wpie-mlm-preview .bar .info b {
+	overflow: hidden; color: var(--text-primary); font-size: var(--fs-sm);
+	text-overflow: ellipsis; white-space: nowrap;
+}
+
+#wpie-root .wpie-mlm-preview .bar .info span {
+	overflow: hidden; color: var(--text-muted); font-size: var(--fs-xs);
+	text-overflow: ellipsis; white-space: nowrap;
+}
+
+#wpie-root .wpie-mlm-preview .nav {
+	position: absolute; top: 50%; width: 34px; height: 34px; border-radius: 50%;
+	background: rgba(0, 0, 0, 0.55); color: #fff; border: none; cursor: pointer;
+	display: grid; place-items: center; transform: translateY(-50%);
+}
+
+#wpie-root .wpie-mlm-preview .nav:hover { background: var(--accent); }
+
+#wpie-root .wpie-mlm-preview .nav.prev { left: -44px; }
+
+#wpie-root .wpie-mlm-preview .nav.prev svg { transform: rotate(180deg); }
+
+#wpie-root .wpie-mlm-preview .nav.next { right: -44px; }
+
+/* Inline playback (v1.244): one slim button on video/audio tiles. */
+#wpie-root .wpie-mlm-tile video { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+#wpie-root .wpie-mlm-playbtn {
+	position: absolute; bottom: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%;
+	background: rgba(0,0,0,.6); color: #fff; border: none; cursor: pointer;
+	display: grid; place-items: center;
+}
+
+#wpie-root .wpie-mlm-playbtn:hover { background: var(--accent); }
+
+/* List view (v1.244): same scroll container, rows instead of tiles. */
+#wpie-root .wpie-mlm-listwrap { display: flex; flex-direction: column; gap: 2px; }
+
+#wpie-root .wpie-mlm-lrow {
+	display: grid; grid-template-columns: 44px minmax(140px, 2fr) 70px 90px 70px 96px minmax(80px, 1fr) 88px;
+	gap: 10px; align-items: center; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+	border: 1px solid transparent; font-size: var(--fs-sm); color: var(--text-secondary);
+	text-align: left; background: none; width: 100%;
+}
+
+#wpie-root .wpie-mlm-lrow:hover { background: var(--surface-input); }
+
+#wpie-root .wpie-mlm-lrow.sel { background: var(--surface-input); border-color: var(--accent); }
+
+#wpie-root .wpie-mlm-lrow .rthumb {
+	position: relative; width: 44px; height: 34px; border-radius: 4px; overflow: hidden;
+	background: var(--surface-input); flex: none;
+}
+
+#wpie-root .wpie-mlm-lrow .rthumb img,
+#wpie-root .wpie-mlm-lrow .rthumb video { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+#wpie-root .wpie-mlm-lrow .rthumb img.ricon { object-fit: contain; padding: 4px; }
+
+#wpie-root .wpie-mlm-lrow .rtitle { min-width: 0; overflow: hidden; }
+
+#wpie-root .wpie-mlm-lrow .rtitle b {
+	display: block; overflow: hidden; color: var(--text-primary);
+	font-weight: var(--fw-medium); text-overflow: ellipsis; white-space: nowrap;
+}
+
+#wpie-root .wpie-mlm-lrow .rtitle small {
+	display: block; overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap;
+}
+
+#wpie-root .wpie-mlm-lrow .rcol { overflow: hidden; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+
+#wpie-root .wpie-mlm-lrow .racts { display: flex; gap: 4px; justify-content: flex-end; }
+
+#wpie-root .wpie-mlm-lrow .racts button {
+	width: 22px; height: 22px; border-radius: 4px; background: none; border: none; cursor: pointer;
+	color: var(--text-muted); display: grid; place-items: center;
+}
+
+#wpie-root .wpie-mlm-lrow .racts button:hover { color: var(--text-primary); background: var(--surface-input); }
+
+#wpie-root .wpie-mlm-listhead {
+	display: grid; grid-template-columns: 44px minmax(140px, 2fr) 70px 90px 70px 96px minmax(80px, 1fr) 88px;
+	gap: 10px; padding: 2px 8px; font-size: var(--fs-xs); color: var(--text-muted);
+	text-transform: uppercase; letter-spacing: var(--ls-caps);
+}
+
+#wpie-root .wpie-mlm-viewtoggle { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border-hairline); border-radius: 6px; }
+
+#wpie-root .wpie-mlm-viewtoggle button {
+	width: 24px; height: 22px; border: none; border-radius: 4px; background: none;
+	color: var(--text-muted); cursor: pointer; display: grid; place-items: center;
+}
+
+#wpie-root .wpie-mlm-viewtoggle button.on { background: var(--surface-input); color: var(--text-primary); }
+
+#wpie-root .wpie-mlm-tile .meta {
+	position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 6px 5px;
+	background: linear-gradient(transparent, rgba(0,0,0,.82)); color: #fff; font-size: 10px;
+	opacity: 0; transition: opacity var(--dur-fast) var(--ease); pointer-events: none;
+}
+
+#wpie-root .wpie-mlm-tile:hover .meta { opacity: 1; }
+
+#wpie-root .wpie-mlm-tile .meta b { font-weight: 600; }
+
+#wpie-root .wpie-mlm-tile .meta span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#wpie-root .wpie-mlm-noitems { grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+
+#wpie-root .wpie-mlm-bulk {
+	flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+	padding: 10px 14px; border-top: 1px solid var(--border-hairline); background: var(--bg-app);
+}
+
+#wpie-root .wpie-mlm-bulk .cnt { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+
+#wpie-root .wpie-mlm-act { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+
+/* Button-height selects (v1.255.2): wp-admin's `.wp-core-ui select`
+   forces min-height 40px (the v1.218 lesson), so the declared height
+   never applied - override min-height too, and out-specify the 22px
+   dsm-select.sm rule so the bar lines up with its .ai-btn.sm buttons. */
+#wpie-root .wpie-mlm-act select.dsm-select.sm {
+	max-width: 160px;
+	height: 26px;
+	min-height: 26px;
+}
+
+#wpie-root .ai-btn.danger:hover:not(:disabled) { filter: brightness( 1.08 ); }
+
+#wpie-root .ai-btn.danger:disabled { opacity: .5; }
+
+#wpie-root .wpie-mlm-cluster-panel {
+	width: min(560px, 94%); max-height: 84%; overflow: hidden; display: flex; flex-direction: column;
+	background: var(--surface-panel); border: 1px solid var(--border-hairline); border-radius: var(--r-lg, 10px);
+	box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .wpie-mlm-cluster-panel .head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border-hairline); }
+
+#wpie-root .wpie-mlm-cluster-panel .sub { padding: 8px 14px; font-size: 12px; color: var(--text-secondary); }
+
+#wpie-root .wpie-mlm-cluster-panel .list { overflow-y: auto; padding: 0 14px 14px; display: grid; gap: 10px; flex: 1 1 auto; min-height: 0; }
+
+#wpie-root .wpie-mlm-cl { display: flex; gap: 12px; align-items: center; border: 1px solid var(--border-hairline); border-radius: 8px; padding: 10px; }
+
+#wpie-root .wpie-mlm-cl img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-cl .body { flex: 1 1 auto; min-width: 0; display: grid; gap: 6px; }
+
+#wpie-root .wpie-mlm-cl .n { font-size: 12px; color: var(--text-secondary); }
+
+#wpie-root .wpie-mlm-cl .row { display: flex; gap: 8px; }
+
+#wpie-root .wpie-mlm-cl .row input { flex: 1 1 auto; height: 30px; background: var(--surface-input); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); color: var(--text-primary); font-size: 12px; padding: 0 8px; }
+
+@media ( max-width: 820px ) {
+
+	#wpie-root .wpie-mlm-body { flex-direction: column; }
+
+	#wpie-root .wpie-mlm-side { flex: none; border-right: none; border-bottom: 1px solid var(--border-hairline); max-height: 220px; }
+
+	#wpie-root .wpie-mlm-searchwrap { max-width: none; }
+}
+
+/* v1.190.0: filter bar, color swatches, duplicate panel, grid perf. */
+#wpie-root .wpie-mlm-filters {
+	display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+	padding: 8px 14px; border-bottom: 1px solid var(--border-hairline); flex: 0 0 auto;
+}
+
+/* Selects are .dsm-select now; keep only sizing so the shared chevron shows. */
+#wpie-root .wpie-mlm-filters select { max-width: 160px; }
+
+/* All seven filter dropdowns in one even row below the toggles (v1.245.3). */
+#wpie-root .wpie-mlm-filterrow {
+	display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px;
+	padding: 8px 14px; border-bottom: 1px solid var(--border-hairline); flex: 0 0 auto;
+}
+
+#wpie-root .wpie-mlm-filterrow select { width: 100%; max-width: none; min-width: 0; }
+
+#wpie-root .wpie-mlm-swatches { display: flex; align-items: center; gap: 4px; }
+
+#wpie-root .wpie-mlm-swatches .sw {
+	width: 18px; height: 18px; border-radius: 50%; cursor: pointer; padding: 0;
+	border: 2px solid var(--border-hairline); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+}
+
+#wpie-root .wpie-mlm-swatches .sw:hover { transform: scale( 1.12 ); }
+
+#wpie-root .wpie-mlm-swatches .sw.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+#wpie-root .wpie-mlm-clearf {
+	border: none; background: transparent; color: var(--accent); cursor: pointer;
+	font-size: 12px; padding: 2px 4px; text-decoration: underline;
+}
+
+/* Off-screen tiles skip rendering: thousands stay smooth (no scroll death). */
+
+#wpie-root .wpie-mlm-dup { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-hairline); border-radius: 8px; padding: 10px; }
+
+#wpie-root .wpie-mlm-dup .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+
+#wpie-root .wpie-mlm-dup .th { position: relative; width: 56px; height: 56px; border-radius: 6px; overflow: hidden; border: 2px solid var(--border-hairline); }
+
+#wpie-root .wpie-mlm-dup .th.keep { border-color: var(--ok, #00a32a); }
+
+#wpie-root .wpie-mlm-dup .th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+#wpie-root .wpie-mlm-dup .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+#wpie-root .wpie-mlm-dup .row .n { font-size: 12px; color: var(--text-secondary); }
+
+/* v1.191.0: blue sidebar actions at the bottom, modal footer, editable tag
+   chips in the per-image editor, modern selectable duplicate panel, affixes. */
+#wpie-root .wpie-mlm-side-foot { position: relative; margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+
+#wpie-root .wpie-mlm-act-btn {
+	display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+	height: 30px; padding: 0 10px; box-sizing: border-box; border-radius: var(--r-sm); cursor: pointer;
+	font-size: 12px; font-weight: 500;
+	border: 1px solid var(--accent); background: var(--accent); color: #fff;
+}
+
+#wpie-root .wpie-mlm-act-btn:hover:not(:disabled) { filter: brightness( 1.08 ); }
+
+#wpie-root .wpie-mlm-act-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+#wpie-root .wpie-mlm-link-btn {
+	display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+	height: 30px; padding: 0 10px; box-sizing: border-box; border-radius: var(--r-sm); cursor: pointer;
+	font-size: 12px; font-weight: 500;
+	border: 1px solid var(--border-hairline); background: var(--surface-input); color: var(--text-primary);
+}
+
+#wpie-root .wpie-mlm-link-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+#wpie-root .wpie-mlm-tile .badge.size { background: rgba(0,0,0,.72); left: auto; right: 4px; }
+
+#wpie-root .wpie-mlm-clhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+#wpie-root .wpie-mlm-clhead .acts { display: flex; gap: 6px; flex: 0 0 auto; }
+
+/* v1.194.0: smart upload / import panel. */
+#wpie-root .wpie-mlm-uploadopts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border-hairline); }
+
+#wpie-root .wpie-mlm-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-primary); cursor: pointer; }
+
+#wpie-root .wpie-mlm-uprow { display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-hairline); border-radius: 8px; padding: 8px; }
+
+#wpie-root .wpie-mlm-uprow.skip { opacity: .45; }
+
+#wpie-root .wpie-mlm-uprow img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; }
+
+/* Non-image uploads (PDF, v1.332): a type badge instead of a broken img. */
+#wpie-root .wpie-mlm-uprow .ph {
+	width: 56px; height: 56px; border-radius: 6px; flex: 0 0 auto;
+	display: flex; align-items: center; justify-content: center;
+	background: var(--bg-app);
+	font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--ls-caps);
+	color: var(--text-muted);
+}
+
+#wpie-root .wpie-mlm-uprow .body { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
+
+#wpie-root .wpie-mlm-uprow .n { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#wpie-root .wpie-mlm-uprow .hint { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+
+#wpie-root .wpie-mlm-uprow .dup { font-size: 11px; color: var(--warn, #bb8009); }
+
+#wpie-root .wpie-mlm-cluster-panel > .dsm-foot { flex: 0 0 auto; }
+
+/* v1.195.0: collapsible tags + tag cloud, Library Tools slide-up, rename. */
+#wpie-root .wpie-mlm-sectitle { display: flex; align-items: center; gap: 6px; }
+
+#wpie-root .wpie-mlm-sechead .acts { display: flex; gap: 2px; flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-tagcloud { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 4px 4px 2px; }
+
+#wpie-root .wpie-mlm-tagcloud .cl { border: none; background: none; padding: 0; cursor: pointer; color: var(--text-primary); line-height: 1.1; }
+
+#wpie-root .wpie-mlm-tagcloud .cl:hover { color: var(--accent); }
+
+#wpie-root .wpie-mlm-tagcloud .cl.active { color: var(--accent); font-weight: 700; }
+
+#wpie-root .wpie-mlm-tools-menu {
+	position: absolute; left: 0; right: 0; bottom: calc( 100% + 6px ); z-index: 40;
+	display: flex; flex-direction: column; gap: 6px;
+	padding: 8px; border-radius: var(--r-sm); border: 1px solid var(--border-hairline);
+	background: var(--surface-raised, var(--surface-input));
+	box-shadow: 0 14px 34px rgba( 0, 0, 0, .3 );
+	max-height: 62vh; overflow-y: auto;
+	animation: wpie-mlm-slideup .15s var(--ease, ease);
+}
+
+@keyframes wpie-mlm-slideup {
+
+ from { opacity: 0; transform: translateY( 8px ); }
+
+ to { opacity: 1; transform: none; } }
+
+/* Lives in the dialog footer now (v1.245.3), accent-primary. */
+#wpie-root .wpie-mlm-toolsbtn { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; box-sizing: border-box; border-radius: var(--r-sm); cursor: pointer; font-size: 12.5px; font-weight: 600; border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+
+#wpie-root .wpie-mlm-toolsbtn:hover, #wpie-root .wpie-mlm-toolsbtn.open { filter: brightness( 1.08 ); }
+
+#wpie-root .wpie-mlm-footleft { display: flex; gap: 12px; align-items: center; min-width: 0; }
+
+/* Width = longest menu entry (v1.250.2): an invisible sizer with the
+   menu labels shares the grid cell with the button, so the wrap - and
+   with it the button and the left/right-pinned menu - grows to fit the
+   labels instead of wrapping them (the v1.245.4 button-width menu did). */
+#wpie-root .wpie-mlm-toolswrap { position: relative; flex: none; display: inline-grid; }
+
+#wpie-root .wpie-mlm-tools-sizer,
+#wpie-root .wpie-mlm-toolswrap .wpie-mlm-toolsbtn { grid-area: 1 / 1; }
+
+#wpie-root .wpie-mlm-tools-sizer { visibility: hidden; height: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+/* Per-entry horizontal extras mirrored: menu padding 8 + border 1 +
+   button padding 10 + icon 14 + gap 6 = 29px per side. */
+#wpie-root .wpie-mlm-tools-sizer span { white-space: nowrap; font-size: 12px; font-weight: 500; padding: 0 29px; }
+
+#wpie-root .wpie-mlm-toolswrap .wpie-mlm-toolsbtn { width: 100%; justify-content: center; }
+
+#wpie-root .wpie-mlm-toolswrap .wpie-mlm-tools-menu { right: 0; left: 0; min-width: 0; bottom: calc( 100% + 4px ); }
+
+#wpie-root .wpie-mlm-tools-menu .wpie-mlm-link-btn { white-space: nowrap; }
+
+#wpie-root .wpie-mlm-toolsbtn .chev { margin-left: auto; color: var(--text-secondary); }
+
+#wpie-root .wpie-mlm-renamerow { display: flex; gap: 6px; align-items: center; padding: 0 14px 8px; }
+
+#wpie-root .wpie-mlm-renamerow input { flex: 1; min-width: 0; height: 30px; background: var(--surface-input); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); color: var(--text-primary); font-size: 13px; padding: 0 8px; }
+
+#wpie-root .wpie-mlm-renameprev { display: flex; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; }
+
+#wpie-root .wpie-mlm-renameprev .old { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+
+#wpie-root .wpie-mlm-renameprev .arr { color: var(--text-secondary); flex: 0 0 auto; }
+
+#wpie-root .wpie-mlm-renameprev .new { color: var(--text-primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#wpie-root .wpie-mlm-dialog > .dsm-foot { flex: 0 0 auto; }
+
+#wpie-root .wpie-me-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 4px; }
+
+#wpie-root .wpie-mlm-cluster-panel.wide { width: min( 820px, 96% ); }
+
+#wpie-root .wpie-mlm-dup .dth {
+	position: relative; width: 104px; height: 104px; border-radius: 8px; overflow: hidden;
+	border: 3px solid var(--border-hairline); background: var(--surface-input); cursor: pointer; padding: 0;
+}
+
+#wpie-root .wpie-mlm-dup .dth img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+#wpie-root .wpie-mlm-dup .dth.keep { border-color: var(--ok, #00a32a); }
+
+#wpie-root .wpie-mlm-dup .dth.del { border-color: var(--danger, #d63638); }
+
+#wpie-root .wpie-mlm-dup .dth.del img { opacity: .5; }
+
+#wpie-root .wpie-mlm-dup .dth .mark {
+	position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
+	display: grid; place-items: center; color: #fff;
+}
+
+#wpie-root .wpie-mlm-dup .dth.keep .mark { background: var(--ok, #00a32a); }
+
+#wpie-root .wpie-mlm-dup .dth.del .mark { background: var(--danger, #d63638); }
+
+#wpie-root .wpie-alt-affix-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0; cursor: pointer; }
+
+#wpie-root .wpie-alt-affix { margin-top: 6px; display: grid; gap: 8px; }
+
+#wpie-root .wpie-alt-affix .hint { font-size: 11px; color: var(--text-secondary); }
+
+#wpie-root .wpie-alt-affix .row { display: grid; gap: 3px; }
+
+#wpie-root .wpie-alt-affix .row > span { font-size: 11px; color: var(--text-secondary); }
+
+#wpie-root .wpie-alt-affix .pair { display: flex; gap: 6px; }
+
+#wpie-root .wpie-alt-affix .affix-in { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; }
+
+#wpie-root .wpie-alt-affix .affix-in input { flex: 1; min-width: 0; }
+
+#wpie-root .wpie-alt-affix .acts { display: flex; gap: 6px; align-items: center; }
+
+/* v1.192.0: wide per-image detail modal (preview + all info + editable). */
+#wpie-root .wpie-me-modal {
+	width: min( 900px, 96% ); max-height: 92%; display: flex; flex-direction: column; overflow: hidden;
+	background: var(--surface-panel); border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg, 10px); box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .wpie-me-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border-hairline); flex: 0 0 auto; }
+
+#wpie-root .wpie-me-head b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The buttons live in the dialog's dsm-foot since v1.351.0, so the body just
+   fills whatever is left between head and foot. */
+#wpie-root .wpie-me-body { display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+
+#wpie-root .wpie-me-left {
+	flex: 0 0 300px; padding: 14px; overflow-y: auto; background: var(--bg-app);
+	border-right: 1px solid var(--border-hairline); display: flex; flex-direction: column; gap: 12px;
+}
+
+#wpie-root .wpie-me-preview { width: 100%; max-height: 240px; object-fit: contain; border-radius: 8px; background: var(--surface-input); }
+
+#wpie-root .wpie-me-details { display: grid; gap: 6px; margin: 0; }
+
+#wpie-root .wpie-me-row { display: flex; gap: 8px; font-size: 12px; }
+
+#wpie-root .wpie-me-row dt { flex: 0 0 92px; color: var(--text-secondary); margin: 0; }
+
+#wpie-root .wpie-me-row dd { margin: 0; color: var(--text-primary); word-break: break-word; }
+
+#wpie-root .wpie-me-colors { display: inline-flex; gap: 4px; }
+
+#wpie-root .wpie-me-colors .sw { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border-hairline); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+
+#wpie-root .wpie-me-url { display: flex; gap: 6px; }
+
+#wpie-root .wpie-me-url input { flex: 1; min-width: 0; font-size: 11px; background: var(--surface-input); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); color: var(--text-secondary); padding: 4px 6px; }
+
+#wpie-root .wpie-me-right { flex: 1 1 auto; min-width: 0; padding: 14px; overflow-y: auto; display: grid; gap: 10px; align-content: start; }
+
+#wpie-root .wpie-me-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+@media ( max-width: 720px ) {
+
+	#wpie-root .wpie-me-body { flex-direction: column; }
+
+	#wpie-root .wpie-me-left { flex: none; border-right: none; border-bottom: 1px solid var(--border-hairline); }
+}
+
+/* ---------------------------------------------------------------------------
+   Usage panel + library cleanup (v1.351.0)
+   --------------------------------------------------------------------------- */
+
+#wpie-root .wpie-usage {
+	margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-hairline);
+	display: flex; flex-direction: column; gap: 8px;
+}
+
+#wpie-root .wpie-usage-head {
+	font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+	color: var(--text-secondary);
+}
+
+#wpie-root .wpie-usage-muted { font-size: 12px; color: var(--text-muted); }
+
+#wpie-root .wpie-usage-verdict {
+	display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500;
+}
+
+#wpie-root .wpie-usage-verdict.ok { color: var(--ok, #2f9e5f); }
+
+#wpie-root .wpie-usage-verdict.warn { color: var(--warn, #c98a12); }
+
+#wpie-root .wpie-usage-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+
+#wpie-root .wpie-usage-list li { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; }
+
+#wpie-root .wpie-usage-icon { flex: 0 0 auto; color: var(--text-muted); margin-top: 1px; }
+
+#wpie-root .wpie-usage-where { display: flex; flex-direction: column; min-width: 0; }
+
+#wpie-root .wpie-usage-where a { color: var(--text-primary); text-decoration: none; }
+
+#wpie-root .wpie-usage-where a:hover { color: var(--accent); text-decoration: underline; }
+
+#wpie-root .wpie-usage-where em { font-style: normal; font-size: 11px; color: var(--text-muted); }
+
+#wpie-root .wpie-usage-note { margin: 0; font-size: 11px; line-height: 1.5; color: var(--text-muted); }
+
+#wpie-root .wpie-credits .wpie-alt-field { margin: 0; }
+
+/* --- cleanup dialog --- */
+
+/* Inherits frame, radius and shadow from .wpie-mlm-cluster-panel.wide, like
+   every other sub-modal in the manager. Only the extra width is ours. */
+#wpie-root .wpie-mlm-cluster-panel.wide.wpie-cleanup { width: min( 920px, 96% ); }
+
+#wpie-root .wpie-cleanup .sub { padding-bottom: 10px; border-bottom: 1px solid var(--border-hairline); }
+
+#wpie-root .wpie-cleanup-scan { padding: 9px 14px; border-bottom: 1px solid var(--border-hairline); background: var(--bg-app); }
+
+#wpie-root .wpie-cleanup-scanrow {
+	display: flex; align-items: center; justify-content: space-between; gap: 12px;
+	font-size: 12px; color: var(--text-secondary);
+}
+
+#wpie-root .wpie-cleanup-progress { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+
+#wpie-root .wpie-cleanup-bar {
+	height: 5px; border-radius: 3px; background: var(--surface-input); overflow: hidden;
+}
+
+#wpie-root .wpie-cleanup-bar span { display: block; height: 100%; background: var(--accent); transition: width .2s ease; }
+
+#wpie-root .wpie-cleanup-progress em { font-style: normal; font-size: 11px; color: var(--text-muted); }
+
+#wpie-root .wpie-cleanup-counts {
+	display: grid; grid-template-columns: repeat( auto-fit, minmax( 150px, 1fr ) );
+	gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .wpie-cleanup-count {
+	position: relative; overflow: hidden; padding: 10px 12px 10px 15px;
+	border-radius: var(--r-md, 8px); background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	display: flex; flex-direction: column; gap: 3px;
+}
+
+/* A 3px edge in the verdict's own colour. Enough to group the four cards at a
+   glance without turning the panel into a traffic light. */
+#wpie-root .wpie-cleanup-count::before {
+	content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+	background: var(--text-disabled);
+}
+
+#wpie-root .wpie-cleanup-count.ok::before { background: var(--success); }
+
+#wpie-root .wpie-cleanup-count.warn::before { background: var(--warning); }
+
+#wpie-root .wpie-cleanup-count strong {
+	font-size: 22px; font-weight: 600; line-height: 1.1;
+	font-variant-numeric: tabular-nums; color: var(--text-primary);
+}
+
+#wpie-root .wpie-cleanup-count span { font-size: 11px; line-height: 1.35; color: var(--text-secondary); }
+
+#wpie-root .wpie-cleanup-count.ok strong { color: var(--success); }
+
+#wpie-root .wpie-cleanup-count.warn strong { color: var(--warning); }
+
+#wpie-root .wpie-cleanup-count.muted strong { color: var(--text-secondary); }
+
+#wpie-root .wpie-cleanup-tabs { display: flex; gap: 2px; padding: 8px 14px 0; }
+
+#wpie-root .wpie-cleanup-tab {
+	padding: 7px 12px; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+	background: none; font-size: 12px; font-weight: 500; color: var(--text-secondary);
+}
+
+#wpie-root .wpie-cleanup-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+#wpie-root .wpie-cleanup-body { flex: 1 1 auto; overflow: auto; padding: 12px 14px 14px; min-height: 0; }
+
+#wpie-root .wpie-cleanup-lead { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: var(--text-secondary); }
+
+#wpie-root .wpie-cleanup-empty { margin: 24px 0; text-align: center; font-size: 12px; color: var(--text-muted); }
+
+#wpie-root .wpie-cleanup-note {
+	margin: 0 14px 10px; padding: 8px 10px; border-radius: var(--r-sm);
+	background: var(--accent-soft); font-size: 12px; color: var(--text-primary);
+}
+
+#wpie-root .wpie-cleanup-body .wpie-cleanup-note { margin-left: 0; margin-right: 0; }
+
+#wpie-root .wpie-cleanup-actions {
+	display: flex; align-items: center; justify-content: space-between; gap: 12px;
+	margin-bottom: 12px; padding: 8px 10px; border-radius: var(--r-md, 8px);
+	background: var(--surface-input); border: 1px solid var(--border-hairline);
+	font-size: 12px; flex-wrap: wrap;
+}
+
+#wpie-root .wpie-cleanup-actions label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+#wpie-root .wpie-cleanup-grid {
+	display: grid; grid-template-columns: repeat( auto-fill, minmax( 104px, 1fr ) ); gap: 8px;
+}
+
+#wpie-root .wpie-cleanup-tile {
+	position: relative; padding: 0; border: 2px solid transparent; border-radius: var(--r-sm);
+	background: var(--surface-input); cursor: pointer; overflow: hidden; aspect-ratio: 1;
+}
+
+#wpie-root .wpie-cleanup-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+#wpie-root .wpie-cleanup-tile.sel { border-color: var(--accent); }
+
+#wpie-root .wpie-cleanup-tilemeta {
+	position: absolute; right: 3px; bottom: 3px; padding: 1px 5px; border-radius: 3px;
+	background: rgba(0,0,0,.72); color: #fff; font-size: 10px;
+}
+
+#wpie-root .wpie-cleanup-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+#wpie-root .wpie-cleanup-files li {
+	display: flex; align-items: center; justify-content: space-between; gap: 10px;
+	padding: 7px 10px; border-radius: var(--r-sm); font-size: 12px;
+	border: 1px solid var(--border-hairline); background: transparent;
+	transition: background var(--dur-fast, .12s) var(--ease, ease);
+}
+
+#wpie-root .wpie-cleanup-files li:hover { background: var(--surface-input); }
+
+#wpie-root .wpie-cleanup-files label { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; cursor: pointer; }
+
+#wpie-root .wpie-cleanup-files img { width: 30px; height: 30px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; }
+
+#wpie-root .wpie-cleanup-files code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+
+#wpie-root .wpie-cleanup-files em { font-style: normal; color: var(--text-muted); font-size: 11px; flex: 0 0 auto; }
+
+#wpie-root .wpie-cleanup-files .wpie-mlm-link-btn { width: auto; flex: 0 0 auto; }
+
+/* --- replace image --- */
+
+#wpie-root .wpie-mlm-cluster-panel.wide.wpie-replace { width: min( 720px, 96% ); }
+
+#wpie-root .wpie-replace-body { padding: 12px 14px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+
+#wpie-root .wpie-replace-pair { display: flex; align-items: center; gap: 12px; }
+
+#wpie-root .wpie-replace-side {
+	flex: 1 1 0; min-width: 0; margin: 0; padding: 8px; border-radius: var(--r-sm);
+	background: var(--surface-input); display: flex; flex-direction: column; gap: 6px; align-items: center;
+}
+
+#wpie-root .wpie-replace-side.drop { border: 1px dashed var(--border-strong); background: transparent; }
+
+#wpie-root .wpie-replace-side.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+
+#wpie-root .wpie-replace-cap {
+	align-self: flex-start; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+	text-transform: uppercase; color: var(--text-secondary);
+}
+
+#wpie-root .wpie-replace-side img { max-width: 100%; max-height: 190px; object-fit: contain; border-radius: 4px; }
+
+#wpie-root .wpie-replace-side figcaption {
+	font-size: 11px; color: var(--text-secondary); text-align: center;
+	display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+}
+
+#wpie-root .wpie-replace-side figcaption .wpie-mlm-link-btn { width: auto; height: 24px; font-size: 11px; }
+
+#wpie-root .wpie-replace-picker {
+	width: 100%; min-height: 170px; border: 0; background: none; cursor: pointer;
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+	color: var(--text-secondary); font-size: 12px;
+}
+
+#wpie-root .wpie-replace-picker:hover { color: var(--accent); }
+
+#wpie-root .wpie-replace-arrow { flex: 0 0 auto; color: var(--text-muted); transform: rotate(-90deg); }
+
+#wpie-root .wpie-replace-mode { margin: 14px 0 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px; }
+
+#wpie-root .wpie-replace-mode legend {
+	padding: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+	text-transform: uppercase; color: var(--text-secondary);
+}
+
+#wpie-root .wpie-replace-mode label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+
+#wpie-root .wpie-replace-mode label > span { display: flex; flex-direction: column; gap: 2px; }
+
+#wpie-root .wpie-replace-mode b { font-size: 12px; font-weight: 500; }
+
+#wpie-root .wpie-replace-mode em { font-style: normal; font-size: 11px; line-height: 1.45; color: var(--text-muted); }
+
+#wpie-root .wpie-replace-foot {
+	display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .wpie-me-replace { margin-top: 8px; }
+
+/* --- replace: crop mask and options --- */
+
+#wpie-root .wpie-replace-opts { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+#wpie-root .wpie-replace-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+
+#wpie-root .wpie-replace-check > span { display: flex; flex-direction: column; gap: 2px; }
+
+#wpie-root .wpie-replace-check b { font-size: 12px; font-weight: 500; }
+
+#wpie-root .wpie-replace-check em { font-style: normal; font-size: 11px; line-height: 1.45; color: var(--text-muted); }
+
+#wpie-root .wpie-replace-hint {
+	display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 8px 10px;
+	border-radius: var(--r-sm); background: var(--accent-soft);
+	font-size: 11px; line-height: 1.5; color: var(--text-primary);
+}
+
+#wpie-root .wpie-replace-crop { display: flex; gap: 12px; align-items: flex-start; }
+
+#wpie-root .wpie-replace-cropmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+#wpie-root .wpie-replace-croprow {
+	display: flex; align-items: center; justify-content: space-between; gap: 8px;
+	font-size: 11px; color: var(--text-secondary);
+}
+
+#wpie-root .wpie-replace-croprow .wpie-mlm-link-btn { width: auto; height: 26px; font-size: 11px; }
+
+#wpie-root .wpie-replace-crop > .wpie-replace-side { flex: 0 0 190px; }
+
+/* The mask is positioned in percentages of this box, so the box has to BE the
+   rendered image and nothing more. width:100% plus object-fit:contain letterboxes
+   the picture inside a wider container, and every percentage then refers to the
+   container rather than the pixels, which tilts the mask off the crop it claims
+   to show. Shrink-wrapping the image fixes the geometry at any aspect ratio. */
+#wpie-root .wpie-cropbox {
+	position: relative; line-height: 0; user-select: none; touch-action: none;
+	display: block; width: fit-content; max-width: 100%; margin: 0 auto;
+
+	/* The mask dims everything outside itself with a huge spread box-shadow.
+	   Without clipping here that shadow covers the whole dialog and every label
+	   in it reads through a 50% black veil. */
+	overflow: hidden;
+}
+
+#wpie-root .wpie-cropbox img { display: block; max-width: 100%; max-height: 320px; width: auto; height: auto; }
+
+#wpie-root .wpie-cropbox-mask {
+	position: absolute; cursor: move; box-shadow: 0 0 0 9999px rgba(0,0,0,.5);
+	outline: 1px solid #fff; outline-offset: -1px;
+}
+
+#wpie-root .wpie-cropbox-mask:focus-visible { outline: 2px solid var(--accent); }
+
+/* Handles sit inside the mask rather than straddling its edge, so clipping the
+   container cannot cut them off when the selection touches a border. */
+#wpie-root .wpie-cropbox-h {
+	position: absolute; width: 11px; height: 11px; background: #fff; border-radius: 2px;
+	box-shadow: 0 0 0 1px rgba(0,0,0,.45);
+}
+
+#wpie-root .wpie-cropbox-h.nw { left: 0; top: 0; cursor: nwse-resize; }
+
+#wpie-root .wpie-cropbox-h.ne { right: 0; top: 0; cursor: nesw-resize; }
+
+#wpie-root .wpie-cropbox-h.sw { left: 0; bottom: 0; cursor: nesw-resize; }
+
+#wpie-root .wpie-cropbox-h.se { right: 0; bottom: 0; cursor: nwse-resize; }
+
+
+/* --- manager sub-modals on the system dialog shell (v1.351.0) --- */
+
+#wpie-root .wpie-mlm-cluster-panel > .dsm-head { flex: 0 0 auto; }
+
+/* Tabs in the detail editor's left column. Details, usage and licence stacked
+   made the dialog as tall as their sum, which is what made it unreadable. */
+#wpie-root .wpie-me-tabs {
+	display: flex; gap: 2px; border-bottom: 1px solid var(--border-hairline);
+	margin: 2px 0 4px;
+}
+
+#wpie-root .wpie-me-tab {
+	flex: 1 1 0; padding: 6px 4px; border: 0; border-bottom: 2px solid transparent;
+	background: none; cursor: pointer; font-size: 11px; font-weight: 500;
+	color: var(--text-secondary);
+}
+
+#wpie-root .wpie-me-tab:hover { color: var(--text-primary); }
+
+#wpie-root .wpie-me-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* A panel sitting under a tab of the same name needs no border or caption of
+   its own; the tab already says what it is. */
+#wpie-root .wpie-usage.bare { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* An orphan has no attachment and therefore no generated thumbnail, so the
+   preview is the file itself, loaded lazily and boxed to a fixed square. */
+#wpie-root .wpie-cleanup-orphanthumb {
+	width: 34px; height: 34px; flex: 0 0 auto; border-radius: 4px;
+	object-fit: cover; background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+}
+
+#wpie-root .wpie-cleanup-orphanthumb.none {
+	display: inline-flex; align-items: center; justify-content: center;
+	color: var(--text-muted);
+}

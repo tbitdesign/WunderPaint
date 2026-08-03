@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-night-sky",
+ "name": "Night Sky",
+ "kind": "radial",
+ "stops": [
+  {
+   "color": "#1e3a8a",
+   "at": 0
+  },
+  {
+   "color": "#0b1020",
+   "at": 1
+  }
+ ]
+}

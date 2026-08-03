@@ -1,0 +1,148 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-kpi-stack-fintech-proof",
+	"label": "KPI Stack - Fintech Proof",
+	"w": 390,
+	"h": 198,
+	"layers": [
+		{
+			"id": "kip8we4",
+			"type": "text",
+			"name": "KPI Stack - Fintech Proof",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 390,
+			"h": 37,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "NUMBERS THAT MATTER",
+			"fontSize": 28,
+			"fontFamily": "Bebas Neue",
+			"weight": 400,
+			"color": "#111827",
+			"align": "left",
+			"letterSpacing": 2,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "NUMBERS",
+					"s": {
+						"color": "#2563eb"
+					}
+				},
+				{
+					"text": " THAT MATTER",
+					"s": null
+				}
+			]
+		},
+		{
+			"id": "k2mn8tx",
+			"type": "text",
+			"name": "KPI Stack - Fintech Proof",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 48,
+			"w": 380,
+			"h": 150,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "$2.4B  moved every month\n190+  countries served\n99.99%  uptime, all year",
+			"fontSize": 32,
+			"fontFamily": "Archivo",
+			"weight": 400,
+			"color": "#6b7280",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.5,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "$2.4B",
+					"s": {
+						"size": 32,
+						"weight": 800,
+						"color": "#2563eb"
+					}
+				},
+				{
+					"text": "  moved every month\n",
+					"s": {
+						"size": 16
+					}
+				},
+				{
+					"text": "190+",
+					"s": {
+						"size": 32,
+						"weight": 800,
+						"color": "#2563eb"
+					}
+				},
+				{
+					"text": "  countries served\n",
+					"s": {
+						"size": 16
+					}
+				},
+				{
+					"text": "99.99%",
+					"s": {
+						"size": 32,
+						"weight": 800,
+						"color": "#2563eb"
+					}
+				},
+				{
+					"text": "  uptime, all year",
+					"s": {
+						"size": 16
+					}
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

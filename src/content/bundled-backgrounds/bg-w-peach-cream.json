@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-peach-cream",
+ "name": "Peach Cream",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#ffd9c9",
+   "at": 0
+  },
+  {
+   "color": "#ffb4a2",
+   "at": 1
+  }
+ ]
+}

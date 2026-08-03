@@ -1,0 +1,182 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-study-plan-finals-week",
+	"label": "Study Plan - Finals Week",
+	"w": 665,
+	"h": 232,
+	"layers": [
+		{
+			"id": "ld01qa8",
+			"type": "text",
+			"name": "Study Plan - Finals Week",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 665,
+			"h": 58,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "FINALS WEEK GAME PLAN",
+			"fontSize": 44,
+			"fontFamily": "Amatic SC",
+			"weight": 700,
+			"color": "#111827",
+			"align": "left",
+			"letterSpacing": 1,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "ympi3wq",
+			"type": "shape",
+			"name": "Study Plan - Finals Week",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 58,
+			"w": 90,
+			"h": 5,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"shape": "rect",
+			"fill": "#0ea5e9",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 3,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "c93u0qj",
+			"type": "text",
+			"name": "Study Plan - Finals Week",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 80,
+			"w": 290,
+			"h": 152,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "MON  Stats ch. 4 to 6\nTUE  Essay draft done\nWED  Bio flashcards ×3\nTHU  Timed mock exam\nFRI  Review, early night",
+			"fontSize": 17,
+			"fontFamily": "Bitter",
+			"weight": 400,
+			"color": "#1f2937",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.7,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "MON",
+					"s": {
+						"weight": 700,
+						"color": "#0ea5e9",
+						"ls": 1
+					}
+				},
+				{
+					"text": "  Stats ch. 4 to 6\n",
+					"s": null
+				},
+				{
+					"text": "TUE",
+					"s": {
+						"weight": 700,
+						"color": "#0ea5e9",
+						"ls": 1
+					}
+				},
+				{
+					"text": "  Essay draft done\n",
+					"s": null
+				},
+				{
+					"text": "WED",
+					"s": {
+						"weight": 700,
+						"color": "#0ea5e9",
+						"ls": 1
+					}
+				},
+				{
+					"text": "  Bio flashcards ×3\n",
+					"s": null
+				},
+				{
+					"text": "THU",
+					"s": {
+						"weight": 700,
+						"color": "#0ea5e9",
+						"ls": 1
+					}
+				},
+				{
+					"text": "  Timed mock exam\n",
+					"s": null
+				},
+				{
+					"text": "FRI",
+					"s": {
+						"weight": 700,
+						"color": "#0ea5e9",
+						"ls": 1
+					}
+				},
+				{
+					"text": "  Review, early night",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

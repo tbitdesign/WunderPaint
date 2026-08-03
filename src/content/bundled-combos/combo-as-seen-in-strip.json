@@ -1,0 +1,139 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-as-seen-in-strip",
+	"label": "As Seen In Strip",
+	"w": 700,
+	"h": 74,
+	"layers": [
+		{
+			"id": "2r0exvf",
+			"type": "text",
+			"name": "As Seen In Strip",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 700,
+			"h": 16,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "AS SEEN IN",
+			"fontSize": 11,
+			"fontFamily": "Inter",
+			"weight": 700,
+			"color": "#b45309",
+			"align": "center",
+			"letterSpacing": 5,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "3ysyzx5",
+			"type": "text",
+			"name": "As Seen In Strip",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 32,
+			"w": 700,
+			"h": 42,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "FORBES     WIRED     TechCrunch     THE VERGE",
+			"fontSize": 26,
+			"fontFamily": "DM Serif Display",
+			"weight": 400,
+			"color": "#334155",
+			"align": "center",
+			"letterSpacing": 0,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "FORBES",
+					"s": {
+						"size": 26,
+						"family": "DM Serif Display",
+						"ls": 2
+					}
+				},
+				{
+					"text": "     ",
+					"s": null
+				},
+				{
+					"text": "WIRED",
+					"s": {
+						"size": 30,
+						"family": "Bebas Neue",
+						"ls": 5
+					}
+				},
+				{
+					"text": "     ",
+					"s": null
+				},
+				{
+					"text": "TechCrunch",
+					"s": {
+						"size": 24,
+						"family": "Inter",
+						"weight": 800
+					}
+				},
+				{
+					"text": "     ",
+					"s": null
+				},
+				{
+					"text": "THE VERGE",
+					"s": {
+						"size": 26,
+						"family": "DM Serif Display",
+						"italic": true,
+						"ls": 1
+					}
+				}
+			]
+		}
+	],
+	"category": "quotes"
+}

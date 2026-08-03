@@ -1,0 +1,514 @@
+/*
+ * Help Assistant chat, Chart & Table Studio, the icon/emoji picker and the
+ * extension UI kit rows.
+ *
+ * Split out of editor.css in v1.345.0, which had reached 11.030 lines - the
+ * largest hand-written file in the plugin. Load ORDER IS THE CASCADE: this
+ * file is pulled in by editor.css at its original position and must stay
+ * there.
+ */
+
+/* ------------------------------------------------------------------ */
+
+/* Help Assistant chat (v1.253): docks bottom-left next to the tool
+   rail; the Navigator lives bottom-right and stays clear. */
+
+#wpie-root .wpie-helpbot {
+	position: fixed;
+	left: 72px;
+	bottom: 18px;
+	z-index: 99000;
+	display: flex;
+	flex-direction: column;
+	width: 360px;
+	max-width: calc(100vw - 420px);
+	height: 480px;
+	max-height: calc(100vh - 160px);
+	background: var(--surface-raised, var(--surface-input));
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md, 10px);
+	box-shadow: 0 18px 44px rgb(0 0 0 / 35%);
+	overflow: hidden;
+	animation: wpie-mlm-slideup 0.16s var(--ease, ease);
+}
+
+/* CI-black header like the editor titlebar (stays dark in both
+   themes); the brand mark brings its own colors. */
+#wpie-root .wpie-helpbot-head {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	padding: 11px 12px;
+	background: #1d2327;
+	border-bottom: 1px solid rgb(255 255 255 / 8%);
+	flex-shrink: 0;
+}
+
+#wpie-root .wpie-helpbot-head strong {
+	font-size: 14px;
+	font-weight: 600;
+	color: #fff;
+}
+
+#wpie-root .wpie-helpbot-badge {
+	display: inline-flex;
+	align-items: center;
+	flex: none;
+
+	/* The head stays CI black in both themes, so the mark keeps its
+	   dark-theme ink (the titlebar .wpie-brandmark rule, v1.255.1). */
+	color: #fdfdfd;
+}
+
+#wpie-root .wpie-helpbot-clear,
+#wpie-root .wpie-helpbot-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	border-radius: 5px;
+	color: rgb(255 255 255 / 65%);
+	cursor: pointer;
+}
+
+#wpie-root .wpie-helpbot-clear { margin-left: auto; }
+
+#wpie-root .wpie-helpbot-clear:hover,
+#wpie-root .wpie-helpbot-close:hover {
+	background: rgb(255 255 255 / 10%);
+	color: #fff;
+}
+
+#wpie-root .wpie-helpbot-head strong + .wpie-helpbot-close { margin-left: auto; }
+
+#wpie-root .wpie-helpbot-list {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#wpie-root .wpie-helpbot-note,
+#wpie-root .wpie-helpbot-empty p {
+	font-size: 12px;
+	color: var(--text-secondary);
+	line-height: 1.5;
+	margin: 0 0 10px;
+}
+
+#wpie-root .wpie-helpbot-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+#wpie-root .wpie-helpbot-pills button {
+	padding: 5px 10px;
+	font-size: 11.5px;
+	color: var(--text-primary);
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: 999px;
+	cursor: pointer;
+	text-align: left;
+}
+
+#wpie-root .wpie-helpbot-pills button:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+#wpie-root .wpie-helpbot-msg {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: flex-start;
+}
+
+#wpie-root .wpie-helpbot-msg.user { align-items: flex-end; }
+
+#wpie-root .wpie-helpbot-bubble {
+	max-width: 88%;
+	padding: 8px 11px;
+	font-size: 12.5px;
+	line-height: 1.5;
+	color: var(--text-primary);
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: 10px;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+#wpie-root .wpie-helpbot-msg.user .wpie-helpbot-bubble {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+}
+
+#wpie-root .wpie-helpbot-msg.error .wpie-helpbot-bubble {
+	border-color: #d63638;
+	color: #d63638;
+}
+
+#wpie-root .wpie-helpbot-tourbtn { align-self: flex-start; }
+
+#wpie-root .wpie-helpbot-typing {
+	display: inline-flex;
+	gap: 4px;
+	align-items: center;
+}
+
+#wpie-root .wpie-helpbot-typing span {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--text-secondary);
+	animation: wpie-helpbot-blink 1.2s infinite both;
+}
+
+#wpie-root .wpie-helpbot-typing span:nth-child(2) { animation-delay: 0.2s; }
+
+#wpie-root .wpie-helpbot-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes wpie-helpbot-blink {
+
+ 0%,
+ 80%,
+ 100% { opacity: 0.25; }
+
+ 40% { opacity: 1; } }
+
+#wpie-root .wpie-helpbot-inputrow {
+	display: flex;
+	gap: 8px;
+	padding: 10px 12px;
+	border-top: 1px solid var(--border-hairline);
+	flex-shrink: 0;
+}
+
+#wpie-root .wpie-helpbot-inputrow input {
+	flex: 1;
+	min-width: 0;
+	height: 30px;
+	padding: 0 10px;
+	font-size: 12.5px;
+	color: var(--text-primary);
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .wpie-helpbot-inputrow input:focus {
+	border-color: var(--accent);
+	outline: none;
+}
+
+/* Send stretches to the row, so it always matches the input exactly -
+   wp-admin renders the field taller than its declared 30px. */
+#wpie-root .wpie-helpbot-inputrow .ai-btn {
+	height: auto;
+	align-self: stretch;
+}
+
+/* ------------------------- Chart & Table Studio (v1.269) ------------------------- */
+#wpie-root .chs-dialog { width: min(1400px, 96vw); height: min(800px, 92vh); grid-template-rows: auto 1fr auto; position: relative; }
+
+#wpie-root .chs-body { display: grid; grid-template-columns: 300px 1fr 300px; gap: 0; min-height: 0; overflow: hidden; }
+
+#wpie-root .chs-gallery { border-right: 1px solid var(--ed-border); overflow-y: auto; padding: 12px; }
+
+#wpie-root .chs-gallery h4 { margin: 10px 2px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ed-text-muted); }
+
+#wpie-root .chs-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+#wpie-root .chs-type-card { padding: 0; border: 1px solid var(--ed-border-strong); border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--ed-panel-alt); display: grid; gap: 0; }
+
+#wpie-root .chs-type-card img { width: 100%; display: block; background: #fff; aspect-ratio: 8 / 5; object-fit: cover; }
+
+#wpie-root .chs-type-card .chs-type-blank { display: block; aspect-ratio: 8 / 5; background: #fff; }
+
+#wpie-root .chs-type-card span.chs-type-label { font-size: 10.5px; padding: 4px 2px 5px; text-align: center; color: var(--ed-text); }
+
+#wpie-root .chs-type-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+#wpie-root .chs-center { display: grid; grid-template-rows: minmax(0, 1fr) minmax(150px, 44%); min-width: 0; min-height: 0; }
+
+#wpie-root .chs-center.data-collapsed { grid-template-rows: minmax(0, 1fr) auto; }
+
+#wpie-root .chs-preview { margin: 14px; border: 1px solid var(--ed-border-strong); border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 0; }
+
+#wpie-root .chs-preview img { max-width: 100%; max-height: 100%; display: block; }
+
+#wpie-root .chs-preview-hint { font-size: 11px; color: #5c6470; padding: 12px; text-align: center; }
+
+#wpie-root .chs-data { border-top: 1px solid var(--ed-border); padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; min-height: 0; }
+
+#wpie-root .chs-data-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+#wpie-root .chs-data-bar .spacer { flex: 1; }
+
+#wpie-root .chs-grid-wrap { overflow: auto; flex: 1; min-height: 0; border: 1px solid var(--ed-border-strong); border-radius: 6px; }
+
+#wpie-root .chs-grid { border-collapse: collapse; width: 100%; font-size: 12px; }
+
+#wpie-root .chs-grid th, #wpie-root .chs-grid td { border: 1px solid var(--ed-border); padding: 0; position: relative; min-width: 72px; }
+
+#wpie-root .chs-grid th { background: var(--ed-panel-alt); }
+
+#wpie-root .stock-dialog .chs-grid input[type='text'], #wpie-root .chs-grid input { width: 100%; border: 0; background: transparent; color: var(--ed-text); font-size: 12px; padding: 5px 7px; outline: none; }
+
+#wpie-root .chs-grid th input { font-weight: 600; }
+
+#wpie-root .chs-grid td:focus-within, #wpie-root .chs-grid th:focus-within { outline: 1.5px solid var(--accent); outline-offset: -1px; }
+
+#wpie-root .chs-rowhead { width: 26px; min-width: 26px !important; text-align: center; color: var(--ed-text-muted); font-size: 10px; cursor: pointer; user-select: none; }
+
+#wpie-root .chs-colmenu { position: absolute; top: 100%; left: 0; z-index: 40; background: var(--ed-panel); border: 1px solid var(--ed-border-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); padding: 6px; display: grid; gap: 2px; min-width: 176px; text-align: left; font-weight: 400; }
+
+#wpie-root .chs-colmenu button, #wpie-root .chs-colmenu select { text-align: left; font-size: 12px; padding: 5px 8px; border: 0; background: transparent; color: var(--ed-text); border-radius: 5px; cursor: pointer; }
+
+#wpie-root .chs-colmenu button:hover { background: var(--ed-panel-alt); }
+
+#wpie-root .chs-colmenu button:disabled { opacity: 0.4; cursor: default; }
+
+#wpie-root .chs-side { border-left: 1px solid var(--ed-border); overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+
+#wpie-root .chs-card { flex: none; overflow: hidden; background: var(--ed-panel-alt); border: 1px solid var(--ed-border); border-radius: 10px; }
+
+#wpie-root .chs-card-head { display: flex; gap: 9px; align-items: center; padding: 12px 14px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: var(--ed-text-dim, #b9c0cc); text-transform: uppercase; }
+
+#wpie-root .chs-card-head svg { flex: none; opacity: 0.85; }
+
+#wpie-root .chs-card-body { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px 13px; }
+
+#wpie-root .chs-prow { display: flex; gap: 8px; align-items: center; min-width: 0; }
+
+#wpie-root .chs-lbl { flex: 0 0 92px; font-size: 11px; color: var(--ed-text-muted); }
+
+#wpie-root .chs-prow .dsm-select, #wpie-root .chs-prow input[type='range'] { flex: 1; min-width: 0; }
+
+#wpie-root .chs-prow input[type='text'] { flex: 1; min-width: 0; }
+
+#wpie-root .chs-val { flex: 0 0 36px; font-size: 11px; color: var(--ed-text); text-align: right; }
+
+#wpie-root .chs-field { display: grid; gap: 4px; font-size: 12px; }
+
+#wpie-root .chs-confirm { display: flex; gap: 8px; align-items: center; font-size: 12px; background: var(--ed-panel-alt); border: 1px solid var(--ed-border-strong); border-radius: 6px; padding: 6px 10px; }
+
+#wpie-root .chs-import-overlay { position: absolute; inset: 0; background: var(--ed-panel); z-index: 30; display: grid; grid-template-rows: auto 1fr auto; border-radius: inherit; }
+
+#wpie-root .chs-import-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--ed-border); font-weight: 600; }
+
+#wpie-root .chs-import-body { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: 0; }
+
+#wpie-root .chs-import-side { border-right: 1px solid var(--ed-border); padding: 12px; display: grid; gap: 10px; align-content: start; overflow-y: auto; }
+
+#wpie-root .chs-import-main { padding: 12px; overflow: auto; }
+
+#wpie-root .chs-import-foot { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--ed-border); }
+
+#wpie-root .chs-fieldlist { display: grid; gap: 4px; max-height: 300px; overflow-y: auto; }
+
+#wpie-root .chs-fieldlist label { display: flex; gap: 8px; align-items: center; font-size: 12px; padding: 3px 4px; border-radius: 4px; }
+
+#wpie-root .chs-fieldlist label:hover { background: var(--ed-panel-alt); }
+
+@media (max-width: 1000px) {
+
+	#wpie-root .chs-body { grid-template-columns: 220px 1fr 250px; }
+}
+
+#wpie-root .chs-col-grip { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; z-index: 6; }
+
+#wpie-root .chs-col-grip:hover { background: linear-gradient(to right, transparent 3px, var(--accent) 3px, var(--accent) 5px, transparent 5px); }
+
+/* Mounted font picker as a form field (v1.272.2/3): full width, the real
+   select chevron instead of the text caret, dsm-select colors. The exact
+   height is copied from a sibling field at mount time (hosts vary,
+   28..40px) - 28px is only the fallback. */
+#wpie-root .wpie-font-mount { display: block; width: 100%; min-width: 0; }
+
+#wpie-root .wpie-font-mount .font-picker { display: block; width: 100% !important; }
+
+#wpie-root .chs-prow .font-picker { flex: 1; min-width: 0; }
+
+#wpie-root .wpie-font-mount .font-picker-toggle,
+#wpie-root .chs-prow .font-picker-toggle {
+	height: 28px;
+	padding: 0 24px 0 9px;
+	background-color: var(--surface-input);
+	background-image: var(--select-chevron);
+	background-repeat: no-repeat;
+	background-position: right 8px center;
+	background-size: 10px 6px;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .wpie-font-mount .font-picker-toggle > span[aria-hidden],
+#wpie-root .chs-prow .font-picker-toggle > span[aria-hidden] { display: none; }
+
+/* ---- Icon & emoji picker (bridge mountIconPicker, v1.273.0) ---------- */
+#wpie-root .icon-picker {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 220px;
+}
+
+#wpie-root .icon-picker-top {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .icon-picker-top input {
+	flex: 1;
+	min-width: 0;
+	padding: 6px 8px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: var(--r-sm);
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+	font-size: 12px;
+}
+
+#wpie-root .icon-picker-tabs {
+	display: flex;
+	gap: 2px;
+}
+
+#wpie-root .icon-picker-tabs button {
+	padding: 4px 10px;
+	font-size: 11px;
+	border: 1px solid var(--ed-border-strong);
+	background: var(--ed-panel-alt);
+	color: var(--ed-text-dim);
+	border-radius: var(--r-sm);
+	cursor: pointer;
+}
+
+#wpie-root .icon-picker-tabs button.active {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+}
+
+#wpie-root .icon-picker-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+	gap: 4px;
+	overflow-y: auto;
+	padding-right: 2px;
+}
+
+#wpie-root .icon-picker-grid > button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 1;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--ed-text);
+	cursor: pointer;
+	padding: 0;
+}
+
+#wpie-root .icon-picker-grid > button:hover {
+	border-color: var(--ed-border-strong);
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .icon-picker-emoji {
+	font-size: 18px;
+	line-height: 1;
+}
+
+#wpie-root .icon-picker-empty {
+	grid-column: 1 / -1;
+	font-size: 12px;
+	color: var(--ed-text-dim);
+	padding: 10px;
+}
+
+/* ---- Extension UI kit rows (bridge ui.*, v1.273.0) ------------------- */
+#wpie-root .dsm-card-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
+	color: var(--text-muted);
+}
+
+#wpie-root .dsm-card-head svg {
+	width: 14px;
+	height: 14px;
+	flex: 0 0 auto;
+}
+
+#wpie-root .dsm-card-body {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#wpie-root .dsm-rowline {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+#wpie-root .dsm-rowline-label {
+	flex: 0 0 auto;
+	min-width: 86px;
+	font-size: 12px;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .dsm-rowline-value {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+#wpie-root .dsm-sliderrow {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+#wpie-root .dsm-sliderrow-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 12px;
+	color: var(--ed-text);
+}
+
+#wpie-root .dsm-sliderrow-val {
+	font-variant-numeric: tabular-nums;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .dsm-checkrow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--ed-text);
+	cursor: pointer;
+}

@@ -1,0 +1,1414 @@
+[
+	{
+		"name": "Black → White",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#000000",
+				"at": 0
+			},
+			{
+				"color": "#ffffff",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "White → Black",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ffffff",
+				"at": 0
+			},
+			{
+				"color": "#000000",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Fade out",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#000000",
+				"at": 0
+			},
+			{
+				"color": "rgba(0,0,0,0)",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "White fade",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ffffff",
+				"at": 0
+			},
+			{
+				"color": "rgba(255,255,255,0)",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Sunset",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff512f",
+				"at": 0
+			},
+			{
+				"color": "#f9d423",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Dawn",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff9966",
+				"at": 0
+			},
+			{
+				"color": "#ff5e62",
+				"at": 0.5
+			},
+			{
+				"color": "#845ec2",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Fire",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fff95b",
+				"at": 0
+			},
+			{
+				"color": "#ff1e00",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Amber",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ffb347",
+				"at": 0
+			},
+			{
+				"color": "#ffcc33",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Peach",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ffecd2",
+				"at": 0
+			},
+			{
+				"color": "#fcb69f",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Coral",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff9a9e",
+				"at": 0
+			},
+			{
+				"color": "#fecfef",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Ocean",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#2193b0",
+				"at": 0
+			},
+			{
+				"color": "#6dd5ed",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Sky",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#56ccf2",
+				"at": 0
+			},
+			{
+				"color": "#e0f7ff",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Deep sea",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#0f2027",
+				"at": 0
+			},
+			{
+				"color": "#2c5364",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Arctic",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#83a4d4",
+				"at": 0
+			},
+			{
+				"color": "#b6fbff",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Blue hour",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#0f0c29",
+				"at": 0
+			},
+			{
+				"color": "#302b63",
+				"at": 0.5
+			},
+			{
+				"color": "#24243e",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Royal",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#141e30",
+				"at": 0
+			},
+			{
+				"color": "#3b66ff",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Forest",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#134e5e",
+				"at": 0
+			},
+			{
+				"color": "#71b280",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Emerald",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#348f50",
+				"at": 0
+			},
+			{
+				"color": "#56b4d3",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Lime",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#a8e063",
+				"at": 0
+			},
+			{
+				"color": "#56ab2f",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Mint",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#76b852",
+				"at": 0
+			},
+			{
+				"color": "#8dc26f",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Berry",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#8e2de2",
+				"at": 0
+			},
+			{
+				"color": "#f953c6",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Grape",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#5f2c82",
+				"at": 0
+			},
+			{
+				"color": "#49a09d",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Candy",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#fc5c7d",
+				"at": 0
+			},
+			{
+				"color": "#6a82fb",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Rose",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#e55d87",
+				"at": 0
+			},
+			{
+				"color": "#5fc3e4",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Lavender",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#c471f5",
+				"at": 0
+			},
+			{
+				"color": "#fa71cd",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Magenta",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#41295a",
+				"at": 0
+			},
+			{
+				"color": "#d53369",
+				"at": 0.5
+			},
+			{
+				"color": "#f45c43",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Neon",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#00f5ff",
+				"at": 0
+			},
+			{
+				"color": "#ff00e5",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Synthwave",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#7303c0",
+				"at": 0
+			},
+			{
+				"color": "#ec38bc",
+				"at": 0.5
+			},
+			{
+				"color": "#fdeff9",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Vaporwave",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff71ce",
+				"at": 0
+			},
+			{
+				"color": "#b967ff",
+				"at": 0.5
+			},
+			{
+				"color": "#01cdfe",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Aurora",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#00c9ff",
+				"at": 0
+			},
+			{
+				"color": "#92fe9d",
+				"at": 0.5
+			},
+			{
+				"color": "#c471f5",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Rainbow",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff0000",
+				"at": 0
+			},
+			{
+				"color": "#ff9900",
+				"at": 0.2
+			},
+			{
+				"color": "#ffee00",
+				"at": 0.4
+			},
+			{
+				"color": "#33cc33",
+				"at": 0.6
+			},
+			{
+				"color": "#3366ff",
+				"at": 0.8
+			},
+			{
+				"color": "#9900ff",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Heatmap",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#000428",
+				"at": 0
+			},
+			{
+				"color": "#7303c0",
+				"at": 0.35
+			},
+			{
+				"color": "#ff1e00",
+				"at": 0.7
+			},
+			{
+				"color": "#fff95b",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Gold",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#b8860b",
+				"at": 0
+			},
+			{
+				"color": "#ffd700",
+				"at": 0.5
+			},
+			{
+				"color": "#8b6914",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Silver",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#8e9eab",
+				"at": 0
+			},
+			{
+				"color": "#eef2f3",
+				"at": 0.5
+			},
+			{
+				"color": "#8e9eab",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Chrome",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#c9d6df",
+				"at": 0
+			},
+			{
+				"color": "#f0f5f9",
+				"at": 0.35
+			},
+			{
+				"color": "#52616b",
+				"at": 0.55
+			},
+			{
+				"color": "#c9d6df",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Bronze",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#804a00",
+				"at": 0
+			},
+			{
+				"color": "#cd9b52",
+				"at": 0.5
+			},
+			{
+				"color": "#5c3a11",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Steel",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#232526",
+				"at": 0
+			},
+			{
+				"color": "#7a8b99",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Pastel dream",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#a1c4fd",
+				"at": 0
+			},
+			{
+				"color": "#c2e9fb",
+				"at": 0.5
+			},
+			{
+				"color": "#fbc2eb",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Cotton",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#fbc2eb",
+				"at": 0
+			},
+			{
+				"color": "#a6c1ee",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Cream",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#fdfcfb",
+				"at": 0
+			},
+			{
+				"color": "#e2d1c3",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Midnight",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#232526",
+				"at": 0
+			},
+			{
+				"color": "#414345",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Nightfall",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#2c3e50",
+				"at": 0
+			},
+			{
+				"color": "#4ca1af",
+				"at": 0.5
+			},
+			{
+				"color": "#c4e0e5",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Charcoal",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#16222a",
+				"at": 0
+			},
+			{
+				"color": "#3a6073",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Blue / orange",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#1a2980",
+				"at": 0
+			},
+			{
+				"color": "#ff6a00",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Purple / yellow",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#6a3093",
+				"at": 0
+			},
+			{
+				"color": "#ffd700",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Teal / coral",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#02aab0",
+				"at": 0
+			},
+			{
+				"color": "#ff8177",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Spotlight",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "rgba(255,255,255,0.95)",
+				"at": 0
+			},
+			{
+				"color": "rgba(255,255,255,0)",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Vignette",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "rgba(0,0,0,0)",
+				"at": 0
+			},
+			{
+				"color": "rgba(0,0,0,0.85)",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Sunset Blaze",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff512f",
+				"at": 0.0
+			},
+			{
+				"color": "#dd2476",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Ocean Deep",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#2193b0",
+				"at": 0.0
+			},
+			{
+				"color": "#6dd5ed",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Purple Haze",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#667eea",
+				"at": 0.0
+			},
+			{
+				"color": "#764ba2",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Mango",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ffe259",
+				"at": 0.0
+			},
+			{
+				"color": "#ffa751",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Cherry",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#eb3349",
+				"at": 0.0
+			},
+			{
+				"color": "#f45c43",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Midnight City",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#232526",
+				"at": 0.0
+			},
+			{
+				"color": "#414345",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Cotton Candy",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#fbc2eb",
+				"at": 0.0
+			},
+			{
+				"color": "#a6c1ee",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Northern Lights",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#43cea2",
+				"at": 0.0
+			},
+			{
+				"color": "#185a9d",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Peach Soft",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ffecd2",
+				"at": 0.0
+			},
+			{
+				"color": "#fcb69f",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Royal Blue",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#141e30",
+				"at": 0.0
+			},
+			{
+				"color": "#243b55",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Flamingo",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#f093fb",
+				"at": 0.0
+			},
+			{
+				"color": "#f5576c",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Lime Soda",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#a8ff78",
+				"at": 0.0
+			},
+			{
+				"color": "#78ffd6",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Blood Orange",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#ff9a44",
+				"at": 0.0
+			},
+			{
+				"color": "#fc6076",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Deep Space",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#000428",
+				"at": 0.0
+			},
+			{
+				"color": "#004e92",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Rose Gold",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#f4c4f3",
+				"at": 0.0
+			},
+			{
+				"color": "#fc67fa",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Aquamarine",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#1a2980",
+				"at": 0.0
+			},
+			{
+				"color": "#26d0ce",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Tropic Sunrise",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff9a9e",
+				"at": 0.0
+			},
+			{
+				"color": "#fad0c4",
+				"at": 0.5
+			},
+			{
+				"color": "#fbc2eb",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Deep Sea",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#0f2027",
+				"at": 0.0
+			},
+			{
+				"color": "#203a43",
+				"at": 0.5
+			},
+			{
+				"color": "#2c5364",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Peach Cream",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ffe5d9",
+				"at": 0
+			},
+			{
+				"color": "#ffb4a2",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Deep Ocean",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#0f2027",
+				"at": 0
+			},
+			{
+				"color": "#203a43",
+				"at": 0.5
+			},
+			{
+				"color": "#2c5364",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Candy Floss",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#fbc2eb",
+				"at": 0
+			},
+			{
+				"color": "#a6c1ee",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Emerald City",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#0bab64",
+				"at": 0
+			},
+			{
+				"color": "#3bb78f",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Royal Dusk",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#141e30",
+				"at": 0
+			},
+			{
+				"color": "#243b55",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Sunset Blvd",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff512f",
+				"at": 0
+			},
+			{
+				"color": "#f09819",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Berry Smoothie",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#8e2de2",
+				"at": 0
+			},
+			{
+				"color": "#e94057",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Arctic Sky",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#e0eafc",
+				"at": 0
+			},
+			{
+				"color": "#cfdef3",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Coral Reef",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff9966",
+				"at": 0
+			},
+			{
+				"color": "#ff5e62",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Slate Fade",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#2b303a",
+				"at": 0
+			},
+			{
+				"color": "#4a5160",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Golden Hour Glow",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#f7971e",
+				"at": 0
+			},
+			{
+				"color": "#ffd200",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Lavender Mist",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#e0c3fc",
+				"at": 0
+			},
+			{
+				"color": "#8ec5fc",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Cherry Cola",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#4a0000",
+				"at": 0
+			},
+			{
+				"color": "#b31217",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Mint Chip",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#d9fbe8",
+				"at": 0
+			},
+			{
+				"color": "#4ecca3",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Steel Blue",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#4b79a1",
+				"at": 0
+			},
+			{
+				"color": "#283e51",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Rose Quartz",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#f4c4f3",
+				"at": 0
+			},
+			{
+				"color": "#fc6767",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Aurora Green",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#00c9ff",
+				"at": 0
+			},
+			{
+				"color": "#92fe9d",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Espresso",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#3c2a21",
+				"at": 0
+			},
+			{
+				"color": "#967259",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Bubblegum Pop",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff6fd8",
+				"at": 0
+			},
+			{
+				"color": "#3813c2",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Sandstorm",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#e6dada",
+				"at": 0
+			},
+			{
+				"color": "#c9a66b",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Neon Night",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#0f0c29",
+				"at": 0
+			},
+			{
+				"color": "#302b63",
+				"at": 0.5
+			},
+			{
+				"color": "#24243e",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Tangerine Dream",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#ff8008",
+				"at": 0
+			},
+			{
+				"color": "#ffc837",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Iceberg",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#83a4d4",
+				"at": 0
+			},
+			{
+				"color": "#b6fbff",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Plum Wine",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#3a1c71",
+				"at": 0
+			},
+			{
+				"color": "#d76d77",
+				"at": 0.55
+			},
+			{
+				"color": "#ffaf7b",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Soft Spotlight",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#ffffff",
+				"at": 0
+			},
+			{
+				"color": "#dfe6ee",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Sun Core",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fff7ae",
+				"at": 0
+			},
+			{
+				"color": "#f7971e",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Rose Glow",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#ffd3e0",
+				"at": 0
+			},
+			{
+				"color": "#ff5c8a",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Forest Depth",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#7ddf9c",
+				"at": 0
+			},
+			{
+				"color": "#14532d",
+				"at": 1
+			}
+		]
+	}
+]

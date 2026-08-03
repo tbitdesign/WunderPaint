@@ -1,0 +1,150 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-set-times-festival-lineup",
+	"label": "Set Times - Festival Lineup",
+	"w": 406,
+	"h": 164,
+	"layers": [
+		{
+			"id": "orr1y8r",
+			"type": "text",
+			"name": "Set Times - Festival Lineup",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 406,
+			"h": 39,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "SATURDAY SET TIMES",
+			"fontSize": 30,
+			"fontFamily": "Oswald",
+			"weight": 600,
+			"color": "#18181b",
+			"align": "left",
+			"letterSpacing": 2,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "SATURDAY ",
+					"s": {
+						"color": "#db2777"
+					}
+				},
+				{
+					"text": "SET TIMES",
+					"s": null
+				}
+			]
+		},
+		{
+			"id": "lr9p8oo",
+			"type": "text",
+			"name": "Set Times - Festival Lineup",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 50,
+			"w": 290,
+			"h": 114,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "6:30 PM   Neon Harbor\n8:00 PM   The Marlowes\n9:45 PM   Golden Static\n11:15 PM   DJ Afterglow",
+			"fontSize": 16,
+			"fontFamily": "Space Grotesk",
+			"weight": 400,
+			"color": "#27272a",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.7,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "6:30 PM",
+					"s": {
+						"weight": 700,
+						"color": "#db2777"
+					}
+				},
+				{
+					"text": "   Neon Harbor\n",
+					"s": null
+				},
+				{
+					"text": "8:00 PM",
+					"s": {
+						"weight": 700,
+						"color": "#db2777"
+					}
+				},
+				{
+					"text": "   The Marlowes\n",
+					"s": null
+				},
+				{
+					"text": "9:45 PM",
+					"s": {
+						"weight": 700,
+						"color": "#db2777"
+					}
+				},
+				{
+					"text": "   Golden Static\n",
+					"s": null
+				},
+				{
+					"text": "11:15 PM",
+					"s": {
+						"weight": 700,
+						"color": "#db2777"
+					}
+				},
+				{
+					"text": "   DJ Afterglow",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

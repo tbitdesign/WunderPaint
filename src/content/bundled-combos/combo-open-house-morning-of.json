@@ -1,0 +1,190 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-open-house-morning-of",
+	"label": "Open House - Morning Of",
+	"w": 390,
+	"h": 234,
+	"layers": [
+		{
+			"id": "drmo410",
+			"type": "text",
+			"name": "Open House - Morning Of",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 390,
+			"h": 45,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Open House Morning",
+			"fontSize": 34,
+			"fontFamily": "DM Serif Display",
+			"weight": 400,
+			"color": "#1c1917",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "qxbepem",
+			"type": "text",
+			"name": "Open House - Morning Of",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 1,
+			"y": 54,
+			"w": 250,
+			"h": 18,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "SATURDAY · 10 AM SHARP",
+			"fontSize": 12,
+			"fontFamily": "Inter",
+			"weight": 700,
+			"color": "#9f1239",
+			"align": "left",
+			"letterSpacing": 3,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "ssrpafj",
+			"type": "text",
+			"name": "Open House - Morning Of",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 86,
+			"w": 320,
+			"h": 148,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "✓ Lights on in every room\n✓ Fresh flowers in the entry\n✓ Cookies in the oven\n✓ Sign out by the curb\n✓ Lockbox code confirmed",
+			"fontSize": 17,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#374151",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.65,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "✓ ",
+					"s": {
+						"weight": 700,
+						"color": "#9f1239"
+					}
+				},
+				{
+					"text": "Lights on in every room\n",
+					"s": null
+				},
+				{
+					"text": "✓ ",
+					"s": {
+						"weight": 700,
+						"color": "#9f1239"
+					}
+				},
+				{
+					"text": "Fresh flowers in the entry\n",
+					"s": null
+				},
+				{
+					"text": "✓ ",
+					"s": {
+						"weight": 700,
+						"color": "#9f1239"
+					}
+				},
+				{
+					"text": "Cookies in the oven\n",
+					"s": null
+				},
+				{
+					"text": "✓ ",
+					"s": {
+						"weight": 700,
+						"color": "#9f1239"
+					}
+				},
+				{
+					"text": "Sign out by the curb\n",
+					"s": null
+				},
+				{
+					"text": "✓ ",
+					"s": {
+						"weight": 700,
+						"color": "#9f1239"
+					}
+				},
+				{
+					"text": "Lockbox code confirmed",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

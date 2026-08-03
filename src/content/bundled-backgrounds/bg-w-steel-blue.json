@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-steel-blue",
+ "name": "Steel Blue",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#475569",
+   "at": 0
+  },
+  {
+   "color": "#94a3b8",
+   "at": 1
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-warm-sand",
+ "name": "Warm Sand",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#fde68a",
+   "at": 0
+  },
+  {
+   "color": "#fca5a5",
+   "at": 1
+  }
+ ]
+}

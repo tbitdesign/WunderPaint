@@ -1,0 +1,16 @@
+{
+ "format": "wpie-background@1",
+ "id": "bg-w-sky-fade",
+ "name": "Sky Fade",
+ "kind": "linear",
+ "stops": [
+  {
+   "color": "#7dd3fc",
+   "at": 0
+  },
+  {
+   "color": "#e0f2fe",
+   "at": 1
+  }
+ ]
+}

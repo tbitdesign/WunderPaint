@@ -1,0 +1,195 @@
+{
+	"format": "wpie-combo@1",
+	"id": "combo-launch-checklist-ship-day",
+	"label": "Launch Checklist - Ship Day",
+	"w": 350,
+	"h": 258,
+	"layers": [
+		{
+			"id": "7jebq2i",
+			"type": "text",
+			"name": "Launch Checklist - Ship Day",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 0,
+			"w": 130,
+			"h": 32,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "SHIP DAY",
+			"fontSize": 15,
+			"fontFamily": "Space Grotesk",
+			"weight": 700,
+			"color": "#ffffff",
+			"align": "center",
+			"letterSpacing": 3,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": "#4f46e5",
+			"bgRadius": 10,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "msj2cv4",
+			"type": "text",
+			"name": "Launch Checklist - Ship Day",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 46,
+			"w": 350,
+			"h": 45,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "Launch checklist",
+			"fontSize": 34,
+			"fontFamily": "Space Grotesk",
+			"weight": 700,
+			"color": "#0f172a",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.15,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null
+		},
+		{
+			"id": "9baj2n9",
+			"type": "text",
+			"name": "Launch Checklist - Ship Day",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 0,
+			"y": 106,
+			"w": 290,
+			"h": 152,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"text": "01  Freeze the build\n02  Run smoke tests\n03  Flip the feature flag\n04  Post the changelog\n05  Watch the graphs",
+			"fontSize": 17,
+			"fontFamily": "Inter",
+			"weight": 400,
+			"color": "#1f2937",
+			"align": "left",
+			"letterSpacing": 0,
+			"lineHeight": 1.7,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "01",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 700,
+						"color": "#4f46e5"
+					}
+				},
+				{
+					"text": "  Freeze the build\n",
+					"s": null
+				},
+				{
+					"text": "02",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 700,
+						"color": "#4f46e5"
+					}
+				},
+				{
+					"text": "  Run smoke tests\n",
+					"s": null
+				},
+				{
+					"text": "03",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 700,
+						"color": "#4f46e5"
+					}
+				},
+				{
+					"text": "  Flip the feature flag\n",
+					"s": null
+				},
+				{
+					"text": "04",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 700,
+						"color": "#4f46e5"
+					}
+				},
+				{
+					"text": "  Post the changelog\n",
+					"s": null
+				},
+				{
+					"text": "05",
+					"s": {
+						"family": "Space Grotesk",
+						"weight": 700,
+						"color": "#4f46e5"
+					}
+				},
+				{
+					"text": "  Watch the graphs",
+					"s": null
+				}
+			]
+		}
+	],
+	"category": "lists"
+}

@@ -1,0 +1,479 @@
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 100;
+	font-display: swap;
+	src: url(fonts/inter-100.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 200;
+	font-display: swap;
+	src: url(fonts/inter-200.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(fonts/inter-300.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/inter-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/inter-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/inter-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/inter-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 800;
+	font-display: swap;
+	src: url(fonts/inter-800.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 900;
+	font-display: swap;
+	src: url(fonts/inter-900.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 100;
+	font-display: swap;
+	src: url(fonts/roboto-100.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 200;
+	font-display: swap;
+	src: url(fonts/roboto-200.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(fonts/roboto-300.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/roboto-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/roboto-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/roboto-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/roboto-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 800;
+	font-display: swap;
+	src: url(fonts/roboto-800.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Roboto;
+	font-style: normal;
+	font-weight: 900;
+	font-display: swap;
+	src: url(fonts/roboto-900.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Open Sans";
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(fonts/open-sans-300.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Open Sans";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/open-sans-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Open Sans";
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/open-sans-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Open Sans";
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/open-sans-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Open Sans";
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/open-sans-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Open Sans";
+	font-style: normal;
+	font-weight: 800;
+	font-display: swap;
+	src: url(fonts/open-sans-800.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 100;
+	font-display: swap;
+	src: url(fonts/montserrat-100.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 200;
+	font-display: swap;
+	src: url(fonts/montserrat-200.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(fonts/montserrat-300.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/montserrat-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/montserrat-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/montserrat-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/montserrat-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 800;
+	font-display: swap;
+	src: url(fonts/montserrat-800.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Montserrat;
+	font-style: normal;
+	font-weight: 900;
+	font-display: swap;
+	src: url(fonts/montserrat-900.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 100;
+	font-display: swap;
+	src: url(fonts/poppins-100.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 200;
+	font-display: swap;
+	src: url(fonts/poppins-200.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(fonts/poppins-300.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/poppins-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/poppins-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/poppins-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/poppins-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 800;
+	font-display: swap;
+	src: url(fonts/poppins-800.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Poppins;
+	font-style: normal;
+	font-weight: 900;
+	font-display: swap;
+	src: url(fonts/poppins-900.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Oswald;
+	font-style: normal;
+	font-weight: 200;
+	font-display: swap;
+	src: url(fonts/oswald-200.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Oswald;
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(fonts/oswald-300.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Oswald;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/oswald-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Oswald;
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/oswald-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Oswald;
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/oswald-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Oswald;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/oswald-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Anton;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/anton-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Bebas Neue";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/bebas-neue-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Playfair Display";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/playfair-display-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Playfair Display";
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/playfair-display-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Playfair Display";
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/playfair-display-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Playfair Display";
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/playfair-display-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Playfair Display";
+	font-style: normal;
+	font-weight: 800;
+	font-display: swap;
+	src: url(fonts/playfair-display-800.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Playfair Display";
+	font-style: normal;
+	font-weight: 900;
+	font-display: swap;
+	src: url(fonts/playfair-display-900.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Lora;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(fonts/lora-400.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Lora;
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(fonts/lora-500.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Lora;
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url(fonts/lora-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: Lora;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(fonts/lora-700.woff2) format("woff2");
+}
