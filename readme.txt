@@ -32,7 +32,7 @@ Templates are alive in WunderPaint. Point text and image layers at your posts, p
 * **Real typography**: style single letters, bend text on arcs, run it along any path, fill it with gradients and patterns, or start from designed headline and badge lockups.
 * **Filters and effects** from classic photo looks to Duotone, Halftone, Glitch and Glow, plus color LUTs and one-click enhance.
 * **Charts and tables** built from your data, editable as layers.
-* **360° panoramas**: generate a seamless AI sphere, repair the seam, add linked hotspots and copy a self-contained embed your visitors can walk through.
+* **360° panoramas**: describe a place and get the full sphere, or let a photo you already have become the whole scene around the camera, then add linked hotspots and copy a self-contained embed your visitors can walk through.
 * **Collage & Photo Grid**: grids, mosaics, polaroids, filmstrips and contact sheets from your own photos - inserted as editable layers, not a flat image.
 * **Templates, icons, emoji, shapes and seamless patterns** ready to drop in, plus QR-code layers with your logo.
 * **Brand kit**: set your colors, fonts and logo once and meet them again in every picker.
