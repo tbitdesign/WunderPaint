@@ -381,7 +381,19 @@ class Settings {
 					'tooBig'      => __( 'This file is %1$s MB, but the maximum upload size is %2$s MB (server upload limit).', 'wunderpaint' ),
 					/* translators: 1: number of downloaded families, 2: total number of families */
 					'downloaded'  => __( '%1$d of %2$d additional families downloaded.', 'wunderpaint' ),
+					// Local AI models table (v1.384.5): moved here out of an
+					// inline <script>, so these strings travel the same way
+					// as the ones above.
+					'mlInstalled' => __( 'Installed', 'wunderpaint' ),
+					'mlNotInstalled' => __( 'Not installed', 'wunderpaint' ),
+					'mlDownload'  => __( 'Download', 'wunderpaint' ),
+					'mlRedownload' => __( 'Re-download', 'wunderpaint' ),
+					'mlWorking'   => __( 'Downloading…', 'wunderpaint' ),
+					'mlLoadError' => __( 'Could not load the model list.', 'wunderpaint' ),
+					'mlFailed'    => __( 'Download failed.', 'wunderpaint' ),
 				),
+				'mlListUrl'       => rest_url( WPIE_REST_NS . '/ml-models' ),
+				'mlDownloadUrl'   => rest_url( WPIE_REST_NS . '/ml-models/download' ),
 			)
 		);
 	}
@@ -932,43 +944,28 @@ class Settings {
 							<span><i style="background:#10a37f"></i> OpenAI</span>
 							<span><i style="background:#d97757"></i> Anthropic</span>
 						</div>
-						<script>
-						( function () {
-							var data = <?php echo wp_json_encode( array_map( fn( $d, $v ) => array( 'day' => substr( $d, 5 ), 'g' => round( $v['gemini'], 4 ), 'o' => round( $v['openai'], 4 ), 'a' => round( $v['anthropic'], 4 ) ), array_keys( $series ), array_values( $series ) ) ); ?>;
-							var canvas = document.getElementById( 'wpie-cost-chart' );
-							if ( ! canvas ) { return; }
-							var ctx = canvas.getContext( '2d' );
-							var W = canvas.width, H = canvas.height, padL = 44, padB = 22, padT = 10;
-							var max = 0.01;
-							data.forEach( function ( d ) { max = Math.max( max, d.g + d.o + d.a ); } );
-							ctx.font = '11px sans-serif';
-							ctx.fillStyle = '#646970';
-							ctx.strokeStyle = '#e2e4e7';
-							// y grid: 4 lines
-							for ( var t = 0; t <= 4; t++ ) {
-								var y = padT + ( H - padT - padB ) * ( 1 - t / 4 );
-								ctx.beginPath(); ctx.moveTo( padL, y ); ctx.lineTo( W - 4, y ); ctx.stroke();
-								ctx.fillText( '$' + ( max * t / 4 ).toFixed( 2 ), 2, y + 4 );
-							}
-							var bw = ( W - padL - 8 ) / data.length;
-							data.forEach( function ( d, i ) {
-								var x = padL + i * bw;
-								var y = H - padB;
-								[ [ d.g, '#3b66ff' ], [ d.o, '#10a37f' ], [ d.a, '#d97757' ] ].forEach( function ( seg ) {
-									var h = ( seg[ 0 ] / max ) * ( H - padT - padB );
-									if ( h > 0 ) {
-										ctx.fillStyle = seg[ 1 ];
-										ctx.fillRect( x + 1, y - h, Math.max( 2, bw - 2 ), h );
-										y -= h;
-									}
-								} );
-								if ( 0 === i % 5 ) {
-									ctx.fillStyle = '#646970';
-									ctx.fillText( d.day, x, H - 6 );
-								}
-							} );
-						} )();
-						</script>
+						<?php
+						// The daily series rides along with the settings script instead
+						// of living in an inline <script> (v1.384.5). It is computed
+						// here, and the handle prints in the footer, so handing it over
+						// at this point still reaches the browser before the chart code.
+						wp_add_inline_script(
+							'wpie-admin-settings',
+							'window.WPIE_COST_SERIES = ' . wp_json_encode(
+								array_map(
+									fn( $d, $v ) => array(
+										'day' => substr( $d, 5 ),
+										'g'   => round( $v['gemini'], 4 ),
+										'o'   => round( $v['openai'], 4 ),
+										'a'   => round( $v['anthropic'], 4 ),
+									),
+									array_keys( $series ),
+									array_values( $series )
+								)
+							) . ';',
+							'before'
+						);
+						?>
 					</div>
 
 					<div class="wpie-settings-card">
@@ -1022,70 +1019,21 @@ class Settings {
 						</tr></thead>
 						<tbody id="wpie-ml-list"><tr><td colspan="4"><?php esc_html_e( 'Loading…', 'wunderpaint' ); ?></td></tr></tbody>
 					</table>
-					<?php // The runtime has shipped inside the plugin since v1.316; only the models are fetched (audit 2026-07-28). ?>
-					<p class="description"><?php esc_html_e( 'The runtime ships inside the plugin, so only the models are downloaded, server-to-server from Hugging Face. That can take a while; if one times out, click Download again and it resumes where it left off.', 'wunderpaint' ); ?></p>
+					<?php
+					// The runtime has shipped inside the plugin since v1.316,
+					// so normally only the models are fetched (audit
+					// 2026-07-28). A slimmed build without assets/ort exists
+					// though, and there this panel used to claim the opposite
+					// of what the editor tells the user (v1.384.6). Say what
+					// this build actually has.
+					$runtime = ML_Models::runtime_status();
+					?>
+					<?php if ( empty( $runtime['installed'] ) ) : ?>
+						<p class="description"><?php esc_html_e( 'This build does not include the local AI runtime, so models downloaded here cannot run yet and the features that need them stay disabled.', 'wunderpaint' ); ?></p>
+					<?php else : ?>
+						<p class="description"><?php esc_html_e( 'The runtime ships inside the plugin, so only the models are downloaded, server-to-server from Hugging Face. That can take a while; if one times out, click Download again and it resumes where it left off.', 'wunderpaint' ); ?></p>
+					<?php endif; ?>
 					</div>
-					<script>
-					( function () {
-						var listUrl = <?php echo wp_json_encode( rest_url( WPIE_REST_NS . '/ml-models' ) ); ?>;
-						var dlUrl   = <?php echo wp_json_encode( rest_url( WPIE_REST_NS . '/ml-models/download' ) ); ?>;
-						var nonce   = <?php echo wp_json_encode( wp_create_nonce( 'wp_rest' ) ); ?>;
-						var tbody   = document.getElementById( 'wpie-ml-list' );
-						var T = {
-							installed: <?php echo wp_json_encode( __( 'Installed', 'wunderpaint' ) ); ?>,
-							notInst:   <?php echo wp_json_encode( __( 'Not installed', 'wunderpaint' ) ); ?>,
-							dl:        <?php echo wp_json_encode( __( 'Download', 'wunderpaint' ) ); ?>,
-							redl:      <?php echo wp_json_encode( __( 'Re-download', 'wunderpaint' ) ); ?>,
-							working:   <?php echo wp_json_encode( __( 'Downloading…', 'wunderpaint' ) ); ?>
-						};
-						function esc( s ) { var d = document.createElement( 'div' ); d.textContent = s; return d.innerHTML; }
-						function row( m ) {
-							return '<tr data-id="' + esc( m.id ) + '">' +
-								'<td>' + esc( m.label ) + '<br><small style="color:#666">' + esc( m.repo ) + '</small></td>' +
-								'<td>~' + esc( m.mb ) + ' MB</td>' +
-								'<td class="st">' + ( m.installed ? '✅ ' + T.installed : T.notInst ) + '</td>' +
-								'<td><button type="button" class="button" data-dl="' + esc( m.id ) + '">' + ( m.installed ? T.redl : T.dl ) + '</button></td>' +
-								'</tr>';
-						}
-						function load() {
-							fetch( listUrl, { headers: { 'X-WP-Nonce': nonce } } )
-								.then( function ( r ) { return r.json(); } )
-								.then( function ( d ) {
-									tbody.innerHTML = ( d.models || [] ).map( row ).join( '' );
-								} )
-								.catch( function () { tbody.innerHTML = '<tr><td colspan="4">Error loading models.</td></tr>'; } );
-						}
-						tbody.addEventListener( 'click', function ( e ) {
-							var id = e.target && e.target.getAttribute && e.target.getAttribute( 'data-dl' );
-							if ( ! id ) { return; }
-							var btn = e.target;
-							var st = btn.closest( 'tr' ).querySelector( '.st' );
-							btn.disabled = true; btn.textContent = T.working; st.textContent = '⏳';
-							fetch( dlUrl, {
-								method: 'POST',
-								headers: { 'X-WP-Nonce': nonce, 'Content-Type': 'application/json' },
-								body: JSON.stringify( { id: id } )
-							} )
-								.then( function ( r ) { return r.json(); } )
-								.then( function ( res ) {
-									btn.disabled = false;
-									if ( res && res.installed ) {
-										st.textContent = '✅ ' + T.installed + ' (' + res.downloaded + ' ' + ( res.skipped ? '/ ' + res.skipped + ' skipped' : '' ) + ')';
-										btn.textContent = T.redl;
-									} else {
-										var msg = ( res && ( res.message || ( res.errors && res.errors.join( '; ' ) ) ) ) || 'failed';
-										st.textContent = '⚠️ ' + msg;
-										btn.textContent = T.dl;
-									}
-								} )
-								.catch( function ( err ) {
-									btn.disabled = false; btn.textContent = T.dl;
-									st.textContent = '⚠️ ' + err;
-								} );
-						} );
-						load();
-					} )();
-					</script>
 				</div>
 
 				<div id="wpie-tab-providers" class="wpie-tab-panel">

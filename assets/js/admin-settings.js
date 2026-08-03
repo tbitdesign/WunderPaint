@@ -407,4 +407,174 @@
 				} );
 		} );
 	} )();
+	/*
+	 * AI cost chart (v1.384.5). Was an inline <script> in class-settings.php;
+	 * the daily series is handed over by wp_add_inline_script at the point in
+	 * the page where it is computed, so an empty or missing series simply
+	 * draws nothing.
+	 */
+	( function () {
+		const data = window.WPIE_COST_SERIES || [];
+		const canvas = document.getElementById( 'wpie-cost-chart' );
+		if ( ! canvas || ! data.length ) {
+			return;
+		}
+		const ctx = canvas.getContext( '2d' );
+		const W = canvas.width;
+		const H = canvas.height;
+		const padL = 44;
+		const padB = 22;
+		const padT = 10;
+		let max = 0.01;
+		data.forEach( function ( d ) {
+			max = Math.max( max, d.g + d.o + d.a );
+		} );
+		ctx.font = '11px sans-serif';
+		ctx.fillStyle = '#646970';
+		ctx.strokeStyle = '#e2e4e7';
+		for ( let t = 0; t <= 4; t++ ) {
+			const y = padT + ( H - padT - padB ) * ( 1 - t / 4 );
+			ctx.beginPath();
+			ctx.moveTo( padL, y );
+			ctx.lineTo( W - 4, y );
+			ctx.stroke();
+			ctx.fillText( '$' + ( ( max * t ) / 4 ).toFixed( 2 ), 2, y + 4 );
+		}
+		const bw = ( W - padL - 8 ) / data.length;
+		data.forEach( function ( d, i ) {
+			const x = padL + i * bw;
+			let y = H - padB;
+			[
+				[ d.g, '#3b66ff' ],
+				[ d.o, '#10a37f' ],
+				[ d.a, '#d97757' ],
+			].forEach( function ( seg ) {
+				const h = ( seg[ 0 ] / max ) * ( H - padT - padB );
+				if ( h > 0 ) {
+					ctx.fillStyle = seg[ 1 ];
+					ctx.fillRect( x + 1, y - h, Math.max( 2, bw - 2 ), h );
+					y -= h;
+				}
+			} );
+			if ( 0 === i % 5 ) {
+				ctx.fillStyle = '#646970';
+				ctx.fillText( d.day, x, H - 6 );
+			}
+		} );
+	} )();
+
+	/*
+	 * Local AI models table (v1.384.5). Was an inline <script> in
+	 * class-settings.php; every URL, nonce and string now arrives in the same
+	 * localized object as the rest of this screen.
+	 */
+	( function () {
+		const tbody = document.getElementById( 'wpie-ml-list' );
+		if ( ! tbody || ! S.mlListUrl ) {
+			return;
+		}
+		const T = S.i18n || {};
+		function esc( s ) {
+			const d = document.createElement( 'div' );
+			d.textContent = s;
+			return d.innerHTML;
+		}
+		function row( m ) {
+			return (
+				'<tr data-id="' +
+				esc( m.id ) +
+				'">' +
+				'<td>' +
+				esc( m.label ) +
+				'<br><small style="color:#666">' +
+				esc( m.repo ) +
+				'</small></td>' +
+				'<td>~' +
+				esc( m.mb ) +
+				' MB</td>' +
+				'<td class="st">' +
+				( m.installed
+					? '✅ ' + esc( T.mlInstalled )
+					: esc( T.mlNotInstalled ) ) +
+				'</td>' +
+				'<td><button type="button" class="button" data-dl="' +
+				esc( m.id ) +
+				'">' +
+				( m.installed ? esc( T.mlRedownload ) : esc( T.mlDownload ) ) +
+				'</button></td>' +
+				'</tr>'
+			);
+		}
+		function load() {
+			fetch( S.mlListUrl, { headers: { 'X-WP-Nonce': S.nonce } } )
+				.then( function ( r ) {
+					return r.json();
+				} )
+				.then( function ( d ) {
+					tbody.innerHTML = ( d.models || [] ).map( row ).join( '' );
+				} )
+				.catch( function () {
+					tbody.innerHTML =
+						'<tr><td colspan="4">' +
+						esc( T.mlLoadError ) +
+						'</td></tr>';
+				} );
+		}
+		tbody.addEventListener( 'click', function ( e ) {
+			const id =
+				e.target &&
+				e.target.getAttribute &&
+				e.target.getAttribute( 'data-dl' );
+			if ( ! id ) {
+				return;
+			}
+			const btn = e.target;
+			const st = btn.closest( 'tr' ).querySelector( '.st' );
+			btn.disabled = true;
+			btn.textContent = T.mlWorking;
+			st.textContent = '⏳';
+			fetch( S.mlDownloadUrl, {
+				method: 'POST',
+				headers: {
+					'X-WP-Nonce': S.nonce,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify( { id } ),
+			} )
+				.then( function ( r ) {
+					return r.json();
+				} )
+				.then( function ( res ) {
+					btn.disabled = false;
+					if ( res && res.installed ) {
+						st.textContent =
+							'✅ ' +
+							T.mlInstalled +
+							' (' +
+							res.downloaded +
+							' ' +
+							( res.skipped
+								? '/ ' + res.skipped + ' skipped'
+								: '' ) +
+							')';
+						btn.textContent = T.mlRedownload;
+					} else {
+						const msg =
+							( res &&
+								( res.message ||
+									( res.errors &&
+										res.errors.join( '; ' ) ) ) ) ||
+							T.mlFailed;
+						st.textContent = '⚠️ ' + msg;
+						btn.textContent = T.mlDownload;
+					}
+				} )
+				.catch( function ( err ) {
+					btn.disabled = false;
+					btn.textContent = T.mlDownload;
+					st.textContent = '⚠️ ' + err;
+				} );
+		} );
+		load();
+	} )();
 } )();

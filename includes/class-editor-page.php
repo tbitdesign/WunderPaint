@@ -133,15 +133,11 @@ class Editor_Page {
 		if ( true !== $authorized ) {
 			wp_die( esc_html( $authorized->get_error_message() ), '', array( 'response' => (int) $authorized->get_error_data()['status'] ) );
 		}
+		// The mount point only. The boot watchdog that fills it with an honest
+		// message when the bundle never parses now rides on the 'wpie-editor'
+		// handle (Assets::enqueue_editor, v1.384.5) instead of being echoed
+		// here as a hand-written script tag.
 		echo '<div id="wpie-root" class="wpie-app-root"></div>';
-		// Boot watchdog in plain ES5: browsers older than the editor's
-		// language floor (e.g. Safari < 16.4 chokes on regex lookbehind)
-		// fail to PARSE the bundle - nothing mounts, the page stays gray.
-		// This tiny script parses everywhere and swaps the silence for an
-		// honest message when the app has not mounted after 8 seconds.
-		$msg = esc_js( __( 'The editor could not start. Your browser is probably too old for it - it needs a current browser (Chrome/Edge 110+, Firefox 115+, Safari 16.4+). Please update your browser and reload this page.', 'wunderpaint' ) );
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $msg is escaped with esc_js() above for this inline-script single-quoted string context.
-		echo '<script>(function(){setTimeout(function(){var r=document.getElementById("wpie-root");if(r&&!r.firstChild){r.innerHTML=\'<div style="display:flex;align-items:center;justify-content:center;height:80vh;padding:24px;text-align:center;font:15px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;color:#50575e"><div style="max-width:460px">' . $msg . '</div></div>\';}},8000);})();</script>';
 	}
 
 	/**

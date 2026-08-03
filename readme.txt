@@ -4,7 +4,7 @@ Tags: image editor, design, media library, templates, image optimization
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.384.4
+Stable tag: 1.384.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -118,7 +118,7 @@ The handbook lives right inside the editor (press ?), the built-in help assistan
 
 == External Services ==
 
-This plugin can talk to the external services listed below. Each one is contacted only when you actively use the feature it belongs to, and every service that needs an API key stays completely silent until you enter that key yourself in Settings, WunderPaint, AI Providers. Unless an entry says otherwise, the request is made server-side by your WordPress site, so the service sees your server's IP address and not your visitors'. The plugin contains no analytics, no tracking and no telemetry of its own, and it never sends your content anywhere on its own initiative.
+This plugin can talk to the external services listed below. Each is contacted only when you use the feature it belongs to, and a service that needs an API key stays silent until you enter that key in Settings, WunderPaint, AI Providers. Unless an entry says otherwise, the request is made server-side by your WordPress site, so the service sees your server's IP address and not your visitors'. The plugin has no analytics, tracking or telemetry of its own and never sends your content anywhere by itself.
 
 * **WunderPaint extension catalog** (delivery.wp-image-editor.com). When: an editor user opens the Extensions manager and the one-hour cache on your site is cold. Sent: a plain GET request for the file catalog.json. No API key, no site data, no user data, no identifier of any kind is transmitted. Received: the list of available extensions with names, versions and descriptions, cached on your site for one hour. The free plugin never downloads or runs extension code by itself: the manager shows a download link, and if you click it your own browser downloads that ZIP file from the same host, which you then install manually. Privacy policy: https://wp-image-editor.com/privacy/ Terms: https://wp-image-editor.com/terms/
 The three stock photo services below also work the same way: nothing is sent until you enter that service's own key, and then only when you search under Assets, Stock Images. Your server sends the search text you typed, the page number and the number of results per page, together with your key. The result thumbnails are then shown straight from the service's image servers, so the browser of the person searching contacts them directly and its IP address is visible there. When you place one of the pictures in your design, your server downloads that file into your own Media Library.
@@ -140,7 +140,7 @@ The three AI providers below all work the same way: nothing is sent until you en
 
 One more connection that is not a third-party service: if your Media Library is offloaded to external storage, opening such an image in the editor makes your site fetch that file from your own storage address server-side. This only ever concerns attachments of your own site that the current user is allowed to edit.
 
-The local AI runtime (ONNX WebAssembly and transformers.js) ships inside the plugin, so a local AI feature (Background Removal, Smart Select, Depth Blur, local alt text) runs entirely in your browser and your images never leave it. The only external touch is the optional one-time model download above.
+The local AI runtime (ONNX WebAssembly and transformers.js) belongs to the plugin instead of being pulled from a CDN, so a local AI feature (Background Removal, Smart Select, Depth Blur, local alt text) runs entirely in your browser and your images never leave it. The only external touch is the optional one-time model download above. Where it is absent, the features that need it say so and stay disabled.
 
 == Bundled Libraries ==
 
@@ -156,14 +156,14 @@ WunderPaint is licensed GPL-2.0-or-later (see license.txt). Every bundled compon
 * gifenc — MIT License (animated GIF encoding)
 * upng-js — MIT License (APNG encoding)
 * unicode-emoji-json — MIT License (emoji metadata)
-* onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build ships inside the plugin under assets/ort/)
+* onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build is bundled with the plugin, never loaded from a CDN)
 * @huggingface/transformers (transformers.js) — Apache License 2.0 (in-browser runtime for the local AI features, bundled from npm; formerly published as @xenova/transformers)
-* U²-Netp model — Apache License 2.0 (Xuebin Qin et al., U²-Net). See assets/models/NOTICE.txt.
+* U²-Netp model — Apache License 2.0 (Xuebin Qin et al., U²-Net), the background-removal model; licence text and notice travel with it.
 * Fonts — 10 self-hosted families ship with the plugin (Roboto, Open Sans, Inter, Montserrat, Poppins, Oswald, Bebas Neue, Anton, Playfair Display, Lora); a larger catalog can be downloaded to your own server under Settings → Fonts. All ten are under the SIL Open Font License 1.1. See assets/fonts/OFL.txt. Sourced from the @fontsource project / Google Fonts.
 
 Apache-2.0 components are compatible with this plugin via the "or later" clause of GPL-2.0-or-later (Apache-2.0 is compatible with GPLv3).
 
-All AI cloud calls are proxied server-side; API keys never reach the browser. Background removal and upscaling run fully locally in your browser and no data leaves your site for those; the runtime ships inside the plugin, so nothing has to be downloaded first.
+All AI cloud calls are proxied server-side; API keys never reach the browser. Background removal and upscaling run fully locally in your browser and no data leaves your site for those; the runtime that carries them is bundled rather than fetched from anywhere.
 
 == Development ==
 
@@ -172,6 +172,12 @@ source is published at https://github.com/tbitdesign/WunderPaint and
 build instructions are in BUILD.md there.
 
 == Changelog ==
+
+= 1.384.6 =
+* Wording that assumed the local AI runtime is always present: the readme now describes it as bundled rather than fetched from a CDN, which is the point, and the Local AI Models panel says what the build in front of you actually has instead of the opposite.
+
+= 1.384.5 =
+* The last three hand-written script tags are gone: the settings screen's cost chart and its local AI models table now live in the settings script file where a linter can see them and the browser can cache them, and the editor's boot watchdog rides on the editor handle. Nothing changes on screen.
 
 = 1.384.4 =
 * The External Services section now describes every outside connection one service at a time: which host is contacted, what triggers it, exactly which data leaves your site, whether it leaves from your server or from a browser, and a link to that service's privacy policy and terms. Google Gemini, OpenAI and Anthropic each have their own entry instead of sharing one line, and two connections that were missing are documented: feeds or JSON sources you point a dynamic layer at, and media that lives on external storage.

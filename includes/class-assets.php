@@ -176,6 +176,26 @@ class Assets {
 		);
 		wp_set_script_translations( 'wpie-editor', 'wunderpaint', WPIE_DIR . 'languages' );
 
+		/*
+		 * Boot watchdog (v1.384.5, was a hand-written <script> echoed by
+		 * Editor_Page::render()). Deliberately ES5: browsers below the
+		 * editor's language floor - Safari before 16.4 chokes on regex
+		 * lookbehind - fail to PARSE the bundle, nothing mounts and the page
+		 * stays gray. Attached 'before', so it prints in its own script tag
+		 * ahead of the bundle and still runs when the bundle never parses.
+		 */
+		wp_add_inline_script(
+			'wpie-editor',
+			'(function(){setTimeout(function(){var r=document.getElementById("wpie-root");'
+				. 'if(r&&!r.firstChild){r.innerHTML=\'<div style="display:flex;align-items:center;'
+				. 'justify-content:center;height:80vh;padding:24px;text-align:center;'
+				. 'font:15px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;color:#50575e">'
+				. '<div style="max-width:460px">\'+'
+				. wp_json_encode( __( 'The editor could not start. Your browser is probably too old for it - it needs a current browser (Chrome/Edge 110+, Firefox 115+, Safari 16.4+). Please update your browser and reload this page.', 'wunderpaint' ) )
+				. '+\'</div></div>\';}},8000);})();',
+			'before'
+		);
+
 		if ( file_exists( WPIE_DIR . 'build/index.css' ) ) {
 			wp_enqueue_style( 'wpie-editor', WPIE_URL . 'build/index.css', array(), $asset['version'] );
 		}

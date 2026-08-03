@@ -3,14 +3,14 @@
 msgid ""
 msgstr ""
 "Language: de_DE\n"
-"Project-Id-Version: WunderPaint 1.384.1\n"
+"Project-Id-Version: WunderPaint 1.384.6\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wunderpaint\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-03T06:56:13+00:00\n"
+"POT-Creation-Date: 2026-08-03T22:50:40+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wunderpaint\n"
@@ -24,8 +24,8 @@ msgstr ""
 #: includes/class-media.php:210
 #: includes/class-settings.php:316
 #: includes/class-settings.php:317
-#: includes/class-settings.php:725
-#: includes/class-settings.php:1621
+#: includes/class-settings.php:745
+#: includes/class-settings.php:1577
 #: src/block-editor.js:37
 #: src/screens/editor-titlebar.jsx:65
 msgid "WunderPaint"
@@ -38,7 +38,7 @@ msgstr "https://wp-image-editor.com"
 
 #. Description of the plugin
 #: wunderpaint.php:5
-#: includes/class-settings.php:1627
+#: includes/class-settings.php:1583
 msgid "Design graphics, edit photos and automate your images."
 msgstr "Grafiken gestalten, Fotos bearbeiten und Bilder automatisieren."
 
@@ -170,6 +170,10 @@ msgstr "Unbekannter Anbieter."
 msgid "Not configured."
 msgstr "Nicht konfiguriert."
 
+#: includes/class-assets.php:194
+msgid "The editor could not start. Your browser is probably too old for it - it needs a current browser (Chrome/Edge 110+, Firefox 115+, Safari 16.4+). Please update your browser and reload this page."
+msgstr "Der Editor konnte nicht starten. Vermutlich ist dein Browser zu alt dafür - er braucht einen aktuellen Browser (Chrome/Edge 110+, Firefox 115+, Safari 16.4+). Bitte aktualisiere deinen Browser und lade diese Seite neu."
+
 #: includes/class-assistant.php:162
 #: includes/class-assistant.php:178
 msgid "Empty question."
@@ -264,10 +268,6 @@ msgstr "Anhang nicht gefunden oder kein Bild."
 msgid "You are not allowed to edit this attachment."
 msgstr "Du darfst diesen Anhang nicht bearbeiten."
 
-#: includes/class-editor-page.php:142
-msgid "The editor could not start. Your browser is probably too old for it - it needs a current browser (Chrome/Edge 110+, Firefox 115+, Safari 16.4+). Please update your browser and reload this page."
-msgstr "Der Editor konnte nicht starten. Vermutlich ist dein Browser zu alt dafür - er braucht einen aktuellen Browser (Chrome/Edge 110+, Firefox 115+, Safari 16.4+). Bitte aktualisiere deinen Browser und lade diese Seite neu."
-
 #: includes/class-elementor.php:64
 #: includes/class-media.php:104
 #: includes/class-media.php:132
@@ -292,8 +292,8 @@ msgstr "Editor lädt…"
 #: src/screens/background-studio-dialog.jsx:350
 #: src/screens/batch-watermark-dialog.jsx:353
 #: src/screens/beautify-dialog.jsx:413
-#: src/screens/brand-kits-dialog.jsx:232
-#: src/screens/brand-kits-dialog.jsx:901
+#: src/screens/brand-kits-dialog.jsx:233
+#: src/screens/brand-kits-dialog.jsx:902
 #: src/screens/canvas/text-fx-popover.jsx:82
 #: src/screens/carousel-dialog.jsx:143
 #: src/screens/chart-studio/import-posts.jsx:166
@@ -793,7 +793,7 @@ msgid "The model is not finished yet."
 msgstr "Das Modell ist noch nicht fertig."
 
 #: includes/class-meshy.php:326
-#: includes/class-settings.php:1425
+#: includes/class-settings.php:1381
 msgid "AI model"
 msgstr "KI-Modell"
 
@@ -1184,149 +1184,184 @@ msgstr "Diese Datei hat %1$s MB, das maximale Upload-Limit liegt aber bei %2$s M
 #. translators: 1: number of downloaded families, 2: total number of families
 #. translators: 1: number of downloaded families, 2: total available to download.
 #: includes/class-settings.php:383
-#: includes/class-settings.php:1269
+#: includes/class-settings.php:1225
 #, php-format
 msgid "%1$d of %2$d additional families downloaded."
 msgstr "%1$d von %2$d zusätzlichen Familien heruntergeladen."
 
-#: includes/class-settings.php:569
+#: includes/class-settings.php:387
+#: src/screens/extensions/card.jsx:49
+#: src/screens/extensions/dialog.jsx:224
+#: src/screens/extensions/dialog.jsx:243
+#: src/screens/extensions/sidebar.jsx:39
+msgid "Installed"
+msgstr "Installiert"
+
+#: includes/class-settings.php:388
+msgid "Not installed"
+msgstr "Nicht installiert"
+
+#: includes/class-settings.php:389
+#: src/screens/editor-titlebar.jsx:343
+#: src/screens/export-dialog.jsx:1616
+#: src/screens/extensions/detail.jsx:110
+msgid "Download"
+msgstr "Herunterladen"
+
+#: includes/class-settings.php:390
+msgid "Re-download"
+msgstr "Erneut laden"
+
+#: includes/class-settings.php:391
+msgid "Downloading…"
+msgstr "Lädt herunter…"
+
+#: includes/class-settings.php:392
+msgid "Could not load the model list."
+msgstr "Die Modellliste konnte nicht geladen werden."
+
+#: includes/class-settings.php:393
+msgid "Download failed."
+msgstr "Download fehlgeschlagen."
+
+#: includes/class-settings.php:581
 msgid "Google Gemini"
 msgstr "Google Gemini"
 
-#: includes/class-settings.php:574
+#: includes/class-settings.php:586
 msgid "Text-to-image and prompt-based image editing, plus fast text models for alt text, captions and the Design Generator. Creating a key is free and includes a generous free tier - a good first provider."
 msgstr "Text-zu-Bild und promptbasierte Bildbearbeitung, dazu schnelle Textmodelle für Alt-Texte, Bildunterschriften und den Design Generator. Der Schlüssel ist kostenlos und enthält ein großzügiges Gratiskontingent - ein guter erster Anbieter."
 
-#: includes/class-settings.php:576
+#: includes/class-settings.php:588
 msgid "Get your free API key in Google AI Studio"
 msgstr "Kostenlosen API-Schlüssel im Google AI Studio holen"
 
-#: includes/class-settings.php:580
+#: includes/class-settings.php:592
 msgid "OpenAI"
 msgstr "OpenAI"
 
-#: includes/class-settings.php:581
+#: includes/class-settings.php:593
 msgid "Image generation, true mask inpainting and variations. The GPT text models power alt text, SEO texts and the Design Generator. Pay as you go - top up a small credit and set a budget below."
 msgstr "Bildgenerierung, echtes Masken-Inpainting und Variationen. Die GPT-Textmodelle liefern Alt-Texte, SEO-Texte und den Design Generator. Abrechnung nach Verbrauch - kleines Guthaben aufladen und unten ein Budget setzen."
 
-#: includes/class-settings.php:583
+#: includes/class-settings.php:595
 msgid "Create an API key on platform.openai.com"
 msgstr "API-Schlüssel auf platform.openai.com erstellen"
 
-#: includes/class-settings.php:587
+#: includes/class-settings.php:599
 msgid "Anthropic Claude"
 msgstr "Anthropic Claude"
 
-#: includes/class-settings.php:588
+#: includes/class-settings.php:600
 msgid "No image generation - Claude is the writing specialist: alt text, captions, SEO texts, the AI Content Generator and the Design Generator produce their best copy with it."
 msgstr "Keine Bildgenerierung - Claude ist der Spezialist fürs Schreiben: Alt-Texte, Bildunterschriften, SEO-Texte, der KI-Content-Generator und der Design Generator liefern damit ihre besten Texte."
 
-#: includes/class-settings.php:590
+#: includes/class-settings.php:602
 msgid "Create an API key in the Anthropic Console"
 msgstr "API-Schlüssel in der Anthropic Console erstellen"
 
-#: includes/class-settings.php:613
+#: includes/class-settings.php:625
 #: src/screens/export-dialog.jsx:158
 msgid "Default"
 msgstr "Standard"
 
 #. translators: %d: brand kit number.
-#: includes/class-settings.php:681
-#: src/screens/brand-kits-dialog.jsx:42
+#: includes/class-settings.php:701
+#: src/screens/brand-kits-dialog.jsx:43
 #, php-format,js-format
 msgid "Brand Kit %d"
 msgstr "Marken-Kit %d"
 
-#: includes/class-settings.php:714
+#: includes/class-settings.php:734
 msgid "Sorry, you are not allowed to access this page."
 msgstr "Du darfst diese Seite leider nicht aufrufen."
 
-#: includes/class-settings.php:731
+#: includes/class-settings.php:751
 msgid "The complete image and design studio inside WordPress."
 msgstr "Das komplette Bild- und Design-Studio in WordPress."
 
-#: includes/class-settings.php:734
-#: includes/class-settings.php:1630
+#: includes/class-settings.php:754
+#: includes/class-settings.php:1586
 msgid "Open Editor"
 msgstr "Editor öffnen"
 
-#: includes/class-settings.php:735
-#: includes/class-settings.php:1629
+#: includes/class-settings.php:755
+#: includes/class-settings.php:1585
 #: src/lib/dynamic-content.js:46
-#: src/screens/brand-kits-dialog.jsx:32
+#: src/screens/brand-kits-dialog.jsx:33
 #: src/screens/extensions/detail.jsx:194
 msgid "Website"
 msgstr "Website"
 
-#: includes/class-settings.php:743
+#: includes/class-settings.php:763
 msgid "General"
 msgstr "Allgemein"
 
-#: includes/class-settings.php:744
+#: includes/class-settings.php:764
 msgid "AI Providers"
 msgstr "KI-Anbieter"
 
-#: includes/class-settings.php:745
+#: includes/class-settings.php:765
 msgid "Costs & Budget"
 msgstr "Kosten & Budget"
 
-#: includes/class-settings.php:746
+#: includes/class-settings.php:766
 msgid "Local AI Models"
 msgstr "Lokale KI-Modelle"
 
-#: includes/class-settings.php:747
-#: src/screens/brand-kits-dialog.jsx:464
+#: includes/class-settings.php:767
+#: src/screens/brand-kits-dialog.jsx:465
 #: src/screens/editor-dialogs.jsx:522
 #: src/screens/status-dialog.jsx:423
 msgid "Fonts"
 msgstr "Schriften"
 
-#: includes/class-settings.php:748
+#: includes/class-settings.php:768
 msgid "Integrations"
 msgstr "Integrationen"
 
-#: includes/class-settings.php:749
-#: includes/class-settings.php:1457
+#: includes/class-settings.php:769
+#: includes/class-settings.php:1413
 msgid "Versioning"
 msgstr "Versionierung"
 
-#: includes/class-settings.php:750
-#: includes/class-settings.php:1479
+#: includes/class-settings.php:770
+#: includes/class-settings.php:1435
 msgid "Permissions"
 msgstr "Berechtigungen"
 
-#: includes/class-settings.php:751
-#: includes/class-settings.php:1498
+#: includes/class-settings.php:771
+#: includes/class-settings.php:1454
 msgid "Advanced"
 msgstr "Erweitert"
 
-#: includes/class-settings.php:752
-#: includes/class-settings.php:1531
+#: includes/class-settings.php:772
+#: includes/class-settings.php:1487
 msgid "Backup"
 msgstr "Backup"
 
-#: includes/class-settings.php:763
+#: includes/class-settings.php:783
 #: src/screens/editor-dialogs.jsx:319
 msgid "About"
 msgstr "Über"
 
-#: includes/class-settings.php:778
+#: includes/class-settings.php:798
 msgid "Editor Defaults"
 msgstr "Editor-Voreinstellungen"
 
-#: includes/class-settings.php:781
+#: includes/class-settings.php:801
 msgid "Default canvas size"
 msgstr "Standard-Leinwandgröße"
 
-#: includes/class-settings.php:789
+#: includes/class-settings.php:809
 msgid "custom"
 msgstr "benutzerdefiniert"
 
-#: includes/class-settings.php:795
+#: includes/class-settings.php:815
 msgid "Theme"
 msgstr "Design"
 
-#: includes/class-settings.php:798
+#: includes/class-settings.php:818
 #: src/lib/chart-styles.js:33
 #: src/screens/chart-studio/style-panel.jsx:604
 #: src/screens/vignette-dialog.jsx:709
@@ -1334,139 +1369,139 @@ msgstr "Design"
 msgid "Dark"
 msgstr "Dunkel"
 
-#: includes/class-settings.php:799
+#: includes/class-settings.php:819
 #: src/screens/mockup-dialog.jsx:534
 #: src/screens/vignette-dialog.jsx:706
 #: src/screens/vignette-dialog.jsx:760
 msgid "Light"
 msgstr "Hell"
 
-#: includes/class-settings.php:800
+#: includes/class-settings.php:820
 #: src/screens/status-dialog.jsx:526
 msgid "System"
 msgstr "System"
 
-#: includes/class-settings.php:802
+#: includes/class-settings.php:822
 msgid "Seeds the editor’s initial theme; users can toggle inside the editor."
 msgstr "Legt das anfängliche Editor-Design fest; im Editor selbst umschaltbar."
 
-#: includes/class-settings.php:806
+#: includes/class-settings.php:826
 msgid "Image picker"
 msgstr "Bild-Auswahl"
 
-#: includes/class-settings.php:811
+#: includes/class-settings.php:831
 msgid "Use the Media Library Manager as the image picker in editor tools and extensions."
 msgstr "Den Media Library Manager als Bild-Auswahl in Editor-Tools und Extensions verwenden."
 
-#: includes/class-settings.php:813
+#: includes/class-settings.php:833
 msgid "The classic WordPress Media Library stays one click away inside the picker."
 msgstr "Die klassische WordPress-Mediathek bleibt in der Auswahl einen Klick entfernt."
 
-#: includes/class-settings.php:870
+#: includes/class-settings.php:890
 msgid "Budget"
 msgstr "Budget"
 
-#: includes/class-settings.php:873
+#: includes/class-settings.php:893
 msgid "Monthly spend limit ($)"
 msgstr "Monatliches Kostenlimit ($)"
 
-#: includes/class-settings.php:876
+#: includes/class-settings.php:896
 msgid "0 = unlimited. AI calls are blocked once the month reaches this amount."
 msgstr "0 = unbegrenzt. KI-Aufrufe werden blockiert, sobald der Monat diesen Betrag erreicht."
 
-#: includes/class-settings.php:883
+#: includes/class-settings.php:903
 msgid "Searches per 5 minutes"
 msgstr "Suchanfragen pro 5 Minuten"
 
-#: includes/class-settings.php:886
+#: includes/class-settings.php:906
 msgid "Throttle per user for stock photo searches and map lookups. These call third-party services on your behalf, so a runaway client can get your site blocked by them; 0 = no throttle."
 msgstr "Drosselung pro Nutzer für Stockfoto-Suchen und Karten-Abfragen. Diese rufen in deinem Namen Fremddienste auf, eine außer Kontrolle geratene Anfrage kann also zur Sperre deiner Website bei diesen Diensten führen; 0 = keine Drosselung."
 
-#: includes/class-settings.php:890
+#: includes/class-settings.php:910
 msgid "AI requests per 5 minutes"
 msgstr "KI-Anfragen pro 5 Minuten"
 
-#: includes/class-settings.php:893
+#: includes/class-settings.php:913
 msgid "Throttle per user, protects against runaway usage. Raise it for bulk jobs like the Metadata Assistant (each image is one request); 0 = no throttle. This does not change your provider's own rate limits."
 msgstr "Drosselung pro Nutzer, schützt vor ausufernder Nutzung. Für Massenläufe wie den Metadaten-Assistenten höher setzen (jedes Bild ist eine Anfrage); 0 = keine Drosselung. Ändert nicht die Ratengrenzen deines Anbieters."
 
-#: includes/class-settings.php:901
+#: includes/class-settings.php:921
 msgid "This month"
 msgstr "Dieser Monat"
 
-#: includes/class-settings.php:905
+#: includes/class-settings.php:925
 #: src/lib/dynamic-content.js:67
 msgid "Today"
 msgstr "Heute"
 
-#: includes/class-settings.php:909
+#: includes/class-settings.php:929
 msgid "Requests this month"
 msgstr "Anfragen diesen Monat"
 
-#: includes/class-settings.php:913
+#: includes/class-settings.php:933
 msgid "Budget left"
 msgstr "Restbudget"
 
-#: includes/class-settings.php:919
+#: includes/class-settings.php:939
 msgid "Daily costs, last 30 days"
 msgstr "Tageskosten, letzte 30 Tage"
 
-#: includes/class-settings.php:968
+#: includes/class-settings.php:973
 msgid "This month by model"
 msgstr "Dieser Monat nach Modell"
 
-#: includes/class-settings.php:971
+#: includes/class-settings.php:976
 msgid "No AI usage recorded yet this month."
 msgstr "Diesen Monat wurde noch keine KI-Nutzung erfasst."
 
-#: includes/class-settings.php:975
-#: includes/class-settings.php:1010
+#: includes/class-settings.php:980
+#: includes/class-settings.php:1015
 #: src/screens/create-dialog.jsx:624
 msgid "Model"
 msgstr "Modell"
 
-#: includes/class-settings.php:976
+#: includes/class-settings.php:981
 msgid "Task"
 msgstr "Aufgabe"
 
-#: includes/class-settings.php:977
+#: includes/class-settings.php:982
 msgid "Requests"
 msgstr "Anfragen"
 
-#: includes/class-settings.php:978
+#: includes/class-settings.php:983
 #: src/screens/editor-menubar.jsx:1071
 #: src/screens/media-library-dialog.jsx:2512
 msgid "Images"
 msgstr "Bilder"
 
-#: includes/class-settings.php:979
+#: includes/class-settings.php:984
 msgid "Tokens in"
 msgstr "Tokens Input"
 
-#: includes/class-settings.php:980
+#: includes/class-settings.php:985
 msgid "Tokens out"
 msgstr "Tokens Output"
 
-#: includes/class-settings.php:981
+#: includes/class-settings.php:986
 msgid "Cost"
 msgstr "Kosten"
 
-#: includes/class-settings.php:998
+#: includes/class-settings.php:1003
 msgid "Costs are estimates: real token and image counts multiplied by the prices you maintain under AI Providers → Models."
 msgstr "Die Kosten sind Schätzungen: echte Token- und Bildzahlen multipliziert mit den Preisen, die du unter KI-Anbieter → Modelle pflegst."
 
-#: includes/class-settings.php:1005
+#: includes/class-settings.php:1010
 #: src/screens/status-dialog.jsx:97
 #: src/screens/status-dialog.jsx:386
 #: src/screens/status-dialog.jsx:493
 msgid "Local AI models"
 msgstr "Lokale KI-Modelle"
 
-#: includes/class-settings.php:1007
+#: includes/class-settings.php:1012
 msgid "These optional models power local, in-browser features (Smart Select, background blur, local alt text). Downloading stores each model once on YOUR server (wp-content/uploads/wpie-models), after that it is served from your own domain, so nothing is fetched from a third-party CDN at run time and the features work offline."
 msgstr "Diese optionalen Modelle treiben lokale Browser-Funktionen an (Smart Select, Hintergrund-Unschärfe, lokaler Alt-Text). Der Download speichert jedes Modell einmalig auf DEINEM Server (wp-content/uploads/wpie-models), danach wird es von deiner eigenen Domain ausgeliefert, es wird zur Laufzeit nichts von einem fremden CDN geladen und die Funktionen laufen offline."
 
-#: includes/class-settings.php:1011
+#: includes/class-settings.php:1016
 #: src/lib/text-fx-defs.js:639
 #: src/lib/text-fx-defs.js:677
 #: src/lib/text-fx-defs.js:686
@@ -1498,12 +1533,12 @@ msgstr "Diese optionalen Modelle treiben lokale Browser-Funktionen an (Smart Sel
 msgid "Size"
 msgstr "Größe"
 
-#: includes/class-settings.php:1012
+#: includes/class-settings.php:1017
 msgid "Status"
 msgstr "Status"
 
-#: includes/class-settings.php:1015
-#: src/screens/brand-kits-dialog.jsx:260
+#: includes/class-settings.php:1020
+#: src/screens/brand-kits-dialog.jsx:261
 #: src/screens/cleanup-dialog.jsx:374
 #: src/screens/cleanup-dialog.jsx:655
 #: src/screens/cleanup-dialog.jsx:812
@@ -1519,145 +1554,122 @@ msgstr "Status"
 msgid "Loading…"
 msgstr "Wird geladen…"
 
-#: includes/class-settings.php:1018
+#: includes/class-settings.php:1032
+msgid "This build does not include the local AI runtime, so models downloaded here cannot run yet and the features that need them stay disabled."
+msgstr "Dieser Build enthält die lokale KI-Laufzeit nicht, deshalb können hier heruntergeladene Modelle noch nicht laufen und die Funktionen, die sie brauchen, bleiben deaktiviert."
+
+#: includes/class-settings.php:1034
 msgid "The runtime ships inside the plugin, so only the models are downloaded, server-to-server from Hugging Face. That can take a while; if one times out, click Download again and it resumes where it left off."
 msgstr "Die Laufzeitumgebung steckt im Plugin, heruntergeladen werden also nur die Modelle, von Server zu Server bei Hugging Face. Das kann dauern; laeuft eines in eine Zeitueberschreitung, klicke erneut auf Herunterladen, es macht dort weiter, wo es aufgehoert hat."
 
-#: includes/class-settings.php:1027
-#: src/screens/extensions/card.jsx:49
-#: src/screens/extensions/dialog.jsx:224
-#: src/screens/extensions/dialog.jsx:243
-#: src/screens/extensions/sidebar.jsx:39
-msgid "Installed"
-msgstr "Installiert"
-
-#: includes/class-settings.php:1028
-msgid "Not installed"
-msgstr "Nicht installiert"
-
-#: includes/class-settings.php:1029
-#: src/screens/editor-titlebar.jsx:343
-#: src/screens/export-dialog.jsx:1616
-#: src/screens/extensions/detail.jsx:110
-msgid "Download"
-msgstr "Herunterladen"
-
-#: includes/class-settings.php:1030
-msgid "Re-download"
-msgstr "Erneut laden"
-
-#: includes/class-settings.php:1031
-msgid "Downloading…"
-msgstr "Lädt herunter…"
-
-#: includes/class-settings.php:1084
+#: includes/class-settings.php:1040
 msgid "API keys enable text-to-image, prompt editing and inpainting in the editor. Background removal and upscaling always work locally, no key required. Keys are stored obfuscated (reversible, not true encryption) in the database; for real secrecy define them as constants in wp-config.php."
 msgstr "API-Schluessel schalten Text-zu-Bild, Prompt-Bearbeitung und Inpainting im Editor frei. Freistellen und Hochskalieren laufen immer lokal, ganz ohne Schluessel. Schluessel liegen verschleiert (umkehrbar, keine echte Verschluesselung) in der Datenbank; fuer echte Geheimhaltung definiere sie als Konstanten in der wp-config.php."
 
-#: includes/class-settings.php:1093
-#: includes/class-settings.php:1377
-#: includes/class-settings.php:1410
+#: includes/class-settings.php:1049
+#: includes/class-settings.php:1333
+#: includes/class-settings.php:1366
 msgid "Connected"
 msgstr "Verbunden"
 
-#: includes/class-settings.php:1095
-#: includes/class-settings.php:1379
-#: includes/class-settings.php:1412
+#: includes/class-settings.php:1051
+#: includes/class-settings.php:1335
+#: includes/class-settings.php:1368
 msgid "Not configured"
 msgstr "Nicht konfiguriert"
 
-#: includes/class-settings.php:1110
-#: includes/class-settings.php:1394
-#: includes/class-settings.php:1444
+#: includes/class-settings.php:1066
+#: includes/class-settings.php:1350
+#: includes/class-settings.php:1400
 msgid "Test connection"
 msgstr "Verbindung testen"
 
-#: includes/class-settings.php:1120
+#: includes/class-settings.php:1076
 msgid "Default AI Provider"
 msgstr "Standard-KI-Anbieter"
 
-#: includes/class-settings.php:1123
+#: includes/class-settings.php:1079
 msgid "Default image provider"
 msgstr "Standard-Bildanbieter"
 
-#: includes/class-settings.php:1129
+#: includes/class-settings.php:1085
 msgid "Used for image generation and editing unless a dialog picks another model."
 msgstr "Für Bildgenerierung und -bearbeitung, sofern ein Dialog kein anderes Modell wählt."
 
-#: includes/class-settings.php:1133
+#: includes/class-settings.php:1089
 msgid "Default text provider"
 msgstr "Standard-Textanbieter"
 
-#: includes/class-settings.php:1140
+#: includes/class-settings.php:1096
 msgid "Powers the Design Generator, generated library items and illustrations, text layouts, alt text/captions and SEO texts. Falls back to the first configured text-capable provider."
 msgstr "Treibt den Design Generator, generierte Bibliothekselemente und Illustrationen, Textlayouts, Alt-Texte/Beschriftungen und SEO-Texte an. Fällt auf den ersten konfigurierten textfähigen Anbieter zurück."
 
-#: includes/class-settings.php:1146
+#: includes/class-settings.php:1102
 msgid "Models"
 msgstr "Modelle"
 
-#: includes/class-settings.php:1147
+#: includes/class-settings.php:1103
 msgid "Override which model each provider uses and what it costs; empty fields use the built-in defaults (shown as placeholders). Fast text models handle alt text, captions and SEO; design models power the Design Generator, generated library items, illustrations and text layouts. Prices feed the Costs & Budget statistics, keep them in sync with your providers' current pricing."
 msgstr "Lege pro Anbieter fest, welches Modell verwendet wird und was es kostet; leere Felder nutzen die eingebauten Standards (als Platzhalter angezeigt). Schnelle Textmodelle übernehmen Alt-Texte, Beschriftungen und SEO; Design-Modelle treiben den Design Generator, generierte Bibliothekselemente, Illustrationen und Textlayouts an. Die Preise speisen die Kosten-&-Budget-Statistik, halte sie mit den aktuellen Anbieterpreisen synchron."
 
-#: includes/class-settings.php:1152
-#: includes/class-settings.php:1157
+#: includes/class-settings.php:1108
+#: includes/class-settings.php:1113
 msgid "Image model"
 msgstr "Bildmodell"
 
-#: includes/class-settings.php:1153
-#: includes/class-settings.php:1159
-#: includes/class-settings.php:1163
+#: includes/class-settings.php:1109
+#: includes/class-settings.php:1115
+#: includes/class-settings.php:1119
 msgid "Fast text model"
 msgstr "Schnelles Textmodell"
 
-#: includes/class-settings.php:1154
-#: includes/class-settings.php:1160
-#: includes/class-settings.php:1164
+#: includes/class-settings.php:1110
+#: includes/class-settings.php:1116
+#: includes/class-settings.php:1120
 msgid "Design model"
 msgstr "Design-Modell"
 
-#: includes/class-settings.php:1158
+#: includes/class-settings.php:1114
 msgid "Variations model"
 msgstr "Variations-Modell"
 
-#: includes/class-settings.php:1219
+#: includes/class-settings.php:1175
 msgid "$ per image"
 msgstr "$ pro Bild"
 
-#: includes/class-settings.php:1224
+#: includes/class-settings.php:1180
 msgid "$ / 1M input tokens"
 msgstr "$ / 1 Mio. Input-Tokens"
 
-#: includes/class-settings.php:1228
+#: includes/class-settings.php:1184
 msgid "$ / 1M output tokens"
 msgstr "$ / 1 Mio. Output-Tokens"
 
-#: includes/class-settings.php:1243
+#: includes/class-settings.php:1199
 msgid "Built-in fonts"
 msgstr "Mitgelieferte Schriften"
 
-#: includes/class-settings.php:1246
+#: includes/class-settings.php:1202
 msgid "The editor bundles 10 font families that are served from this site (self-hosted). No visitor data leaves your server, this source is always active."
 msgstr "Der Editor bündelt 10 Schriftfamilien, die von dieser Website ausgeliefert werden (selbst gehostet). Keine Besucherdaten verlassen deinen Server, diese Quelle ist immer aktiv."
 
-#: includes/class-settings.php:1257
+#: includes/class-settings.php:1213
 msgid "Font library (recommended)"
 msgstr "Schriften-Bibliothek (empfohlen)"
 
-#: includes/class-settings.php:1260
+#: includes/class-settings.php:1216
 msgid "Beyond the 10 built-in families the editor knows a large font catalog. Download it once to keep every family available locally, served from this site. Only your server contacts Google during the download, no visitor browser does, and nothing is loaded from a CDN afterwards."
 msgstr "Über die 10 integrierten Familien hinaus kennt der Editor einen großen Schriftkatalog. Lade ihn einmal herunter, damit jede Familie lokal verfügbar bleibt und von dieser Website ausgeliefert wird. Nur dein Server kontaktiert Google während des Downloads, kein Besucher-Browser, und danach wird nichts von einem CDN geladen."
 
-#: includes/class-settings.php:1263
+#: includes/class-settings.php:1219
 msgid "Local library"
 msgstr "Lokale Bibliothek"
 
-#: includes/class-settings.php:1276
+#: includes/class-settings.php:1232
 msgid "Download the full library"
 msgstr "Vollständige Bibliothek herunterladen"
 
-#: includes/class-settings.php:1277
+#: includes/class-settings.php:1233
 #: src/components/effect-dialog.jsx:211
 #: src/components/input-dialog.jsx:207
 #: src/screens/alt-text-dialog.jsx:1503
@@ -1687,42 +1699,42 @@ msgstr "Vollständige Bibliothek herunterladen"
 msgid "Cancel"
 msgstr "Abbrechen"
 
-#: includes/class-settings.php:1278
+#: includes/class-settings.php:1234
 msgid "Remove downloaded fonts"
 msgstr "Heruntergeladene Schriften entfernen"
 
-#: includes/class-settings.php:1287
+#: includes/class-settings.php:1243
 msgid "Google Fonts (CDN)"
 msgstr "Google Fonts (CDN)"
 
-#: includes/class-settings.php:1290
+#: includes/class-settings.php:1246
 #: src/screens/extensions/detail.jsx:75
 #: src/screens/panels/effects-panel.jsx:296
 msgid "Enable"
 msgstr "Aktivieren"
 
-#: includes/class-settings.php:1295
+#: includes/class-settings.php:1251
 msgid "Offer additional Google Fonts in the font picker"
 msgstr "Zusätzliche Google Fonts in der Schriftauswahl anbieten"
 
-#: includes/class-settings.php:1298
+#: includes/class-settings.php:1254
 msgid "Privacy note: with this enabled the editor loads fonts from fonts.googleapis.com while people work, which transmits their IP address to Google. Exported images are not affected (text is rendered to pixels). Leave it off for a strictly self-hosted setup."
 msgstr "Datenschutz-Hinweis: Ist diese Option aktiv, lädt der Editor Schriften während der Arbeit von fonts.googleapis.com, dabei wird die IP-Adresse der Nutzer an Google übertragen. Exportierte Bilder sind nicht betroffen (Text wird in Pixel gerendert). Für einen strikt self-hosted Betrieb ausgeschaltet lassen."
 
-#: includes/class-settings.php:1306
+#: includes/class-settings.php:1262
 #: src/components/font-picker.jsx:43
 msgid "Custom fonts"
 msgstr "Eigene Schriften"
 
-#: includes/class-settings.php:1309
+#: includes/class-settings.php:1265
 msgid "Upload your house fonts (woff2, woff, ttf or otf). They are served from this site and appear in the font picker like any other family."
 msgstr "Lade deine Hausschriften hoch (woff2, woff, ttf oder otf). Sie werden von dieser Website ausgeliefert und erscheinen in der Schriftauswahl wie jede andere Familie."
 
-#: includes/class-settings.php:1314
+#: includes/class-settings.php:1270
 msgid "Family"
 msgstr "Familie"
 
-#: includes/class-settings.php:1315
+#: includes/class-settings.php:1271
 #: src/lib/workspace-registry.js:60
 #: src/lib/workspace-registry.js:116
 #: src/screens/command-palette.jsx:40
@@ -1733,7 +1745,7 @@ msgstr "Familie"
 msgid "File"
 msgstr "Datei"
 
-#: includes/class-settings.php:1324
+#: includes/class-settings.php:1280
 #: src/screens/canvas/context-bar.jsx:307
 #: src/screens/color-schemer-dialog.jsx:898
 #: src/screens/editor-canvas.jsx:2517
@@ -1760,21 +1772,21 @@ msgstr "Datei"
 msgid "Delete"
 msgstr "Löschen"
 
-#: includes/class-settings.php:1330
+#: includes/class-settings.php:1286
 msgid "Add font"
 msgstr "Schrift hinzufügen"
 
-#: includes/class-settings.php:1332
+#: includes/class-settings.php:1288
 msgid "Family name (optional, taken from the filename)"
 msgstr "Familienname (optional, wird aus dem Dateinamen übernommen)"
 
-#: includes/class-settings.php:1334
+#: includes/class-settings.php:1290
 #: src/screens/batch-watermark-dialog.jsx:395
 #: src/screens/media-library-dialog.jsx:2334
 msgid "Upload"
 msgstr "Upload"
 
-#: includes/class-settings.php:1342
+#: includes/class-settings.php:1298
 #: src/help/content.js:469
 #: src/screens/editor-menubar.jsx:1010
 #: src/screens/stock-dialog.jsx:148
@@ -1782,115 +1794,115 @@ msgstr "Upload"
 msgid "Stock Images"
 msgstr "Stock-Bilder"
 
-#: includes/class-settings.php:1343
+#: includes/class-settings.php:1299
 msgid "Free API keys enable searching Pexels, Pixabay and Unsplash directly from the editor (File → Stock Images). Images are fetched through your server, never from the browser."
 msgstr "Kostenlose API-Keys ermöglichen die Suche in Pexels, Pixabay und Unsplash direkt im Editor (Datei → Stock-Bilder). Bilder werden über deinen Server geladen, nie aus dem Browser."
 
-#: includes/class-settings.php:1349
+#: includes/class-settings.php:1305
 msgid "Hundreds of thousands of free, high-resolution photos and videos, free for commercial use without attribution. The key is free - sign up, confirm your email, done."
 msgstr "Hunderttausende kostenlose, hochauflösende Fotos und Videos, auch kommerziell ohne Namensnennung nutzbar. Der Schlüssel ist kostenlos - registrieren, E-Mail bestätigen, fertig."
 
-#: includes/class-settings.php:1351
+#: includes/class-settings.php:1307
 msgid "Get your free API key at pexels.com/api"
 msgstr "Kostenlosen API-Schlüssel auf pexels.com/api holen"
 
-#: includes/class-settings.php:1356
+#: includes/class-settings.php:1312
 msgid "Millions of free photos, illustrations and vector graphics under the Pixabay content license. The key is free and shown right on the API docs page once you are logged in."
 msgstr "Millionen kostenlose Fotos, Illustrationen und Vektorgrafiken unter der Pixabay-Inhaltslizenz. Der Schlüssel ist kostenlos und steht direkt auf der API-Doku-Seite, sobald du eingeloggt bist."
 
-#: includes/class-settings.php:1358
+#: includes/class-settings.php:1314
 msgid "Get your free API key at pixabay.com/api/docs"
 msgstr "Kostenlosen API-Schlüssel auf pixabay.com/api/docs holen"
 
-#: includes/class-settings.php:1363
+#: includes/class-settings.php:1319
 msgid "The best-known source for high-quality free photography. Register a demo app to receive an Access Key (50 requests per hour, plenty for editor search); production access can be requested later."
 msgstr "Die bekannteste Quelle für hochwertige kostenlose Fotografie. Registriere eine Demo-App und erhalte einen Access Key (50 Anfragen pro Stunde, für die Editor-Suche völlig ausreichend); Produktionszugang lässt sich später beantragen."
 
-#: includes/class-settings.php:1365
+#: includes/class-settings.php:1321
 msgid "Get your Access Key at unsplash.com/developers"
 msgstr "Access Key auf unsplash.com/developers holen"
 
-#: includes/class-settings.php:1402
+#: includes/class-settings.php:1358
 msgid "3D Model Generation"
 msgstr "3D-Modell-Generierung"
 
-#: includes/class-settings.php:1403
+#: includes/class-settings.php:1359
 msgid "A Meshy API key lets the 3D studios generate textured 3D models from an image or a text prompt (Meshy charges credits per generation). Requests are proxied through your server; finished models are saved to your 3D model library."
 msgstr "Mit einem Meshy-API-Schlüssel erzeugen die 3D-Studios texturierte 3D-Modelle aus einem Bild oder einer Textbeschreibung (Meshy berechnet Credits pro Generierung). Anfragen laufen über deinen Server; fertige Modelle landen in deiner 3D-Modell-Bibliothek."
 
-#: includes/class-settings.php:1415
+#: includes/class-settings.php:1371
 msgid "AI 3D model generation: image-to-3D and text-to-3D with PBR textures, delivered as GLB. Free trial credits on signup, then pay-as-you-go."
 msgstr "KI-3D-Modellgenerierung: Bild-zu-3D und Text-zu-3D mit PBR-Texturen, geliefert als GLB. Kostenlose Test-Credits bei der Anmeldung, danach Pay-as-you-go."
 
-#: includes/class-settings.php:1418
+#: includes/class-settings.php:1374
 msgid "Get your API key at meshy.ai"
 msgstr "API-Schlüssel gibt es auf meshy.ai"
 
-#: includes/class-settings.php:1427
+#: includes/class-settings.php:1383
 msgid "Latest (recommended)"
 msgstr "Neuestes (empfohlen)"
 
-#: includes/class-settings.php:1433
+#: includes/class-settings.php:1389
 msgid "Detail quality"
 msgstr "Detailqualität"
 
-#: includes/class-settings.php:1435
+#: includes/class-settings.php:1391
 msgid "Standard (recommended)"
 msgstr "Standard (empfohlen)"
 
-#: includes/class-settings.php:1436
+#: includes/class-settings.php:1392
 msgid "High - more detail, larger files"
 msgstr "Hoch - mehr Details, größere Dateien"
 
-#: includes/class-settings.php:1437
+#: includes/class-settings.php:1393
 msgid "Low - compact and fast"
 msgstr "Niedrig - kompakt und schnell"
 
-#: includes/class-settings.php:1440
+#: includes/class-settings.php:1396
 msgid "Applied to every generation. Quality steers polygon count and texture resolution; PBR material maps are always included."
 msgstr "Gilt für jede Generierung. Die Qualität steuert Polygonzahl und Texturauflösung; PBR-Material-Maps sind immer enthalten."
 
-#: includes/class-settings.php:1460
+#: includes/class-settings.php:1416
 msgid "Keep versions"
 msgstr "Versionen behalten"
 
-#: includes/class-settings.php:1465
+#: includes/class-settings.php:1421
 msgid "Keep the previous file as a restorable version when saving over an image"
 msgstr "Beim Überschreiben eines Bildes die vorherige Datei als wiederherstellbare Version behalten"
 
-#: includes/class-settings.php:1470
+#: includes/class-settings.php:1426
 msgid "Keep last N versions"
 msgstr "Letzte N Versionen behalten"
 
-#: includes/class-settings.php:1482
+#: includes/class-settings.php:1438
 msgid "Minimum capability to use the editor"
 msgstr "Mindestberechtigung für den Editor"
 
-#: includes/class-settings.php:1485
+#: includes/class-settings.php:1441
 msgid "Authors and above"
 msgstr "Autoren und höher"
 
-#: includes/class-settings.php:1486
+#: includes/class-settings.php:1442
 msgid "Editors and above"
 msgstr "Redakteure und höher"
 
-#: includes/class-settings.php:1487
+#: includes/class-settings.php:1443
 msgid "Administrators only"
 msgstr "Nur Administratoren"
 
-#: includes/class-settings.php:1489
+#: includes/class-settings.php:1445
 msgid "Opening a specific attachment additionally requires permission to edit that attachment. Configuring AI keys always requires manage_options."
 msgstr "Zum Öffnen eines Anhangs ist zusätzlich die Bearbeitungsberechtigung für diesen Anhang nötig. Das Konfigurieren der KI-Schlüssel erfordert immer manage_options."
 
-#: includes/class-settings.php:1501
+#: includes/class-settings.php:1457
 msgid "Uninstall"
 msgstr "Deinstallation"
 
-#: includes/class-settings.php:1506
+#: includes/class-settings.php:1462
 msgid "Remove all plugin data (settings, versions, project sidecars) when the plugin is deleted"
 msgstr "Beim Löschen des Plugins alle Plugin-Daten entfernen (Einstellungen, Versionen, Projektdateien)"
 
-#: includes/class-settings.php:1539
+#: includes/class-settings.php:1495
 #: src/help/content.js:1046
 #: src/screens/carousel-dialog.jsx:344
 #: src/screens/editor-menubar.jsx:175
@@ -1900,150 +1912,150 @@ msgstr "Beim Löschen des Plugins alle Plugin-Daten entfernen (Einstellungen, Ve
 msgid "Export"
 msgstr "Exportieren"
 
-#: includes/class-settings.php:1540
+#: includes/class-settings.php:1496
 msgid "One portable ZIP with your brand kits (incl. logo and watermark files), dynamic templates, designs, library assets, content templates, uploaded custom fonts, installed editor extensions and settings. Works for reinstalls and for moving to another site."
 msgstr "Ein portables ZIP mit deinen Marken-Kits (inkl. Logo- und Wasserzeichen-Dateien), dynamischen Vorlagen, Designs, Bibliotheks-Assets, Content-Vorlagen, hochgeladenen eigenen Schriften, installierten Editor-Extensions und Einstellungen. Funktioniert für Neuinstallationen und den Umzug auf eine andere Website."
 
-#: includes/class-settings.php:1545
+#: includes/class-settings.php:1501
 msgid "Include installed editor extensions"
 msgstr "Installierte Editor-Extensions einschließen"
 
-#: includes/class-settings.php:1546
+#: includes/class-settings.php:1502
 msgid "Include API keys (plain text, keep the file safe!)"
 msgstr "API-Keys einschließen (Klartext, Datei sicher aufbewahren!)"
 
-#: includes/class-settings.php:1547
+#: includes/class-settings.php:1503
 msgid "Include image version history (can be large; useful for same-site restores)"
 msgstr "Bild-Versionshistorie einschließen (kann groß sein; sinnvoll für Wiederherstellung auf derselben Seite)"
 
-#: includes/class-settings.php:1549
+#: includes/class-settings.php:1505
 msgid "Download backup"
 msgstr "Backup herunterladen"
 
-#: includes/class-settings.php:1561
+#: includes/class-settings.php:1517
 msgid "Undo the last settings change"
 msgstr "Letzte Aenderung an den Einstellungen zuruecknehmen"
 
-#: includes/class-settings.php:1563
+#: includes/class-settings.php:1519
 msgid "The version of these settings from before the most recent change is kept in reserve. If a save went wrong, or something overwrote your keys, this puts it back."
 msgstr "Der Stand dieser Einstellungen von vor der letzten Aenderung liegt in Reserve. Wenn ein Speichern schiefging oder etwas deine Schluessel ueberschrieben hat, holt das ihn zurueck."
 
 #. translators: 1: number of providers with a stored key, 2: number of brand kits, 3: number of downloaded font families.
-#: includes/class-settings.php:1569
+#: includes/class-settings.php:1525
 #, php-format
 msgid "The reserved version holds keys for %1$d provider(s), %2$d brand kit(s) and %3$d downloaded font families."
 msgstr "Der Stand in Reserve enthaelt Schluessel fuer %1$d Anbieter, %2$d Brandkit(s) und %3$d heruntergeladene Schriftfamilien."
 
-#: includes/class-settings.php:1579
+#: includes/class-settings.php:1535
 msgid "Restore the previous settings"
 msgstr "Vorherige Einstellungen wiederherstellen"
 
-#: includes/class-settings.php:1580
+#: includes/class-settings.php:1536
 msgid "Safe to try: what you have now takes its place in reserve, so one more click swaps back."
 msgstr "Gefahrlos: Was du jetzt hast, nimmt den Platz in der Reserve ein, ein weiterer Klick tauscht zurueck."
 
-#: includes/class-settings.php:1586
+#: includes/class-settings.php:1542
 #: src/lib/restore-offer.js:52
 #: src/screens/panels/history-panel.jsx:116
 #: src/screens/panels/history-panel.jsx:279
 msgid "Restore"
 msgstr "Wiederherstellen"
 
-#: includes/class-settings.php:1587
+#: includes/class-settings.php:1543
 msgid "Restoring replaces your dynamic templates, designs, library assets, custom fonts and any extensions contained in the archive; settings are merged and kit logos and watermarks are re-imported into the media library. Your stored API keys stay untouched unless the backup contains keys."
 msgstr "Beim Wiederherstellen werden deine dynamischen Vorlagen, Designs, Bibliotheks-Assets, eigenen Schriften und alle im Archiv enthaltenen Extensions ersetzt; Einstellungen werden zusammengeführt und Kit-Logos und -Wasserzeichen neu in die Mediathek importiert. Deine gespeicherten API-Schlüssel bleiben unangetastet, außer das Backup enthält Schlüssel."
 
-#: includes/class-settings.php:1592
+#: includes/class-settings.php:1548
 msgid "I understand that restoring replaces the existing templates, designs and library assets."
 msgstr "Ich verstehe, dass die Wiederherstellung die vorhandenen Templates, Designs und Library-Assets ersetzt."
 
-#: includes/class-settings.php:1593
+#: includes/class-settings.php:1549
 msgid "Restore backup"
 msgstr "Backup wiederherstellen"
 
-#: includes/class-settings.php:1598
+#: includes/class-settings.php:1554
 msgid "Remote backup (S3-compatible)"
 msgstr "Remote-Backup (S3-kompatibel)"
 
-#: includes/class-settings.php:1599
+#: includes/class-settings.php:1555
 msgid "Scheduled off-site backups to any S3-compatible storage (AWS S3, Hetzner, DigitalOcean Spaces, Backblaze B2, Wasabi, MinIO). Remote archives never contain API keys."
 msgstr "Zeitgesteuerte Off-Site-Backups auf jeden S3-kompatiblen Speicher (AWS S3, Hetzner, DigitalOcean Spaces, Backblaze B2, Wasabi, MinIO). Remote-Archive enthalten niemals API-Keys."
 
-#: includes/class-settings.php:1611
+#: includes/class-settings.php:1567
 msgid "Scheduled S3 backups are part of WunderPaint Pro. The local backup export above stays free."
 msgstr "Geplante S3-Backups sind Teil von WunderPaint Pro. Der lokale Backup-Export oben bleibt kostenlos."
 
-#: includes/class-settings.php:1637
+#: includes/class-settings.php:1593
 msgid "Highlights"
 msgstr "Highlights"
 
-#: includes/class-settings.php:1639
+#: includes/class-settings.php:1595
 msgid "Layer-based editing with masks, blend modes, smart objects and non-destructive filters"
 msgstr "Ebenenbasierte Bearbeitung mit Masken, Mischmodi, Smart Objects und nicht-destruktiven Filtern"
 
-#: includes/class-settings.php:1640
+#: includes/class-settings.php:1596
 msgid "Rich text engine with text effects, warp, styles and one-click presets"
 msgstr "Rich-Text-Engine mit Texteffekten, Warp, Stilen und Ein-Klick-Presets"
 
-#: includes/class-settings.php:1641
+#: includes/class-settings.php:1597
 msgid "AI image generation and editing with your own API keys, plus fully local in-browser AI tools"
 msgstr "KI-Bildgenerierung und -Bearbeitung mit eigenen API-Schlüsseln, plus komplett lokale KI-Werkzeuge im Browser"
 
-#: includes/class-settings.php:1642
+#: includes/class-settings.php:1598
 msgid "Dynamic templates with variables, brand kits and post previews"
 msgstr "Dynamische Vorlagen mit Variablen, Marken-Kits und Beitrags-Vorschauen"
 
-#: includes/class-settings.php:1643
+#: includes/class-settings.php:1599
 msgid "PSD import and export, actions, batch processing and automation"
 msgstr "PSD-Import und -Export, Aktionen, Stapelverarbeitung und Automation"
 
-#: includes/class-settings.php:1644
+#: includes/class-settings.php:1600
 msgid "Media Library Manager with folders, tags, semantic search and metadata tools"
 msgstr "Media Library Manager mit Ordnern, Tags, semantischer Suche und Metadaten-Werkzeugen"
 
-#: includes/class-settings.php:1645
+#: includes/class-settings.php:1601
 msgid "Extension platform with 3D studios, pattern and generative tools"
 msgstr "Extension-Plattform mit 3D-Studios, Muster- und Generativ-Werkzeugen"
 
-#: includes/class-settings.php:1650
+#: includes/class-settings.php:1606
 msgid "Privacy & your data"
 msgstr "Datenschutz & deine Daten"
 
-#: includes/class-settings.php:1651
+#: includes/class-settings.php:1607
 msgid "All cloud AI calls are proxied through your own server with your own keys - API keys never reach the browser. Local AI models are downloaded once to your server and run entirely in the browser; stock photos are fetched through your server. No data is sent to the plugin author."
 msgstr "Alle Cloud-KI-Aufrufe laufen über deinen eigenen Server mit deinen eigenen Schlüsseln - API-Schlüssel erreichen nie den Browser. Lokale KI-Modelle werden einmal auf deinen Server geladen und laufen komplett im Browser; Stock-Fotos werden über deinen Server geholt. An den Plugin-Autor werden keine Daten gesendet."
 
-#: includes/class-settings.php:1652
+#: includes/class-settings.php:1608
 msgid "Open-source components"
 msgstr "Open-Source-Komponenten"
 
 #. translators: 1: copyright years, 2: author.
-#: includes/class-settings.php:1668
+#: includes/class-settings.php:1624
 #, php-format
 msgid "© %1$s %2$s. All rights reserved where applicable."
 msgstr "© %1$s %2$s. Alle Rechte vorbehalten, soweit anwendbar."
 
-#: includes/class-settings.php:1674
+#: includes/class-settings.php:1630
 msgid "License: GPL-2.0-or-later"
 msgstr "Lizenz: GPL-2.0-or-later"
 
-#: includes/class-settings.php:1695
+#: includes/class-settings.php:1651
 msgid "Defined in wp-config.php"
 msgstr "In der wp-config.php definiert"
 
 #. translators: %s: provider name.
-#: includes/class-settings.php:1704
+#: includes/class-settings.php:1660
 #, php-format
 msgid "%s API key"
 msgstr "%s API-Schlüssel"
 
-#: includes/class-settings.php:1714
+#: includes/class-settings.php:1670
 msgid "Show or hide key"
 msgstr "Schlüssel anzeigen oder verbergen"
 
-#: includes/class-settings.php:1716
-#: src/screens/brand-kits-dialog.jsx:578
-#: src/screens/brand-kits-dialog.jsx:682
+#: includes/class-settings.php:1672
+#: src/screens/brand-kits-dialog.jsx:579
+#: src/screens/brand-kits-dialog.jsx:683
 #: src/screens/extensions/detail.jsx:123
 #: src/screens/extensions/dialog.jsx:184
 #: src/screens/meta-editor.jsx:489
@@ -3406,7 +3418,7 @@ msgid "QR Code Generator"
 msgstr "QR-Code-Generator"
 
 #: src/help/content.js:481
-#: src/screens/brand-kits-dialog.jsx:219
+#: src/screens/brand-kits-dialog.jsx:220
 #: src/screens/editor-menubar.jsx:1027
 #: src/screens/library-dialog.jsx:91
 #: src/screens/library-tray.jsx:1508
@@ -4989,7 +5001,7 @@ msgstr "Beschriftung"
 
 #: src/lib/caption-fields.js:39
 #: src/lib/dynamic-content.js:51
-#: src/screens/brand-kits-dialog.jsx:717
+#: src/screens/brand-kits-dialog.jsx:718
 #: src/screens/export-dialog.jsx:1366
 msgid "Description"
 msgstr "Beschreibung"
@@ -5096,7 +5108,7 @@ msgid "Composing…"
 msgstr "Setze zusammen…"
 
 #: src/lib/design-assistant.js:590
-#: src/screens/brand-kits-dialog.jsx:523
+#: src/screens/brand-kits-dialog.jsx:524
 msgid "Logo"
 msgstr "Logo"
 
@@ -5135,7 +5147,7 @@ msgstr "Karte"
 
 #: src/lib/design-flair.js:109
 #: src/screens/batch-watermark-dialog.jsx:362
-#: src/screens/brand-kits-dialog.jsx:602
+#: src/screens/brand-kits-dialog.jsx:603
 #: src/screens/export-dialog.jsx:1293
 msgid "Watermark"
 msgstr "Wasserzeichen"
@@ -5158,39 +5170,39 @@ msgid "Glow"
 msgstr "Leuchten"
 
 #: src/lib/dynamic-content.js:40
-#: src/screens/brand-kits-dialog.jsx:29
+#: src/screens/brand-kits-dialog.jsx:30
 msgid "Company"
 msgstr "Firma"
 
 #: src/lib/dynamic-content.js:43
-#: src/screens/brand-kits-dialog.jsx:30
+#: src/screens/brand-kits-dialog.jsx:31
 msgid "Contact person"
 msgstr "Ansprechpartner"
 
 #: src/lib/dynamic-content.js:45
-#: src/screens/brand-kits-dialog.jsx:31
+#: src/screens/brand-kits-dialog.jsx:32
 #: src/screens/qr-dialog.jsx:32
 msgid "Email"
 msgstr "E-Mail"
 
 #: src/lib/dynamic-content.js:47
-#: src/screens/brand-kits-dialog.jsx:33
+#: src/screens/brand-kits-dialog.jsx:34
 msgid "Street"
 msgstr "Straße"
 
 #: src/lib/dynamic-content.js:48
-#: src/screens/brand-kits-dialog.jsx:34
+#: src/screens/brand-kits-dialog.jsx:35
 msgid "ZIP"
 msgstr "PLZ"
 
 #: src/lib/dynamic-content.js:49
 #: src/lib/stock-categories.js:26
-#: src/screens/brand-kits-dialog.jsx:35
+#: src/screens/brand-kits-dialog.jsx:36
 msgid "City"
 msgstr "Stadt"
 
 #: src/lib/dynamic-content.js:50
-#: src/screens/brand-kits-dialog.jsx:36
+#: src/screens/brand-kits-dialog.jsx:37
 msgid "Industry"
 msgstr "Branche"
 
@@ -6408,7 +6420,7 @@ msgstr "Länge"
 #: src/screens/background-studio-dialog.jsx:400
 #: src/screens/beautify-dialog.jsx:642
 #: src/screens/beautify-dialog.jsx:825
-#: src/screens/brand-kits-dialog.jsx:378
+#: src/screens/brand-kits-dialog.jsx:379
 #: src/screens/canvas/context-bar.jsx:462
 #: src/screens/canvas/context-bar.jsx:463
 #: src/screens/chart-studio/style-panel.jsx:233
@@ -7556,7 +7568,7 @@ msgstr "Einstellungen"
 
 #: src/lib/workspace-registry.js:143
 #: src/screens/background-studio-dialog.jsx:385
-#: src/screens/brand-kits-dialog.jsx:345
+#: src/screens/brand-kits-dialog.jsx:346
 #: src/screens/chart-studio/style-panel.jsx:206
 #: src/screens/editor-menubar.jsx:387
 #: src/screens/meta-editor.jsx:388
@@ -7998,7 +8010,7 @@ msgid "Uploaded watermark"
 msgstr "Hochgeladenes Wasserzeichen"
 
 #: src/screens/batch-watermark-dialog.jsx:406
-#: src/screens/brand-kits-dialog.jsx:641
+#: src/screens/brand-kits-dialog.jsx:642
 msgid "Upload image"
 msgstr "Bild hochladen"
 
@@ -8201,23 +8213,23 @@ msgstr "Öffnet sich als neues Dokument im eigenen Tab; deine aktuelle Arbeit bl
 msgid "Opens in a new tab, all layers editable"
 msgstr "Öffnet sich in neuem Tab, alle Ebenen editierbar"
 
-#: src/screens/brand-kits-dialog.jsx:95
+#: src/screens/brand-kits-dialog.jsx:96
 msgid "Multiple Brand Kits are a Pro feature."
 msgstr "Mehrere Marken-Kits sind eine Pro-Funktion."
 
-#: src/screens/brand-kits-dialog.jsx:153
+#: src/screens/brand-kits-dialog.jsx:154
 msgid "Brand Kits saved."
 msgstr "Marken-Kits gespeichert."
 
-#: src/screens/brand-kits-dialog.jsx:223
+#: src/screens/brand-kits-dialog.jsx:224
 msgid "Colors, fonts, logo and company profile: the source for quick picks, templates and AI content."
 msgstr "Farben, Schriften, Logo und Firmenprofil: die Quelle für Schnellzugriffe, Templates und KI-Content."
 
-#: src/screens/brand-kits-dialog.jsx:316
+#: src/screens/brand-kits-dialog.jsx:317
 msgid "+ New kit"
 msgstr "+ Neues Kit"
 
-#: src/screens/brand-kits-dialog.jsx:340
+#: src/screens/brand-kits-dialog.jsx:341
 #: src/screens/chart-studio/pricing-editor.jsx:110
 #: src/screens/create-dialog.jsx:376
 #: src/screens/editor-menubar.jsx:1727
@@ -8233,85 +8245,85 @@ msgstr "+ Neues Kit"
 msgid "Name"
 msgstr "Name"
 
-#: src/screens/brand-kits-dialog.jsx:416
+#: src/screens/brand-kits-dialog.jsx:417
 msgid "Remove color"
 msgstr "Farbe entfernen"
 
-#: src/screens/brand-kits-dialog.jsx:442
+#: src/screens/brand-kits-dialog.jsx:443
 msgid "+ Color"
 msgstr "+ Farbe"
 
-#: src/screens/brand-kits-dialog.jsx:455
+#: src/screens/brand-kits-dialog.jsx:456
 msgid "The first three colors are the primary, secondary and accent color for templates and AI prompts."
 msgstr "Die ersten drei Farben sind Primär-, Sekundär- und Akzentfarbe für Templates und KI-Prompts."
 
-#: src/screens/brand-kits-dialog.jsx:498
+#: src/screens/brand-kits-dialog.jsx:499
 msgid "Primary font…"
 msgstr "Hausschrift…"
 
-#: src/screens/brand-kits-dialog.jsx:502
+#: src/screens/brand-kits-dialog.jsx:503
 msgid "Optional…"
 msgstr "Optional…"
 
-#: src/screens/brand-kits-dialog.jsx:553
+#: src/screens/brand-kits-dialog.jsx:554
 msgid "No logo selected."
 msgstr "Kein Logo ausgewählt."
 
-#: src/screens/brand-kits-dialog.jsx:563
+#: src/screens/brand-kits-dialog.jsx:564
 msgid "Choose from library"
 msgstr "Aus der Mediathek wählen"
 
-#: src/screens/brand-kits-dialog.jsx:631
+#: src/screens/brand-kits-dialog.jsx:632
 msgid "No watermark uploaded."
 msgstr "Noch kein Wasserzeichen hochgeladen."
 
-#: src/screens/brand-kits-dialog.jsx:692
+#: src/screens/brand-kits-dialog.jsx:693
 msgid "Company profile"
 msgstr "Firmenprofil"
 
-#: src/screens/brand-kits-dialog.jsx:738
+#: src/screens/brand-kits-dialog.jsx:739
 msgid "Custom variables"
 msgstr "Eigene Variablen"
 
-#: src/screens/brand-kits-dialog.jsx:751
+#: src/screens/brand-kits-dialog.jsx:752
 msgid "key, e.g. tone"
 msgstr "key, z. B. tone"
 
-#: src/screens/brand-kits-dialog.jsx:783
+#: src/screens/brand-kits-dialog.jsx:784
 msgid "Value"
 msgstr "Wert"
 
-#: src/screens/brand-kits-dialog.jsx:816
+#: src/screens/brand-kits-dialog.jsx:817
 msgid "Remove variable"
 msgstr "Variable entfernen"
 
-#: src/screens/brand-kits-dialog.jsx:843
+#: src/screens/brand-kits-dialog.jsx:844
 msgid "+ Variable"
 msgstr "+ Variable"
 
-#: src/screens/brand-kits-dialog.jsx:856
+#: src/screens/brand-kits-dialog.jsx:857
 msgid "Available as {key} placeholders in content templates, e.g. {tone} or {target_audience}."
 msgstr "Als {key}-Platzhalter in Content-Templates verfügbar, z. B. {tone} oder {target_audience}."
 
-#: src/screens/brand-kits-dialog.jsx:885
+#: src/screens/brand-kits-dialog.jsx:886
 msgid "Changes apply when you save."
 msgstr "Änderungen gelten nach dem Speichern."
 
-#: src/screens/brand-kits-dialog.jsx:896
+#: src/screens/brand-kits-dialog.jsx:897
 #: src/screens/color-schemer-dialog.jsx:894
 msgid "Really delete?"
 msgstr "Wirklich löschen?"
 
-#: src/screens/brand-kits-dialog.jsx:897
+#: src/screens/brand-kits-dialog.jsx:898
 msgid "Delete kit"
 msgstr "Kit löschen"
 
-#: src/screens/brand-kits-dialog.jsx:909
+#: src/screens/brand-kits-dialog.jsx:910
 #: src/screens/recrop-dialog.jsx:448
 msgid "Saving…"
 msgstr "Wird gespeichert…"
 
-#: src/screens/brand-kits-dialog.jsx:910
+#: src/screens/brand-kits-dialog.jsx:911
 msgid "Save kits"
 msgstr "Kits speichern"
 
