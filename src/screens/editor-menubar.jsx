@@ -1246,7 +1246,7 @@ function buildMenus( editor, extras ) {
 			const CATEGORY_LABELS = {
 				photo: __( 'Photo & Effects', 'wunderpaint' ),
 				motion: __( 'Motion & Video', 'wunderpaint' ),
-				'3d': __( '3D & Mockups', 'wunderpaint' ),
+				'3d': __( '3D & Scenes', 'wunderpaint' ),
 				art: __( 'Art & Illustration', 'wunderpaint' ),
 				data: __( 'Data & Diagrams', 'wunderpaint' ),
 				marketing: __( 'Marketing & Social', 'wunderpaint' ),

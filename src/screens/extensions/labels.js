@@ -7,7 +7,7 @@
 import { __ } from '@wordpress/i18n';
 
 export const CATEGORIES = [
-	{ key: '3d', label: __( '3D', 'wunderpaint' ), icon: 'shape' },
+	{ key: '3d', label: __( '3D & Scenes', 'wunderpaint' ), icon: 'shape' },
 	{ key: 'art', label: __( 'Art', 'wunderpaint' ), icon: 'palette' },
 	{ key: 'print', label: __( 'Print', 'wunderpaint' ), icon: 'stamp' },
 	{ key: 'tools', label: __( 'Tools', 'wunderpaint' ), icon: 'sliders' },
