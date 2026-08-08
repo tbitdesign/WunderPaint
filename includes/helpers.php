@@ -111,10 +111,14 @@ class Helpers {
 	 * the uninstall cleanup both work from this list, so a new store cannot
 	 * be forgotten in one of the two places.
 	 *
+	 * One deliberate difference: wpie-quarantine needs the deny rule like
+	 * every other store, but uninstall.php leaves it alone on purpose. It
+	 * holds the user's own media waiting to be restored, not plugin data.
+	 *
 	 * @return string[]
 	 */
 	public static function upload_dirs() {
-		return array( 'wpie-versions', 'wpie-fonts', 'wpie-fonts/library', 'wpie-extensions', 'wpie-3d-models', 'wpie-models', 'wpie-runtime', 'wpie-live', 'wpie-content' );
+		return array( 'wpie-versions', 'wpie-quarantine', 'wpie-fonts', 'wpie-fonts/library', 'wpie-extensions', 'wpie-3d-models', 'wpie-models', 'wpie-runtime', 'wpie-live', 'wpie-content' );
 	}
 
 	/**
@@ -128,8 +132,25 @@ class Helpers {
 	public static function protect_upload_dirs() {
 		$base = trailingslashit( wp_upload_dir( null, false )['basedir'] );
 		foreach ( self::upload_dirs() as $name ) {
-			self::protect_dir( $base . $name );
+			// The extension directory gets the same extra rule Pro's
+			// Ext_Install::dir() applies. Without this the two callers would
+			// take turns rewriting the file, one with the manifest rule and
+			// one without. This plugin no longer writes into that directory
+			// at all, but it keeps protecting it: sites that installed
+			// packages before this release still have one, and it must stay
+			// covered whether or not Pro is present.
+			self::protect_dir( $base . $name, self::extra_deny( $name ) );
 		}
+	}
+
+	/**
+	 * File names a given uploads directory must not hand out, beyond code.
+	 *
+	 * @param string $name Directory name below the uploads base.
+	 * @return string[]
+	 */
+	public static function extra_deny( $name ) {
+		return 'wpie-extensions' === $name ? array( 'manifest.json' ) : array();
 	}
 
 	/**
@@ -139,16 +160,25 @@ class Helpers {
 	 * The uploads tree is served by the web server and PHP is usually enabled
 	 * for the whole document root, which means any future file write bug turns
 	 * straight into remote code execution. This is the last line of defence and
-	 * costs one file per directory. Written once; an existing file is left
-	 * alone so a site owner can adjust it. nginx ignores .htaccess, so this
+	 * costs one file per directory. nginx ignores .htaccess, so this
 	 * complements but does not replace a server rule. (F-L61, 2026-07-25 audit)
 	 *
-	 * @param string $dir Absolute directory path.
+	 * A file that is still ours, recognised by its marker line, is rewritten
+	 * when the rules change. It used to be written once and never looked at
+	 * again, so a new rule would have reached new installations only. Anything
+	 * a site owner edited no longer starts with the marker and is left alone.
+	 *
+	 * @param string   $dir  Absolute directory path.
+	 * @param string[] $deny Extra file names to refuse, on top of the code
+	 *                       extensions. Used for manifest.json in the extension
+	 *                       directory: only PHP ever reads it, while for anyone
+	 *                       else it is the finished description of a paid
+	 *                       package, slug and generator prefixes included.
 	 * @return void
 	 */
-	public static function protect_dir( $dir ) {
+	public static function protect_dir( $dir, $deny = array() ) {
 		$file = trailingslashit( (string) $dir ) . '.htaccess';
-		if ( ! is_dir( $dir ) || file_exists( $file ) ) {
+		if ( ! is_dir( $dir ) ) {
 			return;
 		}
 		$rules  = "# WunderPaint: these files are static assets, never code.\n";
@@ -156,6 +186,23 @@ class Helpers {
 		$rules .= "\t<IfModule mod_authz_core.c>\n\t\tRequire all denied\n\t</IfModule>\n";
 		$rules .= "\t<IfModule !mod_authz_core.c>\n\t\tOrder allow,deny\n\t\tDeny from all\n\t</IfModule>\n";
 		$rules .= "</FilesMatch>\n";
+		foreach ( (array) $deny as $name ) {
+			$rules .= '<Files "' . $name . '">' . "\n";
+			$rules .= "\t<IfModule mod_authz_core.c>\n\t\tRequire all denied\n\t</IfModule>\n";
+			$rules .= "\t<IfModule !mod_authz_core.c>\n\t\tOrder allow,deny\n\t\tDeny from all\n\t</IfModule>\n";
+			$rules .= "</Files>\n";
+		}
+		if ( file_exists( $file ) ) {
+			$now = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			// Both markers are ours: installations from before the rename still
+			// carry the old product name, and they need the new rules just as
+			// much. Anything else is someone's own file and stays untouched.
+			$ours = 0 === strpos( $now, '# WunderPaint: ' )
+				|| 0 === strpos( $now, '# WP Image Editor: ' ); // wpie-keeps-old-name: pre-rename .htaccess, see above.
+			if ( ! $ours || $now === $rules ) {
+				return;
+			}
+		}
 		file_put_contents( $file, $rules ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	}
 

@@ -1,8 +1,11 @@
 /**
- * Full page for one extension inside the manager: the complete description
- * that the cards only tease, deep links to try and read about it, and every
- * action the current state allows. Errors (API gate, runtime issues) are
- * explained here rather than crammed into the card.
+ * Full page for one extension: the complete description that the cards only
+ * tease, deep links to try and read about it, and the one action there is -
+ * on or off. Errors (API gate, runtime issues) are explained here rather
+ * than crammed into the card.
+ *
+ * Installing, updating and removing are not here any more; the free plugin
+ * cannot do any of it (see dialog.jsx). Pro's own manager has that half.
  */
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -24,26 +27,20 @@ const slugify = ( s ) =>
 
 export function ExtensionDetail( {
 	card,
-	crumb,
 	busy,
 	canManage,
-	deliveryUrl,
-	proActive,
-	proUrl,
 	needsReload,
 	issues,
 	onBack,
 	onToggle,
-	onRemove,
-	onProInstall,
 } ) {
 	const isPro = 'pro' === card.tier;
-	const dl =
-		deliveryUrl && card.download
-			? deliveryUrl.replace( /\/$/, '' ) + card.download
-			: null;
 	const nameSlug = slugify( card.name );
-	const links = card.tier
+	// Shown for anything that belongs to the official gallery: a catalogue
+	// entry (tier set) or a studio that ships inside the plugin. A package
+	// somebody sideloaded gets no links, so none of them can be dead.
+	const official = !! ( card.tier || card.bundled );
+	const links = official
 		? [
 				{
 					href: `${ DEMO_BASE }/?wpie-demo=1&wpie-open=${ encodeURIComponent(
@@ -76,59 +73,11 @@ export function ExtensionDetail( {
 			</button>
 		);
 	}
-	if ( 'update' === card.state || ! card.installed ) {
-		if ( isPro && ! proActive ) {
-			actions.push(
-				<a
-					key="pro"
-					className="ai-btn primary"
-					href={ proUrl }
-					target="_blank"
-					rel="noreferrer"
-				>
-					{ __( 'Get Pro', 'wunderpaint' ) }
-				</a>
-			);
-		} else if ( isPro && proActive && canManage ) {
-			actions.push(
-				<button
-					key="install"
-					className="ai-btn primary"
-					disabled={ busy }
-					onClick={ () => onProInstall( card ) }
-				>
-					{ 'update' === card.state
-						? __( 'Update', 'wunderpaint' )
-						: __( 'Install', 'wunderpaint' ) }
-				</button>
-			);
-		} else if ( dl ) {
-			actions.push(
-				<a key="dl" className="ai-btn primary" href={ dl } download>
-					{ 'update' === card.state
-						? __( 'Download update', 'wunderpaint' )
-						: __( 'Download', 'wunderpaint' ) }
-				</a>
-			);
-		}
-	}
-	if ( card.installed && canManage ) {
-		actions.push(
-			<button
-				key="remove"
-				className="ai-btn danger"
-				disabled={ busy }
-				onClick={ () => onRemove( card ) }
-			>
-				{ __( 'Remove', 'wunderpaint' ) }
-			</button>
-		);
-	}
 	return (
 		<div className="ext-detail">
 			<button className="ext-detail-back" onClick={ onBack }>
 				{ I.chevRight( { size: 14 } ) }
-				<span>{ [ ...crumb, card.name ].join( ' › ' ) }</span>
+				<span>{ card.name }</span>
 			</button>
 			<div className="ext-detail-title">
 				<strong>{ card.name }</strong>
@@ -197,14 +146,6 @@ export function ExtensionDetail( {
 			</div>
 			{ !! actions.length && (
 				<div className="ext-detail-actions">{ actions }</div>
-			) }
-			{ ! card.installed && ! isPro && (
-				<div className="ext-detail-hint">
-					{ __(
-						'Free extensions come as a ZIP: download it, then add it below with "Install from ZIP". Nothing is fetched behind your back.',
-						'wunderpaint'
-					) }
-				</div>
 			) }
 			{ needsReload && (
 				<div className="ext-detail-hint">

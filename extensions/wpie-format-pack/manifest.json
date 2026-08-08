@@ -1,0 +1,15 @@
+{
+	"name": "Reformat",
+	"slug": "wpie-format-pack",
+	"version": "1.5.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "One design, every platform size - without the crop. Reformat re-lays-out your document for Instagram (post, portrait, story/reel), Pinterest, YouTube thumbnails, Facebook/OG, X and LinkedIn: backgrounds fill each frame, while text, logos and content keep their position anchors, scale cleanly and respect each platform's safe zones (stories keep clear of the username and caption UI). Live preview grid, adjustable content scale, then download everything as one ZIP or save every size straight to the media library.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.0.0",
+	"provides": [
+		"generator"
+	],
+	"category": "tools",
+	"tier": "free"
+}

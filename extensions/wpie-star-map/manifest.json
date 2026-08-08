@@ -1,0 +1,15 @@
+{
+	"name": "Star Map Posters",
+	"slug": "wpie-star-map",
+	"version": "1.9.1",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "The night sky over any place at any date, as a poster: search a location, pick the moment, choose a theme and shape, toggle constellation lines, grid and cardinal directions - and since v1.7 dress the chart up: FOIL constellation lines in gold, copper, chrome or seven color gradients, a neon GLOW slider, diffraction SPIKES on the brightest stars, real astronomical STAR COLORS, the actual MILKY WAY band computed for your place and moment, and a CONSTELLATION HIGHLIGHT: pick one of the 88 constellations (the birth sign, the favorite) and it shines bold while the rest of the sky steps back. Insert the chart with a classic title, subtitle and date/coordinates text block - all as editable layers. Computed locally from the bundled star catalog. Reopen any chart via Edit Star Map Posters.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "print",
+	"tier": "free"
+}

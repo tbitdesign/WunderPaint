@@ -168,6 +168,22 @@ class Stock {
 		// Settings-page "Test connection" (mirrors /ai/test).
 		register_rest_route(
 			WPIE_REST_NS,
+			'/stock/download',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'download' ),
+				'permission_callback' => array( REST_Controller::class, 'can_use_editor' ),
+				'args'                => array(
+					'location' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			WPIE_REST_NS,
 			'/stock/test',
 			array(
 				'methods'             => 'POST',
@@ -218,27 +234,65 @@ class Stock {
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function search( $request ) {
-		// See /stock/fetch, which already throttles. (F-L27)
-		$limited = AI_Provider::rate_limit( 'stocksearch', 0, 'lookup_rate_limit' );
-		if ( is_wp_error( $limited ) ) {
-			return $limited;
-		}
 		$provider  = $request->get_param( 'provider' );
 		$providers = self::providers();
 		if ( ! isset( $providers[ $provider ] ) ) {
 			return new \WP_Error( 'wpie_stock_unknown', __( 'Unknown stock provider.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
 
-		// Extension provider with its own search callable (v0.4).
-		if ( isset( $providers[ $provider ]['search'] ) && is_callable( $providers[ $provider ]['search'] ) ) {
+		$q    = trim( (string) $request->get_param( 'q' ) );
+		$page = max( 1, (int) $request->get_param( 'page' ) );
+		// Illustrations/vector graphics (v1.109.0): only Pixabay's API can
+		// filter by image_type; the photo-only providers ignore it.
+		$type = (string) $request->get_param( 'type' );
+		if ( ! in_array( $type, array( 'photo', 'illustration', 'vector' ), true ) ) {
+			$type = 'photo';
+		}
+
+		// Extension provider with its own search callable (v0.4). It gets no
+		// cache: an extension may well answer per user or per context, and
+		// this class cannot know that.
+		$extern = isset( $providers[ $provider ]['search'] ) && is_callable( $providers[ $provider ]['search'] );
+
+		/*
+		 * Cache BEFORE the throttle, and that order is the whole point.
+		 *
+		 * Opening the Asset Library tray fires one search per category, and
+		 * there are 25 of them (src/lib/stock-categories.js), so a single
+		 * open is 25 requests within about two seconds - times the number of
+		 * providers the visitor clicks through. Those 25 queries are
+		 * identical for every visitor and change about as often as the word
+		 * "nature" does.
+		 *
+		 * The throttle exists to protect the monthly provider quota. A cache
+		 * hit costs no quota, so counting it against the limit would ration
+		 * the wrong thing: it would block visitors while protecting nothing.
+		 * On demo.wp-image-editor.com that was exactly the effect - the tray
+		 * could never finish loading, no matter who opened it.
+		 *
+		 * Caching is also what the providers expect; Pixabay's terms ask for
+		 * it outright.
+		 */
+		$ttl       = (int) apply_filters( 'wpie_stock_cache_ttl', 6 * HOUR_IN_SECONDS, $provider, $q );
+		$cache_key = ( $extern || $ttl <= 0 ) ? '' : self::cache_key( $provider, $q, $page, $type );
+		if ( '' !== $cache_key ) {
+			$cached = get_transient( $cache_key );
+			if ( is_array( $cached ) ) {
+				return rest_ensure_response( $cached );
+			}
+		}
+
+		// See /stock/fetch, which already throttles. (F-L27)
+		$limited = AI_Provider::rate_limit( 'stocksearch', 0, 'lookup_rate_limit' );
+		if ( is_wp_error( $limited ) ) {
+			return $limited;
+		}
+
+		if ( $extern ) {
 			if ( empty( $providers[ $provider ]['configured'] ) ) {
 				return new \WP_Error( 'wpie_stock_no_key', __( 'This stock provider is not configured.', 'wunderpaint' ), array( 'status' => 409 ) );
 			}
-			$result = call_user_func(
-				$providers[ $provider ]['search'],
-				trim( (string) $request->get_param( 'q' ) ),
-				max( 1, (int) $request->get_param( 'page' ) )
-			);
+			$result = call_user_func( $providers[ $provider ]['search'], $q, $page );
 			return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
 		}
 
@@ -253,15 +307,6 @@ class Stock {
 				),
 				array( 'status' => 409 )
 			);
-		}
-
-		$q    = trim( (string) $request->get_param( 'q' ) );
-		$page = max( 1, (int) $request->get_param( 'page' ) );
-		// Illustrations/vector graphics (v1.109.0): only Pixabay's API can
-		// filter by image_type; the photo-only providers ignore it.
-		$type = (string) $request->get_param( 'type' );
-		if ( ! in_array( $type, array( 'photo', 'illustration', 'vector' ), true ) ) {
-			$type = 'photo';
 		}
 
 		if ( 'pexels' === $provider ) {
@@ -345,7 +390,28 @@ class Stock {
 		} else {
 			$normalized = self::normalize_pixabay( $body );
 		}
+		if ( '' !== $cache_key ) {
+			set_transient( $cache_key, $normalized, $ttl );
+		}
 		return rest_ensure_response( $normalized );
+	}
+
+	/**
+	 * Transient name for one cached search.
+	 *
+	 * Public on purpose: tests/php/stock.php has to clear exactly these
+	 * entries before it mocks a provider, otherwise the second run of the
+	 * suite is answered from the cache and the mock never fires - a green
+	 * test that proved nothing.
+	 *
+	 * @param string $provider Provider slug.
+	 * @param string $q        Query, already trimmed.
+	 * @param int    $page     1-based page.
+	 * @param string $type     photo|illustration|vector.
+	 * @return string
+	 */
+	public static function cache_key( $provider, $q, $page = 1, $type = 'photo' ) {
+		return 'wpie_stock_' . md5( $provider . '|' . $q . '|' . (int) $page . '|' . $type );
 	}
 
 	/**
@@ -354,6 +420,31 @@ class Stock {
 	 * @param array $body Decoded JSON.
 	 * @return array{results:array,total:int}
 	 */
+	/**
+	 * The referral marker Unsplash asks every link back to carry.
+	 *
+	 * Their guidelines: "All links back to Unsplash should use utm parameters
+	 * in the ?utm_source=your_app_name&utm_medium=referral". The source name
+	 * is filterable because the studio is a different application from the
+	 * plugin and registers under its own name.
+	 *
+	 * @param string $url Absolute unsplash.com URL, may be empty.
+	 * @return string
+	 */
+	public static function unsplash_referral( $url ) {
+		if ( '' === (string) $url ) {
+			return '';
+		}
+		$app = (string) apply_filters( 'wpie_unsplash_app_name', 'wunderpaint' );
+		return add_query_arg(
+			array(
+				'utm_source' => rawurlencode( $app ),
+				'utm_medium' => 'referral',
+			),
+			$url
+		);
+	}
+
 	public static function normalize_unsplash( $body ) {
 		$results = array();
 		foreach ( (array) ( isset( $body['results'] ) ? $body['results'] : array() ) as $photo ) {
@@ -361,6 +452,7 @@ class Stock {
 			$full      = isset( $urls['regular'] ) ? $urls['regular'] : ( isset( $urls['full'] ) ? $urls['full'] : '' );
 			$user      = isset( $photo['user'] ) ? (array) $photo['user'] : array();
 			$links     = isset( $photo['links'] ) ? (array) $photo['links'] : array();
+			$ulinks    = isset( $user['links'] ) ? (array) $user['links'] : array();
 			$results[] = array(
 				'id'     => 'unsplash-' . ( isset( $photo['id'] ) ? $photo['id'] : '' ),
 				'thumb'  => isset( $urls['small'] ) ? $urls['small'] : $full,
@@ -368,7 +460,17 @@ class Stock {
 				'w'      => isset( $photo['width'] ) ? (int) $photo['width'] : 0,
 				'h'      => isset( $photo['height'] ) ? (int) $photo['height'] : 0,
 				'author' => isset( $user['name'] ) ? $user['name'] : '',
-				'link'   => isset( $links['html'] ) ? $links['html'] : '',
+				'link'   => self::unsplash_referral( isset( $links['html'] ) ? $links['html'] : '' ),
+				// The credit has to point at the photographer's PROFILE, not
+				// at the picture: "your application must attribute Unsplash,
+				// the Unsplash photographer, and contain a link back to their
+				// Unsplash profile". `link` above stays the photo page, which
+				// is what the thumbnail links to.
+				'authorUrl' => self::unsplash_referral( isset( $ulinks['html'] ) ? $ulinks['html'] : '' ),
+				// Not a URL anyone opens: Unsplash counts a use when this is
+				// requested WITH the API key, which is why only the server
+				// may call it. See Stock::download().
+				'downloadLocation' => isset( $links['download_location'] ) ? $links['download_location'] : '',
 			);
 		}
 		return array(
@@ -396,6 +498,9 @@ class Stock {
 				'h'      => isset( $photo['height'] ) ? (int) $photo['height'] : 0,
 				'author' => isset( $photo['photographer'] ) ? $photo['photographer'] : '',
 				'link'   => isset( $photo['url'] ) ? $photo['url'] : '',
+				// Pexels asks for the photographer to be credited and linked
+				// as well, and hands the profile over ready-made.
+				'authorUrl' => isset( $photo['photographer_url'] ) ? $photo['photographer_url'] : '',
 			);
 		}
 		return array(
@@ -422,6 +527,12 @@ class Stock {
 				'h'      => isset( $hit['imageHeight'] ) ? (int) $hit['imageHeight'] : 0,
 				'author' => isset( $hit['user'] ) ? $hit['user'] : '',
 				'link'   => isset( $hit['pageURL'] ) ? $hit['pageURL'] : '',
+				// Pixabay gives no profile URL, but it is built from the two
+				// fields it does give. Only when both are there, otherwise the
+				// credit would link into nothing.
+				'authorUrl' => ( isset( $hit['user'], $hit['user_id'] ) && '' !== (string) $hit['user'] )
+					? 'https://pixabay.com/users/' . rawurlencode( (string) $hit['user'] ) . '-' . (int) $hit['user_id'] . '/'
+					: '',
 			);
 		}
 		return array(
@@ -455,6 +566,56 @@ class Stock {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * POST /stock/download, tells Unsplash that a photo was used.
+	 *
+	 * Their guidelines are not optional about this: "When your application
+	 * performs something similar to a download (like when a user chooses the
+	 * image to include in a blog post, set as a header, etc.), you must send a
+	 * request to the download endpoint returned under the
+	 * photo.links.download_location property."
+	 *
+	 * Putting a picture on the canvas IS that moment. It is also how the
+	 * photographer gets counted, which is the whole bargain behind a free
+	 * photo library, so this fires whether or not anyone is checking.
+	 *
+	 * Server side because the call only counts when it carries the API key,
+	 * and the key never reaches the browser. The address is not taken on
+	 * trust: only api.unsplash.com is called, no matter what arrives here.
+	 *
+	 * The answer is deliberately vague towards the caller. Nothing the editor
+	 * does depends on it, and a failed count must never block an insert.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function download( $request ) {
+		$location = (string) $request->get_param( 'location' );
+		$host     = strtolower( (string) wp_parse_url( $location, PHP_URL_HOST ) );
+		$scheme   = strtolower( (string) wp_parse_url( $location, PHP_URL_SCHEME ) );
+		if ( 'https' !== $scheme || 'api.unsplash.com' !== $host ) {
+			return rest_ensure_response( array( 'counted' => false ) );
+		}
+
+		$key = Helpers::get_api_key( 'unsplash' );
+		if ( '' === $key ) {
+			return rest_ensure_response( array( 'counted' => false ) );
+		}
+
+		$response = wp_safe_remote_get(
+			$location,
+			array(
+				'timeout' => 8,
+				'headers' => array(
+					'Authorization'  => 'Client-ID ' . $key,
+					'Accept-Version' => 'v1',
+				),
+			)
+		);
+		$code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+		return rest_ensure_response( array( 'counted' => $code >= 200 && $code < 300 ) );
 	}
 
 	/**

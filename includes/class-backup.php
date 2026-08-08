@@ -215,22 +215,26 @@ class Backup {
 			}
 		}
 
-		// --- Installed editor extensions (user-installed packages) --------
+		// --- Installed editor extensions ---------------------------------
+		// This plugin has nothing to collect here. The studios it ships live
+		// inside the plugin folder and come back with the plugin itself, and
+		// it cannot install any others - the whole writing half of the
+		// extension manager moved to Pro for the wordpress.org review
+		// (see class-extensions.php). A plugin that CAN install packages
+		// adds them to the archive through the hook below.
 		if ( $include_extensions ) {
-			$base = Extensions::dir();
-			foreach ( Extensions::all() as $ext ) {
-				$dir = $base . $ext['slug'];
-				$it  = new \RecursiveIteratorIterator(
-					new \RecursiveDirectoryIterator( $dir, \FilesystemIterator::SKIP_DOTS )
-				);
-				foreach ( $it as $file ) {
-					if ( $file->isFile() ) {
-						$rel = substr( (string) $file->getPathname(), strlen( $base ) );
-						$zip->addFile( (string) $file->getPathname(), 'extensions/' . str_replace( '\\', '/', $rel ) );
-					}
-				}
-				++$counts['extensions'];
-			}
+			/**
+			 * Filters the archive while it is being written.
+			 *
+			 * Add entries to $zip and count them in $counts. The archive is
+			 * still open; do not close it.
+			 *
+			 * @since 1.392.0
+			 *
+			 * @param array       $counts Per-section counts shown to the user.
+			 * @param \ZipArchive $zip    The open archive.
+			 */
+			$counts = apply_filters( 'wpie_backup_collect', $counts, $zip );
 		}
 
 		// --- Version store (optional, can be huge) -----------------------
@@ -439,8 +443,23 @@ class Backup {
 		}
 
 		// --- Custom fonts + editor extensions ------------------------------
-		$restored['fonts']      = self::restore_fonts( $zip );
-		$restored['extensions'] = self::restore_extensions( $zip );
+		$restored['fonts'] = self::restore_fonts( $zip );
+		/**
+		 * Filters the restore counts while the archive is still open.
+		 *
+		 * The extension packages in an archive used to be unpacked right
+		 * here, straight into uploads. That is a second way for JavaScript
+		 * from a file somebody hands you to end up running in the editor,
+		 * which is exactly what the wordpress.org review objected to about
+		 * the ZIP installer, so it left this plugin with the installer
+		 * (2026-08-08). Pro restores them through this hook.
+		 *
+		 * @since 1.392.0
+		 *
+		 * @param array       $restored Per-section counts.
+		 * @param \ZipArchive $zip      The open archive.
+		 */
+		$restored = apply_filters( 'wpie_backup_restore', $restored, $zip );
 
 		$zip->close();
 		self::back(
@@ -523,68 +542,6 @@ class Backup {
 			}
 			file_put_contents( Fonts::dir() . '/' . $base, $zip->getFromIndex( $i ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 			++$count;
-		}
-		return $count;
-	}
-
-	/**
-	 * Restore editor extension packages: every slug present in the archive
-	 * replaces its installed counterpart, other installed packages stay.
-	 * Same validation as the installer (path safety, file-type whitelist,
-	 * a working manifest), since an archive is just another upload.
-	 *
-	 * @param \ZipArchive $zip Archive.
-	 * @return int Restored package count.
-	 */
-	private static function restore_extensions( $zip ) {
-		if ( ! Extensions::can_manage() ) {
-			return 0; // DISALLOW_FILE_MODS blocks code installs, backups too.
-		}
-		$slugs = array();
-		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
-			$name = str_replace( '\\', '/', (string) $zip->getNameIndex( $i ) );
-			if ( 0 !== strpos( $name, 'extensions/' ) || '/' === substr( $name, -1 ) ) {
-				continue;
-			}
-			$rel = substr( $name, 11 );
-			if ( false !== strpos( $rel, '..' ) || ! preg_match( '#^([a-z0-9_-]+)/(.+)$#', $rel, $m ) ) {
-				continue;
-			}
-			$ext = strtolower( (string) pathinfo( $m[2], PATHINFO_EXTENSION ) );
-			if ( ! in_array( $ext, Extensions::ALLOWED_EXT, true ) ) {
-				continue;
-			}
-			$slugs[ $m[1] ][ $m[2] ] = $i;
-		}
-		$count = 0;
-		foreach ( $slugs as $slug => $files ) {
-			// Same guards as the ZIP installer: file count and total unpacked
-			// size per package, plus the shared per-file writer that enforces
-			// the extension allowlist, the size cap and the SVG sanitizer.
-			// This path used to have none of that. (F-L15)
-			if ( count( $files ) > Extensions::MAX_FILES ) {
-				continue;
-			}
-			Extensions::remove_package( $slug );
-			$target = Extensions::dir() . $slug . '/';
-			wp_mkdir_p( $target );
-			$bytes = 0;
-			foreach ( $files as $rel => $index ) {
-				$data = $zip->getFromIndex( $index );
-				if ( false === $data ) {
-					continue;
-				}
-				$bytes += strlen( $data );
-				if ( $bytes > Extensions::MAX_UNCOMPRESSED_BYTES ) {
-					break;
-				}
-				Extensions::write_package_file( $target, $rel, $data );
-			}
-			if ( Extensions::describe( $slug ) ) {
-				++$count;
-			} else {
-				Extensions::remove_package( $slug ); // No usable manifest.
-			}
 		}
 		return $count;
 	}

@@ -1,0 +1,15 @@
+{
+	"name": "Text Art",
+	"slug": "wpie-text-art",
+	"version": "3.1.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Your image, rebuilt from characters, bricks and tiles - a whole wall of type cards, computed in your browser: ASCII ART with seven charsets (classic, blocks, braille, binary, Matrix rain, typewriter, your own characters), EMOJI ART with coverage-weighted color matching, and the object mosaics - BRICK ART (classic toy-brick palette or original colors), DICE ART (white and black dice, twelve gray levels), CUBE ART (six sticker colors with the 3x3 face grid), STICKY NOTES (neon squares, rotated with soft shadows), DOT MATRIX (LED wall, flip-dot display or pegboard), MARQUEE LIGHTS (warm carnival bulbs on dark metal), CERAMIC MOSAIC (irregular tiles with grout), KEYCAP ART (legends cycle your own text), STAMP WALL (perforated stamps each carrying their crop of the picture), BOTTLE CAPS, COIN MOSAIC (bronze in the shadows, gold in the lights), BUTTON MOSAIC (sewing buttons with thread), DOMINO ART (running-bond stones, pips carry the brightness) and YOUR TILE - any layer of your document, your logo included, becomes the mosaic stone. A QR PORTRAIT hides the photo inside a WORKING, scannable QR code (level-H error correction, the module cores stay hard). Plus a WORD PORTRAIT that grows and rotates your words with the image, readable LYRICS and POST ART flows (rows, diagonal, waves, spiral - straight from a WordPress post), SILHOUETTE TEXT, and photo-free typography: ELEMENT ART periodic tiles (BaCoN style), HIDDEN WORDS letter grids, crossing LETTER TILES with letter values, a RANSOM NOTE with every letter cut from a different magazine, and a WORD CLOUD packed by real word frequency - from your own words or a post, into a heart, a star or any letter. Shape masks (heart, star, circle, diamond, a giant letter or any emoji) replace the photo anywhere. NEW: every artwork exports as a REVEAL ANIMATION (WebM) - the picture builds itself piece by piece, tiles popping in or lines typing on, download or straight to the Media Library. Everything inserts as an editable layer and reopens with all settings.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "art",
+	"tier": "free"
+}

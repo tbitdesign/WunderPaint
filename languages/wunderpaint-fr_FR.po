@@ -3,14 +3,14 @@
 msgid ""
 msgstr ""
 "Language: fr_FR\n"
-"Project-Id-Version: WunderPaint 1.384.6\n"
+"Project-Id-Version: WunderPaint 1.388.5\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wunderpaint\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-03T22:50:40+00:00\n"
+"POT-Creation-Date: 2026-08-07T15:25:39+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wunderpaint\n"
@@ -204,7 +204,7 @@ msgid "No backup file received (check the server upload limit)."
 msgstr "Aucun fichier de sauvegarde reçu (vérifie la limite de téléversement du serveur)."
 
 #: includes/class-backup.php:300
-#: includes/class-extensions.php:449
+#: includes/class-extensions.php:452
 msgid "The file is not a readable ZIP archive."
 msgstr "Le fichier n'est pas une archive ZIP lisible."
 
@@ -229,8 +229,8 @@ msgid "Backup restored: %1$d template files, %2$d design files, %3$d version fil
 msgstr "Sauvegarde restaurée : %1$d fichiers de modèles, %2$d fichiers de designs, %3$d fichiers de versions, %4$d extensions, %5$d fichiers de polices, %6$d modèles 3D."
 
 #: includes/class-editor-page.php:49
-#: src/lib/asset-insert.js:157
-#: src/lib/asset-insert.js:481
+#: src/lib/asset-insert.js:162
+#: src/lib/asset-insert.js:486
 #: src/lib/dynamic-content.js:196
 #: src/lib/workspace-registry.js:62
 #: src/lib/workspace-registry.js:118
@@ -289,7 +289,7 @@ msgstr "Chargement de l'éditeur…"
 #: src/screens/actions-dialog.jsx:51
 #: src/screens/alt-text-dialog.jsx:676
 #: src/screens/alt-text-dialog.jsx:1538
-#: src/screens/background-studio-dialog.jsx:350
+#: src/screens/background-studio-dialog.jsx:363
 #: src/screens/batch-watermark-dialog.jsx:353
 #: src/screens/beautify-dialog.jsx:413
 #: src/screens/brand-kits-dialog.jsx:233
@@ -306,14 +306,14 @@ msgstr "Chargement de l'éditeur…"
 #: src/screens/create-dialog.jsx:262
 #: src/screens/depth-blur-dialog.jsx:136
 #: src/screens/design-dialog.jsx:351
-#: src/screens/editor-dialogs.jsx:133
-#: src/screens/editor-dialogs.jsx:339
-#: src/screens/editor-dialogs.jsx:431
-#: src/screens/editor-dialogs.jsx:618
+#: src/screens/editor-dialogs.jsx:137
+#: src/screens/editor-dialogs.jsx:343
+#: src/screens/editor-dialogs.jsx:439
+#: src/screens/editor-dialogs.jsx:626
 #: src/screens/editor-menubar.jsx:276
 #: src/screens/editor-titlebar.jsx:302
 #: src/screens/export-dialog.jsx:739
-#: src/screens/extensions/dialog.jsx:292
+#: src/screens/extensions/dialog.jsx:367
 #: src/screens/generate-dialog.jsx:274
 #: src/screens/guides-dialog.jsx:92
 #: src/screens/help-assistant.jsx:141
@@ -343,7 +343,7 @@ msgstr "Chargement de l'éditeur…"
 #: src/screens/replace-dialog.jsx:252
 #: src/screens/resize-dialog.jsx:178
 #: src/screens/status-dialog.jsx:368
-#: src/screens/stock-dialog.jsx:180
+#: src/screens/stock-dialog.jsx:220
 #: src/screens/use-image-dialog.jsx:130
 #: src/screens/vignette-dialog.jsx:376
 #: src/screens/workspace-dialog.jsx:98
@@ -371,68 +371,68 @@ msgstr "La valeur enregistrée dépasse la limite de 32 Ko."
 msgid "Too many extension storage namespaces for this account."
 msgstr "Trop d'espaces de stockage d'extensions pour ce compte."
 
-#: includes/class-extensions.php:373
+#: includes/class-extensions.php:376
 msgid "You are not allowed to manage editor extensions."
 msgstr "Tu n'as pas l'autorisation de gérer les extensions de l'éditeur."
 
-#: includes/class-extensions.php:425
+#: includes/class-extensions.php:428
 msgid "No extension package was uploaded."
 msgstr "Aucun paquet d'extension téléversé."
 
-#: includes/class-extensions.php:441
+#: includes/class-extensions.php:444
 msgid "The server is missing the PHP ZIP module."
 msgstr "Le module PHP ZIP manque sur le serveur."
 
-#: includes/class-extensions.php:444
+#: includes/class-extensions.php:447
 msgid "The package exceeds the 40 MB limit."
 msgstr "Le paquet dépasse la limite de 40 Mo."
 
-#: includes/class-extensions.php:460
+#: includes/class-extensions.php:463
 msgid "The package contains too many files."
 msgstr "Le paquet contient trop de fichiers."
 
-#: includes/class-extensions.php:472
+#: includes/class-extensions.php:475
 msgid "The package contains unsafe file paths."
 msgstr "Le paquet contient des chemins de fichiers non sûrs."
 
 #. translators: %s: file name.
-#: includes/class-extensions.php:481
+#: includes/class-extensions.php:484
 #, php-format
 msgid "The package contains a disallowed file type: %s"
 msgstr "Le paquet contient un type de fichier interdit : %s"
 
 #. translators: %s: file name.
-#: includes/class-extensions.php:497
+#: includes/class-extensions.php:500
 #, php-format
 msgid "A file in the package is too large when unpacked: %s"
 msgstr "Un fichier du paquet est trop volumineux une fois décompressé : %s"
 
-#: includes/class-extensions.php:506
+#: includes/class-extensions.php:509
 msgid "The package is too large when unpacked."
 msgstr "Le paquet est trop volumineux une fois décompressé."
 
-#: includes/class-extensions.php:525
+#: includes/class-extensions.php:528
 msgid "The package has no manifest.json at its top level."
 msgstr "Le paquet n'a pas de manifest.json à sa racine."
 
-#: includes/class-extensions.php:533
+#: includes/class-extensions.php:536
 msgid "manifest.json must be valid JSON with at least \"name\" and \"main\"."
 msgstr "manifest.json doit être un JSON valide avec au moins « name » et « main »."
 
-#: includes/class-extensions.php:538
+#: includes/class-extensions.php:541
 msgid "The manifest \"main\" script is missing from the package."
 msgstr "Le script indiqué dans « main » du manifeste manque dans le paquet."
 
-#: includes/class-extensions.php:544
+#: includes/class-extensions.php:547
 msgid "The package name does not produce a usable slug."
 msgstr "Le nom du paquet ne produit pas de slug utilisable."
 
-#: includes/class-extensions.php:582
+#: includes/class-extensions.php:585
 msgid "The package could not be installed."
 msgstr "Le paquet n'a pas pu être installé."
 
-#: includes/class-extensions.php:597
-#: includes/class-extensions.php:621
+#: includes/class-extensions.php:600
+#: includes/class-extensions.php:624
 msgid "Extension not found."
 msgstr "Extension introuvable."
 
@@ -574,40 +574,40 @@ msgstr "Fichier joint introuvable."
 msgid "Could not create the attachment."
 msgstr "Impossible de créer le fichier joint."
 
-#: includes/class-locale.php:310
+#: includes/class-locale.php:311
 #: src/screens/alt-text-dialog.jsx:742
 msgid "Language"
 msgstr "Langue"
 
-#: includes/class-locale.php:339
+#: includes/class-locale.php:340
 msgid "Editor language"
 msgstr "Langue de l'éditeur"
 
-#: includes/class-locale.php:347
+#: includes/class-locale.php:348
 msgid "Applies to the editor and its studios only. The WordPress admin around it keeps its own language. This is your personal setting, not the site's."
 msgstr "S'applique uniquement à l'éditeur et à ses studios. L'administration WordPress autour garde sa propre langue. C'est ton réglage personnel, pas celui du site."
 
-#: includes/class-locale.php:354
+#: includes/class-locale.php:355
 msgid "Follow WordPress"
 msgstr "Suivre WordPress"
 
-#: includes/class-locale.php:360
+#: includes/class-locale.php:361
 #: src/help/guides.js:120
 #: src/lib/shortcuts.js:516
 #: src/screens/meta-editor.jsx:567
 msgid "Save"
 msgstr "Enregistrer"
 
-#: includes/class-locale.php:378
+#: includes/class-locale.php:379
 #: includes/class-settings.php:51
 msgid "You are not allowed to do that."
 msgstr "Tu n'as pas l'autorisation de faire cela."
 
-#: includes/class-locale.php:394
+#: includes/class-locale.php:395
 msgid "Editor language saved."
 msgstr "Langue de l'éditeur enregistrée."
 
-#: includes/class-locale.php:395
+#: includes/class-locale.php:396
 #: includes/class-rest-controller.php:112
 msgid "That language is not available."
 msgstr "Cette langue n'est pas disponible."
@@ -856,7 +856,7 @@ msgstr "Une liste de palettes était attendue."
 msgid "Palette %d"
 msgstr "Palette %d"
 
-#: includes/class-plugin.php:121
+#: includes/class-plugin.php:128
 msgid "Docs & FAQs"
 msgstr "Docs & FAQ"
 
@@ -1191,8 +1191,8 @@ msgstr "%1$d familles supplémentaires téléchargées sur %2$d."
 
 #: includes/class-settings.php:387
 #: src/screens/extensions/card.jsx:49
-#: src/screens/extensions/dialog.jsx:224
-#: src/screens/extensions/dialog.jsx:243
+#: src/screens/extensions/dialog.jsx:299
+#: src/screens/extensions/dialog.jsx:318
 #: src/screens/extensions/sidebar.jsx:39
 msgid "Installed"
 msgstr "Installé"
@@ -1204,7 +1204,7 @@ msgstr "Non installé"
 #: includes/class-settings.php:389
 #: src/screens/editor-titlebar.jsx:343
 #: src/screens/export-dialog.jsx:1616
-#: src/screens/extensions/detail.jsx:110
+#: src/screens/extensions/detail.jsx:119
 msgid "Download"
 msgstr "Télécharger"
 
@@ -1289,7 +1289,7 @@ msgstr "Ouvrir l'éditeur"
 #: includes/class-settings.php:1585
 #: src/lib/dynamic-content.js:46
 #: src/screens/brand-kits-dialog.jsx:33
-#: src/screens/extensions/detail.jsx:194
+#: src/screens/extensions/detail.jsx:203
 msgid "Website"
 msgstr "Site web"
 
@@ -1311,7 +1311,7 @@ msgstr "Modèles IA locaux"
 
 #: includes/class-settings.php:767
 #: src/screens/brand-kits-dialog.jsx:465
-#: src/screens/editor-dialogs.jsx:522
+#: src/screens/editor-dialogs.jsx:530
 #: src/screens/status-dialog.jsx:423
 msgid "Fonts"
 msgstr "Polices"
@@ -1341,7 +1341,7 @@ msgid "Backup"
 msgstr "Sauvegarde"
 
 #: includes/class-settings.php:783
-#: src/screens/editor-dialogs.jsx:319
+#: src/screens/editor-dialogs.jsx:323
 msgid "About"
 msgstr "À propos"
 
@@ -1513,7 +1513,8 @@ msgstr "Ces modèles optionnels alimentent des fonctions locales dans le navigat
 #: src/lib/text-fx-defs.js:1543
 #: src/lib/text-fx-defs.js:1689
 #: src/lib/text-fx-defs.js:1764
-#: src/screens/background-studio-dialog.jsx:624
+#: src/screens/background-studio-dialog.jsx:637
+#: src/screens/background-studio-dialog.jsx:827
 #: src/screens/batch-watermark-dialog.jsx:59
 #: src/screens/easy/easy-panel.jsx:80
 #: src/screens/easy/easy-panel.jsx:157
@@ -1543,14 +1544,14 @@ msgstr "Statut"
 #: src/screens/cleanup-dialog.jsx:655
 #: src/screens/cleanup-dialog.jsx:812
 #: src/screens/color-schemer-dialog.jsx:632
-#: src/screens/library-tray.jsx:1117
-#: src/screens/library-tray.jsx:1175
+#: src/screens/library-tray.jsx:1161
+#: src/screens/library-tray.jsx:1219
 #: src/screens/library/content-sections.jsx:523
 #: src/screens/library/content-sections.jsx:675
 #: src/screens/media-library-dialog.jsx:3039
 #: src/screens/open-template-dialog.jsx:68
 #: src/screens/post-picker-dialog.jsx:202
-#: src/screens/stock-dialog.jsx:383
+#: src/screens/stock-dialog.jsx:472
 msgid "Loading…"
 msgstr "Chargement…"
 
@@ -1673,7 +1674,7 @@ msgstr "Télécharger la bibliothèque complète"
 #: src/components/effect-dialog.jsx:211
 #: src/components/input-dialog.jsx:207
 #: src/screens/alt-text-dialog.jsx:1503
-#: src/screens/background-studio-dialog.jsx:766
+#: src/screens/background-studio-dialog.jsx:931
 #: src/screens/batch-watermark-dialog.jsx:540
 #: src/screens/beautify-dialog.jsx:946
 #: src/screens/canvas/overlays.jsx:1204
@@ -1683,7 +1684,7 @@ msgstr "Télécharger la bibliothèque complète"
 #: src/screens/create-dialog.jsx:763
 #: src/screens/depth-blur-dialog.jsx:251
 #: src/screens/design-dialog.jsx:881
-#: src/screens/editor-dialogs.jsx:610
+#: src/screens/editor-dialogs.jsx:618
 #: src/screens/editor-menubar.jsx:2822
 #: src/screens/editor-titlebar.jsx:237
 #: src/screens/export-dialog.jsx:1604
@@ -1789,8 +1790,8 @@ msgstr "Téléverser"
 #: includes/class-settings.php:1298
 #: src/help/content.js:469
 #: src/screens/editor-menubar.jsx:1010
-#: src/screens/stock-dialog.jsx:148
-#: src/screens/stock-dialog.jsx:157
+#: src/screens/stock-dialog.jsx:188
+#: src/screens/stock-dialog.jsx:197
 msgid "Stock Images"
 msgstr "Images de stock"
 
@@ -2056,8 +2057,8 @@ msgstr "Afficher ou masquer la clé"
 #: includes/class-settings.php:1672
 #: src/screens/brand-kits-dialog.jsx:579
 #: src/screens/brand-kits-dialog.jsx:683
-#: src/screens/extensions/detail.jsx:123
-#: src/screens/extensions/dialog.jsx:184
+#: src/screens/extensions/detail.jsx:132
+#: src/screens/extensions/dialog.jsx:255
 #: src/screens/meta-editor.jsx:489
 #: src/screens/panels/effects-panel.jsx:309
 #: src/screens/panels/properties-panel.jsx:2190
@@ -2065,39 +2066,39 @@ msgstr "Afficher ou masquer la clé"
 msgid "Remove"
 msgstr "Retirer"
 
-#: includes/class-stock.php:229
+#: includes/class-stock.php:240
 msgid "Unknown stock provider."
 msgstr "Fournisseur de stock inconnu."
 
-#: includes/class-stock.php:235
+#: includes/class-stock.php:293
 msgid "This stock provider is not configured."
 msgstr "Ce fournisseur de stock n'est pas configuré."
 
 #. translators: %s: provider name.
-#: includes/class-stock.php:251
+#: includes/class-stock.php:305
 #, php-format
 msgid "No API key configured for %s, add one in the plugin settings."
 msgstr "Aucune clé API configurée pour %s, ajoute-la dans les réglages de l'extension."
 
 #. translators: 1: provider name, 2: HTTP status.
-#: includes/class-stock.php:333
+#: includes/class-stock.php:378
 #, php-format
 msgid "%1$s returned an error (HTTP %2$d), check the API key."
 msgstr "%1$s a renvoyé une erreur (HTTP %2$d), vérifie la clé API."
 
-#: includes/class-stock.php:471
+#: includes/class-stock.php:632
 msgid "Only stock-provider image URLs can be fetched."
 msgstr "Seules les URL d'images des fournisseurs de stock peuvent être récupérées."
 
-#: includes/class-stock.php:494
+#: includes/class-stock.php:655
 msgid "Image download failed."
 msgstr "Échec du téléchargement de l'image."
 
-#: includes/class-stock.php:497
+#: includes/class-stock.php:658
 msgid "Unexpected content type from provider."
 msgstr "Type de contenu inattendu du fournisseur."
 
-#: includes/class-stock.php:500
+#: includes/class-stock.php:661
 msgid "Image is too large."
 msgstr "L'image est trop grande."
 
@@ -2329,7 +2330,7 @@ msgstr "sans titre"
 #: src/components/var-picker.jsx:177
 #: src/lib/dynamic-content.js:121
 #: src/lib/dynamic-content.js:162
-#: src/screens/background-studio-dialog.jsx:458
+#: src/screens/background-studio-dialog.jsx:471
 #: src/screens/beautify-dialog.jsx:93
 #: src/screens/chart-studio/controls.jsx:140
 #: src/screens/design-dialog.jsx:680
@@ -2486,7 +2487,7 @@ msgstr "Rechercher…"
 #: src/components/icon-picker.jsx:79
 #: src/content/elements.js:299
 #: src/screens/library-dialog.jsx:88
-#: src/screens/library-tray.jsx:1513
+#: src/screens/library-tray.jsx:1557
 #: src/screens/library/search-section.jsx:484
 msgid "Icons"
 msgstr "Icônes"
@@ -2494,7 +2495,7 @@ msgstr "Icônes"
 #: src/components/icon-picker.jsx:86
 #: src/screens/easy/easy-toolbar.jsx:115
 #: src/screens/library-dialog.jsx:89
-#: src/screens/library-tray.jsx:1514
+#: src/screens/library-tray.jsx:1558
 #: src/screens/library/search-section.jsx:515
 msgid "Emoji"
 msgstr "Émojis"
@@ -2502,7 +2503,7 @@ msgstr "Émojis"
 #: src/components/icon-picker.jsx:145
 #: src/screens/help-dialog.jsx:120
 #: src/screens/library-tray.jsx:572
-#: src/screens/library-tray.jsx:1299
+#: src/screens/library-tray.jsx:1343
 msgid "No matches."
 msgstr "Aucun résultat."
 
@@ -2542,14 +2543,14 @@ msgstr "Uni"
 #: src/components/pattern-select.jsx:51
 #: src/lib/brush-tips.js:198
 #: src/lib/text-fx-defs.js:1203
-#: src/screens/background-studio-dialog.jsx:603
+#: src/screens/background-studio-dialog.jsx:616
 #: src/screens/qr-dialog.jsx:1004
 msgid "Dots"
 msgstr "Points"
 
 #: src/components/pattern-select.jsx:52
 #: src/lib/text-fx-defs.js:229
-#: src/screens/background-studio-dialog.jsx:607
+#: src/screens/background-studio-dialog.jsx:620
 msgid "Stripes"
 msgstr "Rayures"
 
@@ -2560,7 +2561,7 @@ msgstr "Damier"
 #: src/components/pattern-select.jsx:54
 #: src/lib/collage.js:13
 #: src/lib/text-fx-defs.js:1650
-#: src/screens/background-studio-dialog.jsx:604
+#: src/screens/background-studio-dialog.jsx:617
 #: src/screens/guides-dialog.jsx:305
 msgid "Grid"
 msgstr "Grille"
@@ -2579,7 +2580,7 @@ msgid "Zigzag"
 msgstr "Zigzag"
 
 #: src/components/pattern-select.jsx:62
-#: src/screens/background-studio-dialog.jsx:547
+#: src/screens/background-studio-dialog.jsx:560
 msgid "Waves"
 msgstr "Vagues"
 
@@ -2807,7 +2808,7 @@ msgid "Arrows"
 msgstr "Flèches"
 
 #: src/content/elements.js:41
-#: src/screens/background-studio-dialog.jsx:543
+#: src/screens/background-studio-dialog.jsx:556
 msgid "Blobs"
 msgstr "Blobs"
 
@@ -3051,7 +3052,7 @@ msgid "Hold the Compare button (title bar) to see the saved original. Help → K
 msgstr "Maintiens le bouton Comparer (barre de titre) pour voir l'original enregistré. Aide → Raccourcis clavier liste toutes les touches."
 
 #: src/help/content.js:110
-#: src/screens/editor-dialogs.jsx:113
+#: src/screens/editor-dialogs.jsx:117
 msgid "Keyboard shortcuts"
 msgstr "Raccourcis clavier"
 
@@ -3256,8 +3257,8 @@ msgid "Color Schemer"
 msgstr "Générateur de palettes"
 
 #: src/help/content.js:301
-#: src/screens/background-studio-dialog.jsx:324
-#: src/screens/background-studio-dialog.jsx:333
+#: src/screens/background-studio-dialog.jsx:337
+#: src/screens/background-studio-dialog.jsx:346
 #: src/screens/beautify-dialog.jsx:766
 #: src/screens/editor-menubar.jsx:1193
 msgid "Background Studio"
@@ -3408,7 +3409,7 @@ msgstr "Outils → Générateur de codes QR crée des codes QR : liens, accès W
 #: src/screens/editor-menubar.jsx:1005
 #: src/screens/library-dialog.jsx:104
 #: src/screens/library-dialog.jsx:112
-#: src/screens/library-tray.jsx:1554
+#: src/screens/library-tray.jsx:1598
 msgid "Asset Library"
 msgstr "Bibliothèque de ressources"
 
@@ -3421,7 +3422,7 @@ msgstr "Générateur de codes QR"
 #: src/screens/brand-kits-dialog.jsx:220
 #: src/screens/editor-menubar.jsx:1027
 #: src/screens/library-dialog.jsx:91
-#: src/screens/library-tray.jsx:1508
+#: src/screens/library-tray.jsx:1552
 #: src/screens/status-dialog.jsx:428
 msgid "Brand Kits"
 msgstr "Kits de marque"
@@ -3635,7 +3636,7 @@ msgid "Batches are resumable: progress is stored on the server, so reloading the
 msgstr "Les lots sont reprenables : la progression est stockée sur le serveur, donc recharger l'éditeur reprend là où tu t'étais arrêté, et les images générées vivent dans la médiathèque avec leur article, leur modèle et leur prompt. Avec Yoast SEO ou Rank Math actifs, tu peux aussi définir l'image comme image sociale (OG/Twitter) et générer un titre et une description SEO par article. Le mappage de modèles par catégorie choisit automatiquement le bon modèle pendant les traitements en masse."
 
 #: src/help/content.js:715
-#: src/screens/editor-main.jsx:419
+#: src/screens/editor-main.jsx:420
 #: src/screens/editor-menubar.jsx:1079
 msgid "Featured Images"
 msgstr "Images mises en avant"
@@ -3673,13 +3674,13 @@ msgid "Article generation needs a text provider key (Anthropic, OpenAI or Gemini
 msgstr "La génération d'articles nécessite une clé de fournisseur de texte (Anthropic, OpenAI ou Gemini) ; les images nécessitent Gemini ou OpenAI. Les générations longues s'exécutent comme tâches serveur détachées : les délais du serveur web sur hébergement mutualisé ne peuvent pas les interrompre ; la boîte de dialogue affiche la progression en direct avec étapes et durée."
 
 #: src/help/content.js:752
-#: src/screens/editor-main.jsx:428
+#: src/screens/editor-main.jsx:429
 #: src/screens/editor-menubar.jsx:1052
 msgid "Generate Content"
 msgstr "Générer du contenu"
 
 #: src/help/content.js:756
-#: src/screens/editor-main.jsx:449
+#: src/screens/editor-main.jsx:450
 #: src/screens/editor-menubar.jsx:1059
 msgid "Content Templates"
 msgstr "Modèles de contenu"
@@ -3712,13 +3713,13 @@ msgid "Actions"
 msgstr "Actions"
 
 #: src/help/content.js:789
-#: src/screens/editor-main.jsx:408
+#: src/screens/editor-main.jsx:409
 #: src/screens/editor-menubar.jsx:1090
 msgid "Image Processor"
 msgstr "Processeur d'images"
 
 #: src/help/content.js:797
-#: src/screens/editor-main.jsx:338
+#: src/screens/editor-main.jsx:339
 #: src/screens/editor-menubar.jsx:1101
 msgid "Generate from CSV"
 msgstr "Générer depuis un CSV"
@@ -3792,7 +3793,7 @@ msgid "When the embed must look exactly like the editor shows it, choose Dynamic
 msgstr "Quand l'intégration doit ressembler exactement à ce que montre l'éditeur, choisis plutôt l'image dynamique : elle se régénère à l'enregistrement et à la mise à jour du modèle plutôt qu'au moment où la page est servie, mais chaque pixel correspond à ton design."
 
 #: src/help/content.js:879
-#: src/screens/editor-main.jsx:437
+#: src/screens/editor-main.jsx:438
 msgid "Dynamic Template Shortcodes"
 msgstr "Shortcodes de modèles dynamiques"
 
@@ -3940,8 +3941,8 @@ msgstr "Exporter le carrousel"
 #: src/lib/dynamic-content.js:143
 #: src/screens/editor-menubar.jsx:813
 #: src/screens/editor-menubar.jsx:1297
-#: src/screens/extensions/dialog.jsx:258
-#: src/screens/extensions/dialog.jsx:266
+#: src/screens/extensions/dialog.jsx:333
+#: src/screens/extensions/dialog.jsx:341
 #: src/screens/status-dialog.jsx:102
 msgid "Extensions"
 msgstr "Extensions"
@@ -4427,8 +4428,8 @@ msgid "Insert Text"
 msgstr "Insérer du texte"
 
 #: src/lib/ai-templates.js:335
-#: src/lib/asset-insert.js:397
-#: src/lib/asset-insert.js:592
+#: src/lib/asset-insert.js:402
+#: src/lib/asset-insert.js:598
 msgid "Insert Element"
 msgstr "Insérer un élément"
 
@@ -4448,27 +4449,27 @@ msgstr "Impossible de renouveler la session, recharge l'éditeur."
 msgid "Could not load the stored project."
 msgstr "Impossible de charger le projet enregistré."
 
-#: src/lib/api.js:711
+#: src/lib/api.js:723
 msgid "The web server aborted the AI request (timeout or size limit) before the provider finished. Please try again."
 msgstr "Le serveur web a interrompu la requête IA (délai ou limite de taille) avant que le fournisseur ait terminé. Réessaie."
 
-#: src/lib/api.js:750
+#: src/lib/api.js:762
 msgid "The AI job is taking too long, please try again."
 msgstr "La tâche IA prend trop de temps, réessaie."
 
-#: src/lib/asset-insert.js:143
+#: src/lib/asset-insert.js:148
 #: src/screens/replace-dialog.jsx:108
 msgid "That file could not be read."
 msgstr "Ce fichier n’a pas pu être lu."
 
 #. translators: %s: file name.
-#: src/lib/asset-insert.js:181
+#: src/lib/asset-insert.js:186
 #: src/lib/import-files.js:87
 #, js-format
 msgid "Place “%s”"
 msgstr "Placer « %s »"
 
-#: src/lib/asset-insert.js:221
+#: src/lib/asset-insert.js:226
 #: src/screens/meta-editor.jsx:322
 #: src/screens/replace-dialog.jsx:231
 #: src/screens/replace-dialog.jsx:239
@@ -4476,68 +4477,68 @@ msgstr "Placer « %s »"
 msgid "Replace image"
 msgstr "Remplacer l'image"
 
-#: src/lib/asset-insert.js:223
+#: src/lib/asset-insert.js:228
 msgid "Image replaced. Double-click it to reposition, Alt-drop inserts as a new layer."
 msgstr "Image remplacée. Double-clique pour la repositionner ; déposer avec Alt insère comme nouveau calque."
 
-#: src/lib/asset-insert.js:231
+#: src/lib/asset-insert.js:236
 msgid "The image could not be replaced."
 msgstr "L'image n'a pas pu être remplacée."
 
 #. translators: %s: layer name.
-#: src/lib/asset-insert.js:296
+#: src/lib/asset-insert.js:301
 #, js-format
 msgid "Frame: %s"
 msgstr "Cadre : %s"
 
-#: src/lib/asset-insert.js:311
+#: src/lib/asset-insert.js:316
 msgid "Place image into frame"
 msgstr "Placer l'image dans le cadre"
 
-#: src/lib/asset-insert.js:313
+#: src/lib/asset-insert.js:318
 msgid "Image placed into the frame. Double-click it to reposition."
 msgstr "Image placée dans le cadre. Double-clique pour la repositionner."
 
-#: src/lib/asset-insert.js:321
+#: src/lib/asset-insert.js:326
 msgid "The image could not be placed."
 msgstr "L'image n'a pas pu être placée."
 
-#: src/lib/asset-insert.js:365
-#: src/lib/asset-insert.js:609
+#: src/lib/asset-insert.js:370
+#: src/lib/asset-insert.js:615
 #: src/store/ops/asset-ops.js:494
 msgid "Insert Text Combination"
 msgstr "Insérer une combinaison de texte"
 
 #. translators: %s: icon name.
-#: src/lib/asset-insert.js:428
+#: src/lib/asset-insert.js:433
 #, js-format
 msgid "Insert icon “%s”"
 msgstr "Insérer l'icône « %s »"
 
 #. translators: %s: emoji name.
-#: src/lib/asset-insert.js:457
+#: src/lib/asset-insert.js:462
 #, js-format
 msgid "Insert emoji “%s”"
 msgstr "Insérer l'émoji « %s »"
 
-#: src/lib/asset-insert.js:488
+#: src/lib/asset-insert.js:493
 #: src/screens/media-library-dialog.jsx:905
 msgid "Insert Image"
 msgstr "Insérer une image"
 
-#: src/lib/asset-insert.js:491
+#: src/lib/asset-insert.js:496
 msgid "Could not load this image."
 msgstr "Impossible de charger cette image."
 
-#: src/lib/asset-insert.js:522
-#: src/screens/stock-dialog.jsx:134
+#: src/lib/asset-insert.js:528
+#: src/screens/stock-dialog.jsx:174
 msgid "Insert stock image"
 msgstr "Insérer une image de stock"
 
-#: src/lib/asset-insert.js:547
-#: src/lib/asset-insert.js:561
-#: src/lib/asset-insert.js:642
-#: src/lib/asset-insert.js:644
+#: src/lib/asset-insert.js:553
+#: src/lib/asset-insert.js:567
+#: src/lib/asset-insert.js:648
+#: src/lib/asset-insert.js:650
 #: src/lib/design-composer.js:1134
 #: src/lib/stock-categories.js:24
 #: src/screens/create-dialog.jsx:533
@@ -4553,12 +4554,12 @@ msgstr "Insérer une image de stock"
 msgid "Background"
 msgstr "Arrière-plan"
 
-#: src/lib/asset-insert.js:549
+#: src/lib/asset-insert.js:555
 #: src/screens/library/content-sections.jsx:376
 msgid "Background gradient"
 msgstr "Dégradé d'arrière-plan"
 
-#: src/lib/asset-insert.js:563
+#: src/lib/asset-insert.js:569
 #: src/screens/beautify-dialog.jsx:875
 #: src/screens/easy/easy-panel.jsx:76
 #: src/screens/editor-toolbar.jsx:49
@@ -4630,7 +4631,7 @@ msgstr "Craie grasse"
 
 #: src/lib/brush-tips.js:123
 #: src/lib/text-fx-defs.js:1215
-#: src/screens/background-studio-dialog.jsx:683
+#: src/screens/background-studio-dialog.jsx:848
 #: src/screens/editor-menubar.jsx:503
 #: src/store/ops/asset-ops.js:195
 msgid "Grain"
@@ -4668,6 +4669,7 @@ msgstr "Points fins"
 #: src/lib/brush-tips.js:214
 #: src/lib/effects.js:1028
 #: src/lib/text-fx-defs.js:63
+#: src/screens/background-studio-dialog.jsx:32
 msgid "Halftone"
 msgstr "Trame de demi-teintes"
 
@@ -4681,6 +4683,7 @@ msgstr "Scintillement"
 
 #: src/lib/brush-tips.js:245
 #: src/lib/text-fx-defs.js:223
+#: src/screens/background-studio-dialog.jsx:34
 msgid "Confetti"
 msgstr "Confettis"
 
@@ -4710,6 +4713,7 @@ msgstr "Paillettes"
 
 #: src/lib/brush-tips.js:323
 #: src/lib/text-fx-defs.js:740
+#: src/screens/background-studio-dialog.jsx:33
 msgid "Rings"
 msgstr "Anneaux"
 
@@ -5436,7 +5440,7 @@ msgstr "Réglages d'image"
 
 #: src/lib/macros.js:62
 #: src/lib/macros.js:97
-#: src/screens/editor-main.jsx:285
+#: src/screens/editor-main.jsx:286
 #: src/screens/magic-resize-dialog.jsx:175
 msgid "Resize"
 msgstr "Redimensionner"
@@ -5714,7 +5718,7 @@ msgid "Larger brush"
 msgstr "Pinceau plus grand"
 
 #: src/lib/shortcuts.js:556
-#: src/screens/editor-dialogs.jsx:104
+#: src/screens/editor-dialogs.jsx:108
 #: src/screens/editor-menubar.jsx:3030
 #: src/screens/panels/layers-panel.jsx:556
 msgid "Layer opacity"
@@ -6360,7 +6364,8 @@ msgstr "3D"
 #: src/lib/text-fx-defs.js:1630
 #: src/lib/text-fx-defs.js:1844
 #: src/lib/text-fx-defs.js:1860
-#: src/screens/background-studio-dialog.jsx:642
+#: src/screens/background-studio-dialog.jsx:655
+#: src/screens/background-studio-dialog.jsx:760
 #: src/screens/beautify-dialog.jsx:616
 #: src/screens/editor-menubar.jsx:2841
 #: src/screens/mockup-dialog.jsx:510
@@ -6417,7 +6422,7 @@ msgstr "Longueur"
 #: src/lib/text-fx-defs.js:1783
 #: src/lib/text-fx-defs.js:1849
 #: src/lib/workspace-registry.js:74
-#: src/screens/background-studio-dialog.jsx:400
+#: src/screens/background-studio-dialog.jsx:413
 #: src/screens/beautify-dialog.jsx:642
 #: src/screens/beautify-dialog.jsx:825
 #: src/screens/brand-kits-dialog.jsx:379
@@ -6462,7 +6467,8 @@ msgstr "Profondeur"
 #: src/lib/text-fx-defs.js:1758
 #: src/lib/text-fx-defs.js:1779
 #: src/lib/text-fx-defs.js:1808
-#: src/screens/background-studio-dialog.jsx:566
+#: src/screens/background-studio-dialog.jsx:579
+#: src/screens/background-studio-dialog.jsx:818
 #: src/screens/vignette-dialog.jsx:623
 #: src/screens/vignette-dialog.jsx:730
 msgid "Count"
@@ -6622,6 +6628,7 @@ msgstr "Flou"
 #: src/lib/text-fx-defs.js:1008
 #: src/lib/text-fx-defs.js:1029
 #: src/lib/text-fx-defs.js:1085
+#: src/screens/background-studio-dialog.jsx:722
 msgid "Roughness"
 msgstr "Rugosité"
 
@@ -6730,6 +6737,7 @@ msgstr "Teinte"
 #: src/lib/text-fx-defs.js:1199
 #: src/lib/text-fx-defs.js:1561
 #: src/lib/text-fx-defs.js:1602
+#: src/screens/background-studio-dialog.jsx:742
 msgid "Dot size"
 msgstr "Taille des points"
 
@@ -6760,6 +6768,7 @@ msgid "Thickness"
 msgstr "Épaisseur"
 
 #: src/lib/text-fx-defs.js:1281
+#: src/screens/background-studio-dialog.jsx:704
 #: src/screens/chart-studio/style-panel.jsx:576
 msgid "Lines"
 msgstr "Lignes fines"
@@ -6795,7 +6804,7 @@ msgid "Inset"
 msgstr "Retrait"
 
 #: src/lib/text-fx-defs.js:1618
-#: src/screens/background-studio-dialog.jsx:565
+#: src/screens/background-studio-dialog.jsx:578
 msgid "Bands"
 msgstr "Bandes"
 
@@ -7434,6 +7443,7 @@ msgid "Text Styles"
 msgstr "Styles de texte"
 
 #: src/lib/workspace-registry.js:87
+#: src/screens/background-studio-dialog.jsx:798
 #: src/screens/canvas/text-fx-popover.jsx:23
 #: src/screens/panels/effects-panel.jsx:221
 #: src/screens/panels/effects-panel.jsx:956
@@ -7511,7 +7521,7 @@ msgid "View"
 msgstr "Affichage"
 
 #: src/lib/workspace-registry.js:121
-#: src/screens/background-studio-dialog.jsx:279
+#: src/screens/background-studio-dialog.jsx:292
 #: src/screens/editor-menubar.jsx:217
 #: src/store/ops/io-ops.js:356
 msgid "Save as Pattern"
@@ -7567,7 +7577,7 @@ msgid "Preferences"
 msgstr "Préférences"
 
 #: src/lib/workspace-registry.js:143
-#: src/screens/background-studio-dialog.jsx:385
+#: src/screens/background-studio-dialog.jsx:398
 #: src/screens/brand-kits-dialog.jsx:346
 #: src/screens/chart-studio/style-panel.jsx:206
 #: src/screens/editor-menubar.jsx:387
@@ -7670,11 +7680,11 @@ msgstr "Aucun moteur. Ajoute un modèle ou une clé de fournisseur."
 #: src/screens/alt-text-dialog.jsx:710
 #: src/screens/canvas/tool-handlers.js:1566
 #: src/screens/create-dialog.jsx:188
-#: src/screens/editor-main.jsx:543
+#: src/screens/editor-main.jsx:544
 #: src/screens/export-dialog.jsx:322
 #: src/screens/panels/ai-panel.jsx:238
 #: src/screens/panels/ai-panel.jsx:271
-#: src/screens/stock-dialog.jsx:78
+#: src/screens/stock-dialog.jsx:107
 #: src/store/ops/asset-ops.js:290
 msgid "Settings"
 msgstr "Réglages"
@@ -7794,7 +7804,7 @@ msgstr "Aucune image."
 
 #: src/screens/alt-text-dialog.jsx:1228
 #: src/screens/library/user-sections.jsx:130
-#: src/screens/stock-dialog.jsx:384
+#: src/screens/stock-dialog.jsx:473
 msgid "Load more"
 msgstr "Charger plus"
 
@@ -7839,88 +7849,94 @@ msgstr "Organique"
 msgid "Low-Poly"
 msgstr "Low-poly"
 
-#: src/screens/background-studio-dialog.jsx:237
+#: src/screens/background-studio-dialog.jsx:31
+msgid "Topographic"
+msgstr "Topographique"
+
+#: src/screens/background-studio-dialog.jsx:241
 msgid "Edit background"
 msgstr "Modifier l'arrière-plan"
 
-#: src/screens/background-studio-dialog.jsx:256
-#: src/screens/background-studio-dialog.jsx:775
+#: src/screens/background-studio-dialog.jsx:260
+#: src/screens/background-studio-dialog.jsx:940
 msgid "Insert background"
 msgstr "Insérer l'arrière-plan"
 
-#: src/screens/background-studio-dialog.jsx:261
+#: src/screens/background-studio-dialog.jsx:265
 msgid "The background could not be generated."
 msgstr "L'arrière-plan n'a pas pu être généré."
 
-#: src/screens/background-studio-dialog.jsx:280
+#: src/screens/background-studio-dialog.jsx:293
 #: src/store/ops/io-ops.js:357
 msgid "Pattern name"
 msgstr "Nom du motif"
 
-#: src/screens/background-studio-dialog.jsx:299
+#: src/screens/background-studio-dialog.jsx:312
 msgid "Seamless pattern saved, find it in the Asset Library under Patterns."
 msgstr "Motif sans raccord enregistré ; tu le trouveras dans la bibliothèque de ressources, sous Motifs."
 
-#: src/screens/background-studio-dialog.jsx:307
+#: src/screens/background-studio-dialog.jsx:320
 #: src/store/ops/io-ops.js:382
 msgid "The pattern could not be saved."
 msgstr "Le motif n'a pas pu être enregistré."
 
-#: src/screens/background-studio-dialog.jsx:341
+#: src/screens/background-studio-dialog.jsx:354
 msgid "Generative backgrounds with sliders and a seed, no cloud involved."
 msgstr "Arrière-plans génératifs avec curseurs et graine, sans cloud."
 
-#: src/screens/background-studio-dialog.jsx:440
+#: src/screens/background-studio-dialog.jsx:453
 #: src/screens/beautify-dialog.jsx:90
 #: src/screens/chart-studio/controls.jsx:137
 msgid "Colors from…"
 msgstr "Couleurs depuis…"
 
-#: src/screens/background-studio-dialog.jsx:447
+#: src/screens/background-studio-dialog.jsx:460
 msgid "Colors from document"
 msgstr "Couleurs du document"
 
-#: src/screens/background-studio-dialog.jsx:471
+#: src/screens/background-studio-dialog.jsx:484
 #: src/screens/beautify-dialog.jsx:98
 #: src/screens/chart-studio/controls.jsx:145
 msgid "Swatch set"
 msgstr "Jeu d'échantillons"
 
-#: src/screens/background-studio-dialog.jsx:485
+#: src/screens/background-studio-dialog.jsx:498
 #: src/screens/chart-studio/style-panel.jsx:285
 msgid "Random colors"
 msgstr "Couleurs aléatoires"
 
-#: src/screens/background-studio-dialog.jsx:494
+#: src/screens/background-studio-dialog.jsx:507
 msgid "New variation with the same settings"
 msgstr "Nouvelle variante avec les mêmes réglages"
 
-#: src/screens/background-studio-dialog.jsx:501
+#: src/screens/background-studio-dialog.jsx:514
 #: src/screens/beautify-dialog.jsx:867
 msgid "New variation"
 msgstr "Nouvelle variante"
 
-#: src/screens/background-studio-dialog.jsx:515
+#: src/screens/background-studio-dialog.jsx:528
 msgid "Color points"
 msgstr "Points de couleur"
 
-#: src/screens/background-studio-dialog.jsx:527
+#: src/screens/background-studio-dialog.jsx:540
 msgid "Softness"
 msgstr "Douceur"
 
-#: src/screens/background-studio-dialog.jsx:580
+#: src/screens/background-studio-dialog.jsx:593
 msgid "Amplitude"
 msgstr "Amplitude"
 
-#: src/screens/background-studio-dialog.jsx:584
+#: src/screens/background-studio-dialog.jsx:597
 msgid "Roundness"
 msgstr "Rondeur"
 
-#: src/screens/background-studio-dialog.jsx:609
+#: src/screens/background-studio-dialog.jsx:622
 msgid "Rays"
 msgstr "Rayons"
 
-#: src/screens/background-studio-dialog.jsx:633
+#: src/screens/background-studio-dialog.jsx:646
+#: src/screens/background-studio-dialog.jsx:751
+#: src/screens/background-studio-dialog.jsx:780
 #: src/screens/chart-studio/style-panel.jsx:395
 #: src/screens/collage-dialog.jsx:460
 #: src/screens/guides-dialog.jsx:338
@@ -7928,35 +7944,44 @@ msgstr "Rayons"
 msgid "Spacing"
 msgstr "Espacement"
 
-#: src/screens/background-studio-dialog.jsx:662
+#: src/screens/background-studio-dialog.jsx:675
 msgid "Cell size"
 msgstr "Taille de cellule"
 
-#: src/screens/background-studio-dialog.jsx:671
+#: src/screens/background-studio-dialog.jsx:684
 msgid "Variance"
 msgstr "Variance"
 
-#: src/screens/background-studio-dialog.jsx:716
+#: src/screens/background-studio-dialog.jsx:713
+#: src/screens/background-studio-dialog.jsx:789
+msgid "Line weight"
+msgstr "Épaisseur du trait"
+
+#: src/screens/background-studio-dialog.jsx:836
+msgid "Shape mix"
+msgstr "Mélange de formes"
+
+#: src/screens/background-studio-dialog.jsx:881
 msgid "Background preview"
 msgstr "Aperçu de l'arrière-plan"
 
-#: src/screens/background-studio-dialog.jsx:733
+#: src/screens/background-studio-dialog.jsx:898
 msgid "Rendered at full document size on insert. Same settings, same picture."
 msgstr "Rendu à la taille complète du document à l'insertion. Mêmes réglages, même image."
 
-#: src/screens/background-studio-dialog.jsx:744
+#: src/screens/background-studio-dialog.jsx:909
 msgid "Lands as the bottom layer, editable any time via Edit Background."
 msgstr "Arrive comme calque inférieur, modifiable à tout moment via Modifier l'arrière-plan."
 
-#: src/screens/background-studio-dialog.jsx:753
+#: src/screens/background-studio-dialog.jsx:918
 msgid "Save the current look as a seamless, repeatable tile."
 msgstr "Enregistre le rendu actuel comme tuile répétable sans raccord."
 
-#: src/screens/background-studio-dialog.jsx:759
+#: src/screens/background-studio-dialog.jsx:924
 msgid "Save as pattern"
 msgstr "Enregistrer comme motif"
 
-#: src/screens/background-studio-dialog.jsx:774
+#: src/screens/background-studio-dialog.jsx:939
 msgid "Update background"
 msgstr "Mettre à jour l'arrière-plan"
 
@@ -9211,9 +9236,9 @@ msgid "All"
 msgstr "Tout"
 
 #: src/screens/chart-studio/import-posts.jsx:216
-#: src/screens/extensions/dialog.jsx:222
-#: src/screens/library-tray.jsx:897
-#: src/screens/stock-dialog.jsx:280
+#: src/screens/extensions/dialog.jsx:297
+#: src/screens/library-tray.jsx:916
+#: src/screens/stock-dialog.jsx:320
 msgid "Search"
 msgstr "Rechercher"
 
@@ -10310,7 +10335,7 @@ msgid "Select All"
 msgstr "Tout sélectionner"
 
 #: src/screens/command-palette.jsx:134
-#: src/screens/editor-dialogs.jsx:121
+#: src/screens/editor-dialogs.jsx:125
 #: src/screens/editor-menubar.jsx:1321
 msgid "Keyboard Shortcuts"
 msgstr "Raccourcis clavier"
@@ -10447,7 +10472,7 @@ msgstr "Aucun fournisseur configuré."
 #: src/screens/create-dialog.jsx:672
 #: src/screens/depth-blur-dialog.jsx:154
 #: src/screens/generate-dialog.jsx:454
-#: src/screens/stock-dialog.jsx:201
+#: src/screens/stock-dialog.jsx:241
 msgid "Open Settings"
 msgstr "Ouvrir les réglages"
 
@@ -10938,8 +10963,8 @@ msgid "Shapes from the library. Tip: drop a photo onto a shape and it fills the 
 msgstr "Des formes de la bibliothèque. Astuce : dépose une photo sur une forme et elle la remplit."
 
 #: src/screens/easy/easy-toolbar.jsx:95
-#: src/screens/library-tray.jsx:1515
-#: src/screens/stock-dialog.jsx:230
+#: src/screens/library-tray.jsx:1559
+#: src/screens/stock-dialog.jsx:270
 msgid "Photos"
 msgstr "Photos"
 
@@ -11100,199 +11125,203 @@ msgstr "Coller les styles"
 msgid "Paste Layer"
 msgstr "Coller le calque"
 
-#: src/screens/editor-dialogs.jsx:89
+#: src/screens/editor-dialogs.jsx:93
 msgid "Temporary Hand tool (pan)"
 msgstr "Outil Main temporaire (navigation)"
 
-#: src/screens/editor-dialogs.jsx:91
+#: src/screens/editor-dialogs.jsx:95
 msgid "Arrows (⇧ = 10px)"
 msgstr "Flèches (⇧ = 10 px)"
 
-#: src/screens/editor-dialogs.jsx:92
+#: src/screens/editor-dialogs.jsx:96
 msgid "Nudge active layer"
 msgstr "Décaler le calque actif"
 
-#: src/screens/editor-dialogs.jsx:94
+#: src/screens/editor-dialogs.jsx:98
 msgid "Brush size down / up"
 msgstr "Taille de pinceau − / +"
 
-#: src/screens/editor-dialogs.jsx:95
+#: src/screens/editor-dialogs.jsx:99
 msgid "Send backward / Bring forward"
 msgstr "Reculer / avancer"
 
-#: src/screens/editor-dialogs.jsx:98
+#: src/screens/editor-dialogs.jsx:102
 msgid "Commit / cancel (crop, pen, text)"
 msgstr "Valider / annuler (recadrage, plume, texte)"
 
-#: src/screens/editor-dialogs.jsx:102
+#: src/screens/editor-dialogs.jsx:106
 msgid "Delete layer (or clear selection contents)"
 msgstr "Supprimer le calque (ou vider le contenu de la sélection)"
 
-#: src/screens/editor-dialogs.jsx:124
+#: src/screens/editor-dialogs.jsx:128
 msgid "Every key the editor listens to."
 msgstr "Toutes les touches auxquelles l'éditeur réagit."
 
-#: src/screens/editor-dialogs.jsx:149
+#: src/screens/editor-dialogs.jsx:153
 msgid "Click a shortcut to remap it, then press the new keys. Esc cancels."
 msgstr "Clique un raccourci pour le réattribuer, puis appuie sur les nouvelles touches. Échap annule."
 
 #. translators: %s: command name.
-#: src/screens/editor-dialogs.jsx:174
+#: src/screens/editor-dialogs.jsx:178
 #, js-format
 msgid "In use by “%s”"
 msgstr "Utilisé par « %s »"
 
-#: src/screens/editor-dialogs.jsx:180
+#: src/screens/editor-dialogs.jsx:184
 msgid "Press keys…"
 msgstr "Appuie sur des touches…"
 
-#: src/screens/editor-dialogs.jsx:206
+#: src/screens/editor-dialogs.jsx:210
 msgid "Click to remap"
 msgstr "Clique pour réattribuer"
 
-#: src/screens/editor-dialogs.jsx:219
 #: src/screens/editor-dialogs.jsx:223
+#: src/screens/editor-dialogs.jsx:227
 msgid "Reset to default"
 msgstr "Réinitialiser par défaut"
 
-#: src/screens/editor-dialogs.jsx:250
+#: src/screens/editor-dialogs.jsx:254
 msgid "Reset all to defaults"
 msgstr "Tout réinitialiser par défaut"
 
-#: src/screens/editor-dialogs.jsx:327
+#: src/screens/editor-dialogs.jsx:331
 #: src/screens/editor-menubar.jsx:1368
 msgid "About WunderPaint"
 msgstr "À propos de WunderPaint"
 
-#: src/screens/editor-dialogs.jsx:330
+#: src/screens/editor-dialogs.jsx:334
 msgid "Version, credits and legal information."
 msgstr "Version, crédits et informations légales."
 
-#: src/screens/editor-dialogs.jsx:346
+#: src/screens/editor-dialogs.jsx:350
 msgid "WunderPaint is a complete, layer-based design studio built directly into the WordPress Media Library. Open any image or start from a blank canvas and work with layers, masks, blend modes, adjustment layers and a full non-destructive history, without ever leaving your site."
 msgstr "WunderPaint est un studio de design complet basé sur les calques, intégré directement dans la médiathèque WordPress. Ouvre n'importe quelle image ou pars d'un canevas vide et travaille avec calques, masques, modes de fusion, calques de réglage et un historique complet non destructif, sans jamais quitter ton site."
 
-#: src/screens/editor-dialogs.jsx:352
+#: src/screens/editor-dialogs.jsx:356
 msgid "It is made for everyday edits and ambitious designs alike: precise selections and retouching, vector shapes with editable paths, a rich text engine with styles, text on a path and text inside a shape, gradients, patterns, filters and effects, smart objects, dynamic templates and PSD import and export. Charts, QR codes, mockups and a growing family of studios and extensions turn a single image into finished, on-brand graphics."
 msgstr "Il est fait autant pour les retouches du quotidien que pour les designs ambitieux : sélections et retouches précises, formes vectorielles avec tracés modifiables, un moteur de texte riche avec styles, texte sur tracé et texte dans une forme, dégradés, motifs, filtres et effets, objets dynamiques, modèles dynamiques et import/export PSD. Graphiques, codes QR, maquettes et une famille croissante de studios et d'extensions transforment une simple image en visuels finis à ta marque."
 
-#: src/screens/editor-dialogs.jsx:358
+#: src/screens/editor-dialogs.jsx:362
 msgid "Optional assistants take on the heavy lifting, from image generation and background removal to upscaling, metadata and a design assistant, with several models running locally in your browser for privacy. Everything is drawn through one rendering pipeline, so the canvas you design on is exactly what you export."
 msgstr "Des assistants optionnels se chargent du gros du travail, de la génération d'images et de la suppression d'arrière-plan à l'upscaling, aux métadonnées et à un assistant de design, avec plusieurs modèles fonctionnant en local dans ton navigateur pour la confidentialité. Tout est dessiné via une seule chaîne de rendu : le canevas sur lequel tu conçois est exactement ce que tu exportes."
 
 #. translators: %s: version number.
-#: src/screens/editor-dialogs.jsx:367
+#: src/screens/editor-dialogs.jsx:371
 #, js-format
 msgid "Version %s is installed. This session still runs the version it was loaded with."
 msgstr "La version %s est installée. Cette session tourne encore avec la version chargée au départ."
 
-#: src/screens/editor-dialogs.jsx:380
+#: src/screens/editor-dialogs.jsx:384
 msgid "Reload editor"
 msgstr "Recharger l'éditeur"
 
-#: src/screens/editor-dialogs.jsx:386
+#: src/screens/editor-dialogs.jsx:390
 msgid "License: GNU General Public License, version 2 or later"
 msgstr "Licence : GNU General Public License, version 2 ou ultérieure"
 
-#: src/screens/editor-dialogs.jsx:393
+#: src/screens/editor-dialogs.jsx:397
 msgid "Third-party licenses"
 msgstr "Licences tierces"
 
-#: src/screens/editor-dialogs.jsx:406
+#: src/screens/editor-dialogs.jsx:404
+msgid "External services"
+msgstr "Services externes"
+
+#: src/screens/editor-dialogs.jsx:414
 msgid "Version"
 msgstr "Version"
 
-#: src/screens/editor-dialogs.jsx:418
+#: src/screens/editor-dialogs.jsx:426
 msgid "Visit website"
 msgstr "Visiter le site web"
 
-#: src/screens/editor-dialogs.jsx:427
+#: src/screens/editor-dialogs.jsx:435
 #: src/screens/extensions/detail.jsx:89
 #: src/screens/pro-teaser-dialog.jsx:69
 msgid "Get Pro"
 msgstr "Passer à Pro"
 
-#: src/screens/editor-dialogs.jsx:530
+#: src/screens/editor-dialogs.jsx:538
 msgid "Set up your fonts"
 msgstr "Configurez vos polices"
 
-#: src/screens/editor-dialogs.jsx:533
+#: src/screens/editor-dialogs.jsx:541
 msgid "Choose how the editor gets its fonts."
 msgstr "Choisissez comment l'éditeur obtient ses polices."
 
-#: src/screens/editor-dialogs.jsx:544
+#: src/screens/editor-dialogs.jsx:552
 msgid "The editor comes with 10 built-in font families and knows a much larger catalog. Download the full catalog once so every family is available and served straight from your own site, with no external requests while you design. This is the recommended, privacy-friendly option."
 msgstr "L'éditeur est livré avec 10 familles de polices intégrées et connaît un catalogue bien plus vaste. Téléchargez le catalogue complet une fois pour que chaque famille soit disponible et servie directement depuis votre propre site, sans requêtes externes pendant que vous concevez. C'est l'option recommandée et respectueuse de la vie privée."
 
-#: src/screens/editor-dialogs.jsx:550
+#: src/screens/editor-dialogs.jsx:558
 msgid "Only your server contacts Google during the download. You can instead load fonts from the Google CDN on demand, which sends visitor IP addresses to Google while they work, or skip for now and stay with the 10 built-in families. You can change this any time under Settings, Fonts."
 msgstr "Seul votre serveur contacte Google pendant le téléchargement. Vous pouvez à la place charger les polices depuis le CDN de Google à la demande, ce qui envoie les adresses IP des visiteurs à Google pendant leur navigation, ou ignorer pour l'instant et conserver les 10 familles intégrées. Vous pouvez modifier ce choix à tout moment dans Réglages, Polices."
 
 #. translators: 1: downloaded count, 2: total.
-#: src/screens/editor-dialogs.jsx:561
+#: src/screens/editor-dialogs.jsx:569
 #, js-format
 msgid "Downloading font families to your site: %1$d of %2$d. You can keep working; it finishes in the background. Cancel to stop and keep what has arrived so far."
 msgstr "Téléchargement des familles de polices vers votre site : %1$d sur %2$d. Vous pouvez continuer à travailler ; cela se termine en arrière-plan. Annulez pour arrêter et conserver ce qui a déjà été récupéré."
 
-#: src/screens/editor-dialogs.jsx:572
+#: src/screens/editor-dialogs.jsx:580
 msgid "All set. The full font library is installed locally and every family is now available in the picker."
 msgstr "Tout est prêt. La bibliothèque de polices complète est installée localement et chaque famille est désormais disponible dans le sélecteur."
 
-#: src/screens/editor-dialogs.jsx:587
+#: src/screens/editor-dialogs.jsx:595
 msgid "Not now"
 msgstr "Pas maintenant"
 
-#: src/screens/editor-dialogs.jsx:593
+#: src/screens/editor-dialogs.jsx:601
 msgid "Use Google CDN"
 msgstr "Utiliser le CDN de Google"
 
-#: src/screens/editor-dialogs.jsx:599
+#: src/screens/editor-dialogs.jsx:607
 msgid "Download library"
 msgstr "Télécharger la bibliothèque"
 
-#: src/screens/editor-main.jsx:276
+#: src/screens/editor-main.jsx:277
 msgid "Large image"
 msgstr "Grande image"
 
 #. translators: %d: megapixels.
-#: src/screens/editor-main.jsx:279
+#: src/screens/editor-main.jsx:280
 #, js-format
 msgid "This image has %d megapixels. Resize it to 4096 px for smooth editing? Saving creates a new version, the original stays restorable."
 msgstr "Cette image fait %d mégapixels. La redimensionner à 4096 px pour une édition fluide ? L'enregistrement crée une nouvelle version, l'original reste restaurable."
 
-#: src/screens/editor-main.jsx:286
+#: src/screens/editor-main.jsx:287
 msgid "Keep full size"
 msgstr "Garder la taille d'origine"
 
-#: src/screens/editor-main.jsx:383
+#: src/screens/editor-main.jsx:384
 msgid "You can keep up to ten documents open. Close a tab first."
 msgstr "Tu peux garder jusqu'à dix documents ouverts. Ferme d'abord un onglet."
 
-#: src/screens/editor-main.jsx:485
+#: src/screens/editor-main.jsx:486
 msgid "Switching editor language, reloading…"
 msgstr "Changement de la langue de l'éditeur, rechargement…"
 
-#: src/screens/editor-main.jsx:497
+#: src/screens/editor-main.jsx:498
 msgid "The editor language could not be changed."
 msgstr "La langue de l'éditeur n'a pas pu être modifiée."
 
-#: src/screens/editor-main.jsx:515
+#: src/screens/editor-main.jsx:516
 msgid "Detecting subject…"
 msgstr "Détection du sujet…"
 
-#: src/screens/editor-main.jsx:530
+#: src/screens/editor-main.jsx:531
 msgid "Removing object…"
 msgstr "Suppression de l'objet…"
 
-#: src/screens/editor-main.jsx:608
+#: src/screens/editor-main.jsx:609
 msgid "Could not open the smart object contents."
 msgstr "Impossible d'ouvrir le contenu de l'objet dynamique."
 
-#: src/screens/editor-main.jsx:640
+#: src/screens/editor-main.jsx:641
 msgid "Replace Contents"
 msgstr "Remplacer le contenu"
 
-#: src/screens/editor-main.jsx:656
+#: src/screens/editor-main.jsx:657
 #: src/screens/editor-titlebar.jsx:45
 #: src/screens/editor-titlebar.jsx:94
 #: src/screens/library/template-sections.jsx:270
@@ -11301,39 +11330,39 @@ msgstr "Remplacer le contenu"
 msgid "Unsaved changes"
 msgstr "Modifications non enregistrées"
 
-#: src/screens/editor-main.jsx:657
+#: src/screens/editor-main.jsx:658
 #: src/screens/editor-titlebar.jsx:46
 msgid "Discard unsaved changes?"
 msgstr "Abandonner les modifications non enregistrées ?"
 
-#: src/screens/editor-main.jsx:661
+#: src/screens/editor-main.jsx:662
 #: src/screens/editor-titlebar.jsx:47
 msgid "Discard"
 msgstr "Abandonner"
 
-#: src/screens/editor-main.jsx:955
+#: src/screens/editor-main.jsx:956
 msgid "Restore autosave"
 msgstr "Restaurer l'enregistrement automatique"
 
 #. translators: %d: image count.
-#: src/screens/editor-main.jsx:1022
+#: src/screens/editor-main.jsx:1023
 #, js-format
 msgid "Setting up image search: indexing %d images in the background…"
 msgstr "Configuration de la recherche d'images : indexation de %d images en arrière-plan…"
 
-#: src/screens/editor-main.jsx:1031
+#: src/screens/editor-main.jsx:1032
 msgid "Image search is ready! The library search now finds images by describing them."
 msgstr "La recherche d'images est prête ! La recherche de la bibliothèque trouve maintenant les images en les décrivant."
 
-#: src/screens/editor-main.jsx:1115
+#: src/screens/editor-main.jsx:1123
 msgid "Edit Smart Object Contents"
 msgstr "Modifier le contenu de l'objet dynamique"
 
-#: src/screens/editor-main.jsx:1118
+#: src/screens/editor-main.jsx:1126
 msgid "Could not apply the smart object edit."
 msgstr "Impossible d'appliquer la modification de l'objet dynamique."
 
-#: src/screens/editor-main.jsx:1501
+#: src/screens/editor-main.jsx:1509
 #: src/screens/workspace-dialog.jsx:284
 #: src/screens/workspace-overlay.jsx:129
 msgid "Done"
@@ -11681,7 +11710,7 @@ msgstr "Quitter l'aperçu d'article"
 
 #: src/screens/editor-menubar.jsx:1023
 #: src/screens/library-dialog.jsx:81
-#: src/screens/library-tray.jsx:1506
+#: src/screens/library-tray.jsx:1550
 msgid "Dynamic Templates"
 msgstr "Modèles dynamiques"
 
@@ -11910,7 +11939,7 @@ msgstr "Proportions"
 
 #: src/screens/editor-menubar.jsx:2751
 #: src/screens/extensions/card.jsx:42
-#: src/screens/extensions/detail.jsx:142
+#: src/screens/extensions/detail.jsx:151
 msgid "Free"
 msgstr "Libre"
 
@@ -12259,19 +12288,19 @@ msgid "Create Attachment"
 msgstr "Créer un fichier joint"
 
 #: src/screens/extensions/card.jsx:37
-#: src/screens/extensions/detail.jsx:137
+#: src/screens/extensions/detail.jsx:146
 #: src/screens/help-dialog.jsx:146
 msgid "Pro"
 msgstr "Pro"
 
 #: src/screens/extensions/card.jsx:54
-#: src/screens/extensions/detail.jsx:147
+#: src/screens/extensions/detail.jsx:156
 msgid "Update available"
 msgstr "Mise à jour disponible"
 
 #: src/screens/extensions/card.jsx:59
 #: src/screens/extensions/card.jsx:82
-#: src/screens/extensions/detail.jsx:152
+#: src/screens/extensions/detail.jsx:161
 msgid "Disabled"
 msgstr "Désactivée"
 
@@ -12304,133 +12333,161 @@ msgstr "Détails et aperçus"
 msgid "Disable"
 msgstr "Désactiver"
 
-#: src/screens/extensions/detail.jsx:101
+#: src/screens/extensions/detail.jsx:110
 #: src/screens/workspace-dialog.jsx:177
 msgid "Update"
 msgstr "Mettre à jour"
 
-#: src/screens/extensions/detail.jsx:102
-#: src/screens/extensions/dialog.jsx:121
+#: src/screens/extensions/detail.jsx:111
+#: src/screens/extensions/dialog.jsx:131
 msgid "Install"
 msgstr "Installer"
 
-#: src/screens/extensions/detail.jsx:109
+#: src/screens/extensions/detail.jsx:118
 msgid "Download update"
 msgstr "Télécharger la mise à jour"
 
 #. translators: %s: version number.
-#: src/screens/extensions/detail.jsx:161
+#: src/screens/extensions/detail.jsx:170
 #, js-format
 msgid "Installed: v%s"
 msgstr "Installée : v%s"
 
 #. translators: %s: version number.
-#: src/screens/extensions/detail.jsx:171
+#: src/screens/extensions/detail.jsx:180
 #, js-format
 msgid "Latest: v%s"
 msgstr "Dernière : v%s"
 
 #. translators: %s: author name.
-#: src/screens/extensions/detail.jsx:180
+#: src/screens/extensions/detail.jsx:189
 #, js-format
 msgid "By %s"
 msgstr "Par %s"
 
-#: src/screens/extensions/detail.jsx:203
+#: src/screens/extensions/detail.jsx:212
 msgid "Free extensions come as a ZIP: download it, then add it below with \"Install from ZIP\". Nothing is fetched behind your back."
 msgstr "Les extensions libres arrivent en ZIP : télécharge-le, puis ajoute-le en bas avec « Installer depuis un ZIP ». Rien n’est récupéré dans ton dos."
 
-#: src/screens/extensions/detail.jsx:211
+#: src/screens/extensions/detail.jsx:220
 msgid "Takes effect after the editor is reloaded."
 msgstr "S’applique après le rechargement de l’éditeur."
 
 #. translators: %s: required API version.
-#: src/screens/extensions/detail.jsx:221
+#: src/screens/extensions/detail.jsx:230
 #, js-format
 msgid "Built for a newer editor (needs API %s). Update WunderPaint to use it."
 msgstr "Conçue pour un éditeur plus récent (API %s requise). Mets WunderPaint à jour pour l'utiliser."
 
 #. translators: %s: extension name.
-#: src/screens/extensions/dialog.jsx:89
+#: src/screens/extensions/dialog.jsx:96
 #, js-format
 msgid "“%s” is installed and active."
 msgstr "« %s » est installée et active."
 
 #. translators: %s: extension name.
-#: src/screens/extensions/dialog.jsx:98
+#: src/screens/extensions/dialog.jsx:108
 #, js-format
 msgid "“%s” is installed. Reload the editor to load the new version."
 msgstr "« %s » est installée. Recharge l'éditeur pour charger la nouvelle version."
 
-#: src/screens/extensions/dialog.jsx:116
+#: src/screens/extensions/dialog.jsx:126
 msgid "Install this extension?"
 msgstr "Installer cette extension ?"
 
-#: src/screens/extensions/dialog.jsx:117
+#: src/screens/extensions/dialog.jsx:127
 msgid "Only install extension packages from a source you trust. The extension runs with your permissions inside the editor: it can read and change your documents and act on your behalf, just like a WordPress plugin."
 msgstr "N'installe que des paquets d'extension d'une source de confiance. L'extension s'exécute avec tes droits dans l'éditeur : elle peut lire et modifier tes documents et agir en ton nom, exactement comme une extension WordPress."
 
-#: src/screens/extensions/dialog.jsx:178
+#. translators: %d: number of extensions.
+#: src/screens/extensions/dialog.jsx:200
+#, js-format
+msgid "%d extension updated."
+msgid_plural "%d extensions updated."
+msgstr[0] "%d extension mise à jour."
+msgstr[1] "%d extensions mises à jour."
+
+#. translators: %d: number of extensions.
+#: src/screens/extensions/dialog.jsx:214
+#, js-format
+msgid "%d extension could not be updated."
+msgid_plural "%d extensions could not be updated."
+msgstr[0] "%d extension n’a pas pu être mise à jour."
+msgstr[1] "%d extensions n’ont pas pu être mises à jour."
+
+#: src/screens/extensions/dialog.jsx:249
 msgid "Remove extension"
 msgstr "Supprimer l'extension"
 
 #. translators: %s: extension name.
-#: src/screens/extensions/dialog.jsx:181
+#: src/screens/extensions/dialog.jsx:252
 #, js-format
 msgid "Remove “%s” and delete its files?"
 msgstr "Supprimer « %s » et effacer ses fichiers ?"
 
-#: src/screens/extensions/dialog.jsx:226
-#: src/screens/extensions/dialog.jsx:245
+#: src/screens/extensions/dialog.jsx:301
+#: src/screens/extensions/dialog.jsx:320
 #: src/screens/extensions/sidebar.jsx:49
 msgid "Updates"
 msgstr "Mises à jour"
 
-#: src/screens/extensions/dialog.jsx:228
+#: src/screens/extensions/dialog.jsx:303
 #: src/screens/extensions/sidebar.jsx:60
 msgid "Discover"
 msgstr "Découvrir"
 
 #. translators: %d: number of matches.
-#: src/screens/extensions/dialog.jsx:239
+#: src/screens/extensions/dialog.jsx:314
 #, js-format
 msgid "Search results (%d)"
 msgstr "Résultats de recherche (%d)"
 
-#: src/screens/extensions/dialog.jsx:249
+#: src/screens/extensions/dialog.jsx:324
 msgid "All extensions"
 msgstr "Toutes les extensions"
 
-#: src/screens/extensions/dialog.jsx:270
+#: src/screens/extensions/dialog.jsx:345
 msgid "Add generators, asset packs, effects and tools to the editor."
 msgstr "Ajoute générateurs, packs de ressources, effets et outils à l’éditeur."
 
-#: src/screens/extensions/dialog.jsx:279
+#: src/screens/extensions/dialog.jsx:354
 msgid "Search extensions…"
 msgstr "Rechercher des extensions…"
 
-#: src/screens/extensions/dialog.jsx:337
+#: src/screens/extensions/dialog.jsx:412
 msgid "No extensions installed yet. Pick one under Discover."
 msgstr "Aucune extension installée pour l’instant. Choisis-en une dans Découvrir."
 
-#: src/screens/extensions/dialog.jsx:341
+#: src/screens/extensions/dialog.jsx:416
 msgid "Nothing here."
 msgstr "Rien ici."
 
-#: src/screens/extensions/dialog.jsx:377
+#. translators: 1: current number, 2: total number.
+#: src/screens/extensions/dialog.jsx:460
+#, js-format
+msgid "Updating… (%1$d/%2$d)"
+msgstr "Mise à jour… (%1$d/%2$d)"
+
+#. translators: %d: number of available updates.
+#: src/screens/extensions/dialog.jsx:469
+#, js-format
+msgid "Update all (%d)"
+msgstr "Tout mettre à jour (%d)"
+
+#: src/screens/extensions/dialog.jsx:482
 msgid "An extension package is a ZIP with a manifest.json and a JavaScript entry file. It is loaded only inside the editor and never appears in the WordPress plugin list."
 msgstr "Un paquet d'extension est un ZIP avec un manifest.json et un fichier JavaScript d'entrée. Il n'est chargé que dans l'éditeur et n'apparaît jamais dans la liste des extensions WordPress."
 
-#: src/screens/extensions/dialog.jsx:384
+#: src/screens/extensions/dialog.jsx:489
 msgid "Installing…"
 msgstr "Installation…"
 
-#: src/screens/extensions/dialog.jsx:385
+#: src/screens/extensions/dialog.jsx:490
 msgid "Install from ZIP"
 msgstr "Installer depuis un ZIP"
 
 #. translators: %s: API version.
-#: src/screens/extensions/dialog.jsx:402
+#: src/screens/extensions/dialog.jsx:507
 #, js-format
 msgid "API v%s"
 msgstr "API v%s"
@@ -12772,37 +12829,37 @@ msgid "Help for this dialog"
 msgstr "Aide pour cette boîte de dialogue"
 
 #: src/screens/library-dialog.jsx:79
-#: src/screens/library-tray.jsx:1505
+#: src/screens/library-tray.jsx:1549
 msgid "My Designs"
 msgstr "Mes designs"
 
 #: src/screens/library-dialog.jsx:80
-#: src/screens/library-tray.jsx:1504
+#: src/screens/library-tray.jsx:1548
 #: src/screens/library/search-section.jsx:376
 msgid "My Assets"
 msgstr "Mes ressources"
 
 #: src/screens/library-dialog.jsx:82
-#: src/screens/library-tray.jsx:1507
+#: src/screens/library-tray.jsx:1551
 #: src/screens/library/search-section.jsx:350
 msgid "Starter Templates"
 msgstr "Modèles de démarrage"
 
 #: src/screens/library-dialog.jsx:85
-#: src/screens/library-tray.jsx:1511
+#: src/screens/library-tray.jsx:1555
 #: src/screens/library/search-section.jsx:432
 #: src/screens/status-dialog.jsx:409
 msgid "Shapes"
 msgstr "Formes"
 
 #: src/screens/library-dialog.jsx:86
-#: src/screens/library-tray.jsx:1512
+#: src/screens/library-tray.jsx:1556
 #: src/screens/library/search-section.jsx:453
 msgid "Backgrounds"
 msgstr "Arrière-plans"
 
 #: src/screens/library-dialog.jsx:87
-#: src/screens/library-tray.jsx:1526
+#: src/screens/library-tray.jsx:1570
 #: src/screens/library/search-section.jsx:288
 msgid "Media Library"
 msgstr "Médiathèque"
@@ -12821,7 +12878,7 @@ msgid "Search all assets…"
 msgstr "Rechercher dans toutes les ressources…"
 
 #: src/screens/library-dialog.jsx:131
-#: src/screens/library-tray.jsx:1592
+#: src/screens/library-tray.jsx:1636
 #: src/screens/library/search-section.jsx:83
 msgid "Search the library"
 msgstr "Rechercher dans la bibliothèque"
@@ -12852,8 +12909,8 @@ msgstr "Non classé"
 
 #: src/screens/library-tray.jsx:560
 #: src/screens/library-tray.jsx:566
-#: src/screens/library-tray.jsx:1287
-#: src/screens/library-tray.jsx:1293
+#: src/screens/library-tray.jsx:1331
+#: src/screens/library-tray.jsx:1337
 #: src/screens/library/content-sections.jsx:660
 #: src/screens/library/template-sections.jsx:440
 msgid "All categories"
@@ -12887,100 +12944,100 @@ msgstr "Aucune image correspondante trouvée."
 msgid "Untitled"
 msgstr "Sans titre"
 
-#: src/screens/library-tray.jsx:870
+#: src/screens/library-tray.jsx:889
 msgid "No stock provider configured (Settings → Stock & Watermark)."
 msgstr "Aucun fournisseur de stock configuré (Réglages → Stock et filigrane)."
 
-#: src/screens/library-tray.jsx:874
+#: src/screens/library-tray.jsx:893
 msgid "Illustrations and vector graphics need a Pixabay API key (Settings → Stock & Watermark)."
 msgstr "Les illustrations et les graphiques vectoriels nécessitent une clé API Pixabay (Réglages → Stock et filigrane)."
 
-#: src/screens/library-tray.jsx:979
+#: src/screens/library-tray.jsx:1023
 msgid "Nothing inserted yet, everything you insert lands here."
 msgstr "Rien d'inséré pour l'instant ; tout ce que tu insères atterrit ici."
 
-#: src/screens/library-tray.jsx:1123
+#: src/screens/library-tray.jsx:1167
 msgid "No dynamic templates yet. Use File → “Save as Dynamic Template”."
 msgstr "Pas encore de modèles dynamiques. Utilise Fichier → « Enregistrer comme modèle dynamique »."
 
-#: src/screens/library-tray.jsx:1181
+#: src/screens/library-tray.jsx:1225
 #: src/screens/library/user-sections.jsx:227
 msgid "No designs yet. Use File → “Save Design” to keep an editable copy of your work here."
 msgstr "Pas encore de designs. Utilise Fichier → « Enregistrer le design » pour garder ici une copie modifiable de ton travail."
 
 #. translators: 1: category name, 2: number of templates.
-#: src/screens/library-tray.jsx:1247
+#: src/screens/library-tray.jsx:1291
 #, js-format
 msgid "%1$s (%2$d templates)"
 msgstr "%1$s (%2$d modèles)"
 
-#: src/screens/library-tray.jsx:1335
+#: src/screens/library-tray.jsx:1379
 #: src/screens/library/content-sections.jsx:831
 msgid "No Brand Kit has a logo yet."
 msgstr "Aucun kit de marque n'a encore de logo."
 
-#: src/screens/library-tray.jsx:1345
+#: src/screens/library-tray.jsx:1389
 #: src/screens/library/content-sections.jsx:851
 #: src/store/ops/io-ops.js:499
 msgid "Insert logo"
 msgstr "Insérer le logo"
 
-#: src/screens/library-tray.jsx:1399
+#: src/screens/library-tray.jsx:1443
 #: src/screens/library/search-section.jsx:90
 #: src/screens/library/search-section.jsx:279
 msgid "No items found."
 msgstr "Aucun élément trouvé."
 
-#: src/screens/library-tray.jsx:1503
+#: src/screens/library-tray.jsx:1547
 msgid "Recent"
 msgstr "Récents"
 
-#: src/screens/library-tray.jsx:1521
-#: src/screens/stock-dialog.jsx:234
+#: src/screens/library-tray.jsx:1565
+#: src/screens/stock-dialog.jsx:274
 msgid "Illustrations"
 msgstr "Illustrations"
 
-#: src/screens/library-tray.jsx:1523
-#: src/screens/stock-dialog.jsx:241
+#: src/screens/library-tray.jsx:1567
+#: src/screens/stock-dialog.jsx:281
 msgid "Vectors"
 msgstr "Vecteurs"
 
-#: src/screens/library-tray.jsx:1579
-#: src/screens/stock-dialog.jsx:263
+#: src/screens/library-tray.jsx:1623
+#: src/screens/stock-dialog.jsx:303
 msgid "Search free photos…"
 msgstr "Rechercher des photos gratuites…"
 
-#: src/screens/library-tray.jsx:1581
+#: src/screens/library-tray.jsx:1625
 msgid "Search free illustrations…"
 msgstr "Rechercher des illustrations gratuites…"
 
-#: src/screens/library-tray.jsx:1586
+#: src/screens/library-tray.jsx:1630
 msgid "Search free vector graphics…"
 msgstr "Rechercher des graphiques vectoriels gratuits…"
 
-#: src/screens/library-tray.jsx:1590
+#: src/screens/library-tray.jsx:1634
 #: src/screens/library/search-section.jsx:80
 msgid "Filter…"
 msgstr "Filtrer…"
 
-#: src/screens/library-tray.jsx:1600
-#: src/screens/library-tray.jsx:1601
+#: src/screens/library-tray.jsx:1644
+#: src/screens/library-tray.jsx:1645
 msgid "Stock provider"
 msgstr "Fournisseur de stock"
 
-#: src/screens/library-tray.jsx:1615
+#: src/screens/library-tray.jsx:1659
 msgid "Collapse"
 msgstr "Replier"
 
-#: src/screens/library-tray.jsx:1616
+#: src/screens/library-tray.jsx:1660
 msgid "Expand"
 msgstr "Déplier"
 
-#: src/screens/library-tray.jsx:1620
+#: src/screens/library-tray.jsx:1664
 msgid "Collapse library tray"
 msgstr "Replier la barre de bibliothèque"
 
-#: src/screens/library-tray.jsx:1621
+#: src/screens/library-tray.jsx:1665
 msgid "Expand library tray"
 msgstr "Déplier la barre de bibliothèque"
 
@@ -16340,32 +16397,42 @@ msgid "The export contains status counts and this log only - no document content
 msgstr "L'export contient uniquement des compteurs d'état et ce journal : pas de contenu de documents, pas d'images, pas de clés API."
 
 #. translators: 1: provider, 2: author.
-#: src/screens/stock-dialog.jsx:121
+#: src/screens/stock-dialog.jsx:161
 #, js-format
 msgid "%1$s, %2$s"
 msgstr "%1$s, %2$s"
 
 #. translators: %s: list of configured stock providers.
-#: src/screens/stock-dialog.jsx:164
+#: src/screens/stock-dialog.jsx:204
 #, js-format
 msgid "Free photos from %s, inserted as layers."
 msgstr "Photos libres de %s, insérées comme calques."
 
-#: src/screens/stock-dialog.jsx:189
+#: src/screens/stock-dialog.jsx:229
 msgid "No stock provider is configured yet. Add a free Pexels or Pixabay API key in the plugin settings."
 msgstr "Aucun fournisseur de stock configuré. Ajoute une clé API gratuite Pexels ou Pixabay dans les réglages de l'extension."
 
-#: src/screens/stock-dialog.jsx:279
+#: src/screens/stock-dialog.jsx:319
 msgid "Searching…"
 msgstr "Recherche…"
 
-#: src/screens/stock-dialog.jsx:305
+#: src/screens/stock-dialog.jsx:345
 msgid "No results. Try another search term."
 msgstr "Aucun résultat. Essaie un autre terme de recherche."
 
-#: src/screens/stock-dialog.jsx:352
+#: src/screens/stock-dialog.jsx:392
 msgid "Insert as layer"
 msgstr "Insérer comme calque"
+
+#. translators: 1: photographer, 2: provider name.
+#: src/screens/stock-dialog.jsx:416
+#, js-format
+msgid "Photo by <a>%1$s</a> on <p>%2$s</p>"
+msgstr "Photo de <a>%1$s</a> sur <p>%2$s</p>"
+
+#: src/screens/stock-dialog.jsx:421
+msgid "an unnamed photographer"
+msgstr "un photographe non nommé"
 
 #: src/screens/tabs-bar.jsx:69
 #: src/screens/tabs-bar.jsx:70

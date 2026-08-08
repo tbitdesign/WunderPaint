@@ -749,6 +749,12 @@ function PhotosStrip( {
 			: configured.includes( 'pixabay' )
 			? 'pixabay'
 			: null;
+	// Same source as the Stock Images dialog, so a provider is called the
+	// same thing in both places.
+	const labelFor = ( id ) =>
+		WPIE?.stockLabels?.[ id ] ||
+		{ pexels: 'Pexels', pixabay: 'Pixabay', unsplash: 'Unsplash' }[ id ] ||
+		id;
 	const [ results, setResults ] = useState( [] );
 	const [ total, setTotal ] = useState( 0 );
 	const [ busy, setBusy ] = useState( false );
@@ -855,7 +861,20 @@ function PhotosStrip( {
 		thumb: item.thumb,
 		full: item.full,
 		author: item.author,
+		// Travels with the asset so the insert can tell the provider the
+		// photo was used. Unsplash requires that call and it is how the
+		// photographer gets counted; without it here, everything inserted
+		// from the tray would go uncounted.
+		downloadLocation: item.downloadLocation,
 	} );
+
+	// "Ada L. · Unsplash", not just the name: a photo has to be shown WITH
+	// its source, and on a tile this narrow that is the only place it fits.
+	// The dialog carries the full credit with both links.
+	const creditOf = ( item ) =>
+		item.author
+			? item.author + ' \u00B7 ' + labelFor( provider )
+			: labelFor( provider );
 
 	return (
 		<div
@@ -921,25 +940,50 @@ function PhotosStrip( {
 				</>
 			) }
 			{ busy && <span className="spin" /> }
+			{ /* The tile is a container, not one big button, and that is
+			     the providers' doing: a photo has to be shown with a link
+			     back to the photographer, and a link inside a button is
+			     invalid HTML. So the picture is the button that inserts,
+			     and the credit underneath is its own line.
+			     Consequence worth knowing: clicking the name no longer
+			     inserts the photo, it opens the photographer's page. */ }
 			{ results.map( ( item ) => (
-				<button
+				<div
 					key={ item.id }
-					className="tray-tile tray-tile-labeled"
-					title={ item.author }
-					{ ...tileProps( assetOf( item ), () =>
-						insert( assetOf( item ) )
-					) }
+					className="tray-tile tray-tile-labeled tray-photo"
 				>
-					<span className="tray-tile-preview">
-						<img
-							src={ item.thumb }
-							alt={ item.author }
-							loading="lazy"
-							draggable={ false }
-						/>
+					<button
+						className="tray-photo-hit"
+						title={ creditOf( item ) }
+						{ ...tileProps( assetOf( item ), () =>
+							insert( assetOf( item ) )
+						) }
+					>
+						<span className="tray-tile-preview">
+							<img
+								src={ item.thumb }
+								alt={ item.author }
+								loading="lazy"
+								draggable={ false }
+							/>
+						</span>
+					</button>
+					<span className="tray-tile-name tray-photo-credit">
+						{ item.authorUrl && item.author ? (
+							<a
+								href={ item.authorUrl }
+								target="_blank"
+								rel="noreferrer"
+							>
+								{ item.author }
+							</a>
+						) : (
+							item.author
+						) }
+						{ item.author ? ' \u00B7 ' : '' }
+						{ labelFor( provider ) }
 					</span>
-					<span className="tray-tile-name">{ item.author }</span>
-				</button>
+				</div>
 			) ) }
 		</div>
 	);

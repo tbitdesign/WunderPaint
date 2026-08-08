@@ -485,12 +485,21 @@ class Projects {
 			exit;
 		}
 		$src = esc_url( add_query_arg( array( 'wpie_design' => $token, 'img' => 1 ), home_url( '/' ) ) );
+		// A share link is its own minimal document: no theme, no wp_head(), so
+		// there is no hook the stylesheet could ride on. It is still registered
+		// and printed through the styles API rather than written inline, so it
+		// carries a handle and a version like every other asset in the plugin.
+		wp_register_style( 'wpie-share', WPIE_URL . 'assets/css/share.css', array(), WPIE_VERSION );
+		wp_enqueue_style( 'wpie-share' );
 		header( 'Content-Type: text/html; charset=utf-8' );
 		header( 'X-Robots-Tag: noindex' );
-		echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+		echo '<!doctype html><html ';
+		language_attributes();
+		echo '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
 		echo '<title>' . esc_html( $design['name'] ) . '</title>';
-		echo '<style>body{margin:0;background:#101418;color:#e6e8eb;font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box}img{max-width:min(1100px,100%);max-height:80vh;box-shadow:0 20px 60px rgb(0 0 0/50%);border-radius:8px}h1{font-size:16px;font-weight:600;margin:16px 0 0}</style></head><body>';
-		echo '<div style="text-align:center"><img src="' . esc_url( $src ) . '" alt="' . esc_attr( $design['name'] ) . '"><h1>' . esc_html( $design['name'] ) . '</h1></div>';
+		wp_print_styles( 'wpie-share' );
+		echo '</head><body class="wpie-share">';
+		echo '<div class="wpie-share-frame"><img src="' . esc_url( $src ) . '" alt="' . esc_attr( $design['name'] ) . '"><h1>' . esc_html( $design['name'] ) . '</h1></div>';
 		echo '</body></html>';
 		exit;
 	}

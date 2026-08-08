@@ -1,0 +1,14 @@
+{
+	"name": "wpie-code-shot",
+	"version": "0.3.0",
+	"private": true,
+	"description": "Code Shot extension for WunderPaint.",
+	"scripts": {
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
+		"test": "node --test tests/*.test.mjs"
+	},
+	"devDependencies": {
+		"esbuild": "^0.24.0",
+		"highlight.js": "^11.9.0"
+	}
+}

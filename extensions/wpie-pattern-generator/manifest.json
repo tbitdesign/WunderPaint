@@ -1,0 +1,15 @@
+{
+	"name": "Seamless Patterns",
+	"slug": "wpie-pattern-generator",
+	"version": "2.5.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Seamless patterns from a seed: a couple of dozen motif builders (doodle scatter, grids, diamonds, polka dots, stripes, waves, chevron, fish scales, gingham, terrazzo, truchet, honeycomb, ogee, crosshatch) fill a design cell, a rapport (straight, half-drop, brick, mirror) turns it into a repeat tile, and curated palettes keep every roll of the dice harmonic. Stamp any editor layer into the pattern (logo to brand pattern in one click), mix two doodle sets, add a riso offset-print layer and dashed or dotted line styles. Drag elements right in the preview - they wrap around the tile edge live. Insert the pattern as an editable fill layer, register the tile in the editor's pattern library, save favorites, or download it as PNG/SVG.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "art",
+	"tier": "free"
+}

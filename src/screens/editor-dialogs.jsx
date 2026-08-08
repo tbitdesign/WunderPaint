@@ -15,7 +15,11 @@ import { I } from '../icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEditor } from '../store/editor-context';
 import { request } from '../lib/api';
-import { LICENSE_GPL, LICENSE_THIRD_PARTY } from '../lib/license-texts';
+import {
+	LICENSE_GPL,
+	LICENSE_THIRD_PARTY,
+	EXTERNAL_SERVICES,
+} from '../lib/license-texts';
 import {
 	listShortcutBindings,
 	setShortcutOverride,
@@ -395,6 +399,10 @@ export function AboutDialog( { onClose } ) {
 								'wunderpaint'
 							) }
 							text={ LICENSE_THIRD_PARTY }
+						/>
+						<LicenseAccordion
+							title={ __( 'External services', 'wunderpaint' ) }
+							text={ EXTERNAL_SERVICES }
 						/>
 					</div>
 					<p className="about-copy">

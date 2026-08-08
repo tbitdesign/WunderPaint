@@ -3,7 +3,7 @@
  * Plugin Name:       WunderPaint
  * Plugin URI:        https://wp-image-editor.com
  * Description:       Design graphics, edit photos and automate your images.
- * Version:           1.384.6
+ * Version:           1.394.1
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            TBIT DESIGN - Thomas Breher
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPIE_VERSION', '1.384.6' );
+define( 'WPIE_VERSION', '1.394.1' );
 define( 'WPIE_FILE', __FILE__ );
 define( 'WPIE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPIE_URL', plugin_dir_url( __FILE__ ) );
@@ -39,6 +39,7 @@ require_once WPIE_DIR . 'includes/class-rest-controller.php';
 require_once WPIE_DIR . 'includes/class-models-3d.php';
 require_once WPIE_DIR . 'includes/class-meshy.php';
 require_once WPIE_DIR . 'includes/class-json-repair.php';
+require_once WPIE_DIR . 'includes/class-ai-core.php';
 require_once WPIE_DIR . 'includes/class-ai-provider.php';
 require_once WPIE_DIR . 'includes/class-templates.php';
 require_once WPIE_DIR . 'includes/class-projects.php';
@@ -50,7 +51,6 @@ require_once WPIE_DIR . 'includes/class-extension-store.php';
 require_once WPIE_DIR . 'includes/class-backup.php';
 require_once WPIE_DIR . 'includes/class-post-data.php';
 require_once WPIE_DIR . 'includes/class-extensions.php';
-require_once WPIE_DIR . 'includes/class-catalog.php';
 require_once WPIE_DIR . 'includes/class-search-index.php';
 require_once WPIE_DIR . 'includes/class-media-library.php';
 require_once WPIE_DIR . 'includes/class-media-usage.php';

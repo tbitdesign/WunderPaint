@@ -1430,6 +1430,47 @@
 	font-size: 36px;
 }
 
+/* Photo tiles carry a credit with a link, so the tile cannot be one big
+   button any more (a link inside a button is invalid HTML). The container
+   keeps the tile look, the picture inside is the button that inserts, and
+   the credit line underneath is ordinary text with one link in it. */
+#wpie-root .tray-tile.tray-photo {
+	cursor: default;
+}
+
+#wpie-root .tray-photo-hit {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	align-items: stretch;
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: pointer;
+}
+
+#wpie-root .tray-photo-hit .tray-tile-preview {
+	flex: 1;
+	min-height: 0;
+}
+
+/* Underlined for the same reason as in the Stock Images dialog: this is the
+   credit the providers require, so it has to look like somewhere you can go.
+   Quiet by default, full on hover. */
+#wpie-root .tray-photo-credit a {
+	color: inherit;
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 2px;
+	text-decoration-color: color-mix(in srgb, currentcolor 45%, transparent);
+}
+
+#wpie-root .tray-photo-credit a:hover,
+#wpie-root .tray-photo-credit a:focus-visible {
+	color: var(--ed-text);
+	text-decoration-color: currentcolor;
+}
+
 #wpie-root .tray-search {
 	width: 170px;
 	min-height: 22px;

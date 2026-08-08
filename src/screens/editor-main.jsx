@@ -103,6 +103,7 @@ import { watchExtensionErrors } from '../lib/extension-loader';
 import { WorkspaceDialog } from './workspace-dialog';
 import { WorkspaceOverlay } from './workspace-overlay';
 import { applyWorkspaceDom } from '../lib/workspace';
+import { isEmbedded, hasApplied } from '../lib/embed-host';
 import { coreDeeplinkAction } from '../lib/core-deeplinks';
 import {
 	setLocale,
@@ -1053,6 +1054,13 @@ export function EditorScreen( {
 			// asked for, and declining it swallows the switch entirely -
 			// both measured in a real browser.
 			if ( isIntentionalReload() ) {
+				return;
+			}
+			// Embedded and already applied: the result is in the host's hands
+			// and the copy is in the media library. The document is still
+			// flagged dirty, but warning here means a native browser dialog at
+			// the end of a flow the user just finished on purpose.
+			if ( isEmbedded() && hasApplied() ) {
 				return;
 			}
 			if (

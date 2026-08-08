@@ -90,6 +90,11 @@ async function loadDroppedImage( source ) {
 			URL.revokeObjectURL( url );
 		}
 	} else if ( 'photo' === source.asset?.kind ) {
+		// Same duty as in the Stock Images dialog: using a photo has to be
+		// reported. This path is the tray and drag-and-drop, and it was the
+		// one everybody actually uses, so leaving it out would have meant
+		// counting almost nothing.
+		stock.countDownload( source.asset.downloadLocation );
 		const { dataUrl } = await stock.fetch( source.asset.full );
 		mime = dataUrl.startsWith( 'data:image/png' )
 			? 'image/png'
@@ -497,6 +502,7 @@ export async function insertAsset( editor, extras, asset, point = null ) {
 
 		case 'photo': {
 			try {
+				stock.countDownload( asset.downloadLocation );
 				const { dataUrl } = await stock.fetch( asset.full );
 				const img = await loadImage( dataUrl );
 				const scale = Math.min(

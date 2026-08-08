@@ -1,0 +1,15 @@
+{
+	"name": "Route Visualizer",
+	"slug": "wpie-route-visualizer",
+	"version": "1.6.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Turn any GPX file into a poster: your run, ride or hike as a clean route line - or as a data line colored by pace, heart rate or elevation, straight from the file - optionally on a real OpenStreetMap street map (rendered locally through the editor's privacy-friendly geo proxy). Elevation profile, kilometer markers, big race stats (distance, elevation gain, time, pace, date) and poster typography as real editable text layers. 10 themes, adjustable line, colors and markers. A demo route is built in; everything is computed locally from your file. Editable anytime via Edit Route.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.9.0",
+	"provides": [
+		"generator"
+	],
+	"category": "print",
+	"tier": "free"
+}

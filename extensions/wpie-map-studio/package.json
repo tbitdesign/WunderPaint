@@ -1,0 +1,14 @@
+{
+	"name": "wpie-map-studio",
+	"version": "1.16.0",
+	"private": true,
+	"type": "module",
+	"description": "WPIE extension: poster-style map studio on OpenStreetMap data",
+	"scripts": {
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
+		"qa": "node tools/qa-dialog.mjs"
+	},
+	"devDependencies": {
+		"esbuild": "^0.28.1"
+	}
+}

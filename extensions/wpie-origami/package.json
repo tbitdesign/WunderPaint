@@ -1,0 +1,16 @@
+{
+	"name": "wpie-origami",
+	"version": "1.5.0",
+	"private": true,
+	"type": "module",
+	"description": "WPIE extension: Origami Studio - design folding paper, watch it fold itself in 3D, print sheet and instructions",
+	"scripts": {
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
+		"test": "node --test tests/*.test.js",
+		"qa": "node tools/qa-dialog.mjs"
+	},
+	"devDependencies": {
+		"esbuild": "^0.28.1",
+		"three": "^0.185.1"
+	}
+}

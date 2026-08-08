@@ -72,6 +72,7 @@ class Editor_Locale {
 			'fr_FR' => 'Français',
 			'it_IT' => 'Italiano',
 			'pt_BR' => 'Português',
+			'nl_NL' => 'Nederlands',
 		);
 		$out = array( 'en_US' => $names['en_US'] );
 		foreach ( (array) glob( WPIE_DIR . 'languages/wunderpaint-*.mo' ) as $file ) {

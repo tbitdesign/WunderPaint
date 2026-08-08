@@ -595,6 +595,18 @@ export const stock = {
 		} ),
 	fetch: ( url ) =>
 		request( { path: '/stock/fetch', method: 'POST', data: { url } } ),
+	// Fire and forget. Unsplash requires this call the moment a photo is
+	// actually used, and it is how the photographer gets counted. Nothing on
+	// screen waits for it, and a failure must never stand between a visitor
+	// and the picture they just picked.
+	countDownload: ( location ) =>
+		location
+			? request( {
+					path: '/stock/download',
+					method: 'POST',
+					data: { location },
+			  } ).catch( () => {} )
+			: Promise.resolve(),
 };
 
 /* --------------------- geo proxy (Extension API 2.4) --------------------- */
@@ -605,11 +617,45 @@ export const stock = {
  * never talks to OSM directly. Exposed to extensions via bridge.api.geo.
  */
 export const geo = {
-	search: ( q, limit = 6 ) =>
-		request( {
+	/**
+	 * Place search: the bundled index first, Nominatim only when it cannot
+	 * answer.
+	 *
+	 * The index holds 34,079 cities and answers from memory, so a search for
+	 * a town is instant and costs no request at all. A house number, a lake
+	 * or a mountain pass is not in it, and those fall through to the proxy
+	 * exactly as before - as does everything, if the index is missing or
+	 * unreadable.
+	 *
+	 * Callers do not need to know any of this: the shape of the answer is
+	 * the same either way, which is why the extensions that already call
+	 * geo.search got the fast path without changing a line. (2026-08-08, when
+	 * the index moved out of Map Posters and into the core.)
+	 *
+	 * @param {string} q     Place name.
+	 * @param {number} limit Maximum results.
+	 * @return {Promise<Object>} { results }.
+	 */
+	search: async ( q, limit = 6 ) => {
+		try {
+			const { load, search } = await import(
+				/* webpackChunkName: "gazetteer" */ './gazetteer'
+			);
+			const index = await load();
+			if ( index ) {
+				const hits = search( index, q, limit );
+				if ( hits.length ) {
+					return { results: hits };
+				}
+			}
+		} catch ( e ) {
+			// Fall through. A broken index must never cost a user a search.
+		}
+		return request( {
 			path: pathWithArgs( '/geo/search', { q, limit } ),
 			method: 'GET',
-		} ),
+		} );
+	},
 	map: ( { south, west, north, east, detail = 2, buildings = false } ) =>
 		request( {
 			path: pathWithArgs( '/geo/map', {

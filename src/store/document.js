@@ -210,11 +210,45 @@ export const createBlankDoc = ( opts = {} ) => ( {
  * @param src
  * @param crossOrigin
  */
+/**
+ * Image hosts whose pixels must always be read with CORS.
+ *
+ * Since the studio hotlinks stock photos instead of proxying them, a layer can
+ * carry a provider URL, and that layer is loaded again by every path that
+ * reopens a document, not only by the picker that inserted it. Forgetting the
+ * flag in one of those places would taint the canvas and break the export far
+ * away from the cause, so the rule lives here rather than at twenty call
+ * sites.
+ *
+ * Deliberately a short list and not "every foreign host": switching CORS on
+ * for a host that does not answer with the header turns a picture that used to
+ * load into one that does not load at all. These three were measured on
+ * 2026-08-07 and all answer with access-control-allow-origin: *.
+ */
+const CORS_HOSTS = [
+	'images.pexels.com',
+	'pixabay.com',
+	'cdn.pixabay.com',
+	'images.unsplash.com',
+	'plus.unsplash.com',
+];
+
+const needsCors = ( src ) => {
+	if ( 'string' !== typeof src || ! /^https:\/\//.test( src ) ) {
+		return false;
+	}
+	try {
+		return CORS_HOSTS.includes( new window.URL( src ).hostname );
+	} catch ( e ) {
+		return false;
+	}
+};
+
 export const loadImage = async ( src, crossOrigin ) => {
 	const objectUrl = await sizedSvgUrl( src );
 	return new Promise( ( resolve, reject ) => {
 		const img = new window.Image();
-		if ( crossOrigin ) {
+		if ( crossOrigin || needsCors( src ) ) {
 			img.crossOrigin = 'anonymous';
 		}
 		const settle = ( finish, value ) => {

@@ -53,7 +53,7 @@ import { doAction } from '@wordpress/hooks';
  * and group generators with a resolve hook get a "Refresh …" entry in
  * the canvas and layers-panel context menus.
  */
-export const API_VERSION = '2.12.0';
+export const API_VERSION = '2.15.0';
 
 const NS_RE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
 

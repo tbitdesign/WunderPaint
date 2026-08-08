@@ -18,9 +18,20 @@ export const PROVIDER_LABELS = {
  * false on every installation, so any extension gating on it switched its AI
  * features off everywhere and the fault felt like a missing API key.
  *
+ * `core` is WordPress' own AI client (7.0): the site owner configured a
+ * provider once, at site level, and the plugin borrows it when it has no key
+ * of its own. It counts here because plain text generation works through it.
+ * It deliberately does NOT count in the per-provider checks elsewhere: that
+ * path carries no image and no web search.
+ *
  * @param {Object} [providers] WPIE.providers flags. Defaults to the
  *                             bootstrap object.
  * @return {boolean} Whether text AI features are available.
  */
 export const hasTextProvider = ( providers = window.WPIE?.providers ) =>
-	!! ( providers?.anthropic || providers?.openai || providers?.gemini );
+	!! (
+		providers?.anthropic ||
+		providers?.openai ||
+		providers?.gemini ||
+		providers?.core
+	);

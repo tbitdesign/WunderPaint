@@ -1,0 +1,15 @@
+{
+	"name": "Puzzle Sheets",
+	"slug": "wpie-puzzle-sheets",
+	"version": "2.3.1",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "FIFTEEN printable puzzle and game types, computed entirely in your browser: a WORD SEARCH from your own words with hard mode and tiny per-language starter lists; a real CROSSWORD from your word-and-clue pairs with numbered cells and Across/Down lists; a NONOGRAM whose solved picture is a heart, star, letter or the SILHOUETTE OF YOUR IMAGE - printed hint dots guarantee it stays solvable by pure line logic; a real MAZE generated inside eight shapes including an image silhouette; a PHOTO JIGSAW with classic interlocking cut lines (the solution sheet numbers every piece); DOT TO DOT traced from an image silhouette with numbered dots; SUDOKU in three sizes with a guaranteed unique solution; a CRISS-CROSS word grid; BINGO CARDS - up to eight guaranteed-different cards per set, each its own layer; ANAGRAMS with letter tiles and answer boxes; MEMORY CARDS as a cut-out sheet with a matching duplex back sheet; GAME SHEETS for the categories game, battleships and dots & boxes; a SECRET CODE cryptogram; an ADDITION PYRAMID solvable by pure logic - and the PUZZLE PACK, which turns one word list into a whole activity set (word search, criss-cross, maze, anagrams, two bingo cards, pyramid) with solutions, every sheet its own layer, in one click. Titles use the editor font catalog, colors come from ten palettes, your brand kit or custom colors, and puzzles ship optional SOLUTION SHEETS. Perfect for teachers, birthday parties, wedding favors and company flyers. Insert as editable layers and reopen via Edit Puzzle Sheets.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "tools",
+	"tier": "free"
+}

@@ -288,6 +288,188 @@ import { openEmbedEditor, openPickOverlay } from './lib/embed-overlay';
 		};
 	};
 
+	/* --- Image Details, the classic editor's way in (v1.388.0) -------------
+	 * Clicking an image that already sits in a classic-editor post opens
+	 * wp.media's ImageDetails frame, and that frame is the one place our
+	 * button could never reach: it is rendered from tmpl-image-details, which
+	 * carries no <div class="attachment-compat"> at all, so the field added
+	 * through attachment_fields_to_edit is never printed there. WordPress
+	 * offers exactly two actions in it, "Edit Original" (its own image editor)
+	 * and "Replace". This adds a third next to them.
+	 *
+	 * Everything after the edit follows core's own Replace button verbatim
+	 * (media-views.js, the replace toolbar): close the frame, hand the new
+	 * attachment to the PostImage model, trigger 'replace' so the editor swaps
+	 * the <img> in the content. Doing it any other way left the dialog showing
+	 * the old picture while the model already held the new one.
+	 *
+	 * The label is the same "Edit Image" the attachment sidebar uses, so the
+	 * same action is called the same thing wherever somebody meets it.
+	 */
+	const detailsFrame = () => {
+		const frame = window.wp?.media?.frame;
+		return frame?.image && frame?.state?.() ? frame : null;
+	};
+
+	const editFromImageDetails = () => {
+		const frame = detailsFrame();
+		const id = Number( frame?.image?.attachment?.id ) || 0;
+		if ( ! id ) {
+			return;
+		}
+		openEmbedEditor( {
+			editorBase: WPIEMedia.editorBase,
+			attachmentId: id,
+			// An insert flow, not library management: Apply saves a copy and
+			// the original the post shares with other posts stays untouched.
+			host: 'media',
+			strings: {
+				loading: WPIEMedia.loading,
+				close: WPIEMedia.close,
+				title: WPIEMedia.title,
+			},
+			onApplied: ( r ) => {
+				const newId = Number( r?.attachmentId ) || 0;
+				const live = detailsFrame();
+				if ( ! newId || ! live || ! wp.media.attachment ) {
+					return;
+				}
+				const attachment = wp.media.attachment( newId );
+				// Exactly what pressing Update does (media-views.js, the
+				// image-details toolbar): swap the attachment on the model,
+				// close, then fire 'update' with the model's JSON.
+				//
+				// 'update' and not 'replace', and that distinction cost a
+				// round: the classic editor binds BOTH, but to different
+				// states - `frame.state('image-details').on('update')` and
+				// `frame.state('replace-image').on('replace')`. Firing
+				// 'replace' on the image-details state, as the first version
+				// did, reaches nobody: the copy was saved and the picture in
+				// the post never changed.
+				const swap = () => {
+					const state = live.state?.();
+					// changeAttachment() calls props.get('size') on this, so it
+					// has to be a Backbone model. Core passes state.display(),
+					// but that lives on the Library controller and the
+					// image-details state is NOT a Library - it extends State.
+					// The earlier fallback of {} therefore threw inside the
+					// promise chain, silently, and no swap ever happened.
+					// Overwrite still looked right because the url stays the
+					// same and only the file behind it changes.
+					//
+					// The settings come from the image as it sits in the post,
+					// so replacing it keeps its size, alignment and link.
+					const props = window.Backbone
+						? new window.Backbone.Model( {
+								size: live.image.get( 'size' ) || 'full',
+								align: live.image.get( 'align' ) || 'none',
+								link: live.image.get( 'link' ) || 'none',
+						  } )
+						: null;
+					if ( ! props ) {
+						return;
+					}
+					live.image.changeAttachment( attachment, props );
+					live.close?.();
+					state?.trigger?.( 'update', live.image.toJSON() );
+					live.setState?.( live.options?.state );
+					live.reset?.();
+				};
+				const p = attachment.fetch?.();
+				if ( p?.then ) {
+					p.then( swap, swap );
+				} else {
+					swap();
+				}
+			},
+		} );
+	};
+
+	// The frame is built and torn down by wp.media, so the button is injected
+	// whenever its action row shows up. If core ever renames that row the
+	// button simply stops appearing - it can never break the two beside it.
+	//
+	// The selector deserves a note, because the obvious one is wrong: core does
+	// modal.$el.addClass('image-details'), and modal.$el is a BARE <div> with no
+	// class of its own - `.media-modal` only appears inside its template. So the
+	// marker sits on an ANCESTOR of the modal, and '.media-modal.image-details'
+	// matches nothing at all. Scoped to .column-image so it cannot reach an
+	// .actions row elsewhere on the screen.
+	//
+	// The early return is not premature tuning: this runs on EVERY mutation of
+	// a wp-admin screen, and TinyMCE, autosave and the media grid mutate
+	// constantly. Without it every keystroke in the editor would cost a
+	// document-wide querySelectorAll. wp.media inserts the modal as one chunk,
+	// so looking only at added elements finds it just as reliably.
+	const addDetailsButton = ( records ) => {
+		if (
+			records &&
+			! records.some( ( rec ) =>
+				[ ...rec.addedNodes ].some(
+					( n ) =>
+						1 === n.nodeType &&
+						( n.matches?.( '.media-modal, .actions' ) ||
+							n.querySelector?.( '.media-modal, .actions' ) )
+				)
+			)
+		) {
+			return;
+		}
+		document
+			.querySelectorAll( '.image-details .column-image .actions' )
+			.forEach( ( row ) => {
+				if ( row.querySelector( '.wpie-details-edit' ) ) {
+					return;
+				}
+				const btn = document.createElement( 'button' );
+				btn.type = 'button';
+				btn.className = 'button wpie-details-edit';
+				btn.textContent = WPIEMedia.label;
+				btn.style.cssText =
+					'margin-left:6px;background:' +
+					accent +
+					';border-color:' +
+					accent +
+					';color:#fff;';
+				btn.addEventListener( 'click', ( e ) => {
+					e.preventDefault();
+					editFromImageDetails();
+				} );
+				row.appendChild( btn );
+			} );
+	};
+
+	// This is DOM-level integration because WordPress offers no filter for that
+	// dialog, so it rests on markup core could rename. It fails safe - nothing
+	// of core's is replaced, the button just would not appear - but silently,
+	// and a feature that quietly stops existing is the worst kind. So: if the
+	// dialog is on screen and our button is not, say it once. Same idea as the
+	// trim warning in the standalone studio.
+	let warned = false;
+	const warnIfMissing = () => {
+		if (
+			warned ||
+			! document.querySelector( '.image-details' ) ||
+			document.querySelector( '.wpie-details-edit' )
+		) {
+			return;
+		}
+		warned = true;
+		// eslint-disable-next-line no-console
+		console.warn(
+			'WunderPaint: the Image Details dialog no longer has the action row this button attaches to - WordPress probably changed its markup. See src/media-button.js'
+		);
+	};
+
+	new window.MutationObserver( ( records ) => {
+		addDetailsButton( records );
+		window.setTimeout( warnIfMissing, 500 );
+	} ).observe( document.body, {
+		childList: true,
+		subtree: true,
+	} );
+	addDetailsButton();
+
 	// wp.media can arrive after us (builders lazy-load the media stack),
 	// so retry briefly until wp.media.view exists; the installed flag
 	// makes every extra call a no-op.

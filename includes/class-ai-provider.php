@@ -381,8 +381,12 @@ class AI_Provider {
 		);
 
 		ignore_user_abort( true );
+		// Scoped to this function on purpose, never set globally: detach() is
+		// only ever entered for work the caller has already decided to run in
+		// the background after the response has been flushed, so the raise
+		// applies to that one detached request and to nothing else on the site.
 		if ( function_exists( 'set_time_limit' ) ) {
-			set_time_limit( 900 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- keep long streamed AI responses alive; guarded by function_exists() above.
+			set_time_limit( 900 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- detached background job only; guarded by function_exists() above.
 		}
 		if ( ! headers_sent() ) {
 			status_header( 200 );
@@ -505,6 +509,11 @@ class AI_Provider {
 					return $this->gemini( $action, $request );
 				case 'openai':
 					return $this->openai( $action, $request );
+				case self::CORE_PROVIDER:
+					return AI_Core::images(
+						(string) $request->get_param( 'prompt' ),
+						(int) $request->get_param( 'n' )
+					);
 			}
 			return self::err_unconfigured( $provider );
 		} );
@@ -517,6 +526,13 @@ class AI_Provider {
 	 * @param string $requested Requested provider ('' = default).
 	 * @return string|\WP_Error
 	 */
+	/**
+	 * Provider id standing for "WordPress' own AI client" (see class-ai-core.php).
+	 * Never a real key of ours; it means the site owner configured a provider
+	 * in WordPress itself and we borrow it rather than asking for a second one.
+	 */
+	const CORE_PROVIDER = 'wp-core';
+
 	private function resolve_provider( $action, $requested ) {
 		$capabilities = array(
 			'generate'   => array( 'gemini', 'openai' ),
@@ -546,6 +562,13 @@ class AI_Provider {
 			if ( Helpers::provider_status( $provider ) ) {
 				return $provider;
 			}
+		}
+		// Plain generation can run on WordPress' own AI client. Editing,
+		// inpainting, outpainting and variations cannot: they need an input
+		// image and a mask, which that interface has no way to carry, so
+		// those still ask for a key and say so.
+		if ( 'generate' === $action && AI_Core::available() ) {
+			return self::CORE_PROVIDER;
 		}
 		return self::err_unconfigured( $requested ? $requested : $settings['default_provider'] );
 	}
@@ -1212,6 +1235,16 @@ class AI_Provider {
 				return $p;
 			}
 		}
+		// Nothing of our own. WordPress 7.0 ships an AI client that the site
+		// owner sets up once, at site level, so borrow it instead of sending
+		// them off to fetch a second key (wordpress.org review, 2026-08-08).
+		// Own keys keep priority in the loop above: they carry the per-tier
+		// model choice, the token accounting behind the monthly budget, and
+		// the things the core client cannot express - vision, web search,
+		// masks.
+		if ( AI_Core::available() ) {
+			return self::CORE_PROVIDER;
+		}
 		return self::err_unconfigured( (string) ( $settings['default_text_provider'] ?? 'anthropic' ) );
 	}
 
@@ -1229,6 +1262,9 @@ class AI_Provider {
 	 * @return array|\WP_Error { text, usage }.
 	 */
 	private function text_completion( $provider, $tier, $system, $content, $max_tokens ) {
+		if ( self::CORE_PROVIDER === $provider ) {
+			return AI_Core::text_completion( $system, $content, $max_tokens );
+		}
 		$models = self::models();
 
 		if ( 'openai' === $provider ) {
@@ -1393,7 +1429,10 @@ class AI_Provider {
 	 * @param array  $opts     { thinking: none|normal|extended, web_search: bool,
 	 *                           max_tokens: int, action: string (usage-log id),
 	 *                           tier: caption|design (which text model + price
-	 *                           tier when no explicit model; default design) }.
+	 *                           tier when no explicit model; default design),
+	 *                           long_running: bool (this one call may outlast
+	 *                           the host's PHP execution limit; only then is
+	 *                           that limit raised, and only for this request) }.
 	 * @return array|\WP_Error { data: array, usage: { in, out, model } }.
 	 */
 	public function text_structured( $provider, $model, $system, $user, $schema, $opts = array() ) {
@@ -1415,10 +1454,33 @@ class AI_Provider {
 			: (string) ( $models[ $provider ][ $tier ] ?? $models[ $provider ]['design'] ?? '' );
 		$action = isset( $opts['action'] ) && '' !== $opts['action'] ? (string) $opts['action'] : 'text_structured';
 
-		// The article call can legitimately run for minutes (thinking +
-		// web search); keep PHP alive beyond the default execution limit.
-		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 480 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,Squiz.PHP.DiscouragedFunctions.Discouraged -- long article generation; guarded by function_exists() above.
+		if ( self::CORE_PROVIDER === $provider ) {
+			return $this->metered(
+				$provider,
+				$action,
+				function () use ( $system, $user, $schema, $opts ) {
+					return AI_Core::text_structured( $system, $user, $schema, $opts );
+				},
+				$tier
+			);
+		}
+
+		// Only a caller that has declared its call long-running gets PHP kept
+		// alive past the host's execution limit, and only for that one request.
+		// Article generation (thinking plus web search) is the case this exists
+		// for; a caption, an assistant answer or a short structured reply comes
+		// back in seconds and has no business changing a host's limit.
+		// (wordpress.org review 2026-08-08: the raise used to apply to EVERY
+		// call through this method, which is what the reviewers flagged.)
+		//
+		// A limit that is already higher is left alone - detach() raises it to
+		// 900 for background jobs, and lowering that here would shorten exactly
+		// the run this is meant to protect. 0 means no limit at all (CLI).
+		if ( ! empty( $opts['long_running'] ) && function_exists( 'set_time_limit' ) ) {
+			$current = (int) ini_get( 'max_execution_time' );
+			if ( 0 !== $current && $current < 480 ) {
+				@set_time_limit( 480 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,Squiz.PHP.DiscouragedFunctions.Discouraged -- long article generation only; guarded by function_exists() above.
+			}
 		}
 
 		return $this->metered(

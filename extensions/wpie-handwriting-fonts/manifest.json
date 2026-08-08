@@ -1,0 +1,15 @@
+{
+	"name": "Handwriting Fonts",
+	"slug": "wpie-handwriting-fonts",
+	"version": "1.3.1",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Your own handwriting, turned into a real font the whole editor can use. Draw the letters right here with a mouse, pen or tablet on a proper type grid (baseline, x-height, cap height, ascender and descender are shown while you draw, with the neighbouring letters faint beside them, so the shapes line up from the start), or print the ruled sheet, fill it in with your favourite pen, photograph it and let the registration marks straighten the page and read every cell in order - no guessing which letter is which. Pressure is picked up where the device offers it, smoothing catches a shaky hand, and a running preview line rewrites itself with every stroke. Accented characters are built for you: draw the plain letters once plus the accents, and the umlauts and accented letters for German, Spanish, French, Portuguese and Italian are composed automatically at the right height. Because the drawing itself is kept, one alphabet yields a whole family: Light, Regular and Bold as genuine weights plus an italic by slant, all from the same letters. Cursive mode puts entry and exit marks at a fixed height and closes the gaps so the letters visibly join up. Side bearings come from the real ink of each glyph, with a tracking slider and per-letter nudge on top. One click installs the finished font into this site's font library, where it appears in the font picker, brand kits, templates, curved text, text on a path, WordArt and every layer style, no reload needed. The font file doubles as the project file: reopen it later and every stroke is still editable. Everything is computed in your browser and stored on your own server.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"menuItem"
+	],
+	"category": "tools",
+	"tier": "free"
+}

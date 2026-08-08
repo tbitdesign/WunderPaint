@@ -1,0 +1,15 @@
+{
+	"name": "Day Ring",
+	"slug": "wpie-day-ring",
+	"version": "0.7.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Turn a day into a beautiful circular schedule. Add time blocks - a label, a start and an end, a colour - and each becomes a proportional arc around a 24-hour clock. Overlapping blocks stack onto concentric rings, so a stand-up inside your deep-work block both show. Start from a template (work day, weekend, wedding, travel, kids, study), give each block an emoji, and label them curved along their own arc or in a legend. Show durations, give arcs a soft radial depth, add a gentle day-and-night shading and a centre emoji, and bind the title to a post field with {{...}} tokens for a dynamic featured image. Add hour ticks and numbers, a centre title, a legend, and drop it in as a re-editable, canvas-filling layer. Everything is drawn locally in your browser - nothing is uploaded.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "tools",
+	"tier": "free"
+}

@@ -72,6 +72,7 @@ import { applyWatermark } from './watermark';
 import { listExportPresets } from './export-presets';
 import { exportSvg, importSvg } from './svg-io';
 import { rng, EASINGS } from './seeded';
+import { removeBackgroundLocal } from './local-image-ops';
 import {
 	recordCanvas,
 	pickRecorderMime,
@@ -111,6 +112,8 @@ import { KitSelect } from '../components/kit-select';
 import { MediaPicker } from '../components/media-picker';
 import { IconPicker } from '../components/icon-picker';
 import { I } from '../icons';
+import { confirmDialog } from './dialogs';
+import { API_VERSION as EXT_API_VERSION, apiSatisfies } from './extensions';
 
 export const proBridge = Object.freeze( {
 	api: {
@@ -168,6 +171,12 @@ export const proBridge = Object.freeze( {
 				cache: sharedImageCache,
 			} );
 		},
+		// subjectCutout (additive, API 2.13): the local u2netp subject
+		// cutout (image URL in, transparent PNG dataURL out) that the
+		// free tools already use, now reachable for studios - Papercut
+		// Art lifts the subject onto its front paper layer with it.
+		// Feature-detect before use; older cores lack it.
+		subjectCutout: removeBackgroundLocal,
 	},
 	// video (v1.273 / API 2.10, additive): canvas -> video capture with the
 	// mime fallback chain; every motion studio recorded by hand before.
@@ -307,8 +316,18 @@ export const proBridge = Object.freeze( {
 	// svg (v1.157.1, additive): the vector exporter for Pro's live badges
 	// (exportSvg keeps data-wpie-binding markers on bound text layers).
 	svg: { exportSvg, importSvg },
+	// extensions (v1.392 / API 2.14, additive): the editor's own answer to
+	// "is this package built for me". Pro's extension manager needs it to
+	// decide whether a freshly installed package can be loaded into the
+	// running editor or wants a reload, and a second implementation over
+	// there would be a second thing to keep in step with the PHP gate.
+	extensions: { API_VERSION: EXT_API_VERSION, apiSatisfies },
 	components: {
 		HelpLink,
+		// confirmDialog (v1.392 / API 2.14, additive): the editor's own
+		// confirmation, so an add-on never has to fall back to the browser's
+		// native window.confirm.
+		confirmDialog,
 		// mountColorButton (v1.145, additive): the editor's color swatch +
 		// popover rendered into a plain DOM node, for framework-free
 		// extension packs. Returns { set( color ), unmount() }.

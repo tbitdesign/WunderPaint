@@ -1,29 +1,23 @@
 /**
  * Extension package client (v1.119): REST calls for the in-editor
- * Extensions manager, live script injection after an install (no reload
+ * extensions library, live script injection after an install (no reload
  * needed) and a window-level error watcher that attributes load/runtime
  * errors of installed packages so the manager can show them instead of
  * letting them die silently in the console.
  */
 
-import { request, checkUploadSize } from './api';
+import { request } from './api';
 import { apiSatisfies, recordExtensionIssue } from './extensions';
 
 export const listExtensions = () => request( { path: '/extensions' } );
 
-/**
- * Upload a ZIP package (install or update).
- *
- * @param {File} file The ZIP file.
- * @return {Promise<Object>} The installed package descriptor.
+/*
+ * There is no installExtension() and no deleteExtension() here any more.
+ * The free plugin has no route that receives an extension package and none
+ * that removes one (wordpress.org review, 2026-08-08 - see
+ * includes/class-extensions.php). Pro brings both, and its own client for
+ * them.
  */
-export function installExtension( file ) {
-	// 40 MB is the package format's own cap (Extensions::MAX_ZIP_BYTES).
-	checkUploadSize( file, 40 );
-	const fd = new window.FormData();
-	fd.append( 'file', file, file.name || 'extension.zip' );
-	return request( { path: '/extensions', method: 'POST', body: fd } );
-}
 
 export const toggleExtension = ( slug, enabled ) =>
 	request( {
@@ -32,12 +26,18 @@ export const toggleExtension = ( slug, enabled ) =>
 		data: { enabled },
 	} );
 
-export const deleteExtension = ( slug ) =>
-	request( { path: `/extensions/${ slug }`, method: 'DELETE' } );
+/*
+ * Extensions live in one of two directories now: bundled-extensions/ inside
+ * the plugin (what the free version ships) and uploads/wpie-extensions/
+ * (what Pro installs). Both names have to be recognised here, or a bundled
+ * studio's errors would go unattributed and injectExtension() would think a
+ * loaded package is not loaded. (2026-08-08)
+ */
+const EXT_DIR = /\/(?:wpie|bundled)-extensions\/([a-z0-9_-]+)\//;
 
 /** Slug of an installed package from one of its asset URLs, or null. */
 const slugFromUrl = ( url ) => {
-	const m = /\/wpie-extensions\/([a-z0-9_-]+)\//.exec( String( url || '' ) );
+	const m = EXT_DIR.exec( String( url || '' ) );
 	return m ? m[ 1 ] : null;
 };
 
@@ -58,7 +58,8 @@ export function injectExtension( ext ) {
 		injected.has( ext.slug ) ||
 		// Covers both enqueued (PHP) and previously injected scripts.
 		document.querySelector(
-			`script[src*="/wpie-extensions/${ ext.slug }/"]`
+			`script[src*="/wpie-extensions/${ ext.slug }/"],` +
+				`script[src*="/bundled-extensions/${ ext.slug }/"]`
 		);
 	if ( live ) {
 		return false;

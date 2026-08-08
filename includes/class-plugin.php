@@ -63,7 +63,6 @@ class Plugin {
 			'backup'      => Backup::class,
 			'post_data'   => Post_Data::class,
 			'extensions'  => Extensions::class,
-			'catalog'     => Catalog::class,
 			'search'      => Search_Index::class,
 			'media_lib'   => Media_Library::class,
 			'media_usage' => Media_Usage::class,
@@ -84,10 +83,22 @@ class Plugin {
 			$this->modules[ $key ]->hooks();
 		}
 
-		add_action( 'init', array( $this, 'load_textdomain' ) );
+		// No load_plugin_textdomain(): WordPress has loaded plugin translations
+		// on its own since 4.6, this plugin requires 6.4, and the release ZIP
+		// carries no catalogues at all any more - they come from
+		// translate.wordpress.org as language packs. (wordpress.org review
+		// 2026-08-08; the .po/.mo sources stay in the repo, see .distignore.)
+
 		// Retrofit the uploads deny rules once per version, so installations that
 		// created their directories before this hardening get them too. (F-L61)
 		add_action( 'admin_init', array( $this, 'ensure_upload_protection' ) );
+		// Delete an attachment, and its version store goes with it. Versioning
+		// has done the cleanup all along, it was simply never wired to a hook,
+		// so version files and project sidecars piled up for images that were
+		// long gone (the orphan scan skips the plugin's own directories).
+		// delete_attachment and not deleted_post: the subdirectory name lives
+		// in post meta, which WordPress has already removed by the later hook.
+		add_action( 'delete_attachment', array( Versioning::class, 'purge' ) );
 		add_filter( 'plugin_row_meta', array( $this, 'plugin_row_meta' ), 10, 2 );
 	}
 
@@ -99,14 +110,6 @@ class Plugin {
 	 */
 	public function module( $key ) {
 		return isset( $this->modules[ $key ] ) ? $this->modules[ $key ] : null;
-	}
-
-	/**
-	 * Load translations.
-	 */
-	public function load_textdomain() {
-		// phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound -- loads the bundled .mo for installs that are not from wordpress.org, where just-in-time loading only covers language-pack translations.
-		load_plugin_textdomain( 'wunderpaint', false, dirname( plugin_basename( WPIE_FILE ) ) . '/languages' );
 	}
 
 	/**

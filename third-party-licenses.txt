@@ -121,3 +121,21 @@ WordPress and these packages are licensed under the GPL.
 Build-only tooling (webpack/@wordpress/scripts, ESLint, Jest, Playwright,
 node-canvas, @fontsource sources) is used only to build the plugin and is not
 distributed with it.
+
+GeoNames place index (assets/geo/cities.json)
+---------------------------------------------
+Derived from GeoNames, licensed under Creative Commons Attribution 4.0
+(CC BY 4.0), https://creativecommons.org/licenses/by/4.0/
+Source files: cities15000, alternateNamesV2 and countryInfo from
+https://download.geonames.org/export/dump/
+
+Derivation: cities of 15,000 inhabitants or more, reduced to their names in
+the seven languages this editor ships in (en, de, fr, es, it, nl, pt),
+coordinates rounded to four decimals, plus country code and population.
+Rebuild with `node tools/build-gazetteer.mjs`. The source files are NOT
+downloaded at run time; the index is built once and shipped.
+
+Map geometry itself is not bundled: it is fetched at edit time through the
+plugin's server-side geo proxy from OpenFreeMap and the OpenStreetMap
+Overpass instances, and is (c) OpenStreetMap contributors under the Open
+Database License (ODbL), https://www.openstreetmap.org/copyright

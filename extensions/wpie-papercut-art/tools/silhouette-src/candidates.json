@@ -1,0 +1,940 @@
+{
+	"deer": [
+		{
+			"uuid": "cc03f5c2-933f-4c40-9c64-7f8727556fdb",
+			"title": "Cervus elaphus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "72f2f997-e474-4caf-bbd5-72fc8dbcc40d",
+			"title": "Cervus elaphus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "054cc266-c746-4037-b257-54b973aa5e53",
+			"title": "Dama dama",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "fa652f87-5ba9-4b3b-ad15-faf733474092",
+			"title": "Dama dama",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		},
+		{
+			"uuid": "09e12cc6-4885-402c-95df-f331608e27c1",
+			"title": "Odocoileus virginianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Caleb M. Gordon"
+		},
+		{
+			"uuid": "ccdfd1a8-f83b-43a2-8307-bf0338290150",
+			"title": "Odocoileus virginianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "4b474bdd-24e0-428d-b1f0-6d221ffc6367",
+			"title": "Odocoileus virginianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "5294755c-e43a-45b9-84c7-2a7069b6de1d",
+			"title": "Odocoileus virginianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "4584be20-4514-4673-a3e8-97e2a6a10e57",
+			"title": "Odocoileus virginianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "49a5a5db-047e-4e17-849b-9f96a93f0d2b",
+			"title": "Odocoileus virginianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "56f6fdb2-15d0-43b5-b13f-714f2cb0f5d0",
+			"title": "Odocoileus virginianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Tracy A. Heath"
+		}
+	],
+	"moose": [
+		{
+			"uuid": "74eab34a-498c-4614-aece-f02361874f79",
+			"title": "Alces alces",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Xavier Giroux-Bougard"
+		},
+		{
+			"uuid": "1a20a65d-1342-4833-a9dd-1611b9fb383c",
+			"title": "Alces alces",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		}
+	],
+	"fox": [
+		{
+			"uuid": "b8ceb3e3-5d4f-4d26-9195-20c3dffc26aa",
+			"title": "Vulpes corsac",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "c669db3a-ccac-400c-9588-f7d408153256",
+			"title": "Vulpes corsac",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "40a5954e-ede1-4af6-9f65-209d1780e602",
+			"title": "Vulpes corsac",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "a1116e25-7b50-4666-bef5-de18b6e2778c",
+			"title": "Vulpes bengalensis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "9b3e3567-2238-40bf-ab5d-bcb6ce7b32d5",
+			"title": "Vulpes vulpes",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "4a2143fc-4bfb-4188-b0fa-f2d2094349a4",
+			"title": "Vulpes vulpes",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "d67d3bf6-3509-4ab6-819a-cd409985347e",
+			"title": "Vulpes vulpes",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		},
+		{
+			"uuid": "a5e2a085-c895-4fdd-b39e-bbac8ca94d7d",
+			"title": "Vulpes vulpes",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "David Orr"
+		}
+	],
+	"hare": [
+		{
+			"uuid": "4afd156c-051f-4b43-9064-cf6b673faadb",
+			"title": "Lepus europaeus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "630a20e2-2d73-49ec-8cff-80f212b638c6",
+			"title": "Lepus europaeus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		},
+		{
+			"uuid": "ad7d2a9d-ef0d-46f2-895d-7c67bb8e6355",
+			"title": "Oryctolagus cuniculus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "d71fcd12-90f6-40c4-b918-0dac0ba3e809",
+			"title": "Oryctolagus cuniculus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		},
+		{
+			"uuid": "1e15411c-5394-4a9d-a209-76c8ac0c331d",
+			"title": "Oryctolagus cuniculus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "09879f48-6719-47d8-9df3-e9f0e9ecf6b8",
+			"title": "Lepus saxatilis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "f69eb95b-3d0d-491d-9a7f-acddd419afed",
+			"title": "Lepus americanus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "a87a3826-dc6c-4bad-8a89-82553e8e8ea0",
+			"title": "Lepus arcticus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "xgirouxb"
+		},
+		{
+			"uuid": "8e61e166-11f4-4377-a923-9b5b597b6eba",
+			"title": "Lepus americanus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Maha Ghazal"
+		}
+	],
+	"bear": [
+		{
+			"uuid": "8cab53e9-010d-4ee5-8c80-976fbdc7f46c",
+			"title": "Ursus arctos",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Marie-Aimée Allard"
+		},
+		{
+			"uuid": "5629fae2-1da6-479d-bfeb-08a59a58121a",
+			"title": "Ursus arctos",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "c7fbe213-1eac-4f81-80d0-674c3bd2d6b0",
+			"title": "Ursus arctos",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "0cd82109-bb1c-4e08-ab11-c845d8a82eba",
+			"title": "Ursus arctos horribilis",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "xgirouxb"
+		},
+		{
+			"uuid": "7f543d16-3495-4c9c-8ef6-d61dad2f4a20",
+			"title": "Ursus arctos",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "43e82541-0f4a-467c-864e-f7f44c38b5af",
+			"title": "Ursus arctos isabellinus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Tracy A. Heath"
+		},
+		{
+			"uuid": "aa777f28-3110-400c-89c5-2d615fb909a8",
+			"title": "Ursus americanus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "363a5d99-bb3a-413a-b3b5-9fac03d5e972",
+			"title": "Ursus americanus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "369a7880-4798-41bf-851a-ec5da17fafa3",
+			"title": "Ursus americanus emmonsii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "5a5dafa2-6388-43b8-a15a-4fd21cd17594",
+			"title": "Ursus americanus emmonsii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Tracy A. Heath"
+		}
+	],
+	"wolf": [
+		{
+			"uuid": "f787cef9-1801-4387-8f6c-4234b5c8d72a",
+			"title": "Canis latrans",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jeff Haight"
+		},
+		{
+			"uuid": "f0c6c94e-9d13-427c-82e6-5687a97aab08",
+			"title": "Canis rufus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "e629188b-2242-46b9-8720-d876ff03581a",
+			"title": "Canis rufus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "171a1fd1-797b-404c-b942-604cc2c508af",
+			"title": "Canis latrans",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Richard Rich"
+		},
+		{
+			"uuid": "23ddcc50-103c-432b-a5cc-f41f688bba8a",
+			"title": "Canis lupus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Richard Rich"
+		},
+		{
+			"uuid": "8621c5e8-ded5-4bd5-bc06-66248563ce30",
+			"title": "Canis lupus italicus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "François-Louis PELISSIER"
+		},
+		{
+			"uuid": "9f3d85eb-2731-4dcf-bf31-3253df2a7bd3",
+			"title": "Canis lupus italicus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "François-Louis PELISSIER"
+		},
+		{
+			"uuid": "b625de9c-f1c1-4641-8ab7-ef67b3bb1b1f",
+			"title": "Canis lupus italicus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "François-Louis PELISSIER"
+		}
+	],
+	"cat": [
+		{
+			"uuid": "17b7a839-9b29-4783-b381-4e5478202bc5",
+			"title": "Felis silvestris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "e850db21-6eff-4b40-9e44-a4c3d5842f8b",
+			"title": "Felis silvestris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "cc22d71c-a014-41a9-aaf1-5f2cffad6121",
+			"title": "Felis silvestris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "1edbe9ff-c453-47f3-9174-2e1f9c5983de",
+			"title": "Felis silvestris silvestris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		}
+	],
+	"dog": [
+		{
+			"uuid": "e31efda4-a7cd-4845-8958-a69f212a0c03",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "d3e8133c-e669-4881-9111-b44145f94212",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "1a9332fc-aeac-43ae-a318-80acbf89b662",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "52ee5145-8965-492f-b6cf-84ffaa234978",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "712fd54d-cd01-4a55-92dc-6263928a9b9c",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "04d035a5-e667-434e-95d1-1df6747b8e91",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "fc4771f3-dfd8-44c8-90a7-2b6558604fa2",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "dcc30af3-bd5f-4bfb-9b67-5adb78a10c54",
+			"title": "Canis familiaris familiaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		}
+	],
+	"owl": [
+		{
+			"uuid": "d7d457c1-4c08-4e7e-9af4-f537020c2775",
+			"title": "Bubo bubo",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "the von Wright brothers"
+		},
+		{
+			"uuid": "89ffe48f-32da-430c-bd83-2dce5d5936be",
+			"title": "Tyto alba furcata",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "5672d2a9-8f5f-449c-a6dd-ba4ebe3f768b",
+			"title": "Tyto alba",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "088bc660-44e4-4717-b5fc-13ee15ade62b",
+			"title": "Tyto alba",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Sharon Wegner-Larsen"
+		},
+		{
+			"uuid": "4e35207e-a75a-4518-8eca-1d574eebfbb4",
+			"title": "Athene noctua",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		}
+	],
+	"horse": [
+		{
+			"uuid": "b302ceef-072c-471c-bc7d-164c428dd57a",
+			"title": "Equus ferus caballus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "7aa15a09-470e-4e71-b1fe-5ab15622cbb2",
+			"title": "Equus ferus caballus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "d0847124-56fe-4ca5-8415-e75b0afdc751",
+			"title": "Equus ferus caballus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "1ca0863c-9285-4a74-902a-313d2822f5e5",
+			"title": "Equus ferus caballus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "26d41545-17ea-4be5-8296-05d6ffd05360",
+			"title": "Equus ferus caballus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "071ee517-a0f1-4d19-aa29-812b9f86cb53",
+			"title": "Equus ferus caballus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "David Orr"
+		},
+		{
+			"uuid": "9f550f9e-b8df-43c4-9f00-396548507424",
+			"title": "Equus ferus przewalskii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		}
+	],
+	"squirrel": [
+		{
+			"uuid": "23c700c9-e695-404a-8d0c-146e1fc4bada",
+			"title": "Sciurus vulgaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "2916f8fe-290a-423b-b6f7-fb975c30d518",
+			"title": "Neosciurus carolinensis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "d02f50ba-af71-4997-860a-ff11e8d1cbcc",
+			"title": "Neosciurus carolinensis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		}
+	],
+	"heron": [
+		{
+			"uuid": "5d38ae89-8938-427d-ba49-3ae4cde0016c",
+			"title": "Ardea cinerea",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "abfaf52a-6fa1-48b7-91ba-b65d369a2fe2",
+			"title": "Grus grus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		}
+	],
+	"eagle": [
+		{
+			"uuid": "20f92e20-e65b-4efd-b40f-b3aa8fde6011",
+			"title": "Aquila chrysaetos",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "7779e472-9159-4219-8e8e-68197bb73557",
+			"title": "Aquila chrysaetos",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "b2b60a18-fd7d-49b2-a15d-54a62cdcac6b",
+			"title": "Aquila chrysaetos",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		},
+		{
+			"uuid": "80064052-3255-4b19-9125-5a0c79dec5bf",
+			"title": "Haliaeetus leucocephalus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "137b0b5d-56dc-4ebb-a7ce-89c98605af04",
+			"title": "Haliaeetus leucocephalus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "3002e4de-eb9b-48a4-8921-57dfe0d2e169",
+			"title": "Haliaeetus leucocephalus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "b1c1370b-08cf-4c5e-b390-8fd552f60689",
+			"title": "Haliaeetus leucocephalus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "6b71a848-7665-458d-b423-4543c7d91e37",
+			"title": "Haliaeetus leucocephalus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Steve Hillebrand/U. S. Fish and Wildlife Service (source photo), T. Michael Keesey (vectorization)"
+		},
+		{
+			"uuid": "804de116-5dbe-4e53-bedb-ddbfb4e895eb",
+			"title": "Haliaeetus leucocephalus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Steve Hillebrand/U. S. Fish and Wildlife Service (source photo), T. Michael Keesey (vectorization)"
+		}
+	],
+	"butterfly": [
+		{
+			"uuid": "4156d7fe-1eab-4821-975f-829c6f06cbb5",
+			"title": "Papilio machaon",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "f21829d7-6dfc-4b2f-991c-e16181c24d29",
+			"title": "Papilio machaon",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Mattia Menchetti"
+		},
+		{
+			"uuid": "e2cdafc4-2e97-45e3-8799-1a965fc24d85",
+			"title": "Danaus plexippus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "19d4f22f-3dd9-4d6e-a739-cb81cbea197c",
+			"title": "Danaus plexippus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "68d37f0c-5a39-44bc-8163-a5fa75c95945",
+			"title": "Danaus plexippus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "e6705593-91ba-4b6e-9dfd-515005e35fc6",
+			"title": "Danaus plexippus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		}
+	],
+	"bird": [
+		{
+			"uuid": "ec11f62e-ed3e-49bb-bcff-4e47b281d378",
+			"title": "Turdus merula",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		},
+		{
+			"uuid": "b0d54194-4105-4694-b670-b693df1640cf",
+			"title": "Erithacus rubecula",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Anthony Caravaggi"
+		},
+		{
+			"uuid": "a7c18cef-c5d8-4cf9-95b3-83c166ac8259",
+			"title": "Passer domesticus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "3a4cdd72-e553-40ad-838e-3b23037b2010",
+			"title": "Passer domesticus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		}
+	],
+	"boar": [
+		{
+			"uuid": "87047da1-b40e-4b31-8492-4db262f129f5",
+			"title": "Sus scrofa",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "3d8acaf6-4355-491e-8e86-4a411b53b98b",
+			"title": "Sus scrofa",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		}
+	],
+	"ibex": [
+		{
+			"uuid": "2b07a361-5d1b-4bb9-a61e-a7708cf57ecb",
+			"title": "Capra ibex",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		}
+	],
+	"whale": [
+		{
+			"uuid": "fd8d3e5e-24a0-4aa2-9211-987ff86007dd",
+			"title": "Balaenoptera novaeangliae",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "012afb33-55c3-4fc6-9ae3-3a91fda32fd5",
+			"title": "Balaenoptera novaeangliae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "6ca9f0b7-cacb-45cc-9229-1b672d55b15b",
+			"title": "Balaenoptera musculus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		}
+	],
+	"dolphin": [
+		{
+			"uuid": "4ac248c2-da47-4c20-ad5a-30c45dc38fa0",
+			"title": "Tursiops truncatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Amy Beauvois"
+		},
+		{
+			"uuid": "d529a97f-a912-4c74-ace8-d18f6eddf203",
+			"title": "Tursiops truncatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Kai Caspar"
+		},
+		{
+			"uuid": "ddaedcc2-7fb3-4b1e-a8e9-e3074b2e58a7",
+			"title": "Tursiops truncatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "388e792c-f8fd-4bd8-ad38-e251b5244ac0",
+			"title": "Tursiops truncatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "6e892ffc-4443-4213-8c97-bb9c0950f0b7",
+			"title": "Tursiops truncatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "10af79a9-36b4-4be3-8a5d-dadea9cea810",
+			"title": "Tursiops truncatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "6682f694-1c10-4386-a6e5-361581400f15",
+			"title": "Tursiops truncatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		}
+	],
+	"gull": [
+		{
+			"uuid": "1e45eae7-b1eb-4a08-9e1f-4f34f2fb7710",
+			"title": "Larus argentatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "0871b630-2dcd-4d35-b0a4-6a6551140553",
+			"title": "Larus argentatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Sharon Wegner-Larsen"
+		},
+		{
+			"uuid": "2f22653b-89af-45d7-b12f-9e7982210e92",
+			"title": "Larus delawarensis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "f9095d81-49c1-433d-bb92-4858fd48ce0d",
+			"title": "Larus marinus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Caleb M. Gordon"
+		},
+		{
+			"uuid": "404d3b71-d39f-420a-9728-aecfc21e5a1b",
+			"title": "Larus delawarensis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jason Dilworth"
+		},
+		{
+			"uuid": "94c75552-1e1e-45f9-99f9-994de7956b57",
+			"title": "Larus marinus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "23eecd7f-89e1-45c5-9d8a-7c7f373d3af7",
+			"title": "Larus smithsonianus smithsonianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "d7c59a44-774f-4191-8623-07c77ca77851",
+			"title": "Larus dominicanus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Alexandre Vong"
+		},
+		{
+			"uuid": "49264b3a-bde5-406b-ab01-07d4df56f2a9",
+			"title": "Larus belcheri",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Juan Carlos Jerí"
+		}
+	],
+	"pine": [
+		{
+			"uuid": "354889ab-a702-4bd0-b881-8e6faa5925d9",
+			"title": "Pinus sylvestris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "a49c84e1-a30d-47ea-a92f-70757763b1b7",
+			"title": "Pinus sylvestris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Carlos Galaz-Samaniego"
+		},
+		{
+			"uuid": "45e43139-d6e2-4d42-9422-a398fd910515",
+			"title": "Pinus sylvestris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "dbbc728a-87d2-4f3c-a2ab-6a0cbfbf9e80",
+			"title": "Pinus strobiformis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Carlos Galaz-Samaniego"
+		},
+		{
+			"uuid": "9872213f-fefd-4946-b80e-3dbb6cd1793d",
+			"title": "Pinus pinea",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "c6f657ff-9224-4943-9f05-215d3a10dbff",
+			"title": "Pinus pinaster",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "aa8bff8e-a207-4aba-a7fb-580509d52689",
+			"title": "Pinus palustris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Mason McNair"
+		},
+		{
+			"uuid": "9c1635ff-9fec-402b-82f2-100515286713",
+			"title": "Pinus palustris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Mason McNair"
+		},
+		{
+			"uuid": "13a5a7e9-be33-4d40-8c90-9ffcf367d7cb",
+			"title": "Pinus sect. Trifoliae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Gabriele Midolo"
+		}
+	],
+	"spruce": [
+		{
+			"uuid": "953f16e2-d85f-43dd-84a5-37f509dc3f7f",
+			"title": "Picea abies",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "81b9e25d-7857-4f33-8197-e46305041fd6",
+			"title": "Picea abies",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "c0f55d74-be04-4271-aa05-d20e144baa08",
+			"title": "Picea abies",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "79332a4c-e2bf-447e-a38d-f59bdec98c37",
+			"title": "Picea abies",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "5d027e89-ce3c-465e-afa0-761c1c360300",
+			"title": "Abies alba",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		}
+	],
+	"oak": [
+		{
+			"uuid": "36b044cf-4958-4c84-9fae-4634444af874",
+			"title": "Quercus robur",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "32072712-0b24-4847-a552-ef8057ec05ec",
+			"title": "Quercus robur",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "43afe2df-ab6c-47e6-a105-c0a82b8af1c5",
+			"title": "Quercus robur",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "619a7cc7-7abc-4724-912f-ab7346f095ac",
+			"title": "Quercus robur",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "f5a7c022-e420-4515-8997-ef8ee59984f6",
+			"title": "Quercus chihuahuensis",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Guillermo Molina-Padilla (Photograph)"
+		},
+		{
+			"uuid": "8f8ab812-64af-4a5a-8d45-8b6fca2de235",
+			"title": "Quercus serrata",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Pablo Castro Sánchez-Bermejo"
+		},
+		{
+			"uuid": "b34746dd-ec23-4fa0-83ed-013f1d9dd6be",
+			"title": "Quercus ilex var. ballota",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "5ff28c29-b0f3-4e96-bd1c-1272fa410e46",
+			"title": "Quercus petraea",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Pablo Castro Sánchez-Bermejo"
+		},
+		{
+			"uuid": "67394c80-385c-409d-a8c7-9c2e50ae5d64",
+			"title": "Quercus suber",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "19bdf805-c9ad-4847-ba6a-67b890dca24c",
+			"title": "Quercus suber",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		}
+	],
+	"birch": [
+		{
+			"uuid": "226ba0e2-ec8f-4046-bedb-9723b843593c",
+			"title": "Betula pendula",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Pablo Castro Sánchez-Bermejo"
+		},
+		{
+			"uuid": "cd14aeca-4e2c-45f6-ac0b-60d4810801fa",
+			"title": "Betula pendula",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "5c6ae9a1-1405-4f81-b4c1-c169faef475e",
+			"title": "Betula pendula",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		}
+	],
+	"palm": [
+		{
+			"uuid": "823d67ef-e4c9-4be5-8b22-e38ee2beccab",
+			"title": "Cocos nucifera",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "2dc5f2ee-1fda-4115-9fc6-b8aba1071348",
+			"title": "Cocos nucifera",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "ec3604c4-768d-4db3-b228-726db07ed1a2",
+			"title": "Sabal palmetto",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Caleb M. Gordon"
+		}
+	]
+}

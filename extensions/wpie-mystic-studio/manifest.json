@@ -1,0 +1,16 @@
+{
+	"name": "Mystic Studio",
+	"slug": "wpie-mystic-studio",
+	"version": "0.5.5",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Birth data becomes wall art, all of it computed locally: a genuine natal chart wheel with true planet positions, aspects, ascendant and Placidus houses (birth time and place resolve through a bundled time zone atlas, decades of DST history included), the moon exactly as it stood over any date with its phase, illumination and moon sign, and zodiac posters built from the real constellation figures. Since 0.2 the numerology wing: the life path with its reduction cascade descending into one big numeral, the name chart with letter grid and the destiny, soul urge and personality medallions, angel number posters, and two couple cards that join two birth dates into one artwork. Short curated keywords and meanings, the position data block and the caption land as editable text layers in your fonts and eight themes from celestial dark to rose gold and amethyst. Reopen any chart via Edit Mystic Studio.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "print",
+	"tier": "free",
+	"preview": "preview.jpg"
+}

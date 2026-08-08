@@ -1,0 +1,15 @@
+{
+	"name": "Origami",
+	"slug": "wpie-origami",
+	"version": "1.5.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Design your own origami paper and watch it fold itself. Pick a figure, put your picture, colour or pattern on both sides of the sheet, and the preview folds your very paper into the finished crane, fox or box, step by step. Every step of the written instructions is a station in 3D: click it and the paper stands mid-fold in front of you, ready to be turned and studied from any side, which is exactly the moment printed diagrams leave you alone. A region map shows which part of the sheet becomes the head, the wings or the lid, so a face lands where a face belongs. When it looks right, one click lays print-ready pages into the document: the folding sheet with cutting marks, the back of the sheet mirrored for duplex printing, and classic instruction pages with fold lines and arrows drawn from the same steps you just watched. Everything is computed in your browser.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "art",
+	"tier": "free"
+}

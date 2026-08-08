@@ -4,7 +4,12 @@
  * library until save), fitted and centered like File → Open/Place.
  */
 
-import { useState, useRef, useEffect } from '@wordpress/element';
+import {
+	useState,
+	useRef,
+	useEffect,
+	createInterpolateElement,
+} from '@wordpress/element';
 import { HelpLink } from './help-dialog';
 import { useEscape } from '../components/use-escape';
 import { __, sprintf } from '@wordpress/i18n';
@@ -16,6 +21,30 @@ import { stock } from '../lib/api';
 import { PHOTO_CATEGORIES, usePhotoCatThumbs } from '../lib/stock-categories';
 
 const FALLBACK_LABELS = { pexels: 'Pexels', pixabay: 'Pixabay' };
+
+/**
+ * Where the provider half of a credit links to.
+ *
+ * Unsplash wants every link back to carry its referral marker; the server
+ * already appends it to the two links it hands out, and this one is built
+ * here, so it does the same. An unknown provider gets no link at all rather
+ * than a guessed address.
+ *
+ * @param {string} id Provider slug.
+ * @return {string} Absolute URL, empty for an unknown provider.
+ */
+const providerHome = ( id ) => {
+	if ( 'unsplash' === id ) {
+		return 'https://unsplash.com/?utm_source=wunderpaint&utm_medium=referral';
+	}
+	if ( 'pexels' === id ) {
+		return 'https://www.pexels.com/';
+	}
+	if ( 'pixabay' === id ) {
+		return 'https://pixabay.com/';
+	}
+	return '';
+};
 
 export function StockDialog( { onClose, extras } ) {
 	useEscape( onClose );
@@ -106,8 +135,19 @@ export function StockDialog( { onClose, extras } ) {
 		}
 		setInserting( item.id );
 		try {
+			// Putting a photo on the canvas is what Unsplash calls a
+			// download, and their guidelines require the event. Sent before
+			// the picture is fetched and never awaited: the count is their
+			// business, the picture is the visitor's, and one must not wait
+			// on the other.
+			stock.countDownload( item.downloadLocation );
 			const { dataUrl } = await stock.fetch( item.full );
-			const img = await loadImage( dataUrl );
+			// crossOrigin always, and it is not a WordPress-versus-studio
+			// distinction: in WordPress this is a data URL and the flag is
+			// ignored, in the studio it is the provider's own URL and the
+			// flag is what keeps the canvas readable. Without it an export
+			// would fail later, far away from here, with a security error.
+			const img = await loadImage( dataUrl, true );
 			const scale = Math.min(
 				1,
 				( state.doc.w * 0.9 ) / img.naturalWidth,
@@ -360,14 +400,63 @@ export function StockDialog( { onClose, extras } ) {
 												loading="lazy"
 											/>
 										</button>
+										{ /* "Photo by <name> on <provider>", both
+										     parts linked. Unsplash asks for
+										     exactly this and for the name to
+										     lead to the photographer's
+										     PROFILE, not to the picture;
+										     Pexels asks for the same credit.
+										     authorUrl falls back to the photo
+										     page for anything that has no
+										     profile to point at. */ }
 										<figcaption>
-											<a
-												href={ item.link }
-												target="_blank"
-												rel="noreferrer"
-											>
-												{ item.author }
-											</a>
+											{ createInterpolateElement(
+												sprintf(
+													/* translators: 1: photographer, 2: provider name. */
+													__(
+														'Photo by <a>%1$s</a> on <p>%2$s</p>',
+														'wunderpaint'
+													),
+													item.author ||
+														__(
+															'an unnamed photographer',
+															'wunderpaint'
+														),
+													labelFor( provider )
+												),
+												{
+													/* Both anchors are empty on
+													   purpose: they are the
+													   templates that
+													   createInterpolateElement
+													   fills with the name and
+													   the provider. The rule
+													   below cannot see that
+													   and reports them as
+													   contentless links. */
+													a: (
+														// eslint-disable-next-line jsx-a11y/anchor-has-content
+														<a
+															href={
+																item.authorUrl ||
+																item.link
+															}
+															target="_blank"
+															rel="noreferrer"
+														/>
+													),
+													p: (
+														// eslint-disable-next-line jsx-a11y/anchor-has-content
+														<a
+															href={ providerHome(
+																provider
+															) }
+															target="_blank"
+															rel="noreferrer"
+														/>
+													),
+												}
+											) }
 										</figcaption>
 									</figure>
 								) ) }

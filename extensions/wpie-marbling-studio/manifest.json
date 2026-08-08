@@ -1,0 +1,15 @@
+{
+	"name": "Marble Bath",
+	"slug": "wpie-marbling-studio",
+	"version": "1.2.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Real paper marbling on a virtual water bath - the centuries-old art of Ebru and Suminagashi, with its exact mathematics instead of a simulation. You actually marble: drop ink onto the water and watch every earlier drop yield into rings, hold a drop to let it grow, drag to scatter a trail. Then pull tools through the bath and the ink follows physically: a NEEDLE draws a single flowing line, a COMB pulls the whole bath into feathered ripples, a WAVE sways the water into chevrons, a CURL plants a vortex that winds the colours around itself. Every gesture is one move in the bath's history - undo simply forgets the last one, and because the mathematics is exact, the picture stays razor sharp at any export size, with no simulation grid and no blur. EBRU FLOWERS bloom under your hand: click to plant a tulip, carnation or daisy - rings pulled into petals by the needle, with a leafy stem - then drag to turn and size it before letting go. The GALL DROP (ox gall in the real workshop) pushes every colour aside and leaves open water: cells in the pattern, or windows onto your design. An ARC and a RING COMB pull curved strokes and whole concentric medallions, a SPLATTER flick sprays a fan of tiny droplets. And the ink itself now behaves like pigment: a darker rim gathers at every drop's edge, faint clouds drift inside it and stretch with the combing (computed exactly, in the drop's own pre-image), over a faint paper tooth. Classic patterns come as seeded recipes over YOUR inks - Stone, Gel-git, Nonpareil, Chevron, Bouquet, French curls, Peacock - each a starting point you keep marbling on top of. Five ink wells and the water colour are yours to set, brand colours load with one click, and recolouring an ink recolours the finished marbling. CLEAR WATER marbles the veins straight over your design as a transparent overlay. The film export replays the making - drops pattering in, combs sweeping through - or rocks the finished bath on living water as a seamless loop, as WebM for download or the Media Library. Inserted as a re-editable generator layer: reopen it any time and the full history is still there, every move still undoable. Everything is computed in your browser - no server, no upload, no account.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "art",
+	"tier": "free"
+}

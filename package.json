@@ -1,6 +1,6 @@
 {
 	"name": "wunderpaint",
-	"version": "1.384.6",
+	"version": "1.394.1",
 	"private": true,
 	"description": "A full-featured, Photoshop-class image editor for the WordPress Media Library.",
 	"author": "tbitdesign",
@@ -24,7 +24,7 @@
 		"check": "node tools/run-checks.mjs",
 		"check:alle": "node tools/run-checks.mjs --alle",
 		"check:liste": "node tools/run-checks.mjs --liste",
-		"makepot": "wp i18n make-pot . languages/wunderpaint.pot --domain=wunderpaint --exclude=build,build-standalone,node_modules,tests,docs",
+		"makepot": "wp i18n make-pot . languages/wunderpaint.pot --domain=wunderpaint --exclude=build,build-standalone,dist,node_modules,tests,docs",
 		"build:standalone": "webpack --config webpack.standalone.config.js --mode production"
 	},
 	"devDependencies": {

@@ -556,11 +556,25 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	text-align: center;
 }
 
+/* Underlined, and that is not decoration: this is the credit the providers
+   require, so the photographer's page and the provider's site have to be
+   recognisable as somewhere you can go. Without the underline the whole line
+   reads as a caption and nobody finds out there is anything to click. */
 #wpie-root .stock-grid figcaption a {
 	color: inherit;
-	text-decoration: none;
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 2px;
+	text-decoration-color: color-mix(in srgb, currentcolor 45%, transparent);
+}
+
+#wpie-root .stock-grid figcaption a:hover,
+#wpie-root .stock-grid figcaption a:focus-visible {
+	color: var(--ed-text);
+	text-decoration-color: currentcolor;
 }
 
 #wpie-root .stock-more {

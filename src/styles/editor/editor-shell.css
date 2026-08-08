@@ -3138,8 +3138,13 @@
 	background: #3a3f47;
 }
 
+/* Hover is the brand blue, at full strength and the same in both themes.
+ * It used to be --ed-text-muted (#7a8699 light, #718ca4 dark): blue enough to
+ * read as an accent, grey enough to look like the accent had been applied
+ * wrong. No mix and no theme variant here on purpose - the accent is one
+ * colour, and the bar only takes it while the pointer is on it. */
 #wpie-root ::-webkit-scrollbar-thumb:hover {
-	background: var(--ed-text-muted);
+	background: var(--accent);
 }
 
 /* Versioning list */

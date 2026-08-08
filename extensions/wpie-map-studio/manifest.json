@@ -1,0 +1,15 @@
+{
+	"name": "Map Posters",
+	"slug": "wpie-map-studio",
+	"version": "1.16.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Poster-style maps of any place on earth, powered by OpenStreetMap: search a location, pick one of ten design themes, pan and zoom the live vector preview, add geocoded pins with routes and distances - and since v1.12 style the streets themselves: FOIL roads in gold, copper, chrome or seven color gradients (main arteries take the hot gloss band, alleys sink into the rim, or run one gradient across the whole poster) plus a neon GLOW slider that turns the city into lights. Choose a shape mask and insert the map with a classic title and coordinates text block - all as editable layers. Reopen any map via Edit Map Posters.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.15.0",
+	"provides": [
+		"generator"
+	],
+	"category": "print",
+	"tier": "free"
+}

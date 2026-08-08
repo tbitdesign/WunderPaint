@@ -1,0 +1,13 @@
+{
+	"name": "wpie-puzzle-sheets",
+	"version": "2.3.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
+		"qa": "node tools/qa-dialog.mjs"
+	},
+	"devDependencies": {
+		"esbuild": "^0.24.0"
+	}
+}

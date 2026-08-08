@@ -1,0 +1,15 @@
+{
+	"name": "Party Printables",
+	"slug": "wpie-party-printables",
+	"version": "2.3.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "TWELVE printable party templates, computed entirely in your browser: a BUNTING banner (four pennant shapes, one letter per pennant), a LETTER BANNER (one big pennant card per letter), a GIFT BOX dieline (artwork per face or wrapped across the whole box, optional printed ribbon with bow, glue flaps), GIFT TAGS with punch holes, CUPCAKE TOPPERS, CUPCAKE WRAPPERS (arc-band dielines with scalloped edge), folded PLACE CARDS from a name list (mirrored so both sides read correctly), STRAW FLAGS, a cone PARTY HAT dieline (stripes, confetti dots or solid), PHOTO-BOOTH PROPS (mustache, lips, glasses, bow tie, crown, speech bubble), BOTTLE LABELS and a print-and-cut STICKER SHEET with eight cut shapes and registration marks - stickers also work without an image as color labels. Sources: the whole document, any layer picked by name, or the media library. Colors from ten palettes, your brand kit or up to four custom colors; every text template offers the editor font catalog and a text size, and text fields accept LINE BREAKS (extra bunting rows, stacked lines on tags, flags, labels, stickers and the speech bubble). Insert as an editable layer and reopen via Edit Party Printables.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "print",
+	"tier": "free"
+}

@@ -1,0 +1,15 @@
+{
+	"name": "Photo Mosaic",
+	"slug": "wpie-photo-mosaic",
+	"version": "1.2.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Your image, rebuilt from MANY photos - the classic photomosaic, computed entirely in your browser. Pick the main image (the whole document, any layer, or a media pick), then load tile photos from the media library (8 minimum, hundreds welcome - wedding guests, team shots, a whole folder). The textbook pipeline does the rest: every grid cell is matched against the tiles' INTERNAL 4x4 structure so the contours emerge from the photos themselves, a distance lock prevents repeats next to each other, and the COLOR MATCH slider shifts each placed photo's own pixels toward the target tone (a per-channel offset that keeps every photo fully recognizable - never an overlay, 0% = pure tile matching). Columns 24-72 for screen or poster printing. Insert as an editable layer and reopen via Edit Photo Mosaic. Perfect for wedding posters from guest photos, team mosaics and yearbook covers.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "art",
+	"tier": "free"
+}

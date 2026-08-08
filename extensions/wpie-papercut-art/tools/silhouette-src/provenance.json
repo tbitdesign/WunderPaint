@@ -1,0 +1,140 @@
+{
+	"deer": {
+		"uuid": "cc03f5c2-933f-4c40-9c64-7f8727556fdb",
+		"title": "Cervus elaphus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Ferran Sayol"
+	},
+	"moose": {
+		"uuid": "74eab34a-498c-4614-aece-f02361874f79",
+		"title": "Alces alces",
+		"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+		"attribution": "Xavier Giroux-Bougard"
+	},
+	"fox": {
+		"uuid": "c669db3a-ccac-400c-9588-f7d408153256",
+		"title": "Vulpes corsac",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Margot Michaud"
+	},
+	"hare": {
+		"uuid": "1e15411c-5394-4a9d-a209-76c8ac0c331d",
+		"title": "Oryctolagus cuniculus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Steven Traver"
+	},
+	"bear": {
+		"uuid": "7f543d16-3495-4c9c-8ef6-d61dad2f4a20",
+		"title": "Ursus arctos",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "An Ignorant Atheist"
+	},
+	"wolf": {
+		"uuid": "171a1fd1-797b-404c-b942-604cc2c508af",
+		"title": "Canis latrans",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Richard Rich"
+	},
+	"cat": {
+		"uuid": "17b7a839-9b29-4783-b381-4e5478202bc5",
+		"title": "Felis silvestris",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Margot Michaud"
+	},
+	"dog": {
+		"uuid": "d3e8133c-e669-4881-9111-b44145f94212",
+		"title": "Canis familiaris familiaris",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"owl": {
+		"uuid": "d7d457c1-4c08-4e7e-9af4-f537020c2775",
+		"title": "Bubo bubo",
+		"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+		"attribution": "the von Wright brothers"
+	},
+	"horse": {
+		"uuid": "b302ceef-072c-471c-bc7d-164c428dd57a",
+		"title": "Equus ferus caballus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"squirrel": {
+		"uuid": "d02f50ba-af71-4997-860a-ff11e8d1cbcc",
+		"title": "Neosciurus carolinensis",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Anthony Caravaggi"
+	},
+	"boar": {
+		"uuid": "3d8acaf6-4355-491e-8e86-4a411b53b98b",
+		"title": "Sus scrofa",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Steven Traver"
+	},
+	"ibex": {
+		"uuid": "2b07a361-5d1b-4bb9-a61e-a7708cf57ecb",
+		"title": "Capra ibex",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Steven Traver"
+	},
+	"robin": {
+		"uuid": "b0d54194-4105-4694-b670-b693df1640cf",
+		"title": "Erithacus rubecula",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Anthony Caravaggi"
+	},
+	"gull": {
+		"uuid": "49264b3a-bde5-406b-ab01-07d4df56f2a9",
+		"title": "Larus belcheri",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Juan Carlos Jerí"
+	},
+	"eagle": {
+		"uuid": "7779e472-9159-4219-8e8e-68197bb73557",
+		"title": "Aquila chrysaetos",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Andy Wilson"
+	},
+	"heron": {
+		"uuid": "5d38ae89-8938-427d-ba49-3ae4cde0016c",
+		"title": "Ardea cinerea",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"gullfly": {
+		"uuid": "0871b630-2dcd-4d35-b0a4-6a6551140553",
+		"title": "Larus argentatus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Sharon Wegner-Larsen"
+	},
+	"birdfly": {
+		"uuid": "a7c18cef-c5d8-4cf9-95b3-83c166ac8259",
+		"title": "Passer domesticus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"butterfly": {
+		"uuid": "f21829d7-6dfc-4b2f-991c-e16181c24d29",
+		"title": "Papilio machaon",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Mattia Menchetti"
+	},
+	"owlfly": {
+		"uuid": "088bc660-44e4-4717-b5fc-13ee15ade62b",
+		"title": "Tyto alba",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Sharon Wegner-Larsen"
+	},
+	"whale": {
+		"uuid": "fd8d3e5e-24a0-4aa2-9211-987ff86007dd",
+		"title": "Balaenoptera novaeangliae",
+		"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+		"attribution": ""
+	},
+	"dolphin": {
+		"uuid": "4ac248c2-da47-4c20-ad5a-30c45dc38fa0",
+		"title": "Tursiops truncatus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Amy Beauvois"
+	}
+}

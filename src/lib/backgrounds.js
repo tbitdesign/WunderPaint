@@ -9,7 +9,16 @@
 import { hexToRgb, rgbToHex } from './color';
 import { createCanvas } from './raster';
 
-export const BG_STYLES = [ 'mesh', 'organic', 'geo', 'poly' ];
+export const BG_STYLES = [
+	'mesh',
+	'organic',
+	'geo',
+	'poly',
+	'topo',
+	'halftone',
+	'rings',
+	'confetti',
+];
 
 export const BG_DEFAULTS = {
 	style: 'mesh',
@@ -20,6 +29,10 @@ export const BG_DEFAULTS = {
 	organic: { variant: 'blobs', count: 6, shape: 50 },
 	geo: { variant: 'dots', size: 40, gap: 50, angle: 0 },
 	poly: { cell: 40, variance: 60 },
+	topo: { lines: 12, weight: 40, rough: 50 },
+	halftone: { size: 55, gap: 45, angle: 45 },
+	rings: { gap: 45, weight: 35, warp: 25 },
+	confetti: { count: 55, size: 40, mix: 60 },
 };
 
 /** Deterministic PRNG (mulberry32), the whole engine draws from it. */
@@ -370,6 +383,286 @@ function drawPoly( ctx, w, h, colors, opts, rand ) {
 	}
 }
 
+/* ---- topographic contours -------------------------------------------- */
+
+/*
+ * Marching squares over a smooth height field. The field is a sum of sine
+ * products with INTEGER frequencies, which is the whole trick behind the
+ * tile mode: an integer number of periods across the tile means the field
+ * meets itself at the edge, so the contours continue without a seam.
+ *
+ * The 16 cases are symmetric (case i and 15-i cut the same edges), so only
+ * the segment endpoints matter, not which side is "inside".
+ */
+const TOPO_CASES = [
+	[],
+	[ [ 3, 2 ] ],
+	[ [ 2, 1 ] ],
+	[ [ 3, 1 ] ],
+	[ [ 0, 1 ] ],
+	[
+		[ 0, 3 ],
+		[ 2, 1 ],
+	],
+	[ [ 0, 2 ] ],
+	[ [ 0, 3 ] ],
+	[ [ 3, 0 ] ],
+	[ [ 2, 0 ] ],
+	[
+		[ 3, 0 ],
+		[ 1, 2 ],
+	],
+	[ [ 1, 0 ] ],
+	[ [ 3, 1 ] ],
+	[ [ 2, 1 ] ],
+	[ [ 3, 2 ] ],
+	[],
+];
+
+function drawTopo( ctx, w, h, colors, opts, rand, tile ) {
+	const levels = Math.max(
+		3,
+		Math.min( 24, Math.round( opts.lines ?? 12 ) )
+	);
+	const weight = clamp01( ( opts.weight ?? 40 ) / 100 );
+	const rough = clamp01( ( opts.rough ?? 50 ) / 100 );
+	ctx.fillStyle = colors[ 0 ] || '#1e2a78';
+	ctx.fillRect( 0, 0, w, h );
+
+	const waves = [];
+	const count = 3 + Math.round( rough * 3 );
+	for ( let i = 0; i < count; i++ ) {
+		waves.push( {
+			kx: 1 + Math.floor( rand() * ( 1 + rough * 4 ) ),
+			ky: 1 + Math.floor( rand() * ( 1 + rough * 4 ) ),
+			px: rand() * 2 * Math.PI,
+			py: rand() * 2 * Math.PI,
+			amp: lerp( 1, 0.35, i / count ),
+		} );
+	}
+	const field = ( x, y ) => {
+		let v = 0;
+		let sum = 0;
+		for ( const wv of waves ) {
+			v +=
+				wv.amp *
+				Math.sin( 2 * Math.PI * wv.kx * x + wv.px ) *
+				Math.cos( 2 * Math.PI * wv.ky * y + wv.py );
+			sum += wv.amp;
+		}
+		return ( v / sum + 1 ) / 2;
+	};
+
+	// Fixed sample count, so the picture is the same at any resolution.
+	const n = 110;
+	const grid = [];
+	for ( let j = 0; j <= n; j++ ) {
+		grid[ j ] = [];
+		for ( let i = 0; i <= n; i++ ) {
+			grid[ j ][ i ] = field( i / n, j / n );
+		}
+	}
+	const cw = w / n;
+	const ch = h / n;
+	ctx.lineWidth = Math.max(
+		0.6,
+		( Math.min( w, h ) / 400 ) * lerp( 0.6, 3.4, weight )
+	);
+	ctx.lineCap = 'round';
+	const point = ( edge, i, j, v00, v10, v11, v01, level ) => {
+		const t = ( a, b ) => ( 0 === b - a ? 0.5 : ( level - a ) / ( b - a ) );
+		if ( 0 === edge ) {
+			return [ ( i + t( v00, v10 ) ) * cw, j * ch ];
+		}
+		if ( 1 === edge ) {
+			return [ ( i + 1 ) * cw, ( j + t( v10, v11 ) ) * ch ];
+		}
+		if ( 2 === edge ) {
+			return [ ( i + t( v01, v11 ) ) * cw, ( j + 1 ) * ch ];
+		}
+		return [ i * cw, ( j + t( v00, v01 ) ) * ch ];
+	};
+	for ( let l = 1; l <= levels; l++ ) {
+		const level = l / ( levels + 1 );
+		ctx.strokeStyle = paletteAt( colors, l / levels );
+		ctx.beginPath();
+		for ( let j = 0; j < n; j++ ) {
+			for ( let i = 0; i < n; i++ ) {
+				const v00 = grid[ j ][ i ];
+				const v10 = grid[ j ][ i + 1 ];
+				const v11 = grid[ j + 1 ][ i + 1 ];
+				const v01 = grid[ j + 1 ][ i ];
+				const idx =
+					( v00 > level ? 8 : 0 ) |
+					( v10 > level ? 4 : 0 ) |
+					( v11 > level ? 2 : 0 ) |
+					( v01 > level ? 1 : 0 );
+				for ( const [ ea, eb ] of TOPO_CASES[ idx ] ) {
+					const a = point( ea, i, j, v00, v10, v11, v01, level );
+					const b = point( eb, i, j, v00, v10, v11, v01, level );
+					ctx.moveTo( a[ 0 ], a[ 1 ] );
+					ctx.lineTo( b[ 0 ], b[ 1 ] );
+				}
+			}
+		}
+		ctx.stroke();
+	}
+	// tile is implicit: the field wraps, nothing else to do.
+	void tile;
+}
+
+/* ---- halftone --------------------------------------------------------- */
+
+function drawHalftone( ctx, w, h, colors, opts, rand, tile ) {
+	const size = clamp01( ( opts.size ?? 55 ) / 100 );
+	const gap = clamp01( ( opts.gap ?? 45 ) / 100 );
+	const angle = ( ( opts.angle ?? 45 ) * Math.PI ) / 180;
+	ctx.fillStyle = colors[ 0 ] || '#1e2a78';
+	ctx.fillRect( 0, 0, w, h );
+	const ink = colors[ 1 ] || shade( colors[ 0 ] || '#1e2a78', 1.6 );
+	ctx.fillStyle = ink;
+
+	const unit = Math.min( w, h );
+	// The ramp is what makes this a halftone rather than a dot grid: the dot
+	// grows along one direction. A straight ramp cannot repeat, so the tile
+	// mode swings it back with a cosine instead - same look, and it meets
+	// itself at the edge. The lattice is snapped to whole cells there too.
+	const ramp = tile
+		? ( x, y ) =>
+				( 1 -
+					Math.cos(
+						2 *
+							Math.PI *
+							( x * Math.cos( angle ) + y * Math.sin( angle ) )
+					) ) /
+				2
+		: ( x, y ) =>
+				clamp01(
+					( x * Math.cos( angle ) + y * Math.sin( angle ) + 1 ) / 2
+				);
+
+	const raw = unit * lerp( 0.02, 0.13, gap );
+	const cols = Math.max( 3, Math.round( w / raw ) );
+	const cell = w / cols;
+	const rows = Math.max( 3, Math.round( h / cell ) );
+	const rmax = ( cell / 2 ) * lerp( 0.25, 1.05, size );
+	for ( let j = 0; j < rows; j++ ) {
+		for ( let i = 0; i <= cols; i++ ) {
+			const cx = ( i + ( j % 2 ? 0.5 : 0 ) ) * cell;
+			const cy = ( j + 0.5 ) * ( h / rows );
+			const r = rmax * clamp01( ramp( cx / w, cy / h ) );
+			if ( r <= 0.15 ) {
+				continue;
+			}
+			ctx.beginPath();
+			ctx.arc( cx, cy, r, 0, 2 * Math.PI );
+			ctx.fill();
+		}
+	}
+	void rand;
+}
+
+/* ---- concentric rings ------------------------------------------------- */
+
+function drawRings( ctx, w, h, colors, opts, rand ) {
+	const gap = clamp01( ( opts.gap ?? 45 ) / 100 );
+	const weight = clamp01( ( opts.weight ?? 35 ) / 100 );
+	const warp = clamp01( ( opts.warp ?? 25 ) / 100 );
+	ctx.fillStyle = colors[ 0 ] || '#1e2a78';
+	ctx.fillRect( 0, 0, w, h );
+
+	const cx = w * lerp( 0.3, 0.7, rand() );
+	const cy = h * lerp( 0.3, 0.7, rand() );
+	const reach = Math.hypot( Math.max( cx, w - cx ), Math.max( cy, h - cy ) );
+	const step = Math.min( w, h ) * lerp( 0.02, 0.14, gap );
+	// Two low frequencies are enough to make a ring look hand-drawn rather
+	// than mechanical; more turns it into a flower.
+	const f1 = 2 + Math.floor( rand() * 3 );
+	const f2 = 4 + Math.floor( rand() * 4 );
+	const p1 = rand() * 2 * Math.PI;
+	const p2 = rand() * 2 * Math.PI;
+	ctx.lineWidth = Math.max( 0.6, step * lerp( 0.06, 0.5, weight ) );
+	ctx.lineCap = 'round';
+	let idx = 0;
+	for ( let r = step; r <= reach + step; r += step, idx++ ) {
+		ctx.strokeStyle = paletteAt( colors, ( idx % 12 ) / 11 );
+		ctx.beginPath();
+		for ( let s = 0; s <= 90; s++ ) {
+			const a = ( s / 90 ) * 2 * Math.PI;
+			const wob =
+				1 +
+				warp *
+					0.22 *
+					( Math.sin( a * f1 + p1 ) + 0.5 * Math.sin( a * f2 + p2 ) );
+			const x = cx + Math.cos( a ) * r * wob;
+			const y = cy + Math.sin( a ) * r * wob;
+			if ( 0 === s ) {
+				ctx.moveTo( x, y );
+			} else {
+				ctx.lineTo( x, y );
+			}
+		}
+		ctx.closePath();
+		ctx.stroke();
+	}
+}
+
+/* ---- confetti --------------------------------------------------------- */
+
+function confettiShape( ctx, kind, x, y, r, rot ) {
+	ctx.save();
+	ctx.translate( x, y );
+	ctx.rotate( rot );
+	ctx.beginPath();
+	if ( 0 === kind ) {
+		ctx.arc( 0, 0, r, 0, 2 * Math.PI );
+	} else if ( 1 === kind ) {
+		ctx.rect( -r, -r, r * 2, r * 2 );
+	} else if ( 2 === kind ) {
+		ctx.moveTo( 0, -r );
+		ctx.lineTo( r, r );
+		ctx.lineTo( -r, r );
+		ctx.closePath();
+	} else {
+		ctx.rect( -r * 1.6, -r * 0.42, r * 3.2, r * 0.84 );
+	}
+	ctx.fill();
+	ctx.restore();
+}
+
+function drawConfetti( ctx, w, h, colors, opts, rand, tile ) {
+	const count = Math.max(
+		8,
+		Math.min( 400, Math.round( opts.count ?? 55 ) )
+	);
+	const size = clamp01( ( opts.size ?? 40 ) / 100 );
+	const mix = clamp01( ( opts.mix ?? 60 ) / 100 );
+	ctx.fillStyle = colors[ 0 ] || '#1e2a78';
+	ctx.fillRect( 0, 0, w, h );
+	const unit = Math.min( w, h );
+	// Same wrap-stamping as the organic blobs: every piece is drawn at the
+	// eight neighbouring offsets as well, so a piece crossing the edge comes
+	// back on the other side.
+	const stamps = tile
+		? [ -1, 0, 1 ].flatMap( ( sx ) =>
+				[ -1, 0, 1 ].map( ( sy ) => [ sx * w, sy * h ] )
+		  )
+		: [ [ 0, 0 ] ];
+	// mix 0 = circles only, 1 = all four shapes.
+	const kinds = 1 + Math.round( mix * 3 );
+	for ( let i = 0; i < count; i++ ) {
+		const x = rand() * w;
+		const y = rand() * h;
+		const r = unit * lerp( 0.006, 0.045, size ) * lerp( 0.6, 1.4, rand() );
+		const rot = rand() * 2 * Math.PI;
+		const kind = Math.floor( rand() * kinds );
+		ctx.fillStyle = paletteAt( colors, 0.15 + rand() * 0.85 );
+		for ( const [ sx, sy ] of stamps ) {
+			confettiShape( ctx, kind, x + sx, y + sy, r, rot );
+		}
+	}
+}
+
 /* ------------------------------- grain -------------------------------- */
 
 function drawGrain( ctx, w, h, strength, rand ) {
@@ -434,6 +727,30 @@ export function renderBackground( params, w, h, renderOpts = {} ) {
 		drawGeo( ctx, canvas.width, canvas.height, palette, opts, rand, tile );
 	} else if ( 'poly' === p.style ) {
 		drawPoly( ctx, canvas.width, canvas.height, palette, opts, rand );
+	} else if ( 'topo' === p.style ) {
+		drawTopo( ctx, canvas.width, canvas.height, palette, opts, rand, tile );
+	} else if ( 'halftone' === p.style ) {
+		drawHalftone(
+			ctx,
+			canvas.width,
+			canvas.height,
+			palette,
+			opts,
+			rand,
+			tile
+		);
+	} else if ( 'rings' === p.style ) {
+		drawRings( ctx, canvas.width, canvas.height, palette, opts, rand );
+	} else if ( 'confetti' === p.style ) {
+		drawConfetti(
+			ctx,
+			canvas.width,
+			canvas.height,
+			palette,
+			opts,
+			rand,
+			tile
+		);
 	} else {
 		drawMesh( ctx, canvas.width, canvas.height, palette, opts, rand, tile );
 	}

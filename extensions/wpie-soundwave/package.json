@@ -1,0 +1,14 @@
+{
+	"name": "wpie-soundwave",
+	"version": "2.1.0",
+	"private": true,
+	"type": "module",
+	"description": "WPIE extension: audio waveforms as poster layers",
+	"scripts": {
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
+		"qa": "node tools/qa-dialog.mjs"
+	},
+	"devDependencies": {
+		"esbuild": "^0.28.1"
+	}
+}

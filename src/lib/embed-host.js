@@ -146,6 +146,18 @@ export function postApplied( result ) {
 	return sent;
 }
 
+/**
+ * Has this embedded session already handed a result back?
+ *
+ * The unsaved-changes guard asks: once Apply has gone through, the work IS
+ * saved, and the document staying "dirty" is an artefact of the editor, not a
+ * risk to the visitor. Warning there produced a native browser dialog on the
+ * way out of a flow the user had just completed.
+ *
+ * @return {boolean} Whether postApplied() succeeded at least once.
+ */
+export const hasApplied = () => applied;
+
 /** Tell the host the session ended without applying (unless we already did). */
 export function postCancelled() {
 	if ( applied ) {

@@ -28,6 +28,10 @@ const STYLES = () => [
 	[ 'organic', __( 'Organic', 'wunderpaint' ) ],
 	[ 'geo', __( 'Geometric', 'wunderpaint' ) ],
 	[ 'poly', __( 'Low-Poly', 'wunderpaint' ) ],
+	[ 'topo', __( 'Topographic', 'wunderpaint' ) ],
+	[ 'halftone', __( 'Halftone', 'wunderpaint' ) ],
+	[ 'rings', __( 'Rings', 'wunderpaint' ) ],
+	[ 'confetti', __( 'Confetti', 'wunderpaint' ) ],
 ];
 
 const styleName = ( style ) => {
@@ -53,8 +57,15 @@ function Slider( { label, value, min, max, onChange } ) {
 }
 
 function Seg( { options, value, onChange } ) {
+	// Wrapping, not scrolling: the style picker went from four entries to
+	// eight in v1.389.0, and a single flex row simply cut the rest off. A
+	// segmented control that can fall into a second line fits any width,
+	// which matters more here than keeping it on one line.
 	return (
-		<div className="seg-row" style={ { display: 'flex' } }>
+		<div
+			className="seg-row"
+			style={ { display: 'flex', flexWrap: 'wrap' } }
+		>
 			{ options.map( ( [ key, label ] ) => (
 				<button
 					key={ key }
@@ -270,8 +281,17 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 
 	// Seamless pattern export (v1.110.0): mesh, blobs and the straight
 	// geo lattices tile cleanly; waves/rays/poly cannot.
+	//
+	// Of the four styles added in v1.389.0 three do: the topographic field
+	// is built from whole numbers of periods so it meets itself, halftone
+	// swings its ramp back with a cosine in tile mode, and confetti stamps
+	// every piece at the eight neighbouring offsets. Rings radiate from one
+	// centre and cannot repeat, so they stay out.
 	const canTile =
 		'mesh' === style ||
+		'topo' === style ||
+		'halftone' === style ||
+		'confetti' === style ||
 		( 'organic' === style && 'blobs' === opts.variant ) ||
 		( 'geo' === style && 'rays' !== opts.variant );
 	const saveAsPattern = async () => {
@@ -314,7 +334,7 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 			<div
 				className="stock-dialog"
 				style={ {
-					width: 'min(760px, 94vw)',
+					width: 'min(960px, 94vw)',
 					height: 'auto',
 					maxHeight: '90vh',
 					gridTemplateRows: 'auto 1fr auto',
@@ -674,6 +694,158 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 									max={ 100 }
 									onChange={ ( v ) =>
 										patchStyleOpts( { variance: v } )
+									}
+								/>
+							</div>
+						) }
+
+						{ 'topo' === style && (
+							<div
+								style={ {
+									display: 'grid',
+									gridTemplateColumns: '1fr 1fr',
+									gap: 12,
+								} }
+							>
+								<Slider
+									label={ __( 'Lines', 'wunderpaint' ) }
+									value={ opts.lines }
+									min={ 3 }
+									max={ 24 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { lines: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Line weight', 'wunderpaint' ) }
+									value={ opts.weight }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { weight: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Roughness', 'wunderpaint' ) }
+									value={ opts.rough }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { rough: v } )
+									}
+								/>
+							</div>
+						) }
+
+						{ 'halftone' === style && (
+							<div
+								style={ {
+									display: 'grid',
+									gridTemplateColumns: '1fr 1fr',
+									gap: 12,
+								} }
+							>
+								<Slider
+									label={ __( 'Dot size', 'wunderpaint' ) }
+									value={ opts.size }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { size: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Spacing', 'wunderpaint' ) }
+									value={ opts.gap }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { gap: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Angle', 'wunderpaint' ) }
+									value={ opts.angle }
+									min={ 0 }
+									max={ 180 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { angle: v } )
+									}
+								/>
+							</div>
+						) }
+
+						{ 'rings' === style && (
+							<div
+								style={ {
+									display: 'grid',
+									gridTemplateColumns: '1fr 1fr',
+									gap: 12,
+								} }
+							>
+								<Slider
+									label={ __( 'Spacing', 'wunderpaint' ) }
+									value={ opts.gap }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { gap: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Line weight', 'wunderpaint' ) }
+									value={ opts.weight }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { weight: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Warp', 'wunderpaint' ) }
+									value={ opts.warp }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { warp: v } )
+									}
+								/>
+							</div>
+						) }
+
+						{ 'confetti' === style && (
+							<div
+								style={ {
+									display: 'grid',
+									gridTemplateColumns: '1fr 1fr',
+									gap: 12,
+								} }
+							>
+								<Slider
+									label={ __( 'Count', 'wunderpaint' ) }
+									value={ opts.count }
+									min={ 8 }
+									max={ 300 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { count: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Size', 'wunderpaint' ) }
+									value={ opts.size }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { size: v } )
+									}
+								/>
+								<Slider
+									label={ __( 'Shape mix', 'wunderpaint' ) }
+									value={ opts.mix }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										patchStyleOpts( { mix: v } )
 									}
 								/>
 							</div>

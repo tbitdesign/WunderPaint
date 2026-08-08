@@ -1352,11 +1352,30 @@ function buildMenus( editor, extras ) {
 				},
 				// Managing lives here (v1.154.0); the Extensions menu only
 				// launches. Admin-only, like the manager itself.
+				//
+				// ONE entry, two managers (v1.392.0). Without Pro this opens
+				// the free plugin's own screen: the list, the detail page and
+				// the on/off switch, which is everything a free install can
+				// do. With Pro it opens Pro's, which does the same and adds
+				// the catalogue, installing, updating and removing. For the
+				// user it is one manager that can more once Pro is there,
+				// instead of a second window behind a button in the first.
 				...( window.WPIE?.canManage
 					? [
 							{
 								label: __( 'Manage Extensions', 'wunderpaint' ),
-								run: () => extras.openExtensions(),
+								// The editor's own extras travel along: the
+								// help button in the dialog head opens the
+								// handbook through extras.openHelp, and Pro's
+								// window would have had no way to reach it.
+								run: () =>
+									'function' ===
+									typeof window.WPIE?.extensionsBrowse
+										? window.WPIE.extensionsBrowse( {
+												editor,
+												extras,
+										  } )
+										: extras.openExtensions(),
 							},
 					  ]
 					: [] ),

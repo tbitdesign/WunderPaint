@@ -38,6 +38,46 @@ class Geo {
 
 	const SEARCH_TTL = 7 * DAY_IN_SECONDS;
 	const MAP_TTL    = 3 * DAY_IN_SECONDS;
+	// Version of the map data, part of BOTH cache keys: the viewport payload
+	// here and the decoded tiles in Geo_Tiles::tile(). Miss either one and a
+	// site that has already drawn an area keeps the old answer - the viewport
+	// cache for three days, the tile cache for thirty.
+	//
+	// 2 added building heights, roof shapes, building parts, trees, bridges
+	// and six-decimal building geometry. 3 is the same shape but real
+	// numbers in it: the tile decoder only read string attributes, so every
+	// numeric one - render_height, render_min_height, layer - came back as an
+	// empty string and was dropped. 302 buildings over the Speicherstadt, 0
+	// with a height, while the tile carried them all along. (2026-08-08)
+	const WIRE = 4;
+
+	/**
+	 * How long one Overpass attempt may take, and how long the whole
+	 * request may spend trying.
+	 *
+	 * The four instances used to be tried in series at 40 seconds each, so
+	 * a bad moment cost up to 160 seconds, held a PHP worker for all of it,
+	 * and still ended in an error. Measured on 2026-08-08: the main
+	 * instance answered a deliberately tiny query in 4.8 s while the first
+	 * mirror returned 504 after 31 s, which is exactly the shape the old
+	 * loop paid full price for.
+	 *
+	 * A total budget is the honest limit. Nobody waits a minute for a
+	 * poster preview, so failing at 50 seconds with a clear message beats
+	 * succeeding at 160.
+	 */
+	const TRY_TIMEOUT  = 25;
+	const TOTAL_BUDGET = 50;
+
+	/**
+	 * How long a failing instance is left alone.
+	 *
+	 * Without this, every single request walks into the same dead end and
+	 * pays the same timeout again. Overpass outages last minutes to hours,
+	 * not seconds, so the second request should already skip what the first
+	 * one learned.
+	 */
+	const REST_TTL = 5 * MINUTE_IN_SECONDS;
 
 	/**
 	 * Max bbox span (degrees) per detail level - protects the public
@@ -102,6 +142,30 @@ class Geo {
 	 */
 	private static function user_agent() {
 		return 'WPImageEditor/' . WPIE_VERSION . ' (WordPress; +' . home_url( '/' ) . ')';
+	}
+
+	/**
+	 * Is this Overpass instance being left alone after a recent failure?
+	 *
+	 * @param string $endpoint Instance URL.
+	 * @return bool
+	 */
+	private static function endpoint_resting( $endpoint ) {
+		return (bool) get_transient( 'wpie_geo_rest_' . md5( $endpoint ) );
+	}
+
+	/**
+	 * Remember that an instance just failed, so the next request skips it.
+	 *
+	 * Deliberately a transient and not an option: this is a hint that
+	 * should expire on its own, and it must never survive as state anybody
+	 * has to clean up. If the cache is dropped the worst case is one slow
+	 * request, which is what happened every time before.
+	 *
+	 * @param string $endpoint Instance URL.
+	 */
+	private static function rest_endpoint( $endpoint ) {
+		set_transient( 'wpie_geo_rest_' . md5( $endpoint ), 1, self::REST_TTL );
 	}
 
 	/**
@@ -281,7 +345,7 @@ class Geo {
 
 		// Round for stable cache keys (4 decimals = 11 m).
 		$bbox      = array( round( $south, 4 ), round( $west, 4 ), round( $north, 4 ), round( $east, 4 ) );
-		$cache_key = 'wpie_geo_m_' . md5( implode( ',', $bbox ) . '|' . $detail . '|' . ( $buildings ? 1 : 0 ) );
+		$cache_key = 'wpie_geo_m_' . md5( self::WIRE . '|' . implode( ',', $bbox ) . '|' . $detail . '|' . ( $buildings ? 1 : 0 ) );
 		$cached    = get_transient( $cache_key );
 		if ( is_string( $cached ) && '' !== $cached ) {
 			if ( 0 === strpos( $cached, 'gz:' ) && function_exists( 'gzuncompress' ) ) {
@@ -298,35 +362,69 @@ class Geo {
 		// admin memory headroom (WP_MAX_MEMORY_LIMIT).
 		wp_raise_memory_limit( 'admin' );
 
+		// Vector tiles first. Same OpenStreetMap data, but pre-cut and
+		// served as files rather than computed per request: measured
+		// 2026-08-08, one city tile is 278 KB fetched in 0.06 s and decoded
+		// in 0.02 s, against 4.8 s for a deliberately tiny Overpass query on
+		// its best instance. Overpass stays below as the fallback, so a
+		// blocked or broken tile source costs the old speed, not the map.
+		//
+		// The filter is an escape hatch and the way this gets compared: a
+		// site behind a proxy that blocks the tile CDN, or anyone wanting
+		// the old source back, sets it false and keeps a working map.
+		if ( apply_filters( 'wpie_geo_use_tiles', true, $detail ) ) {
+			require_once WPIE_DIR . 'includes/class-geo-tiles.php';
+			$tiled = Geo_Tiles::viewport( $south, $west, $north, $east, $detail, $buildings );
+			if ( is_array( $tiled ) && $tiled ) {
+				return self::store_payload( $cache_key, $tiled, false );
+			}
+		}
+
 		$query = self::overpass_query( $bbox, $detail, $buildings );
 		$code  = 0;
 		$raw   = '';
 		$error = null;
+		$began = microtime( true );
 		foreach ( self::OVERPASS as $endpoint ) {
+			if ( self::endpoint_resting( $endpoint ) ) {
+				continue;
+			}
+			$left = self::TOTAL_BUDGET - (int) ( microtime( true ) - $began );
+			if ( $left < 5 ) {
+				break;
+			}
 			$response = wp_remote_post(
 				$endpoint,
 				array(
-					'timeout'    => 40,
+					'timeout'    => min( self::TRY_TIMEOUT, $left ),
 					'user-agent' => self::user_agent(),
 					'body'       => array( 'data' => $query ),
 				)
 			);
 			if ( is_wp_error( $response ) ) {
+				self::rest_endpoint( $endpoint );
 				$error = new \WP_Error( 'wpie_geo_fetch', __( 'The map data service is not reachable right now, please try again.', 'wunderpaint' ), array( 'status' => 502 ) );
 				continue;
 			}
 			$code = (int) wp_remote_retrieve_response_code( $response );
 			if ( 429 === $code || 504 === $code ) {
+				self::rest_endpoint( $endpoint );
 				$error = new \WP_Error( 'wpie_geo_busy', __( 'The map data service is busy right now, please try again in a moment.', 'wunderpaint' ), array( 'status' => 503 ) );
 				continue;
 			}
 			if ( 200 !== $code ) {
+				self::rest_endpoint( $endpoint );
 				$error = new \WP_Error( 'wpie_geo_fetch', __( 'Could not load map data.', 'wunderpaint' ), array( 'status' => 502 ) );
 				continue;
 			}
 			$raw   = wp_remote_retrieve_body( $response );
 			$error = null;
 			break;
+		}
+		if ( '' === $raw && ! $error ) {
+			// Every instance was resting, or the budget ran out before one
+			// could be tried. Same message as busy: from the outside it is.
+			$error = new \WP_Error( 'wpie_geo_busy', __( 'The map data service is busy right now, please try again in a moment.', 'wunderpaint' ), array( 'status' => 503 ) );
 		}
 		if ( $error ) {
 			return $error;
@@ -357,8 +455,31 @@ class Geo {
 		}
 		unset( $elements );
 
-		$json = '{"els":[' . implode( ',', $parts ) . '],"n":' . count( $parts ) . ',"truncated":' . ( $truncated ? 'true' : 'false' ) . '}';
-		unset( $parts );
+		return self::store_payload( $cache_key, $parts, $truncated, true );
+	}
+
+	/**
+	 * Build, cache and return the wire payload.
+	 *
+	 * Shared by both sources so the extension cannot tell them apart, which
+	 * is the whole point of keeping the compact format as the seam.
+	 *
+	 * @param string $cache_key Transient key.
+	 * @param array  $elements  Compact elements, or their JSON strings.
+	 * @param bool   $truncated Whether the element cap was hit.
+	 * @param bool   $encoded   True when $elements are already JSON strings.
+	 * @return string JSON payload.
+	 */
+	private static function store_payload( $cache_key, $elements, $truncated, $encoded = false ) {
+		if ( ! $encoded ) {
+			if ( count( $elements ) > self::MAX_ELEMENTS ) {
+				$elements  = array_slice( $elements, 0, self::MAX_ELEMENTS );
+				$truncated = true;
+			}
+			$elements = array_map( 'wp_json_encode', $elements );
+		}
+		$json = '{"els":[' . implode( ',', $elements ) . '],"n":' . count( $elements ) . ',"truncated":' . ( $truncated ? 'true' : 'false' ) . '}';
+		unset( $elements );
 
 		$stored = function_exists( 'gzcompress' )
 			? 'gz:' . base64_encode( gzcompress( $json, 6 ) ) // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
@@ -408,6 +529,19 @@ class Geo {
 		}
 		if ( $buildings ) {
 			$parts[] = 'way["building"](' . $bb . ');';
+			// A block built around a courtyard is a relation with an inner
+			// ring. Without this it arrived without its hole or not at all,
+			// while area_kind() and compact_element() could already handle it.
+			$parts[] = 'relation["building"](' . $bb . ');';
+			// The setback sections of a tower. They are not buildings and are
+			// marked `part` so a consumer can tell them apart: in Midtown they
+			// are the majority of what comes back, and counting them as
+			// buildings teaches that a small footprint means eighty metres.
+			$parts[] = 'way["building:part"](' . $bb . ');';
+			// Individual trees, where they are mapped. A 3D view puts a tree
+			// where the real one stands instead of scattering them over the
+			// green areas; a flat poster ignores the kind entirely.
+			$parts[] = 'node["natural"="tree"](' . $bb . ');';
 		}
 
 		return '[out:json][timeout:25];(' . implode( '', $parts ) . ');out geom qt;';
@@ -438,29 +572,59 @@ class Geo {
 				}
 				$rings[] = array(
 					'r' => 'inner' === ( isset( $member['role'] ) ? $member['role'] : '' ) ? 'i' : 'o',
-					'g' => self::flat_coords( $member['geometry'] ),
+					'g' => self::flat_coords( $member['geometry'], 'building' === $kind ? 6 : 5 ),
 				);
 			}
-			return $rings ? array(
+			if ( ! $rings ) {
+				return null;
+			}
+			$out = array(
 				'k'     => $kind,
 				'rings' => $rings,
-			) : null;
+			);
+			return 'building' === $kind ? array_merge( $out, self::building_shape( $tags ) ) : $out;
+		}
+
+		// A node has no geometry array, it IS the point. Only trees are asked
+		// for, so anything else that arrives as a node is not ours.
+		if ( isset( $element['type'] ) && 'node' === $element['type'] ) {
+			if ( ! isset( $element['lat'], $element['lon'] ) || ! isset( $tags['natural'] ) || 'tree' !== $tags['natural'] ) {
+				return null;
+			}
+			return array(
+				'k' => 'tree',
+				'g' => array( round( (float) $element['lat'], 6 ), round( (float) $element['lon'], 6 ) ),
+			);
 		}
 
 		if ( empty( $element['geometry'] ) ) {
 			return null;
 		}
-		$g = self::flat_coords( $element['geometry'] );
+		// Buildings travel at six decimals (11 cm), everything else at five
+		// (1.1 m). On a flat poster the difference is invisible; on a wall
+		// twenty metres high seen from close up, five decimals are a visible
+		// wobble along the eaves. Only the buildings pay the extra bytes.
+		$is_building = isset( $tags['building'] ) || isset( $tags['building:part'] );
+		$g           = self::flat_coords( $element['geometry'], $is_building ? 6 : 5 );
 		if ( count( $g ) < 4 ) {
 			return null;
 		}
 
 		if ( isset( $tags['highway'] ) ) {
-			return array(
+			$road = array(
 				'k' => 'road',
 				'c' => self::road_class( $tags['highway'] ),
 				'g' => $g,
 			);
+			// Without these a bridge is painted flat and the road runs
+			// through the water instead of over it.
+			if ( isset( $tags['bridge'] ) && 'no' !== $tags['bridge'] ) {
+				$road['bridge'] = 1;
+			}
+			if ( isset( $tags['layer'] ) && (int) $tags['layer'] ) {
+				$road['layer'] = (int) $tags['layer'];
+			}
+			return $road;
 		}
 		if ( isset( $tags['railway'] ) ) {
 			return array(
@@ -483,12 +647,107 @@ class Geo {
 		}
 		$kind = self::area_kind( $tags );
 		if ( $kind ) {
-			return array(
+			$area = array(
 				'k' => $kind,
 				'g' => $g,
 			);
+			return 'building' === $kind ? array_merge( $area, self::building_shape( $tags ) ) : $area;
 		}
 		return null;
+	}
+
+	/**
+	 * A length tag in metres, or 0 when it says nothing usable.
+	 *
+	 * OpenStreetMap heights are written by people, so the values arrive as
+	 * `18`, `18 m`, `18,5` and occasionally `59'`. Casting them would read
+	 * the last as 59 metres. Ported from the parser City Diorama already had
+	 * in tools/fetch-fixtures.mjs, so both ends agree on what a height is.
+	 *
+	 * @param mixed $raw Raw tag value.
+	 * @return float Metres, or 0.
+	 */
+	private static function metres( $raw ) {
+		if ( null === $raw || '' === $raw ) {
+			return 0.0;
+		}
+		$str = trim( (string) $raw );
+		if ( preg_match( "/^([\d.]+)\s*'/", $str, $m ) ) {
+			return (float) $m[1] * 0.3048;
+		}
+		$n = (float) str_replace( ',', '.', $str );
+		// Above 900 metres it is a typo, not a building: the tallest there is
+		// is under 830.
+		return ( $n > 0 && $n < 900 ) ? $n : 0.0;
+	}
+
+	/**
+	 * Roof shapes a consumer can actually draw. An unknown value is left out
+	 * rather than passed on, so nobody has to guess what to do with it.
+	 *
+	 * @var string[]
+	 */
+	const ROOF_SHAPES = array( 'gabled', 'hipped', 'pyramidal', 'skillion', 'round', 'dome', 'onion', 'gambrel', 'mansard', 'half-hipped' );
+
+	/**
+	 * The third dimension of a building, from its tags.
+	 *
+	 * Everything here was already in the answer and was thrown away before
+	 * the browser saw it, which is why a 3D view had to guess every height
+	 * even where OpenStreetMap has it measured. Counted on 2026-08-08: 307
+	 * of 523 buildings in the Speicherstadt carry one, 872 of 941 in
+	 * Midtown.
+	 *
+	 * Fields are omitted when the data is silent - an absent `h` means "not
+	 * known", which is different from a zero.
+	 *
+	 * @param array $tags OSM tags.
+	 * @return array Subset of { h, mh, roof, rh, part }.
+	 */
+	private static function building_shape( $tags ) {
+		$out = array();
+
+		$h = self::metres( isset( $tags['height'] ) ? $tags['height'] : '' );
+		if ( ! $h && isset( $tags['building:levels'] ) ) {
+			$levels = (float) str_replace( ',', '.', (string) $tags['building:levels'] );
+			if ( $levels > 0 && $levels < 200 ) {
+				// A storey plus the bit of parapet and floor slab above it.
+				$h = $levels * 3.2 + 1.2;
+			}
+		}
+		if ( $h ) {
+			$out['h'] = round( $h, 1 );
+		}
+
+		$mh = self::metres( isset( $tags['min_height'] ) ? $tags['min_height'] : '' );
+		if ( ! $mh && isset( $tags['building:min_level'] ) ) {
+			$levels = (float) str_replace( ',', '.', (string) $tags['building:min_level'] );
+			if ( $levels > 0 && $levels < 200 ) {
+				$mh = $levels * 3.2;
+			}
+		}
+		if ( $mh > 0 ) {
+			$out['mh'] = round( $mh, 1 );
+		}
+
+		if ( isset( $tags['roof:shape'] ) && in_array( $tags['roof:shape'], self::ROOF_SHAPES, true ) ) {
+			$out['roof'] = $tags['roof:shape'];
+		}
+		$rh = self::metres( isset( $tags['roof:height'] ) ? $tags['roof:height'] : '' );
+		if ( ! $rh && isset( $tags['roof:levels'] ) ) {
+			$levels = (float) str_replace( ',', '.', (string) $tags['roof:levels'] );
+			if ( $levels > 0 && $levels < 20 ) {
+				$rh = $levels * 2.6;
+			}
+		}
+		if ( $rh ) {
+			$out['rh'] = round( $rh, 1 );
+		}
+
+		if ( isset( $tags['building:part'] ) && ! isset( $tags['building'] ) ) {
+			$out['part'] = 1;
+		}
+		return $out;
 	}
 
 	/**
@@ -498,7 +757,11 @@ class Geo {
 	 * @return string
 	 */
 	private static function area_kind( $tags ) {
-		if ( isset( $tags['building'] ) ) {
+		// A building:part is geometry of the same kind - the setback of a
+		// tower - and travels as a building marked `part` (see
+		// building_shape()), so a consumer can keep the measured ones and
+		// drop the rest.
+		if ( isset( $tags['building'] ) || isset( $tags['building:part'] ) ) {
 			return 'building';
 		}
 		if ( ( isset( $tags['natural'] ) && in_array( $tags['natural'], array( 'water', 'bay' ), true ) ) || ( isset( $tags['waterway'] ) && 'riverbank' === $tags['waterway'] ) ) {
@@ -542,14 +805,14 @@ class Geo {
 	 * @param array $geometry [ { lat, lon }, … ].
 	 * @return float[]
 	 */
-	private static function flat_coords( $geometry ) {
+	private static function flat_coords( $geometry, $precision = 5 ) {
 		$flat = array();
 		foreach ( (array) $geometry as $point ) {
 			if ( ! isset( $point['lat'], $point['lon'] ) ) {
 				continue;
 			}
-			$flat[] = round( (float) $point['lat'], 5 );
-			$flat[] = round( (float) $point['lon'], 5 );
+			$flat[] = round( (float) $point['lat'], $precision );
+			$flat[] = round( (float) $point['lon'], $precision );
 		}
 		return $flat;
 	}

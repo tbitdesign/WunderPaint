@@ -313,7 +313,6 @@ class Editor_Page {
 			),
 			// Base URL of the extension delivery host, so the catalog
 			// gallery can build download links (Phase 3).
-			'deliveryUrl'     => Catalog::delivery_url(),
 			'mlModelsUrl'     => trailingslashit( ML_Models::url() ),
 			'runtime'         => ML_Models::runtime_status(),
 			// Dynamic over the manifest (v1.131.2): the hand-written list
@@ -331,7 +330,14 @@ class Editor_Page {
 			'captionTranslateRepo' => ML_Models::translate_repo(),
 			'theme'           => $settings['theme'],
 			'accent'          => '#3b66ff',
-			'providers'       => Helpers::provider_status(),
+			// The three own-key flags, plus 'core' for WordPress' own AI
+			// client (7.0). Only hasTextProvider() looks at 'core': the
+			// per-provider gates stay as they are, because that path cannot
+			// do vision or web search - see class-ai-core.php.
+			'providers'       => array_merge(
+				Helpers::provider_status(),
+				array( 'core' => AI_Core::available() )
+			),
 			'seoPlugins'      => apply_filters( 'wpie_seo_plugins', array() ), // Pro's Automation fills this (v1.79).
 			'bindings'        => Post_Data::binding_catalog(),
 			'defaultProvider' => $settings['default_provider'],
