@@ -764,13 +764,17 @@ class Media_Usage {
 	public function register_routes() {
 		$perm = array( REST_Controller::class, 'can_use_editor' );
 
+		// Where a picture is used is information about the picture, so the
+		// caller has to be allowed to edit that very attachment - the editor
+		// capability alone is not enough (an author would otherwise learn
+		// where somebody else's upload sits).
 		register_rest_route(
 			WPIE_REST_NS,
 			'/media-usage/for/(?P<id>\d+)',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'rest_for' ),
-				'permission_callback' => $perm,
+				'permission_callback' => array( REST_Controller::class, 'can_edit_attachment' ),
 			)
 		);
 		register_rest_route(
@@ -810,9 +814,46 @@ class Media_Usage {
 		$id = (int) $req->get_param( 'id' );
 		return array(
 			'id'      => $id,
-			'places'  => self::find_for( $id ),
+			'places'  => self::readable_places( self::find_for( $id ) ),
 			'verdict' => self::verdict( $id ),
 		);
+	}
+
+	/**
+	 * Keep only the places the current user may see.
+	 *
+	 * A place carries the title of the object it sits in and a link to edit
+	 * it, so a hit inside somebody's unpublished draft is that draft's title.
+	 * Every hit that names a post has to pass `read_post`; hits that live in
+	 * options or terms are site furniture and stay.
+	 *
+	 * Whether a hit names a post is asked of the scanner that produced it
+	 * (`objects_are_posts()`), not guessed from the id: term id 42 and post
+	 * id 42 both exist, and a `get_post()` on a term id would test an
+	 * unrelated post.
+	 *
+	 * @param array[] $places Hits from find_for().
+	 * @return array[] The subset the caller is allowed to see.
+	 */
+	private static function readable_places( array $places ) {
+		$posty = array();
+		foreach ( self::scanners() as $scanner ) {
+			$posty[ $scanner->key() ] = $scanner->objects_are_posts();
+		}
+
+		$out = array();
+		foreach ( $places as $place ) {
+			$obj = isset( $place['obj'] ) ? (int) $place['obj'] : 0;
+			$src = isset( $place['src'] ) ? (string) $place['src'] : '';
+			// Unknown source: treat it as a post, same reasoning as the
+			// default in Usage_Scanner::objects_are_posts().
+			$is_post = ! isset( $posty[ $src ] ) || $posty[ $src ];
+			if ( $obj > 0 && $is_post && ! current_user_can( 'read_post', $obj ) ) {
+				continue;
+			}
+			$out[] = $place;
+		}
+		return $out;
 	}
 
 	/**

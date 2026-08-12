@@ -8,6 +8,8 @@ import {
 	LOCAL_FONTS,
 	ALL_FONT_FAMILIES,
 } from '../lib/font-manager';
+import { DEFAULT_STOPS } from '../lib/colour-ramp';
+import { DEFAULT_JITTER } from '../lib/colour-jitter';
 
 export const PRESETS = [
 	{
@@ -392,11 +394,81 @@ export const DEFAULT_TOOL_OPTS = {
 		hardness: 85,
 		mirror: 'off',
 		tip: 'round',
+		// Where a finished stroke goes (Pinsel-Neubau Stufe 1).
+		// 'single'    - into the ACTIVE layer's pixels, the way every other
+		//               editor does it. A portrait used to end up with one
+		//               layer per stroke, which is nobody's idea of a
+		//               layer stack.
+		// 'perStroke' - one stroke layer per stroke, as before. Kept
+		//               because a stroke layer can still be recoloured
+		//               afterwards, which pixels cannot.
+		layerMode: 'single',
+		// How the finished stroke meets the pixels underneath
+		// (src/lib/paint-engine.js). 'normal' is plain alpha, the rest mix
+		// pigment - blue over yellow becomes green - and add the things
+		// that make a medium recognisable: the paint running out, the dark
+		// rim of a drying wash, grain settling in the paper.
+		paintStyle: 'normal',
+		// How a stamped mark gets its colour. 'solid' is the picked
+		// colour, 'jitter' scatters around it (src/lib/colour-jitter.js),
+		// 'gradient' reads a ramp along the stroke (src/lib/colour-ramp.js).
+		// One at a time, because they are three answers to one question.
+		colorMode: 'solid',
+		// Amounts that already do something, so picking "Jitter" is enough
+		// on its own - see the note on DEFAULT_JITTER. They cost nothing
+		// while the mode is 'solid', which is where the brush starts.
+		...DEFAULT_JITTER,
+		// Same stop format as the gradient tool, so the same editor bar
+		// serves both - and, like the gradient tool two blocks down, a real
+		// ramp from the start rather than `null`. Switching the mode to
+		// "Gradient" has to paint a gradient on the very next stroke; with
+		// nothing here it painted solid until a handle was moved.
+		gradientStops: DEFAULT_STOPS,
+		// How often the ramp runs over one stroke. It ping-pongs, so a
+		// repeat has no seam.
+		gradientCycles: 1,
+		// Overrides of the chosen tip's own numbers. `null` means "whatever
+		// the tip says" - the 37 tips carry sensible values and most people
+		// never touch these, but until now nobody COULD.
+		spacing: null,
+		scatter: null,
+		alphaJitter: null,
+		sizeJitter: null,
 	},
 	// Photoshop parity (v1.129.0): the pencil IS the hard tip - no
 	// hardness, no flow. Both live on brush/eraser only.
-	pencil: { size: 2, opacity: 100, mirror: 'off' },
-	eraser: { size: 32, opacity: 100, flow: 100, hardness: 100, mirror: 'off' },
+	pencil: {
+		size: 2,
+		opacity: 100,
+		mirror: 'off',
+		layerMode: 'single',
+		paintStyle: 'normal',
+	},
+	eraser: {
+		size: 32,
+		opacity: 100,
+		flow: 100,
+		hardness: 100,
+		mirror: 'off',
+		// The same tip table the brush uses. Erasing through a texture is
+		// a technique, not a curiosity, and the eraser is the only paint
+		// tool that could not do it.
+		tip: 'round',
+		// And the same four overrides, for the same reason. The renderer
+		// never cared which tool sent the stroke - it took these off the
+		// path and the eraser simply never put them there, so a textured
+		// eraser was stuck with its tip's shipped numbers while the brush
+		// holding the SAME tip could be tuned. The panel needs no branch:
+		// its "Tip shape" section appears as soon as the keys exist.
+		//
+		// Colour jitter deliberately stays out. The eraser carries no
+		// colour, so hue/saturation/brightness would be four sliders that
+		// move nothing.
+		spacing: null,
+		scatter: null,
+		alphaJitter: null,
+		sizeJitter: null,
+	},
 	bucket: { tolerance: 32, contiguous: true, opacity: 100 },
 	gradient: {
 		kind: 'linear',

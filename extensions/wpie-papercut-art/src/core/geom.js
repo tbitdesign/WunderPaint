@@ -8,7 +8,7 @@
 
 /** Mulberry32 - the family's usual small seeded RNG. */
 export function rng( seed ) {
-	let a = ( seed >>> 0 ) || 1;
+	let a = seed >>> 0 || 1;
 	return () => {
 		a |= 0;
 		a = ( a + 0x6d2b79f5 ) | 0;
@@ -82,10 +82,7 @@ export function simplify( pts, eps, closed = true ) {
 		for ( let i = a + 1; i < b; i++ ) {
 			const d =
 				Math.abs(
-					dy * pts[ i ][ 0 ] -
-						dx * pts[ i ][ 1 ] +
-						bx * ay -
-						by * ax
+					dy * pts[ i ][ 0 ] - dx * pts[ i ][ 1 ] + bx * ay - by * ax
 				) / len;
 			if ( d > worstD ) {
 				worstD = d;
@@ -173,7 +170,10 @@ export function chaikin( pts, rounds = 2 ) {
 			const a = cur[ i ];
 			const b = cur[ ( i + 1 ) % cur.length ];
 			out.push(
-				[ a[ 0 ] * 0.75 + b[ 0 ] * 0.25, a[ 1 ] * 0.75 + b[ 1 ] * 0.25 ],
+				[
+					a[ 0 ] * 0.75 + b[ 0 ] * 0.25,
+					a[ 1 ] * 0.75 + b[ 1 ] * 0.25,
+				],
 				[ a[ 0 ] * 0.25 + b[ 0 ] * 0.75, a[ 1 ] * 0.25 + b[ 1 ] * 0.75 ]
 			);
 		}

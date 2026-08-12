@@ -431,8 +431,11 @@
 	cursor: default;
 }
 
-/* ============ BRUSH PRESETS (F9, v0.5) ============ */
-#wpie-root .brush-preset-chip {
+/* Named preset chips. Born for the brush, now the export dialog's alone:
+   the brush's own presets went out with the brush panel, which saves the
+   whole brush rather than four numbers. Renamed with them, so the class
+   no longer points at a control that is gone. */
+#wpie-root .preset-chip {
 	font-size: 11px;
 	padding: 3px 8px;
 	border: 1px solid var(--ed-border-strong);
@@ -457,9 +460,12 @@
 	cursor: pointer;
 }
 
+/* Square, like every tile in the grid it opens. It used to be a 40x22
+   letterbox, so the tip you were holding was drawn differently from the
+   same tip one row below in the dropdown. */
 #wpie-root .brush-tip-toggle img {
 	display: block;
-	width: 40px;
+	width: 22px;
 	height: 22px;
 	object-fit: contain;
 }
@@ -468,12 +474,17 @@
 	font-size: 9px;
 }
 
+/* Five square tiles per row, the brush panel's tile size. Three letterbox
+   tiles per row needed nine rows for a table of 45 and scrolled; the same
+   45 fit in nine short rows here without scrolling, in a panel that is
+   NARROWER than the old one. The width is mirrored by TIP_PANEL_W in
+   editor-menubar.jsx, which keeps the panel on screen at the right edge. */
 #wpie-root .brush-tip-panel {
 	display: grid;
-	grid-template-columns: repeat( 3, 1fr );
-	gap: 6px;
-	width: 220px;
-	max-height: 340px;
+	grid-template-columns: repeat( 5, 1fr );
+	gap: 3px;
+	width: 202px;
+	max-height: 76vh;
 	padding: 8px;
 	overflow-y: auto;
 	background: var(--ed-panel);
@@ -483,7 +494,7 @@
 }
 
 #wpie-root .brush-tip {
-	height: 40px;
+	aspect-ratio: 1;
 	padding: 0;
 	border: 1px solid var(--ed-border);
 	border-radius: 5px;
@@ -506,7 +517,7 @@
 	box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-#wpie-root .brush-preset-chip:hover {
+#wpie-root .preset-chip:hover {
 	color: var(--ed-text);
 	border-color: var(--accent);
 }

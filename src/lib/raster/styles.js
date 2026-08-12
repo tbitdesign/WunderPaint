@@ -1,8 +1,16 @@
 import { gaussianBlur } from '../effects';
-import { getTip, resamplePts, stampTipStroke } from '../brush-tips';
+import {
+	getTip,
+	markDice,
+	pathIsShaped,
+	resamplePts,
+	stampTipStroke,
+	tipSettings,
+} from '../brush-tips';
 import { blendToComposite, createCanvas, supportsCtxFilter } from './env';
 import { tracePathD } from './shapes';
 import { patternTile, registerUserTile, userTile } from './patterns';
+import { markColour } from '../mark-colour';
 
 /**
  * True feathered round stroke (v1.123): radial-gradient stamps along the
@@ -48,26 +56,68 @@ export function drawSoftRoundStroke( ctx, path, soft ) {
 	// so overlaps along the stroke build up toward solid - the single
 	// composite below then caps everything at the stroke opacity,
 	// exactly Photoshop's opacity/flow split.
-	sctx.globalAlpha = Math.max( 0.01, Math.min( 1, path.flow ?? 1 ) );
-	const samples = resamplePts( pts, Math.max( 0.5, size * 0.18 ) );
-	for ( const p of samples ) {
-		const g = sctx.createRadialGradient( p.x, p.y, 0, p.x, p.y, r );
-		g.addColorStop( 0, path.color || '#000' );
-		g.addColorStop( Math.max( 0.001, core ), path.color || '#000' );
+	const flowAlpha = Math.max( 0.01, Math.min( 1, path.flow ?? 1 ) );
+	sctx.globalAlpha = flowAlpha;
+	// The round family lays dabs as well - it just lays them close enough
+	// to read as a line. So it answers to the same four numbers as a
+	// stamped tip, resolved the same way (the stroke's value, else the
+	// tip's). They were hard-coded here: spacing at a fixed 0.18 and no
+	// scatter or jitter at all, which is why the panel used to hide the
+	// whole section for the DEFAULT brush.
+	//
+	// Same floor as stampTipStroke, for the same reason: at size 500 and
+	// spacing 0 a single drag asks for thousands of dabs per frame that
+	// overlap fifty deep and cannot be told apart.
+	const t = tipSettings( path );
+	const step = Math.max( 0.5, size * 0.02, size * ( t.spacing ?? 0.18 ) );
+	const samples = resamplePts( pts, step );
+	const vary = markColour( path, samples.length );
+	const rnd = markDice( size, path.seedOffset || 0 );
+	for ( let si = 0; si < samples.length; si++ ) {
+		const p = samples[ si ];
+		// Rolled in the SAME ORDER as a stamped tip - scatter, then alpha,
+		// then size - so the two renderers answer a slider the same way.
+		rnd.seed( si );
+		let x = p.x;
+		let y = p.y;
+		if ( t.scatter ) {
+			const a = rnd() * 2 * Math.PI;
+			const d = Math.sqrt( rnd() ) * size * t.scatter;
+			x += Math.cos( a ) * d;
+			y += Math.sin( a ) * d;
+		}
+		let alpha =
+			flowAlpha * ( t.alphaJitter ? 1 - t.alphaJitter * rnd() : 1 );
+		// Half a pixel, not zero: a radial gradient with r = 0 paints
+		// nothing at all, so a full size jitter would drop marks entirely
+		// rather than shrink them.
+		const rr = Math.max(
+			0.5,
+			t.sizeJitter ? r * ( 1 - t.sizeJitter * rnd() ) : r
+		);
+		const shade = vary ? vary( si ) : null;
+		const col = shade ? shade.hex : path.color || '#000';
+		if ( shade && 1 !== shade.alpha ) {
+			alpha *= shade.alpha;
+		}
+		sctx.globalAlpha = alpha;
+		const g = sctx.createRadialGradient( x, y, 0, x, y, rr );
+		g.addColorStop( 0, col );
+		g.addColorStop( Math.max( 0.001, core ), col );
 		if ( core < 1 ) {
-			const fall = ( t, a ) =>
+			const fall = ( ct, a ) =>
 				g.addColorStop(
-					Math.min( 1, core + ( 1 - core ) * t ),
-					toRgba( path.color || '#000', a )
+					Math.min( 1, core + ( 1 - core ) * ct ),
+					toRgba( col, a )
 				);
 			fall( 0.25, 0.85 );
 			fall( 0.5, 0.5 );
 			fall( 0.75, 0.16 );
 		}
-		g.addColorStop( 1, toRgba( path.color || '#000', 0 ) );
+		g.addColorStop( 1, toRgba( col, 0 ) );
 		sctx.fillStyle = g;
 		sctx.beginPath();
-		sctx.arc( p.x, p.y, r, 0, 2 * Math.PI );
+		sctx.arc( x, y, rr, 0, 2 * Math.PI );
 		sctx.fill();
 	}
 	ctx.save();
@@ -120,7 +170,27 @@ export function drawStrokePaths( ctx, layer ) {
 		// Flow < 100% needs the stamped renderer too: build-up only
 		// happens stamp by stamp (v1.129.0).
 		const flow = path.flow ?? 1;
-		if ( ( soft > 0 || flow < 1 ) && path.pts && path.pts.length ) {
+		// And so does a colour that TRAVELS. The line below is a single
+		// `ctx.stroke()`, and one stroke can carry exactly one colour, so
+		// Hard Round at full hardness and full flow would have taken that
+		// path and quietly ignored the gradient the panel was showing.
+		// Two slider moves from the shipped defaults, and the same
+		// complaint all over again.
+		//
+		// Asked of markColour rather than of `colorMode`, so jitter with
+		// all three amounts at zero still gets the fast line: there is
+		// nothing to travel.
+		const varies = !! markColour( path, 2 );
+		// And so does a SHAPED stroke, for the same reason - see
+		// pathIsShaped. Hard Round at full hardness and full flow is the
+		// only stroke that ever took the fast line, and it is also the
+		// brush most people reach for first, so "the sliders do nothing on
+		// the default brush" was the shape this took.
+		if (
+			( soft > 0 || flow < 1 || varies || pathIsShaped( path ) ) &&
+			path.pts &&
+			path.pts.length
+		) {
 			drawSoftRoundStroke( ctx, path, soft );
 			continue;
 		}

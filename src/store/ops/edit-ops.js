@@ -380,7 +380,19 @@ export function newGroupOp( editor ) {
 	const selected = unitRoots(
 		state.layers,
 		state.selectedIds.length ? state.selectedIds : []
-	).map( ( r ) => r.id );
+	)
+		.map( ( r ) => r.id )
+		// In STACK order, not in the order they happened to be clicked.
+		// `unitRoots` keeps selection order on purpose (other callers want
+		// it), but each member below is moved to the end of the flat array
+		// in turn, so the iteration order becomes their new z-order - and
+		// the renderer paints a group's children by flat position, not by
+		// the `children` list. Picking top-down therefore swapped them.
+		.sort(
+			( x, y ) =>
+				state.layers.findIndex( ( l ) => l.id === x ) -
+				state.layers.findIndex( ( l ) => l.id === y )
+		);
 	const group = makeGroup( { name: __( 'Group', 'wunderpaint' ) } );
 	dispatch( { type: 'ADD_LAYER', layer: group } );
 	for ( const id of selected ) {

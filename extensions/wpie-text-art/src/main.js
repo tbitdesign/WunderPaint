@@ -862,38 +862,65 @@ function openStudio( ctx ) {
 		}
 	}
 
+	/**
+	 * One image from the library.
+	 *
+	 * THE EDITOR'S OWN PICKER FIRST. `wp.media` is the WordPress admin
+	 * modal and does not exist in the standalone studio on
+	 * wunderpaint.com, so the guard below resolved null and choosing
+	 * "Media library" did nothing at all - no picker, no message.
+	 *
+	 * @return {Promise<Object|undefined|null>} The item, `undefined` when
+	 *   the user backed out, `null` when no picker exists at all.
+	 */
+	async function pickImage() {
+		if ( window.WPIE && window.WPIE.pickMedia ) {
+			const list = await window.WPIE.pickMedia( {
+				multiple: false,
+				title: t( 'Choose image' ),
+				button: t( 'Use image' ),
+				types: 'image',
+			} );
+			if ( ! list || ! list.length ) {
+				return undefined;
+			}
+			return {
+				id: list[ 0 ].id,
+				url: list[ 0 ].url,
+				title: list[ 0 ].title || '',
+			};
+		}
+		return new Promise( ( resolve ) => {
+			if ( ! window.wp || ! window.wp.media ) {
+				resolve( null );
+				return;
+			}
+			const frame = window.wp.media( {
+				title: t( 'Choose image' ),
+				library: { type: 'image' },
+				multiple: false,
+				button: { text: t( 'Use image' ) },
+			} );
+			frame.on( 'select', () => {
+				const item = frame.state().get( 'selection' ).first().toJSON();
+				resolve( {
+					id: item.id,
+					url:
+						( item.sizes &&
+							item.sizes.large &&
+							item.sizes.large.url ) ||
+						item.url,
+					title: item.title || item.filename || '',
+				} );
+			} );
+			frame.on( 'close', () => resolve( undefined ) );
+			frame.open();
+		} );
+	}
+
 	srcSel.onchange = async () => {
 		if ( 'media' === srcSel.value ) {
-			const picked = await new Promise( ( resolve ) => {
-				if ( ! window.wp || ! window.wp.media ) {
-					resolve( null );
-					return;
-				}
-				const frame = window.wp.media( {
-					title: t( 'Choose image' ),
-					library: { type: 'image' },
-					multiple: false,
-					button: { text: t( 'Use image' ) },
-				} );
-				frame.on( 'select', () => {
-					const item = frame
-						.state()
-						.get( 'selection' )
-						.first()
-						.toJSON();
-					resolve( {
-						id: item.id,
-						url:
-							( item.sizes &&
-								item.sizes.large &&
-								item.sizes.large.url ) ||
-							item.url,
-						title: item.title || item.filename || '',
-					} );
-				} );
-				frame.on( 'close', () => resolve( undefined ) );
-				frame.open();
-			} );
+			const picked = await pickImage();
 			if ( picked ) {
 				params.image = picked;
 				params.source = 'media';

@@ -2270,7 +2270,7 @@ class AI_Provider {
 				. ( $b['colors'] ? ' Build every gradient primarily from this brand palette (tasteful tints, shades and close neighbours allowed): ' . implode( ', ', $b['colors'] ) . '.' : '' );
 		} elseif ( 'element' === $kind ) {
 			$schema = '{"items":[{"name":"short label","pathD":"an SVG path drawn inside a 100x100 viewBox"}]}';
-			$rules  = 'Each pathD is a single clean vector shape/icon inside a 100x100 box (origin top-left), closed where sensible, containing ONLY the path "d" data (no fill/stroke attributes, no <svg>/<path> tags). Keep shapes simple and recognisable. Make the ' . $n . ' shapes distinct.';
+			$rules  = 'Each pathD is a single clean vector shape/icon inside a 100x100 box (origin top-left), closed where sensible, containing ONLY the path "d" data (no fill/stroke attributes, no svg or path tags). Keep shapes simple and recognisable. Make the ' . $n . ' shapes distinct.';
 		} else {
 			$schema = '{"items":[{"name":"short label","lines":[{"text":"string","fontSize":int,"weight":400|700|800|900,"color":"#rrggbb","font":"one of the allowed fonts","align":"left"|"center"|"right","italic":true|false,"letterSpacing":number}]}]}';
 			$rules  = 'Each item is a polished, fully designed text lockup of 2 to 7 stacked lines that read as a real composition, NOT just a headline with one plain subline. Give the lines DISTINCT roles, for example: a small UPPERCASE eyebrow/kicker with wide letterSpacing (e.g. 4-8); a large dominant headline; an optional elegant italic accent word or a second headline line; bullet/list lines; and a smaller sentence-case subline or a short call to action. '
@@ -2523,7 +2523,13 @@ class AI_Provider {
 		}
 		$b_ctx  = self::brand_context( $request );
 		$system = 'You are a professional vector illustrator. Respond with ONLY one complete inline SVG document, no markdown fences, no commentary. '
-			. 'Hard rules: viewBox="0 0 512 512" with width="512" height="512"; ONE cohesive colorful flat vector illustration; only <g>, <path>, <rect>, <circle>, <ellipse>, <polygon> and <line> elements; colors ONLY via fill/stroke/opacity presentation attributes with hex values; no <style>, no classes, no <text>, no <image>, no <use>, no gradients, no filters, no scripts; roughly 10 to 60 shapes; a harmonious professional palette with a clear background shape first; no transform attributes other than translate or scale.'
+			// The element names are written bare, without angle brackets, and
+			// they have to stay that way. This string is an instruction to a
+			// language model, but a scanner reading PHP sees a tag; the
+			// wordpress.org review flagged this line twice (08.08. and
+			// 13.08.2026) as markup that ought to go through wp_enqueue.
+			// Models follow the bare list just as well.
+			. 'Hard rules: viewBox="0 0 512 512" with width="512" height="512"; ONE cohesive colorful flat vector illustration; the only elements allowed are g, path, rect, circle, ellipse, polygon and line; colors ONLY via fill/stroke/opacity presentation attributes with hex values; no style elements, no classes, no text, image or use elements, no gradients, no filters, no scripts; roughly 10 to 60 shapes; a harmonious professional palette with a clear background shape first; no transform attributes other than translate or scale.'
 			. ( $b_ctx['colors'] ? ' Build the palette primarily from these brand colors (tints, shades and harmonious neighbours allowed): ' . implode( ', ', $b_ctx['colors'] ) . '.' : '' );
 		$res = $this->text_completion(
 			$provider,

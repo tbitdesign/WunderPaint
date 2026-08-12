@@ -1,25 +1,28 @@
 /**
- * The cuttability engine - the honest-craft heart of Papercut Art.
+ * Paper masks: rasterize, tidy, trace.
  *
- * A layer is a binary paper mask on a pixel grid. Everything here is
- * pure typed-array work (no canvas, no DOM) so the guarantees can be
- * PROVEN in node tests:
+ * A layer is a binary paper mask on a pixel grid, and everything here is
+ * pure typed-array work (no canvas, no DOM) so it can be tested in node.
  *
- *   1. morphological open/close enforce a minimum feature and hole
- *      width (the "min bridge" in real millimeters),
- *   2. connected components + automatic stencil bridges make every
- *      sheet ONE connected piece of paper,
- *   3. marching squares traces the final mask into clean rings for
- *      rendering and SVG cutting files.
+ * This file used to be the CUTTABILITY ENGINE: it enforced a minimum
+ * feature width in real millimetres, hunted connected components and
+ * welded them together with automatic stencil bridges, so that every
+ * sheet was provably one piece of paper you could cut out by hand.
+ * That requirement was dropped on 9 August 2026. Nobody is going to cut
+ * anything; the pictures only have to look good. The bridges were the
+ * reason a letter "d" had a bar across its counter, the reason every
+ * placed element needed a full sheet of its own, and - at roughly
+ * fifteen full-grid passes per sheet - the reason dragging could not
+ * follow the hand.
+ *
+ * What is left is what actually makes the look: a light denoise so
+ * single stray pixels do not become jagged specks, and marching squares
+ * for clean rings.
  */
 
 /** An empty grid: `{ w, h, data }` with data[y*w+x] in {0,1}. */
 export function makeGrid( w, h ) {
 	return { w, h, data: new Uint8Array( w * h ) };
-}
-
-export function cloneGrid( g ) {
-	return { w: g.w, h: g.h, data: g.data.slice() };
 }
 
 /**
@@ -76,27 +79,6 @@ export function fillPolys( g, polys, value = 1 ) {
 			}
 		}
 	}
-}
-
-/** Paint a thick bar between two points (used for stencil bridges). */
-export function fillBar( g, x0, y0, x1, y1, width ) {
-	const dx = x1 - x0;
-	const dy = y1 - y0;
-	const len = Math.hypot( dx, dy ) || 1;
-	const nx = ( -dy / len ) * ( width / 2 );
-	const ny = ( dx / len ) * ( width / 2 );
-	// Slight overshoot along the axis so the bar really lands inside
-	// both pieces instead of kissing their boundary pixels.
-	const ox = ( dx / len ) * ( width / 2 );
-	const oy = ( dy / len ) * ( width / 2 );
-	fillPolys( g, [
-		[
-			[ x0 - ox + nx, y0 - oy + ny ],
-			[ x1 + ox + nx, y1 + oy + ny ],
-			[ x1 + ox - nx, y1 + oy - ny ],
-			[ x0 - ox - nx, y0 - oy - ny ],
-		],
-	] );
 }
 
 /* ------------------------------ morphology ------------------------------ */
@@ -181,174 +163,6 @@ export function close( g, r ) {
 	}
 }
 
-/* ------------------------------ components ------------------------------ */
-
-/**
- * Label 4-connected paper components.
- *
- * @param {Object} g Grid.
- * @return {Object} `{ labels: Int32Array, sizes: number[] }` - labels
- *                  are 1-based, 0 = background; sizes[k] = area of
- *                  component k+1.
- */
-export function components( g ) {
-	const { w, h, data } = g;
-	const labels = new Int32Array( w * h );
-	const sizes = [];
-	const queue = new Int32Array( w * h );
-	let next = 0;
-	for ( let i = 0; i < data.length; i++ ) {
-		if ( ! data[ i ] || labels[ i ] ) {
-			continue;
-		}
-		next++;
-		let size = 0;
-		let head = 0;
-		let tail = 0;
-		queue[ tail++ ] = i;
-		labels[ i ] = next;
-		while ( head < tail ) {
-			const p = queue[ head++ ];
-			size++;
-			const x = p % w;
-			if ( x > 0 && data[ p - 1 ] && ! labels[ p - 1 ] ) {
-				labels[ p - 1 ] = next;
-				queue[ tail++ ] = p - 1;
-			}
-			if ( x < w - 1 && data[ p + 1 ] && ! labels[ p + 1 ] ) {
-				labels[ p + 1 ] = next;
-				queue[ tail++ ] = p + 1;
-			}
-			if ( p >= w && data[ p - w ] && ! labels[ p - w ] ) {
-				labels[ p - w ] = next;
-				queue[ tail++ ] = p - w;
-			}
-			if ( p < w * ( h - 1 ) && data[ p + w ] && ! labels[ p + w ] ) {
-				labels[ p + w ] = next;
-				queue[ tail++ ] = p + w;
-			}
-		}
-		sizes.push( size );
-	}
-	return { labels, sizes };
-}
-
-/**
- * Make the sheet ONE connected piece: drop dust, bridge real islands.
- *
- * Components smaller than `minArea` are erased (paper dust nobody can
- * cut). Every remaining secondary component is connected to the main
- * component with a straight stencil bar of `bridgeWidth` px, nearest
- * boundary pixels first - deterministic, no randomness.
- *
- * @param {Object} g           Grid (mutated).
- * @param {number} bridgeWidth Bar width in px.
- * @param {number} minArea     Components below this are erased.
- * @return {Object} `{ bridges: [ [x0,y0,x1,y1], ... ], dropped }`.
- */
-export function unify( g, bridgeWidth, minArea ) {
-	const bridges = [];
-	let dropped = 0;
-	// Bounded loop: every pass either finishes or adds one bridge that
-	// merges two components, so it terminates.
-	for ( let guard = 0; guard < 64; guard++ ) {
-		const { labels, sizes } = components( g );
-		if ( ! sizes.length ) {
-			return { bridges, dropped };
-		}
-		// Erase dust first so it never attracts a bridge.
-		let erased = false;
-		for ( let k = 0; k < sizes.length; k++ ) {
-			if ( sizes[ k ] < minArea ) {
-				for ( let i = 0; i < labels.length; i++ ) {
-					if ( labels[ i ] === k + 1 ) {
-						g.data[ i ] = 0;
-					}
-				}
-				dropped++;
-				erased = true;
-			}
-		}
-		if ( erased ) {
-			continue;
-		}
-		if ( sizes.length === 1 ) {
-			return { bridges, dropped };
-		}
-		// Largest component is home; bridge the nearest other one.
-		let main = 0;
-		for ( let k = 1; k < sizes.length; k++ ) {
-			if ( sizes[ k ] > sizes[ main ] ) {
-				main = k;
-			}
-		}
-		const mainLabel = main + 1;
-		// Boundary samples per component. Walk EVERY pixel: a coarse
-		// stride can miss a small island entirely, and a component
-		// without a single sample gets no bridge and silently leaves
-		// the sheet in two pieces (found in a flaky preset test).
-		// Thinning happens afterwards, per component, so every one of
-		// them keeps at least one candidate.
-		const { w, h } = g;
-		const all = new Map();
-		for ( let y = 0; y < h; y++ ) {
-			for ( let x = 0; x < w; x++ ) {
-				const i = y * w + x;
-				const l = labels[ i ];
-				if ( ! l ) {
-					continue;
-				}
-				const edge =
-					x === 0 ||
-					y === 0 ||
-					x === w - 1 ||
-					y === h - 1 ||
-					! g.data[ i - 1 ] ||
-					! g.data[ i + 1 ] ||
-					! g.data[ i - w ] ||
-					! g.data[ i + w ];
-				if ( ! edge ) {
-					continue;
-				}
-				if ( ! all.has( l ) ) {
-					all.set( l, [] );
-				}
-				all.get( l ).push( [ x, y ] );
-			}
-		}
-		const samples = new Map();
-		for ( const [ l, pts ] of all ) {
-			const cap = l === main + 1 ? 400 : 120;
-			const step = Math.max( 1, Math.ceil( pts.length / cap ) );
-			const thin = [];
-			for ( let i = 0; i < pts.length; i += step ) {
-				thin.push( pts[ i ] );
-			}
-			samples.set( l, thin );
-		}
-		let best = null;
-		for ( const [ l, pts ] of samples ) {
-			if ( l === mainLabel ) {
-				continue;
-			}
-			for ( const [ x, y ] of pts ) {
-				for ( const [ mx, my ] of samples.get( mainLabel ) || [] ) {
-					const d = ( x - mx ) * ( x - mx ) + ( y - my ) * ( y - my );
-					if ( ! best || d < best.d ) {
-						best = { d, x0: x, y0: y, x1: mx, y1: my };
-					}
-				}
-			}
-		}
-		if ( ! best ) {
-			return { bridges, dropped };
-		}
-		fillBar( g, best.x0, best.y0, best.x1, best.y1, bridgeWidth );
-		bridges.push( [ best.x0, best.y0, best.x1, best.y1 ] );
-	}
-	return { bridges, dropped };
-}
-
 /* -------------------------------- tracing ------------------------------- */
 
 /**
@@ -430,25 +244,26 @@ export function trace( g ) {
 /* ------------------------------ the pipeline ---------------------------- */
 
 /**
- * Run a painted mask through the full cuttability pipeline.
+ * A painted mask into clean rings.
  *
- * @param {Object} g    Grid (mutated).
- * @param {Object} opts `{ bridgePx, minAreaPx }`.
- * @return {Object} `{ grid, rings, bridges, dropped, pieces }` where
- *                  pieces is the PROVEN component count (1 or 0).
+ * The only tidying left is cosmetic. `denoise` is a radius in PIXELS,
+ * not a physical width: it exists so a stray pixel or a one-pixel gap
+ * does not survive into the contour as a jagged speck. It is
+ * deliberately tiny and symmetric - the old engine used an asymmetric
+ * pair (gentle on paper, harsh on holes) because holes narrower than a
+ * blade really were uncuttable. Nothing gets cut any more, so a hole
+ * may be as fine as it likes.
+ *
+ * @param {Object} g            Grid (mutated).
+ * @param {Object} opts         Tidying settings.
+ * @param {number} opts.denoise Radius in px; 0 disables the tidying.
+ * @return {Object} `{ grid, rings }`.
  */
-export function cuttable( g, { bridgePx = 4, minAreaPx = 64 } = {} ) {
-	// Asymmetric on purpose: a slit or hole thinner than the bridge is
-	// truly uncuttable, so holes get the full radius. Paper that TAPERS
-	// (a muzzle, an antler tip) is supported at its base and cuts fine -
-	// the paper side gets a gentler pass that only removes real hairs,
-	// or every animal would melt into a blob.
-	const rPaper = Math.max( 1, Math.round( bridgePx / 4 ) );
-	const rHole = Math.max( 1, Math.round( bridgePx / 2 ) );
-	open( g, rPaper );
-	close( g, rHole );
-	const { bridges, dropped } = unify( g, Math.max( bridgePx, 2 ), minAreaPx );
-	const { sizes } = components( g );
-	const rings = trace( g );
-	return { grid: g, rings, bridges, dropped, pieces: sizes.length };
+export function outline( g, { denoise = 1 } = {} ) {
+	const r = Math.max( 0, Math.round( denoise ) );
+	if ( r ) {
+		open( g, r );
+		close( g, r );
+	}
+	return { grid: g, rings: trace( g ) };
 }

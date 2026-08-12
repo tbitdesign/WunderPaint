@@ -18,7 +18,25 @@ defined( 'ABSPATH' ) || exit;
 class Extension_Store {
 
 	const META_PREFIX    = 'wpie_ext_store_';
-	const MAX_BYTES      = 32768;
+	/**
+	 * Bytes one namespace may hold.
+	 *
+	 * Raised from 32 KB in v1.395: a studio that saves whole brushes -
+	 * sliders, curves, colour ramp and its drawn tips - wants room for
+	 * dozens of them, and 32 KB was about thirty.
+	 *
+	 * It is NOT raised to a megabyte, and the reason is two lines below
+	 * this one: every namespace is a wp_usermeta row, and WordPress loads
+	 * ALL of a user's meta on first access. With MAX_NAMESPACES at 64, a
+	 * megabyte apiece would mean up to 64 MB read into memory on any
+	 * request that so much as asks for a user's nickname. 128 KB keeps the
+	 * theoretical ceiling at 8 MB and the realistic one - a person with a
+	 * handful of well-used studios - well under one.
+	 *
+	 * Sites that know what they are doing can raise it through the filter
+	 * `wpie_ext_store_max_bytes`.
+	 */
+	const MAX_BYTES      = 131072;
 	const MAX_NAMESPACES = 64;
 	const NS_PATTERN     = '[a-z0-9][a-z0-9-]{2,63}';
 
@@ -101,8 +119,23 @@ class Extension_Store {
 		if ( ! is_array( $value ) ) {
 			return new \WP_Error( 'wpie_store_payload', __( 'Expected { value } with a JSON object.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
-		if ( strlen( (string) wp_json_encode( $value ) ) > self::MAX_BYTES ) {
-			return new \WP_Error( 'wpie_store_size', __( 'Stored value exceeds the 32 KB limit.', 'wunderpaint' ), array( 'status' => 413 ) );
+		/**
+		 * Filter the per-namespace byte cap of the extension store.
+		 *
+		 * @param int    $max Bytes allowed for one namespace.
+		 * @param string $ns  The namespace being written.
+		 */
+		$max = (int) apply_filters( 'wpie_ext_store_max_bytes', self::MAX_BYTES, $ns );
+		if ( strlen( (string) wp_json_encode( $value ) ) > $max ) {
+			return new \WP_Error(
+				'wpie_store_size',
+				sprintf(
+					/* translators: %d: size limit in kilobytes. */
+					__( 'Stored value exceeds the %d KB limit.', 'wunderpaint' ),
+					(int) round( $max / 1024 )
+				),
+				array( 'status' => 413 )
+			);
 		}
 		$uid = get_current_user_id();
 		$key = self::META_PREFIX . $ns;

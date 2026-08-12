@@ -1,7 +1,7 @@
 {
 	"name": "Drawing Templates",
 	"slug": "wpie-drawing-templates",
-	"version": "2.2.0",
+	"version": "2.2.1",
 	"author": "TBIT DESIGN - Thomas Breher",
 	"description": "SIX printable drawing templates from one image, computed entirely in your browser: PAINT BY NUMBERS (flattened color regions, thin contours, numbered legend - paint colors can be pinned to ten preset palettes, your brand kit or up to four custom colors), a COLORING PAGE with closed, smooth region outlines (the same pipeline family as paint by numbers - real colorable patches), a dashed light-gray TRACING SHEET for pen practice, CONNECT THE DOTS where EVERY part of the motif becomes its own numbered contour (running numbers, red start rings, optional faint hint lines), a SYMMETRY DRAWING sheet (one half shows the motif, the other is an empty grid across a dashed mirror line, empty side selectable) and the classic GRID DRAWING AID with labeled cells in a selectable grid color. Source: the whole document (default), any layer picked by name, or the media library. Every sheet takes a multi-line title in the editor font catalog with a text size factor. Insert as an editable layer and reopen via Edit Drawing Templates.",
 	"main": "extension.js",

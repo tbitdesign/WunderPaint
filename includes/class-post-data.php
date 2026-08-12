@@ -508,7 +508,13 @@ class Post_Data {
 			$stamp   = $item->get_date( 'U' );
 			$items[] = array(
 				'title'    => html_entity_decode( wp_strip_all_tags( (string) $item->get_title() ), ENT_QUOTES ),
-				'url'      => (string) $item->get_permalink(),
+				// esc_url_raw like `image` below, and for the same reason:
+				// this comes out of a stranger's feed. Nothing renders it as a
+				// link TODAY - a repeater draws onto the canvas, where a URL is
+				// just text - but the day somebody adds a "read more" the trap
+				// would already be set. It is the trap the stock credits walked
+				// into (4e3915e4).
+				'url'      => esc_url_raw( (string) $item->get_permalink() ),
 				'date'     => $stamp ? date_i18n( get_option( 'date_format' ), (int) $stamp ) : '',
 				'text'     => wp_trim_words( html_entity_decode( wp_strip_all_tags( (string) $item->get_description() ), ENT_QUOTES ), 40, '…' ),
 				'author'   => $author ? html_entity_decode( wp_strip_all_tags( (string) $author->get_name() ), ENT_QUOTES ) : '',

@@ -20,6 +20,14 @@ import { I } from '../icons';
 import { useEditor } from '../store/editor-context';
 import { serializeLayers, hydrateLayers, loadImage } from '../store/document';
 import { applyWatermark } from '../lib/watermark';
+import {
+	MOTIFS,
+	VARIANTS,
+	motif as aiMotif,
+	labelUrl,
+	applyAiLabel,
+} from '../lib/eu-ai-labels';
+import { SUPPORTED_MIME, blobWithSourceType } from '../lib/image-metadata';
 import { promptDialog as promptDialogRef } from '../lib/dialogs';
 import {
 	renderToBlob,
@@ -187,6 +195,19 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	const wm = wmSources.find( ( src ) => src.id === wmId ) || null;
 	const applyWm = !! wm;
 	const [ wmImg, setWmImg ] = useState( null );
+	// EU AI-labelling emblems (v1.400.0). Purely opt-in: no motif is
+	// preselected, nothing inspects the document, and with `aiLabel` empty
+	// this whole block is inert. See the header of lib/eu-ai-labels.js for
+	// why there is deliberately no detection and no suggestion.
+	const [ aiLabel, setAiLabel ] = useState( '' );
+	const [ aiVariant, setAiVariant ] = useState( 'black' );
+	const [ aiPos, setAiPos ] = useState( 'br' );
+	const [ aiScale, setAiScale ] = useState( null );
+	const [ aiMeta, setAiMeta ] = useState( false );
+	const [ aiImg, setAiImg ] = useState( null );
+	// Derived, never stored: a source type kept in its own state would go on
+	// claiming "fully AI-generated" after the user switched to another motif.
+	const aiSourceType = aiLabel && aiMeta ? aiMotif( aiLabel ).sourceType : '';
 	const [ exportPresets, setExportPresets ] = useState( listExportPresets );
 	const [ meta, setMeta ] = useState( {
 		filename: doc.name || 'untitled',
@@ -204,10 +225,49 @@ export function ExportDialog( { mode, onClose, extras } ) {
 				.catch( () => setWmImg( null ) );
 		}
 	}, [ wm?.url ] );
-	const postProcess =
-		applyWm && wmImg
-			? ( canvas ) => applyWatermark( canvas, wmImg, wmPlacement )
-			: undefined;
+	// The emblem files carry a viewBox and NO width/height, which would decode
+	// at naturalWidth 0 and make applyWatermark() bail out without drawing.
+	// loadImage() already routes SVG sources through sizedSvgUrl() and revokes
+	// the temporary copy itself (document.js), so nothing extra is needed here.
+	useEffect( () => {
+		if ( ! aiLabel ) {
+			setAiImg( null );
+			return undefined;
+		}
+		let alive = true;
+		loadImage( labelUrl( aiLabel, aiVariant ) )
+			.then( ( img ) => alive && setAiImg( img ) )
+			.catch( () => alive && setAiImg( null ) );
+		return () => {
+			alive = false;
+		};
+	}, [ aiLabel, aiVariant ] );
+
+	// Watermark and emblem are independent, so both can apply to one export.
+	// Built once here rather than at the eight call sites that pass it on.
+	const postProcess = ( () => {
+		const steps = [];
+		if ( applyWm && wmImg ) {
+			steps.push( ( canvas ) =>
+				applyWatermark( canvas, wmImg, wmPlacement )
+			);
+		}
+		if ( aiLabel && aiImg ) {
+			steps.push( ( canvas ) =>
+				applyAiLabel( canvas, aiImg, {
+					pos: aiPos,
+					scale: aiScale ?? aiMotif( aiLabel ).scale,
+				} )
+			);
+		}
+		if ( ! steps.length ) {
+			return undefined;
+		}
+		return ( canvas ) => {
+			steps.forEach( ( step ) => step( canvas ) );
+			return canvas;
+		};
+	} )();
 
 	const psdExporter = getPsdExporter();
 	// Element-bound embeds (builders, insert flows) reach saveAs through the
@@ -256,20 +316,57 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	 */
 
 	// Live preview of the flattened result (shared pipeline, spec 07.2).
+	//
+	// The preview shows the stamps too (v1.400.0). Without that, corner and
+	// size are picked blind and only the saved file reveals where the emblem
+	// actually landed. Margins are PIXEL values, so they have to shrink with
+	// the preview or a 16px inset reads as a huge gap at thumbnail size.
 	useEffect( () => {
 		let cancelled = false;
 		const previewScale = Math.min( 220 / doc.w, 220 / doc.h, 1 );
-		renderToDataURL( doc, layers, {
+		const inset = ( px ) => Math.max( 1, Math.round( px * previewScale ) );
+		const steps = [];
+		if ( applyWm && wmImg ) {
+			steps.push( ( canvas ) =>
+				applyWatermark( canvas, wmImg, {
+					...wmPlacement,
+					margin: inset( wmPlacement.margin ?? 16 ),
+				} )
+			);
+		}
+		if ( aiLabel && aiImg ) {
+			steps.push( ( canvas ) =>
+				applyAiLabel( canvas, aiImg, {
+					pos: aiPos,
+					scale: aiScale ?? aiMotif( aiLabel ).scale,
+					margin: inset( 16 ),
+				} )
+			);
+		}
+		renderToCanvasHelper( doc, layers, {
 			scale: previewScale,
-			format: 'png',
 			cache: sharedImageCache,
 		} )
+			.then( ( canvas ) => {
+				steps.forEach( ( step ) => step( canvas ) );
+				return canvas.toDataURL( 'image/png' );
+			} )
 			.then( ( url ) => ! cancelled && setPreview( url ) )
 			.catch( () => {} );
 		return () => {
 			cancelled = true;
 		};
-	}, [ doc, layers ] );
+	}, [
+		doc,
+		layers,
+		applyWm,
+		wmImg,
+		wmPlacement,
+		aiLabel,
+		aiImg,
+		aiPos,
+		aiScale,
+	] );
 
 	// Prefill metadata from the attachment (save/saveAs on an existing image).
 	useEffect( () => {
@@ -328,7 +425,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 		setCaptionBusy( false );
 	};
 
-	const renderOutput = async () => {
+	const renderRaw = async () => {
 		if ( [ 'gif', 'apng', 'webm' ].includes( format ) ) {
 			const animOpts = {
 				delay: gifDelay,
@@ -385,6 +482,14 @@ export function ExportDialog( { mode, onClose, extras } ) {
 			cache: sharedImageCache,
 			postProcess,
 		} );
+	};
+
+	// Metadata rides on the finished FILE, not on the canvas, so it cannot go
+	// through postProcess. Every download and every save funnels through here,
+	// which keeps it to one place. Untouched unless the user picked a type.
+	const renderOutput = async () => {
+		const blob = await renderRaw();
+		return aiSourceType ? blobWithSourceType( blob, aiSourceType ) : blob;
 	};
 
 	const projectFields = async () => {
@@ -1189,7 +1294,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 							{ exportPresets.map( ( preset ) => (
 								<button
 									key={ preset.name }
-									className="brush-preset-chip"
+									className="preset-chip"
 									title={ `${ preset.format.toUpperCase() } · ${
 										preset.quality
 									}% · ${ preset.scale }×, ${ __(
@@ -1214,7 +1319,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 								</button>
 							) ) }
 							<button
-								className="brush-preset-chip add"
+								className="preset-chip add"
 								title={ __(
 									'Save current settings as preset',
 									'wunderpaint'
@@ -1307,6 +1412,179 @@ export function ExportDialog( { mode, onClose, extras } ) {
 							</select>
 							{ ! wmImg && applyWm && <span className="spin" /> }
 						</label>
+					) }
+					{ ! [ 'gif', 'apng', 'webm', 'psd' ].includes( format ) && (
+						<Fragment>
+							<label
+								style={ {
+									display: 'flex',
+									alignItems: 'center',
+									gap: 6,
+									fontSize: 12,
+									color: 'var(--ed-text-dim)',
+								} }
+							>
+								{ __( 'EU AI label', 'wunderpaint' ) }
+								<select
+									value={ aiLabel }
+									onChange={ ( e ) => {
+										setAiLabel( e.target.value );
+										setAiScale( null );
+									} }
+									style={ { flex: 1 } }
+								>
+									<option value="">
+										{ __( 'None', 'wunderpaint' ) }
+									</option>
+									{ MOTIFS.map( ( m ) => (
+										<option key={ m.id } value={ m.id }>
+											{ m.label() }
+										</option>
+									) ) }
+								</select>
+								{ aiLabel && ! aiImg && (
+									<span className="spin" />
+								) }
+							</label>
+							{ !! aiLabel && (
+								<Fragment>
+									<div
+										style={ {
+											fontSize: 11,
+											lineHeight: 1.4,
+											color: 'var(--ed-text-dim)',
+											opacity: 0.85,
+										} }
+									>
+										{ aiMotif( aiLabel ).hint() }
+									</div>
+									<div
+										style={ {
+											display: 'flex',
+											gap: 6,
+											alignItems: 'center',
+										} }
+									>
+										<select
+											aria-label={ __(
+												'Emblem color',
+												'wunderpaint'
+											) }
+											value={ aiVariant }
+											onChange={ ( e ) =>
+												setAiVariant( e.target.value )
+											}
+											style={ { flex: 2, minWidth: 0 } }
+										>
+											{ VARIANTS.map( ( v ) => (
+												<option
+													key={ v.id }
+													value={ v.id }
+												>
+													{ v.label() }
+												</option>
+											) ) }
+										</select>
+										<select
+											aria-label={ __(
+												'Emblem position',
+												'wunderpaint'
+											) }
+											value={ aiPos }
+											onChange={ ( e ) =>
+												setAiPos( e.target.value )
+											}
+											style={ { flex: 1, minWidth: 0 } }
+										>
+											<option value="tl">
+												{ __(
+													'Top left',
+													'wunderpaint'
+												) }
+											</option>
+											<option value="tr">
+												{ __(
+													'Top right',
+													'wunderpaint'
+												) }
+											</option>
+											<option value="bl">
+												{ __(
+													'Bottom left',
+													'wunderpaint'
+												) }
+											</option>
+											<option value="br">
+												{ __(
+													'Bottom right',
+													'wunderpaint'
+												) }
+											</option>
+											<option value="center">
+												{ __(
+													'Center',
+													'wunderpaint'
+												) }
+											</option>
+										</select>
+										<input
+											type="number"
+											aria-label={ __(
+												'Emblem size, percent of width',
+												'wunderpaint'
+											) }
+											min="2"
+											max="60"
+											value={
+												aiScale ??
+												aiMotif( aiLabel ).scale
+											}
+											onChange={ ( e ) =>
+												setAiScale(
+													Number( e.target.value ) ||
+														null
+												)
+											}
+											style={ { width: 56 } }
+										/>
+									</div>
+									{ SUPPORTED_MIME.includes(
+										'image/' +
+											( 'jpg' === format
+												? 'jpeg'
+												: format )
+									) && (
+										<label
+											style={ {
+												display: 'flex',
+												alignItems: 'flex-start',
+												gap: 6,
+												fontSize: 11,
+												lineHeight: 1.4,
+												color: 'var(--ed-text-dim)',
+											} }
+										>
+											<input
+												type="checkbox"
+												checked={ aiMeta }
+												onChange={ ( e ) =>
+													setAiMeta(
+														e.target.checked
+													)
+												}
+												style={ { marginTop: 2 } }
+											/>
+											<span>
+												{ __(
+													'Also record it in the file metadata (IPTC), for image search and stock agencies',
+													'wunderpaint'
+												) }
+											</span>
+										</label>
+									) }
+								</Fragment>
+							) }
+						</Fragment>
 					) }
 					{ 'export' !== mode && (
 						<Fragment>

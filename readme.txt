@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.395.0
+Stable tag: 1.403.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,7 @@ The built-in Media Library Manager can replace the standard media view and picke
 * **Know what you use**: a usage analysis scans content, page-builder data, widgets, options and meta and answers "where is this image used?" with named sources and edit links. Find orphaned files, unused images and images missing alt text.
 * **Delete without fear**: cleanup moves files into a holding area with a retention period and a daily release run instead of deleting instantly; restore anything with one click.
 * **Maintain at scale**: replace an image and rewrite its references, recrop every thumbnail size with subject-aware auto-framing, spot oversized originals, keep IPTC credits and license info per image, rename titles by pattern, batch-watermark, and let the Metadata Assistant draft titles, alt texts and captions for the whole library (reviewed by you before anything is saved).
+* **See inside the file**: a File data tab reads the camera, lens, software and location a photo carries, resolves coordinates to a place name on your own server, and removes either just the location or every embedded block, without re-encoding the picture.
 * **Optimized imports**: bring files in through the manager and Smart Upload can scale them and convert them to WebP in your browser before they ever reach the server - no external service, no quota.
 
 = AI on your terms - or no AI at all =
@@ -91,7 +92,7 @@ WunderPaint Pro adds the extension manager - browse, install and update in one c
 
 = Import, export and output =
 
-Import and export PSD including Smart Objects, edit SVGs as real vector layers, and export PNG, JPEG, WebP, SVG, multi-page PDF, animated GIF, APNG and WebM, favicon sets, carousel slices, and batches of multiple sizes as a ZIP. Exports can carry alt text, metadata, a watermark and an attached project file, so any saved image reopens later as a fully editable document.
+Import and export PSD including Smart Objects, edit SVGs as real vector layers, and export PNG, JPEG, WebP, SVG, multi-page PDF, animated GIF, APNG and WebM, favicon sets, carousel slices, and batches of multiple sizes as a ZIP. Exports can carry alt text, metadata, a watermark and an attached project file, so any saved image reopens later as a fully editable document. When you want to disclose AI involvement, the European Commission's official labelling emblems are built in: pick one at save time and it goes into the picture where you place it, optionally alongside a matching entry in the file's IPTC metadata. Nothing is ever labelled unless you ask for it.
 
 = WunderPaint Pro =
 
@@ -156,6 +157,39 @@ A current desktop browser: Chrome or Edge 110+, Firefox 115+, Safari 16.4+. Some
 
 The handbook lives right inside the editor (press ?), the built-in help assistant answers questions and builds little guided tours, and https://help.wp-image-editor.com covers every feature down to the single control.
 
+= Where is the source code of the compiled files? =
+
+All of it is public, at https://github.com/tbitdesign/WunderPaint - the readable original of every generated file this plugin ships. Node.js 20 and npm are the only things needed to rebuild them.
+
+* build/*.js and build/*.css are webpack output, built from src/ with "npm ci && npm run build".
+* bundled-extensions/<slug>/extension.js is esbuild output, built from extensions/<slug>/src/ with "bash tools/bundle-free-extensions.sh".
+* languages/*.mo and languages/*.json are compiled from the .po files that travel next to them.
+* build/vtracer.<hash>.wasm is not compiled during that build and is not ours: webpack copies it out of the npm package vtracer-wasm (MIT), a WebAssembly build of VTracer (https://github.com/visioncortex/vtracer, MIT). It is the vectorizer behind the editor's Vectorize command, which turns a bitmap into paths in the browser.
+* build/ort.wasm.min.<hash>.mjs is copied from npm in the same way: the CPU build of onnxruntime-web (MIT, https://github.com/microsoft/onnxruntime), which carries the local AI features.
+
+BUILD.md in that repository lists every generated file next to its source and the exact command that produces it.
+
+= Which third-party libraries are bundled? =
+
+* ag-psd — MIT License (PSD read/write)
+* Tabler Icons — MIT License (icon library)
+* qrcode — MIT License (QR-code generation)
+* jsQR — Apache License 2.0 (the in-dialog scan check that decodes the rendered code)
+* jszip — MIT License (ZIP reading and writing for project files and exports; dual-licensed MIT or GPL-3.0-or-later, used here under MIT)
+* vtracer-wasm — MIT License (colour image vectorization; a WebAssembly build of VTracer by Vision Cortex, also MIT; ships as build/vtracer.<hash>.wasm)
+* imagetracerjs — The Unlicense (vectorization fallback where WebAssembly is unavailable)
+* gifenc — MIT License (animated GIF encoding)
+* upng-js — MIT License (APNG encoding)
+* unicode-emoji-json — MIT License (emoji metadata)
+* onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build is bundled with the plugin, never loaded from a CDN)
+* @huggingface/transformers (transformers.js) — Apache License 2.0 (in-browser runtime for the local AI features, bundled from npm; formerly published as @xenova/transformers)
+* U²-Netp model — Apache License 2.0 (Xuebin Qin et al., U²-Net), the background-removal model; licence text and notice travel with it.
+* Fonts — 10 self-hosted families ship with the plugin (Roboto, Open Sans, Inter, Montserrat, Poppins, Oswald, Bebas Neue, Anton, Playfair Display, Lora); a larger catalog can be downloaded to your own server under Settings → Fonts. All ten are under the SIL Open Font License 1.1. See assets/fonts/OFL.txt. Sourced from the @fontsource project / Google Fonts.
+
+Apache-2.0 components are compatible with this plugin via the "or later" clause of GPL-2.0-or-later (Apache-2.0 is compatible with GPLv3).
+
+All AI cloud calls are proxied server-side; API keys never reach the browser. Background removal and upscaling run fully locally in your browser and no data leaves your site for those; the runtime that carries them is bundled rather than fetched from anywhere.
+
 
 = Which external services does this plugin use? =
 
@@ -203,31 +237,58 @@ This plugin can talk to a number of external services, each only when you use th
 == Bundled Libraries ==
 WunderPaint is licensed GPL-2.0-or-later (see license.txt). Every bundled component is under a GPL-compatible license; full attributions are in third-party-licenses.txt.
 
-* ag-psd — MIT License (PSD read/write)
-* Tabler Icons — MIT License (icon library)
-* qrcode — MIT License (QR-code generation)
-* jsQR — Apache License 2.0 (the in-dialog scan check that decodes the rendered code)
-* jszip — MIT License (ZIP reading and writing for project files and exports; dual-licensed MIT or GPL-3.0-or-later, used here under MIT)
-* vtracer-wasm — MIT License (colour image vectorization; a WebAssembly build of VTracer by Vision Cortex, also MIT)
-* imagetracerjs — The Unlicense (vectorization fallback where WebAssembly is unavailable)
-* gifenc — MIT License (animated GIF encoding)
-* upng-js — MIT License (APNG encoding)
-* unicode-emoji-json — MIT License (emoji metadata)
-* onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build is bundled with the plugin, never loaded from a CDN)
-* @huggingface/transformers (transformers.js) — Apache License 2.0 (in-browser runtime for the local AI features, bundled from npm; formerly published as @xenova/transformers)
-* U²-Netp model — Apache License 2.0 (Xuebin Qin et al., U²-Net), the background-removal model; licence text and notice travel with it.
-* Fonts — 10 self-hosted families ship with the plugin (Roboto, Open Sans, Inter, Montserrat, Poppins, Oswald, Bebas Neue, Anton, Playfair Display, Lora); a larger catalog can be downloaded to your own server under Settings → Fonts. All ten are under the SIL Open Font License 1.1. See assets/fonts/OFL.txt. Sourced from the @fontsource project / Google Fonts.
-
-Apache-2.0 components are compatible with this plugin via the "or later" clause of GPL-2.0-or-later (Apache-2.0 is compatible with GPLv3).
-
-All AI cloud calls are proxied server-side; API keys never reach the browser. Background removal and upscaling run fully locally in your browser and no data leaves your site for those; the runtime that carries them is bundled rather than fetched from anywhere.
+**The complete list, with the license of each component, is in the FAQ below: "Which third-party libraries are bundled?"**
 
 == Development ==
-The free plugin is open source (GPL-2.0-or-later). The human-readable
-source is published at https://github.com/tbitdesign/WunderPaint and
-build instructions are in BUILD.md there.
+The free plugin is open source (GPL-2.0-or-later). The human-readable source
+of everything it ships - the editor bundle, the bundled studios and the
+translations - is published at https://github.com/tbitdesign/WunderPaint.
+BUILD.md there lists every generated file next to its source and the command
+that produces it; the FAQ entry "Where is the source code of the compiled
+files?" is the short version.
 
 == Changelog ==
+= 1.403.0 =
+* Where an image is used is now answered only to people who are allowed to edit that very image, and the answer leaves out any post the person asking may not read. Before, anyone who could use the editor could ask about any image in the library and see the titles of the posts it appears in, including drafts and private posts that were none of their business.
+* The readme and BUILD.md now name the source of every generated file the plugin ships, and the vectorizer's WebAssembly file carries its own name (build/vtracer.<hash>.wasm) instead of a bare hash, so it is obvious what it is and where it comes from.
+
+= 1.402.1 =
+* The built-in handbook and the in-editor help assistant now know about the newest additions: the EU AI labels in the save dialog, the File data tab with its inspector and cleaner, and the large preview with its download button.
+
+= 1.402.0 =
+* The arrows in the large preview stay put. They used to hang off the edge of the picture, so they moved with every image and clicking through a folder meant re-aiming for every single step; on a very wide image they even ended up off screen. They now sit at the left and right edge of the window and stay exactly where your cursor already is.
+* A Download button in the large preview saves the original file straight to your computer, next to Copy file URL and Edit metadata.
+
+= 1.401.0 =
+* A new File data tab in the image details shows what is actually inside a file: the camera and lens that took it, when, the software that touched it since, and the spot on earth it was taken at. A photo from a phone carries all of that, WordPress shows none of it, and the original file sits in your library under a public address. Coordinates are turned into a place name and a distance, worked out on your own server against the built-in place index, so nothing about your photos is sent anywhere to look it up.
+* Two buttons take it back out again. One removes just the location and leaves the camera details alone, the other clears every embedded block. Both work on the original and on every size generated from it, and both are byte surgery rather than a re-save, so the picture keeps its exact quality. Coordinates are overwritten rather than merely unlinked, and the previous files are kept as a version you can restore.
+
+= 1.400.0 =
+* The European Commission's AI labelling emblems ship with the editor. When you save or export, one tick places the emblem you choose, in the color and the corner you choose, into the picture itself, the same way a watermark is placed. The files are the Commission's own originals, and they also sit in the Brand Kits shelf of the library, so you can drop one in as an ordinary layer and put it exactly where you want it.
+* You decide when an emblem appears. The editor does not inspect your work, does not guess and never suggests one: it stays out of the way until you ask for it. A second tick, empty unless you set it, additionally records the disclosure inside the file's own metadata, in the IPTC vocabulary that image search and picture agencies read.
+
+= 1.399.0 =
+* New layers land where you are working. Pick a layer, insert a picture, a shape, a chart or anything a studio makes, and it arrives directly above the one you picked instead of on top of the whole stack. Nothing has to be dragged back down afterwards. When the layer you picked sits inside a group, the new one lands above that whole group rather than slipping between its members, and with several layers selected the topmost one decides. A background still goes to the bottom, where it belongs.
+* Grouping keeps the order of your layers. Selecting several layers and grouping them used to arrange them in the order you happened to click them, so picking from the top down quietly swapped them behind each other. They now keep the order they had in the stack, whichever way you select them - and the new group stays where those layers were instead of jumping in front of everything else.
+
+= 1.398.0 =
+* AI 3D generation runs on Meshy 7. Generated geometry follows the reference image far more closely, which is where most of the work between a generation and a usable model used to go. The AI model setting under Integrations can pin Meshy 7, 6 or 5, and it knows that Meshy 7 is an image-to-3D model: a written prompt keeps using the newest model that path offers instead of failing on a version it has never heard of.
+* A fourth quality level, Ultra, runs Meshy's extra refinement pass over the mesh for the finest surface detail it can produce. It applies when you generate from an image, it takes longer, and it costs more credits than the level below it, so it is there to be picked rather than to arrive by surprise.
+* From Meshy 6 on, a generated mesh is kept the way it comes out of the model instead of being reduced to a polygon target afterwards. That reduction was smoothing away the very detail the newer models are better at. Low still reduces, because a small, quick file is the whole point of that level.
+
+= 1.397.0 =
+* The brush is rebuilt. A finished stroke goes into the layer you have selected, the way it does in every other editor; a portrait used to end up with one layer per stroke. Where a new layer is still wanted, an option at the foot of the brush panel does exactly that, and a new layer now arrives directly above the active one instead of on top of everything. A stroke also ends where you lift the pointer rather than trailing past it, and it no longer redraws itself while you drag.
+* Five painting styles that mix pigment instead of blending alpha, next to the plain one that was always there. Blue over yellow becomes green, which alpha blending never does. Watercolor runs out along the stroke, creeps past the bristles, dries darker at the rim and settles into the paper; Gouache is its opaque cousin; Acrylic stands proud of the sheet with a lit side, a shadowed side and a satin sheen; Oil holds a lot, gives out slowly and drags what it crosses; Smudge brings no paint of its own and pushes around what is already there.
+* A brush panel that floats over the canvas, opens with any paint tool and remembers where you put it. It is not a seventh tab in the right rail. The 37 tips are shown as rendered strokes rather than as names, in groups, drawn by the engine that will paint them, so a preview cannot promise something the tip does not deliver. Beside them sit the styles, the four numbers you reach for constantly, the tip's own scatter and spacing, and a color wheel.
+* You can draw your own brush tip. It is built from discs, rings, stars, polygons, bars, leaves and arcs, holes included, and it is kept as a recipe rather than as pixels: it stays editable, renders crisp at any size, and travels inside the document, so a design you hand on paints the same on the other machine. Tips can also be saved across documents.
+* Color no longer has to be one flat value. Jitter gives every mark a shade of its own, which is what stops a stroke reading as printed by a machine; Gradient runs a multi-stop ramp along the stroke and can repeat it, turning around at each end so a repeat leaves no seam. Both work with every tip and are ready the moment you pick them.
+* The shape tool shows shapes instead of naming them. The dropdown of nine names is a grid of previews drawn from the same path data the canvas fills, and eleven shapes join it: triangle, diamond, pill, arch, shield, tag, ribbon, cross, bolt, music note and a blob. The heart moved into the same list, so every shape is now defined once rather than twice.
+* The Eraser takes the brush's tips. Erasing through a texture is a technique, not a curiosity, and the eraser was the only paint tool that could not do it. Its panel also no longer offers a color wheel, which changed nothing about erasing.
+* Extensions API 2.20. Four additions, all of them things the editor already had and only extensions could not reach: the stamp recipe engine, the editor's own shape library, its multi-stop gradient bar as a mountable control, and a one-field prompt dialog. Nothing was renamed or removed.
+
+= 1.396.0 =
+* Extensions can now ask the editor for a picture's DEPTH. The depth model has been running here since v1.27 to blur backgrounds, but an extension that wanted to sort a picture by distance rather than by brightness had no way to reach it. Papercut Art builds its paper stack from it. Nothing is downloaded and nothing is sent anywhere; where the model is not installed, extensions carry on without it.
+
 = 1.395.0 =
 * The extension category "3D & Mockups" is now "3D & Scenes". It was named after one of its three members when there were three; there are ten, and all of them build a scene you can turn and light. The menu and the extension list also said different things, and now say the same.
 

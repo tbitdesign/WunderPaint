@@ -84,6 +84,61 @@ export const HELP_ARTICLES = [
 		guides: [ 'crop' ],
 	},
 	{
+		id: 'painting',
+		cat: 'basics',
+		title: __( 'Painting', 'wunderpaint' ),
+		body: [
+			__(
+				'The Brush paints into the layer you have selected, the way a brush should. Its panel opens with it and floats over the canvas, so every setting is in reach while you work: the tips down the left as real strokes rather than names, and everything else on the right.',
+				'wunderpaint'
+			),
+			__(
+				'A style decides how the paint meets what is already there. Normal is plain blending. Watercolor, Gouache, Acrylic and Oil mix pigment instead, so blue over yellow turns green, and they carry what makes a medium recognizable: paint running out along a stroke, the dark rim of a drying wash, grain settling in the paper, thick paint catching the light. Smudge brings no paint of its own and pushes around what it crosses.',
+				'wunderpaint'
+			),
+			__(
+				'Color is a choice of three. Solid is the color you picked. Jitter gives every mark a shade of its own, which is what stops a stroke reading as printed by a machine. Gradient runs a ramp along the stroke, from where you set down to where you lift off.',
+				'wunderpaint'
+			),
+		],
+		steps: [
+			__(
+				'Press B for the Brush. Pick a tip from the strip on the left; every preview is a real stroke drawn by the engine that will paint it.',
+				'wunderpaint'
+			),
+			__(
+				'Choose a style, then set size, hardness, opacity and flow.',
+				'wunderpaint'
+			),
+			__(
+				'Pick a color on the wheel, and under it choose Solid, Jitter or Gradient.',
+				'wunderpaint'
+			),
+			__(
+				'Paint. The stroke goes into the selected layer, or onto one of its own if you tick that at the foot of the panel.',
+				'wunderpaint'
+			),
+		],
+		tips: [
+			__(
+				'Draw a brush tip builds your own tip out of shapes, holes included. It is kept as a recipe, so it stays sharp at any size and travels inside the document.',
+				'wunderpaint'
+			),
+			__(
+				'The Eraser takes the same tips. Erasing through a texture is a technique, not a curiosity.',
+				'wunderpaint'
+			),
+			__(
+				'A right-click on the canvas brings the same settings up as a quick popover, for when you would rather not have the panel on screen.',
+				'wunderpaint'
+			),
+			__(
+				'Symmetry in the options bar mirrors every stroke as you draw it, which is how you get a balanced ornament in one pass.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
 		id: 'navigation',
 		cat: 'basics',
 		title: __( 'Navigation & shortcuts', 'wunderpaint' ),
@@ -1014,6 +1069,31 @@ export const HELP_ARTICLES = [
 		],
 	},
 	{
+		id: 'library-file-data',
+		cat: 'system',
+		title: __( 'What is inside an image file', 'wunderpaint' ),
+		body: [
+			__(
+				'The File data tab in an image detail editor reads what the file itself carries, which is not the same as what the library shows: the camera and lens, the exposure, the software that has touched it, and often the exact spot on earth it was taken at. Phone cameras record all of this by default.',
+				'wunderpaint'
+			),
+			__(
+				'Coordinates are turned into a place name and a distance using the place index that ships with the plugin, so working out where a photo was taken never sends anything to an outside service.',
+				'wunderpaint'
+			),
+			__(
+				'"Remove location" clears just the coordinates and leaves the camera details in place; "Remove all metadata" clears every embedded block. Both run on the original and on every size generated from it, and neither re-saves the picture, so image quality is unchanged. The previous files are kept as a version you can restore at any time.',
+				'wunderpaint'
+			),
+		],
+		tips: [
+			__(
+				'Location data mostly survives in the original file rather than in the generated sizes, and the original is reachable under its own address.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
 		id: 'saving',
 		cat: 'system',
 		title: __( 'Saving, versions & export', 'wunderpaint' ),
@@ -1028,6 +1108,10 @@ export const HELP_ARTICLES = [
 			),
 			__(
 				'Export offers PNG, JPEG, WebP (and AVIF where supported) with a live size preview, export presets, batch sizes as ZIP, watermarking and copy-to-clipboard. The download icon in the title bar quick-exports with your last settings. PSD export keeps layers for Photoshop.',
+				'wunderpaint'
+			),
+			__(
+				'"EU AI label" places one of the European Commission\'s official emblems into the picture, in the color, corner and size you pick. It applies only when you choose one, and you can add the matching IPTC entry to the file metadata with the box below it. The same emblems are in the library under Brand Kits if you would rather place one as a layer.',
 				'wunderpaint'
 			),
 		],

@@ -35,6 +35,7 @@ import {
 } from '../../lib/user-patterns';
 import { comboToLayers } from '../../lib/content-io';
 import { insertAsset } from '../../lib/asset-insert';
+import { labelTiles } from '../../lib/eu-ai-labels';
 import { useUserItems, removeUserItem } from '../../lib/user-content';
 import * as Ops from '../../store/ops';
 
@@ -855,6 +856,33 @@ export function BrandSection( { editor, extras, onClose } ) {
 						} }
 					>
 						<img src={ kit.logoUrl } alt="" />
+					</button>
+				</div>
+			) ) }
+			{ /* Same list as the tray's Brand Kits strip, from labelTiles(). */ }
+			<div className="library-label">
+				{ __( 'EU AI labels', 'wunderpaint' ) }
+			</div>
+			{ labelTiles().map( ( tile ) => (
+				<div key={ tile.id }>
+					<button
+						className="library-logo"
+						title={ tile.name }
+						style={
+							// A white emblem on a white tile is invisible.
+							tile.dark ? { background: '#3c4043' } : undefined
+						}
+						onClick={ () => {
+							Ops.insertLogoOp(
+								editor,
+								extras,
+								tile.url,
+								__( 'EU AI label', 'wunderpaint' )
+							);
+							onClose();
+						} }
+					>
+						<img src={ tile.url } alt="" />
 					</button>
 				</div>
 			) ) }

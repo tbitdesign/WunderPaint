@@ -17,6 +17,8 @@
  *   } );
  */
 import * as ui from '@ed/lib/ext-ui.js';
+import * as stampDoc from '@ed/lib/stamp-doc.js';
+import { openStampMaker } from '@ed/lib/stamp-maker.js';
 
 /** Six coloured plates with real pixel dimensions, shared by both media mocks. */
 function mockMediaItems() {
@@ -234,6 +236,12 @@ window.__installWpieMock = ( opts = {} ) => {
 		extensions: [],
 		bridge: {
 			ui, // the REAL ext-ui builders - zero drift by construction
+			// The stamp recipe engine and its maker, also the real ones
+			// (API 2.17). Particle Strokes THROWS at load without this,
+			// so from the day the engine moved into the core its harness
+			// could not open the dialog at all - a mock has to follow the
+			// product on the same day the product moves.
+			stamps: { ...stampDoc, openStampMaker },
 			documents: {
 				// These mirror src/store/document.js on purpose, defaults
 				// and all. A mock that is kinder than the real factory

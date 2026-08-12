@@ -29,6 +29,15 @@ class Scanner_Terms extends Usage_Scanner {
 	}
 
 	/**
+	 * The `obj` id here is a term id, not a post id.
+	 *
+	 * @return bool
+	 */
+	public function objects_are_posts() {
+		return false;
+	}
+
+	/**
 	 * Display name.
 	 *
 	 * @return string

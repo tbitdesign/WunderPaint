@@ -42,6 +42,7 @@ import {
 	makeText,
 	makeShape,
 	makeStroke,
+	makeRaster,
 	makeGradient,
 	makeGroup,
 } from '../../store/document';
@@ -72,7 +73,7 @@ import {
 import { rgbToHex, colorLuminance } from '../../lib/color';
 import { parsePathAnchors, nearestOnPath } from '../../lib/path-edit';
 import { shapeToPathD } from '../../lib/shape-path';
-import { isStampTip, mirrorPts } from '../../lib/brush-tips';
+import { mirrorPts, stampMaxReach } from '../../lib/brush-tips';
 import { collectTargets, snapRect } from '../../lib/snap';
 import { cropDoc, cloneLayerTree } from '../../store/doc-ops';
 import { expandGroupIds } from '../../store/editor-context';
@@ -84,6 +85,18 @@ import {
 	leafSnapshot,
 } from '../../lib/selection-units';
 import { zoomAboutPoint } from './use-viewport';
+import { appendSmoothed, closeStroke } from './paint-smooth';
+import {
+	paintTarget,
+	setDocTransform,
+	canvasBoundsOfDocRect,
+} from './paint-commit';
+import { drawStrokePaths } from '../../lib/raster/styles';
+import {
+	applyPaintStyle,
+	styleIsPlain,
+	styleMaxSpread,
+} from '../../lib/paint-engine';
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -1810,6 +1823,42 @@ function makePaintTool( toolId ) {
 						opacity: ( opts.opacity ?? 100 ) / 100,
 						flow: isPencil ? 1 : ( opts.flow ?? 100 ) / 100,
 						tip: isPencil ? 'round' : opts.tip || 'round',
+						// Per-stroke overrides of the tip's own numbers.
+						// Undefined means "keep what the tip says", which
+						// is what every stroke did before these were
+						// reachable at all.
+						...( isPencil
+							? {}
+							: {
+									spacing: opts.spacing,
+									scatter: opts.scatter,
+									alphaJitter: opts.alphaJitter,
+									sizeJitter: opts.sizeJitter,
+									// Colour per mark ONLY under the plain
+									// style. The pigment styles read the
+									// stroke's alpha and nothing else, and
+									// work the colour out themselves - so
+									// carrying a gradient into one of them
+									// showed a gradient while you dragged
+									// and painted a flat line the moment you
+									// let go. The panel hides the buttons
+									// there but keeps the value, and the
+									// style select on the options bar has no
+									// guard at all, so the mismatch has to
+									// be caught where the stroke is written.
+									...( styleIsPlain( opts.paintStyle )
+										? {
+												hueJitter: opts.hueJitter,
+												satJitter: opts.satJitter,
+												litJitter: opts.litJitter,
+												colorMode: opts.colorMode,
+												gradientStops:
+													opts.gradientStops,
+												gradientCycles:
+													opts.gradientCycles,
+										  }
+										: {} ),
+							  } ),
 						pts: [ p ],
 					},
 				],
@@ -1843,15 +1892,7 @@ function makePaintTool( toolId ) {
 			}
 			const path = { ...draft.layer.paths[ 0 ] };
 			const pts = [ ...( draft.pts || [] ), p ];
-			if ( draft.smooth ) {
-				const mid = {
-					x: ( prev.x + p.x ) / 2,
-					y: ( prev.y + p.y ) / 2,
-				};
-				path.d += ` Q ${ prev.x } ${ prev.y } ${ mid.x } ${ mid.y }`;
-			} else {
-				path.d += ` L ${ p.x } ${ p.y }`;
-			}
+			path.d = appendSmoothed( path.d, prev, p, draft.smooth );
 			path.pts = pts;
 			// Symmetry painting (v0.7): mirrored twins grow with the stroke —
 			// path + points both mirrored so every tip works (v1.23).
@@ -1891,11 +1932,55 @@ function makePaintTool( toolId ) {
 				return;
 			}
 			tc.setDraft( null );
+			// Close the stroke on the point the hand actually reached. The
+			// smoothed path runs through midpoints, so without this every
+			// stroke stays half a segment short - for good.
+			//
+			// The twins are REBUILT from the closed main path rather than
+			// closed themselves: a mirrored twin ends at a mirrored point,
+			// so closing it against the raw pointer position would draw a
+			// line from the twin clear across the canvas to the original.
+			const mainPath = {
+				...draft.layer.paths[ 0 ],
+				d: closeStroke(
+					draft.layer.paths[ 0 ].d,
+					draft.lastPt,
+					draft.smooth
+				),
+			};
+			draft.layer = {
+				...draft.layer,
+				paths: [
+					mainPath,
+					...mirrorStrokeTwins(
+						mainPath,
+						tc.doc.w,
+						tc.doc.h,
+						tc.opts.mirror
+					),
+				],
+			};
 			const p0 = draft.layer.paths[ 0 ];
-			// Stamped tips (calligraphy/spray) reach past size/2, pad more.
-			const pad = isStampTip( p0.tip )
-				? ( p0.size || 1 ) * 0.8 + 2
-				: ( p0.size || 1 ) / 2 + 2;
+			// A tip can throw marks well past size/2 (scatter, plus the
+			// mark's own size) - pad by how far THIS tip can actually
+			// reach rather than a flat guess (a splatter/snow stroke used
+			// to get its edge hard-clipped by the windowed scratch below).
+			// The tip's own reach, PLUS whatever the paint style pushes
+			// out past it afterwards. A watercolour wash spreads well
+			// beyond the bristles, and a window sized for the bristles
+			// alone cut it off in a straight line across the curve.
+			//
+			// Asked of EVERY tip, not only the stamped ones. Round tips
+			// used to get a flat size/2 because they could not scatter;
+			// now that they can, that constant would clip the thrown marks
+			// off in a straight line down the stroke. stampMaxReach gives
+			// the identical size/2 for a round tip that is not scattering
+			// (shape `circle`, reach 0.5), so nothing changes where
+			// nothing moved.
+			const pad =
+				stampMaxReach( p0.tip, p0.size || 1, p0 ) +
+				2 +
+				styleMaxSpread( tc.opts.paintStyle, p0.size );
 			// Symmetry twins live outside the pointer-path bounds, union
 			// their mirrored extents or they get cropped away on commit
 			// (v1.12 fix).
@@ -1915,23 +2000,271 @@ function makePaintTool( toolId ) {
 					maxY = Math.max( maxY, fy2 );
 				}
 			}
-			let layer = {
-				...draft.layer,
+			// pad/minX/minY/maxX/maxY stay computed unconditionally rather
+			// than moving into the 'strokeLayer' branch below: the new
+			// default path also needs them, to work out the canvas-pixel
+			// footprint of the stroke on the destination layer (see
+			// canvasBoundsOfDocRect below).
+			const label =
+				'pencil' === toolId
+					? __( 'Pencil', 'wunderpaint' )
+					: __( 'Brush stroke', 'wunderpaint' );
+			const target = paintTarget( {
+				layers: tc.layers,
+				activeId: tc.editor.state.activeId,
+				layerMode: tc.opts.layerMode || 'single',
+			} );
+
+			// The old way: one stroke layer per stroke, kept as a choice
+			// because a stroke layer can still be recoloured afterwards.
+			// The only change is WHERE it lands - above the active layer
+			// instead of on top of everything.
+			if ( 'strokeLayer' === target.kind ) {
+				let strokeLayer = {
+					...draft.layer,
+					x: minX - pad,
+					y: minY - pad,
+					w: maxX - minX + 2 * pad,
+					h: maxY - minY + 2 * pad,
+				};
+				strokeLayer.x0 = strokeLayer.x;
+				strokeLayer.y0 = strokeLayer.y;
+				strokeLayer = maskFromSelection( tc, strokeLayer );
+				tc.editor.dispatch( {
+					type: 'ADD_LAYER',
+					layer: strokeLayer,
+					index: target.index,
+				} );
+				tc.editor.commit( label );
+				return;
+			}
+
+			// The new default: the stroke becomes pixels in a layer. `dest`
+			// is never a warped (quad) layer here - paintTarget already
+			// routes those to 'newRaster' (a straight-line document->canvas
+			// mapping cannot follow a mesh warp).
+			let dest = target.layer;
+			let isNewLayer = false;
+			let cw;
+			let ch;
+			if ( 'newRaster' === target.kind ) {
+				dest = makeRaster( {
+					name: __( 'Paint', 'wunderpaint' ),
+					x: 0,
+					y: 0,
+					w: tc.doc.w,
+					h: tc.doc.h,
+				} );
+				dest.canvas = buildRasterCanvas( dest );
+				isNewLayer = true;
+				cw = dest.canvas.width;
+				ch = dest.canvas.height;
+			} else {
+				// The canvas-pixel size the layer's raster WILL have,
+				// without dispatching anything yet. ensureRaster() below
+				// either converts an image to a raster (ADD_LAYER-free
+				// SET_LAYERS) or lazily builds a raster's first canvas
+				// (UPDATE_LAYER) - both size it via buildRasterCanvas() at
+				// exactly round(layer.w) x round(layer.h), same as an
+				// already-built canvas reports. Knowing the size up front
+				// lets the empty-stroke check below run BEFORE either of
+				// those dispatches: painting outside a small active
+				// layer's box must not silently rasterize/convert it with
+				// no history entry to undo.
+				cw = dest.canvas
+					? dest.canvas.width
+					: Math.max( 1, Math.round( dest.w ) );
+				ch = dest.canvas
+					? dest.canvas.height
+					: Math.max( 1, Math.round( dest.h ) );
+			}
+
+			// Canvas-pixel footprint of the (padded, mirror-unioned) stroke
+			// bounds on THIS layer's own canvas. Sizing the scratch to just
+			// this - instead of the whole layer - matters because
+			// drawSoftRoundStroke (lib/raster/styles.js) keeps a shared
+			// scratch buffer that only ever grows: one big stroke on a big
+			// layer would otherwise pin that memory for the rest of the
+			// session.
+			const docRect = {
 				x: minX - pad,
 				y: minY - pad,
 				w: maxX - minX + 2 * pad,
 				h: maxY - minY + 2 * pad,
 			};
-			layer.x0 = layer.x;
-			layer.y0 = layer.y;
-			// Selection clips painting (spec 05.4): bake as a layer mask.
-			layer = maskFromSelection( tc, layer );
-			tc.editor.dispatch( { type: 'ADD_LAYER', layer } );
-			tc.editor.commit(
-				'pencil' === toolId
-					? __( 'Pencil', 'wunderpaint' )
-					: __( 'Brush stroke', 'wunderpaint' )
+			const bounds = canvasBoundsOfDocRect( dest, cw, ch, docRect );
+			if ( 0 === bounds.w || 0 === bounds.h ) {
+				// The stroke does not touch this layer's canvas at all -
+				// nothing to paint. Nothing has been dispatched on this
+				// path yet, so there is nothing to leave half-committed
+				// either; say so rather than let the stroke vanish with no
+				// message.
+				noopHint(
+					tc,
+					__(
+						'This stroke landed outside the layer, so nothing was painted.',
+						'wunderpaint'
+					)
+				);
+				return;
+			}
+
+			if ( isNewLayer ) {
+				tc.editor.dispatch( {
+					type: 'ADD_LAYER',
+					layer: dest,
+					index: target.index,
+				} );
+				if ( 'none' !== target.reason ) {
+					// The active layer existed but could not take this
+					// stroke (hidden, locked, inside a locked group, or
+					// warped) - silently landing on a new layer instead
+					// would look like the stroke went missing.
+					noopHint(
+						tc,
+						__(
+							"The active layer can't take paint, so this stroke went on a new layer instead.",
+							'wunderpaint'
+						)
+					);
+				}
+			} else {
+				dest = ensureRaster( tc, dest );
+				if ( ! dest ) {
+					// An image that has not finished loading cannot take
+					// paint yet; saying so beats losing the stroke silently.
+					tc.extras.toasts.error(
+						__(
+							'The image is still loading, try again in a moment.',
+							'wunderpaint'
+						)
+					);
+					return;
+				}
+				hintIfInvisible( tc, dest );
+			}
+
+			// THE SAME RENDERER THE PREVIEW USED, not paintStroke().
+			// paintStroke() ignores `path.tip` entirely - it strokes a plain
+			// line - so going through it would collapse all 37 tips to a
+			// round one the moment a stroke was committed. Chalk, spray and
+			// calligraphy would look right while dragging and change on
+			// release, which is the worst kind of bug: it only shows after
+			// the user let go. drawStrokePaths is what draws the draft, so
+			// using it here makes the pixels identical to the preview by
+			// construction.
+			const scratch = createCanvas( bounds.w, bounds.h );
+			const sctx = scratch.getContext( '2d' );
+			// setDocTransform maps DOCUMENT coordinates to this layer's own
+			// canvas-pixel space (rotation, flip and the box<->canvas
+			// stretch all inverted) - a plain translate is only right for a
+			// layer that was never resized, rotated or flipped. The extra
+			// translate afterwards shifts that mapping so the stroke's own
+			// canvas-pixel bounds land inside this WINDOWED scratch instead
+			// of far outside it at their true position in the full layer
+			// canvas.
+			setDocTransform( sctx, dest, {
+				cw: dest.canvas.width,
+				ch: dest.canvas.height,
+			} );
+			const m = sctx.getTransform();
+			sctx.setTransform(
+				m.a,
+				m.b,
+				m.c,
+				m.d,
+				m.e - bounds.x,
+				m.f - bounds.y
 			);
+			drawStrokePaths( sctx, draft.layer );
+			if ( tc.selection ) {
+				// Clip through the same transform, so the mask lands where
+				// the stroke did. A layer-local mask built at the box size
+				// would be the wrong size the moment the layer is scaled.
+				const docMask = selectionToMaskCanvas(
+					tc.selection,
+					tc.doc.w,
+					tc.doc.h,
+					{ feather: tc.selection.feather }
+				);
+				sctx.globalCompositeOperation = 'destination-in';
+				sctx.drawImage( docMask, 0, 0 );
+			}
+			const dctx = dest.canvas.getContext( '2d' );
+			// paintStroke, the function this replaced, deliberately
+			// brackets its own blit with source-over - restore that guard
+			// rather than inherit whatever this context was left holding.
+			dctx.globalCompositeOperation = 'source-over';
+			dctx.globalAlpha = 1;
+			// THE ONE SEAM FOR PAINT STYLES. Everything above rendered the
+			// stroke exactly as it always did - the tip did its own work.
+			// A style only changes how that stroke MEETS the pixels
+			// underneath, which is why all 37 tips keep working and a new
+			// style is a row of numbers rather than a new renderer.
+			const styleId = tc.opts.paintStyle || 'normal';
+			if ( styleIsPlain( styleId ) ) {
+				dctx.drawImage( scratch, bounds.x, bounds.y );
+			} else {
+				const p0s = draft.layer.paths[ 0 ];
+				const dstData = dctx.getImageData(
+					bounds.x,
+					bounds.y,
+					bounds.w,
+					bounds.h
+				);
+				// The stroke's own axis, in this scratch's pixels, so the
+				// paint can run out along it. The matrix is read ONCE:
+				// getTransform() builds a fresh DOMMatrix on every call
+				// and this used to run per point.
+				const pts = p0s.pts || [];
+				const m2 = sctx.getTransform();
+				const toScratch = ( pt ) => ( {
+					x: m2.a * pt.x + m2.c * pt.y + m2.e,
+					y: m2.b * pt.x + m2.d * pt.y + m2.f,
+				} );
+				// SIZE IS IN DOCUMENT PIXELS, everything applyPaintStyle
+				// touches is in this scratch's pixels, and on a layer that
+				// has been scaled those are not the same thing. The bleed
+				// of a wash and the dark rim of a drying edge are derived
+				// from the size, so on a raster layer stretched to half its
+				// pixel size the wash crept twice as far as it should - and
+				// on a shrunk one it barely showed. The axis above is
+				// already converted; the size was not.
+				//
+				// The square root of the determinant is the linear scale of
+				// the matrix. It is right for a plain zoom, survives flips
+				// (the determinant goes negative, the magnitude does not)
+				// and gives the geometric mean where x and y were stretched
+				// differently, which is the only single honest answer for
+				// something as round as a radius.
+				const pxScale =
+					Math.sqrt( Math.abs( m2.a * m2.d - m2.b * m2.c ) ) || 1;
+				applyPaintStyle(
+					dstData,
+					sctx.getImageData( 0, 0, bounds.w, bounds.h ),
+					{
+						style: styleId,
+						colour: p0s.color || '#000000',
+						size: ( p0s.size || 24 ) * pxScale,
+						originX: bounds.x,
+						originY: bounds.y,
+						from: pts.length ? toScratch( pts[ 0 ] ) : null,
+						to: pts.length
+							? toScratch( pts[ pts.length - 1 ] )
+							: null,
+						// The whole path, so the paint runs out along the
+						// stroke rather than along the line between its ends.
+						points: pts.map( toScratch ),
+					}
+				);
+				dctx.putImageData( dstData, bounds.x, bounds.y );
+			}
+			tc.editor.dispatch( {
+				type: 'UPDATE_LAYER',
+				id: dest.id,
+				patch: { canvas: dest.canvas, dataUrl: null },
+			} );
+			tc.editor.commit( label );
 		},
 	};
 }
@@ -1971,13 +2304,16 @@ export const eraserTool = {
 				layerId: target.id,
 				lastPt: p,
 				mask,
+				seed: 0,
 				pathStart: `M ${ p.x } ${ p.y } L ${ p.x } ${ p.y }`,
 			} );
 			this.stamp(
 				tc,
 				target,
 				`M ${ p.x } ${ p.y } L ${ p.x } ${ p.y }`,
-				mask
+				mask,
+				[ p, p ],
+				0
 			);
 			return;
 		}
@@ -1989,7 +2325,7 @@ export const eraserTool = {
 			)
 		);
 	},
-	stamp( tc, layer, d, mask ) {
+	stamp( tc, layer, d, mask, pts, seed ) {
 		const opts = tc.opts;
 		const variants =
 			opts.mirror && 'off' !== opts.mirror
@@ -2003,6 +2339,19 @@ export const eraserTool = {
 					color: '#000',
 					size: ( opts.size || 32 ) * ( tc.pressure || 1 ),
 					opacity: ( opts.opacity ?? 100 ) / 100,
+					// Only the unmirrored run carries points; a mirrored
+					// twin is path data and keeps the round line.
+					pts: dv === d ? pts : null,
+					tip: opts.tip,
+					seedOffset: seed || 0,
+					// Same overrides the brush passes, undefined meaning
+					// "keep what the tip says". Without them the panel's
+					// Tip shape sliders moved a number the stroke never
+					// read - the renderer takes these off the PATH.
+					spacing: opts.spacing,
+					scatter: opts.scatter,
+					alphaJitter: opts.alphaJitter,
+					sizeJitter: opts.sizeJitter,
 				},
 				{
 					erase: true,
@@ -2033,13 +2382,22 @@ export const eraserTool = {
 		if ( Math.hypot( p.x - prev.x, p.y - prev.y ) < 1.5 / tc.zoom ) {
 			return;
 		}
+		const seed = draft.seed || 0;
 		this.stamp(
 			tc,
 			layer,
 			`M ${ prev.x } ${ prev.y } L ${ p.x } ${ p.y }`,
-			draft.mask
+			draft.mask,
+			[ prev, p ],
+			seed
 		);
-		tc.setDraft( { ...draft, lastPt: p } );
+		// Keep the dice moving along the stroke rather than restarting on
+		// every segment.
+		const step = Math.max(
+			1,
+			Math.round( Math.hypot( p.x - prev.x, p.y - prev.y ) / 4 )
+		);
+		tc.setDraft( { ...draft, lastPt: p, seed: seed + step } );
 	},
 	onUp( tc ) {
 		const draft = tc.draft;

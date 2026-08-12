@@ -90,3 +90,32 @@ export function renderDepthBlur( d, focus, strength ) {
 	ctx.putImageData( out, 0, 0 );
 	return cv;
 }
+
+/**
+ * Just the depth map, for callers that do not want a bokeh.
+ *
+ * estimateDepth() also precomputes a sharp and a blurred full-size copy
+ * of the picture, which is three RGBA buffers a studio has no use for -
+ * at 1536px that is roughly 28 MB handed over for nothing. This returns
+ * one channel: 0 is far, 255 is near.
+ *
+ * @param {string} dataUrl Source image data URL.
+ * @return {Promise<Object>} `{ w, h, depth: Uint8Array }`.
+ */
+export async function depthMap( dataUrl ) {
+	const TF = await ensurePipe();
+	const img = await TF.RawImage.read( dataUrl );
+	const scale = Math.min( 1, MAX / Math.max( img.width, img.height ) );
+	const w = Math.max( 1, Math.round( img.width * scale ) );
+	const h = Math.max( 1, Math.round( img.height * scale ) );
+	const out = await pipe( dataUrl );
+	const dc = createCanvas( w, h );
+	const dctx = dc.getContext( '2d' );
+	dctx.drawImage( out.depth.toCanvas(), 0, 0, w, h );
+	const rgba = dctx.getImageData( 0, 0, w, h ).data;
+	const depth = new Uint8Array( w * h );
+	for ( let i = 0; i < w * h; i++ ) {
+		depth[ i ] = rgba[ i * 4 ];
+	}
+	return { w, h, depth };
+}

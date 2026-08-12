@@ -1,6 +1,6 @@
 {
 	"name": "wpie-drawing-templates",
-	"version": "2.2.0",
+	"version": "2.2.1",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: photos as printable drawing templates",

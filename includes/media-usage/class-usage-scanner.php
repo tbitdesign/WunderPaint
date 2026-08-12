@@ -75,6 +75,25 @@ abstract class Usage_Scanner {
 	abstract public function label();
 
 	/**
+	 * Whether the `obj` id in this scanner's hits is a post id.
+	 *
+	 * The usage answer is filtered per user before it leaves the REST route:
+	 * a hit that names a post is only shown to somebody who may read that
+	 * post, because the hit carries that post's title and an edit link.
+	 * Scanners whose objects are not posts (options, terms) say so here.
+	 *
+	 * The default is true on purpose. A scanner registered through
+	 * `wpie_media_usage_sources` that never thought about this gets the
+	 * stricter treatment, and hiding a place is the harmless mistake -
+	 * showing the title of somebody else's draft is not.
+	 *
+	 * @return bool
+	 */
+	public function objects_are_posts() {
+		return true;
+	}
+
+	/**
 	 * How many rows this scanner has to walk in total.
 	 *
 	 * @return int

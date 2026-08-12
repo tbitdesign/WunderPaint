@@ -1,6 +1,17 @@
 /**
  * Editable multi-stop gradient bar (spec 04.2 / 06.2): drag stops, click the
  * bar to add one, double-click a stop to recolor, right-click/⌫ to remove.
+ *
+ * IT FILLS ITS CONTAINER. The default used to be 180 pixels, and every place
+ * that mounted one guessed a number of its own - 150 here, 190 there, 230,
+ * 176 - so the bar stopped short of the panel edge in some panels and pushed
+ * a scrollbar out of others, and no guess could be right in two panels at
+ * once because the panels are not the same width. A percentage is right in
+ * all of them, and it stays right when the panel is resized.
+ *
+ * Pass a pixel number ONLY where there is no width to fill: a horizontal
+ * toolbar row is sized by its contents, so a percentage there resolves
+ * against nothing.
  */
 
 import { useState, useRef } from '@wordpress/element';
@@ -8,7 +19,14 @@ import { __ } from '@wordpress/i18n';
 
 import { ColorPopover, anchoredPopoverStyle } from './color-popover';
 
-export function GradientBar( { stops, onChange, width = 180 } ) {
+/**
+ * @param {Object}          props          Component props.
+ * @param {Array}           props.stops    [ { color, at } ], `at` from 0 to 1.
+ * @param {Function}        props.onChange Called with the new stop list.
+ * @param {number|string}   props.width    CSS width. Leave it alone.
+ * @return {Object} The bar element.
+ */
+export function GradientBar( { stops, onChange, width = '100%' } ) {
 	const barRef = useRef( null );
 	const [ activeIdx, setActiveIdx ] = useState( null );
 	const [ editingIdx, setEditingIdx ] = useState( null );

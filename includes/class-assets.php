@@ -177,7 +177,7 @@ class Assets {
 		wp_set_script_translations( 'wpie-editor', 'wunderpaint', WPIE_DIR . 'languages' );
 
 		/*
-		 * Boot watchdog (v1.384.5, was a hand-written <script> echoed by
+		 * Boot watchdog (v1.384.5, was a hand-written script tag echoed by
 		 * Editor_Page::render()). Deliberately ES5: browsers below the
 		 * editor's language floor - Safari before 16.4 chokes on regex
 		 * lookbehind - fail to PARSE the bundle, nothing mounts and the page

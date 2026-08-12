@@ -9,19 +9,31 @@ import {
 	useRef,
 	useState,
 	useEffect,
+	useLayoutEffect,
 	useCallback,
 	useId,
 } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _x, sprintf } from '@wordpress/i18n';
 
 import { useEditor, activeLayerOf } from '../store/editor-context';
 import { makeText } from '../store/document';
 import { SwatchButton } from '../components/color-popover';
 import { isEasyMode } from '../lib/easy-mode';
 import { recentColors } from '../lib/user-swatches';
+import { FloatPanel } from './panels/float-panel';
+import { BrushPanel } from './panels/brush-panel';
+import { clampFloat, loadFloats, saveFloats } from '../lib/panel-floats';
+
+/**
+ * Tools the brush panel belongs to. It is a TOOL panel, so it comes and
+ * goes with the tool rather than sitting there while you move a shape.
+ */
+const PAINT_TOOLS = [ 'brush', 'pencil', 'eraser' ];
 import { getExtensionGenerator } from '../lib/extensions';
 import { prefixVersions } from '../lib/prefix-cache';
 import { I } from '../icons';
+import { PAINT_STYLES } from '../lib/paint-engine';
+import { BRUSH_TIPS, getTip, isStampTip } from '../lib/brush-tips';
 import {
 	renderSync,
 	sharedImageCache,
@@ -163,15 +175,43 @@ function BrushHud( { hud, editor, onClose } ) {
 		};
 	}, [ onClose ] );
 
-	const left = Math.max( 8, Math.min( hud.x, window.innerWidth - 260 ) );
-	const top = Math.max( 8, Math.min( hud.y, window.innerHeight - 120 ) );
+	// Initial guess before the popover has ever painted, so there is
+	// something on screen the very first frame. Rows shown vary per tool
+	// (hardness/color/layer-mode checkbox), so the real size is measured
+	// and clamped below rather than trusted here.
+	const [ pos, setPos ] = useState( () => ( {
+		left: Math.max( 8, Math.min( hud.x, window.innerWidth - 260 ) ),
+		top: Math.max( 8, Math.min( hud.y, window.innerHeight - 130 ) ),
+	} ) );
+	// Runs before paint: reads the popover's real rendered box and clamps
+	// against that instead of a guessed width/height, so a right-click near
+	// the window edge never pushes rows (or the layer-mode checkbox) off
+	// screen. Re-measures whenever the HUD moves or the tool changes, since
+	// different tools show different rows and thus a different box size.
+	useLayoutEffect( () => {
+		if ( ! ref.current ) {
+			return;
+		}
+		const { width, height } = ref.current.getBoundingClientRect();
+		setPos( {
+			left: Math.max(
+				8,
+				Math.min( hud.x, window.innerWidth - width - 8 )
+			),
+			top: Math.max(
+				8,
+				Math.min( hud.y, window.innerHeight - height - 8 )
+			),
+		} );
+	}, [ hud.x, hud.y, hud.tool ] );
+
 	const dot = Math.min( 44, Math.max( 4, ( opts.size || 1 ) * 0.3 ) );
 	const soft = Number.isFinite( opts.hardness ) ? 100 - opts.hardness : 0;
 	return (
 		<div
 			ref={ ref }
 			className="brush-hud"
-			style={ { left, top } }
+			style={ { left: pos.left, top: pos.top } }
 			onPointerDown={ ( e ) => e.stopPropagation() }
 			onContextMenu={ ( e ) => e.preventDefault() }
 		>
@@ -246,6 +286,111 @@ function BrushHud( { hud, editor, onClose } ) {
 									/>
 								) ) }
 						</span>
+					</label>
+				) }
+				{ undefined !== opts.tip && (
+					<label className="brush-hud-style">
+						{ __( 'Tip', 'wunderpaint' ) }
+						<select
+							value={ opts.tip || 'round' }
+							onChange={ ( e ) => set( { tip: e.target.value } ) }
+						>
+							{ BRUSH_TIPS.map( ( t ) => (
+								<option key={ t.id } value={ t.id }>
+									{ t.label }
+								</option>
+							) ) }
+						</select>
+					</label>
+				) }
+				{ undefined !== opts.scatter && isStampTip( opts.tip ) && (
+					<>
+						{ [
+							[
+								'scatter',
+								_x( 'Scatter', 'brush tip', 'wunderpaint' ),
+								0,
+								150,
+							],
+							[
+								'spacing',
+								__( 'Spacing', 'wunderpaint' ),
+								0,
+								200,
+							],
+							[
+								'alphaJitter',
+								__( 'Opacity jitter', 'wunderpaint' ),
+								0,
+								100,
+							],
+							[
+								'sizeJitter',
+								__( 'Size jitter', 'wunderpaint' ),
+								0,
+								100,
+							],
+						].map( ( [ key, label, min, max ] ) => {
+							const tip = getTip( opts.tip || 'round' );
+							const auto = Math.round(
+								( tip[ key ] || 0 ) * 100
+							);
+							const val =
+								null === opts[ key ] ||
+								undefined === opts[ key ]
+									? auto
+									: Math.round( opts[ key ] * 100 );
+							return (
+								<label key={ key }>
+									{ label }
+									<input
+										type="range"
+										min={ min }
+										max={ max }
+										value={ val }
+										onChange={ ( e ) =>
+											set( {
+												[ key ]: +e.target.value / 100,
+											} )
+										}
+									/>
+									<b>{ val }</b>
+								</label>
+							);
+						} ) }
+					</>
+				) }
+				{ undefined !== opts.paintStyle && (
+					<label className="brush-hud-style">
+						{ __( 'Style', 'wunderpaint' ) }
+						<select
+							value={ opts.paintStyle || 'normal' }
+							onChange={ ( e ) =>
+								set( { paintStyle: e.target.value } )
+							}
+						>
+							{ PAINT_STYLES.map( ( st ) => (
+								<option key={ st.id } value={ st.id }>
+									{ st.name }
+								</option>
+							) ) }
+						</select>
+					</label>
+				) }
+				{ undefined !== opts.layerMode && (
+					<label className="brush-hud-check">
+						<input
+							type="checkbox"
+							checked={ 'perStroke' === opts.layerMode }
+							onChange={ ( e ) =>
+								set( {
+									layerMode: e.target.checked
+										? 'perStroke'
+										: 'single',
+								} )
+							}
+						/>
+						{ __( 'Each stroke on its own layer', 'wunderpaint' ) }
 					</label>
 				) }
 			</div>
@@ -416,6 +561,15 @@ export function EditorCanvas( { viewApi, extras } ) {
 			if ( ! el ) {
 				return;
 			}
+			// A floating panel sits INSIDE the canvas area, so its pointer
+			// moves arrive here too. Without this the brush ring followed
+			// the mouse across the panel while the panel's own arrow was
+			// hidden by the area's `cursor: none` - so over anything that
+			// was not a button, the mouse simply vanished.
+			if ( e.target.closest && e.target.closest( '.ed-float-panel' ) ) {
+				el.style.visibility = 'hidden';
+				return;
+			}
 			el.style.left = `${ e.clientX }px`;
 			el.style.top = `${ e.clientY }px`;
 			el.style.visibility = 'visible';
@@ -438,7 +592,24 @@ export function EditorCanvas( { viewApi, extras } ) {
 	const [ draft, setDraft ] = useState( null );
 	const [ guides, setGuides ] = useState( [] );
 	const [ editingTextId, setEditingTextId ] = useState( null );
-	const [ brushHud, setBrushHud ] = useState( null ); // v1.64 right-click size HUD
+	const [ brushHud, setBrushHud ] = useState( null );
+	// Where the brush panel sits, remembered per browser exactly like the
+	// detached right-rail panels - the same store, the same clamping.
+	const [ brushPos, setBrushPosRaw ] = useState( () => {
+		const saved = loadFloats().brush;
+		// CLEAR OF THE TOOL RAIL. At x = 24 the panel opened straight on
+		// top of it: the rail's buttons are 40px wide plus its border, so
+		// the first thing a new brush panel did was cover the tools. You
+		// can drag it anywhere, but nothing says so, and a beginner reads
+		// a covered toolbar as a broken editor rather than as a window in
+		// the way.
+		return clampFloat( saved || { x: 96, y: 120 } );
+	} );
+	const setBrushPos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setBrushPosRaw( at );
+		saveFloats( { ...loadFloats(), brush: at } );
+	}, [] ); // v1.64 right-click size HUD
 	const [ rulerCursor, setRulerCursor ] = useState( null );
 	const [ areaSize, setAreaSize ] = useState( { w: 0, h: 0 } );
 	const renderPending = useRef( false );
@@ -2586,6 +2757,35 @@ export function EditorCanvas( { viewApi, extras } ) {
 					zoom={ zoom }
 					pan={ pan }
 				/>
+			) }
+			{ state.showBrushPanel && PAINT_TOOLS.includes( tool ) && (
+				<FloatPanel
+					// One panel serves all three paint tools, so it says
+					// which one you are holding rather than always "Brush".
+					title={
+						'pencil' === tool
+							? __( 'Pencil', 'wunderpaint' )
+							: 'eraser' === tool
+							? __( 'Eraser', 'wunderpaint' )
+							: __( 'Brush', 'wunderpaint' )
+					}
+					icon={ I.brand( { size: 15 } ) }
+					// Two columns for the tools that have tips, one for the
+					// rest. 300 rather than less because that is the
+					// floating panel's own min-width; going under it just
+					// gets ignored.
+					width={
+						undefined === state.toolOpts[ tool ]?.tip ? 300 : 344
+					}
+					pos={ brushPos }
+					onMove={ setBrushPos }
+					onFront={ () => {} }
+					onClose={ () =>
+						editor.dispatch( { type: 'TOGGLE_BRUSH_PANEL' } )
+					}
+				>
+					<BrushPanel editor={ editor } />
+				</FloatPanel>
 			) }
 			{ state.showNavigator && (
 				<Navigator

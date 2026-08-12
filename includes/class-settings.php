@@ -350,7 +350,7 @@ class Settings {
 		);
 		/*
 		 * Everything the script needs from PHP, in one object (v1.346.0). It
-		 * used to be interpolated into an inline <script> at about
+		 * used to be interpolated into an inline script tag at about
 		 * twenty-five points.
 		 *
 		 * The strings are translated HERE rather than through
@@ -382,7 +382,7 @@ class Settings {
 					/* translators: 1: number of downloaded families, 2: total number of families */
 					'downloaded'  => __( '%1$d of %2$d additional families downloaded.', 'wunderpaint' ),
 					// Local AI models table (v1.384.5): moved here out of an
-					// inline <script>, so these strings travel the same way
+					// inline script tag, so these strings travel the same way
 					// as the ones above.
 					'mlInstalled' => __( 'Installed', 'wunderpaint' ),
 					'mlNotInstalled' => __( 'Not installed', 'wunderpaint' ),
@@ -538,14 +538,15 @@ class Settings {
 		if ( isset( $input['fonts_google'] ) ) {
 			$out['fonts_google'] = ! empty( $input['fonts_google'] ) ? 1 : 0;
 		}
-		// Meshy generation defaults (v1.296): model + one quality level.
+		// Meshy generation defaults (v1.296): model + one quality level. The
+		// allowlists live on the proxy that builds the requests.
 		if ( isset( $input['meshy_model'] ) ) {
 			$model              = (string) $input['meshy_model'];
-			$out['meshy_model'] = in_array( $model, array( 'latest', 'meshy-6', 'meshy-5' ), true ) ? $model : 'latest';
+			$out['meshy_model'] = in_array( $model, Meshy::MODELS, true ) ? $model : 'latest';
 		}
 		if ( isset( $input['meshy_quality'] ) ) {
 			$quality              = (string) $input['meshy_quality'];
-			$out['meshy_quality'] = in_array( $quality, array( 'low', 'standard', 'high' ), true ) ? $quality : 'standard';
+			$out['meshy_quality'] = in_array( $quality, Meshy::QUALITIES, true ) ? $quality : 'standard';
 		}
 		if ( isset( $input['media_picker_manager'] ) ) {
 			$out['media_picker_manager'] = ! empty( $input['media_picker_manager'] ) ? 1 : 0;
@@ -946,7 +947,7 @@ class Settings {
 						</div>
 						<?php
 						// The daily series rides along with the settings script instead
-						// of living in an inline <script> (v1.384.5). It is computed
+						// of living in an inline script tag (v1.384.5). It is computed
 						// here, and the handle prints in the footer, so handing it over
 						// at this point still reaches the browser before the chart code.
 						wp_add_inline_script(
@@ -1381,6 +1382,7 @@ class Settings {
 									<label for="wpie-meshy-model"><strong><?php esc_html_e( 'AI model', 'wunderpaint' ); ?></strong></label>
 									<select id="wpie-meshy-model" name="<?php echo esc_attr( WPIE_OPTION ); ?>[meshy_model]">
 										<option value="latest" <?php selected( ( $s['meshy_model'] ?? 'latest' ), 'latest' ); ?>><?php esc_html_e( 'Latest (recommended)', 'wunderpaint' ); ?></option>
+										<option value="meshy-7" <?php selected( ( $s['meshy_model'] ?? 'latest' ), 'meshy-7' ); ?>>Meshy 7</option>
 										<option value="meshy-6" <?php selected( ( $s['meshy_model'] ?? 'latest' ), 'meshy-6' ); ?>>Meshy 6</option>
 										<option value="meshy-5" <?php selected( ( $s['meshy_model'] ?? 'latest' ), 'meshy-5' ); ?>>Meshy 5</option>
 									</select>
@@ -1389,11 +1391,12 @@ class Settings {
 									<label for="wpie-meshy-quality"><strong><?php esc_html_e( 'Detail quality', 'wunderpaint' ); ?></strong></label>
 									<select id="wpie-meshy-quality" name="<?php echo esc_attr( WPIE_OPTION ); ?>[meshy_quality]">
 										<option value="standard" <?php selected( ( $s['meshy_quality'] ?? 'standard' ), 'standard' ); ?>><?php esc_html_e( 'Standard (recommended)', 'wunderpaint' ); ?></option>
-										<option value="high" <?php selected( ( $s['meshy_quality'] ?? 'standard' ), 'high' ); ?>><?php esc_html_e( 'High - more detail, larger files', 'wunderpaint' ); ?></option>
+										<option value="high" <?php selected( ( $s['meshy_quality'] ?? 'standard' ), 'high' ); ?>><?php esc_html_e( 'High - 4K textures, larger files', 'wunderpaint' ); ?></option>
+										<option value="ultra" <?php selected( ( $s['meshy_quality'] ?? 'standard' ), 'ultra' ); ?>><?php esc_html_e( 'Ultra - finest geometry, slower and costs extra credits', 'wunderpaint' ); ?></option>
 										<option value="low" <?php selected( ( $s['meshy_quality'] ?? 'standard' ), 'low' ); ?>><?php esc_html_e( 'Low - compact and fast', 'wunderpaint' ); ?></option>
 									</select>
 								</p>
-								<p class="description"><?php esc_html_e( 'Applied to every generation. Quality steers polygon count and texture resolution; PBR material maps are always included.', 'wunderpaint' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Applied to every generation. Meshy 7 exists for image-to-3D only; text-to-3D always uses the newest model it offers. Quality steers texture resolution, and Ultra adds the extra refinement pass Meshy 7 offers on images. PBR material maps are always included.', 'wunderpaint' ); ?></p>
 							</div>
 							<p>
 								<button type="button" class="button wpie-test-meshy">

@@ -445,6 +445,32 @@ class Stock {
 		);
 	}
 
+	/*
+	 * WHY esc_url_raw SITS ON EVERY `link` AND `authorUrl` BELOW.
+	 *
+	 * These two fields become an `href` in the editor - the photo page and,
+	 * because Pexels and Unsplash require the credit, the photographer's
+	 * profile. Their value comes STRAIGHT OUT of the provider's JSON, and a
+	 * provider is a third party whose data stream we do not control.
+	 *
+	 * That is the BdThemes shape of 7 August 2026: nobody touched a source
+	 * file, somebody swapped the JSON a plugin fetched, and the display code
+	 * put it into the page unfiltered. React escapes text and attribute
+	 * VALUES on its own, so the attribute-breakout half cannot happen here -
+	 * but it writes a `javascript:` href into the DOM unchanged and runs it
+	 * on click. That half is this one.
+	 *
+	 * Filtered HERE rather than at the two render sites, because this is
+	 * where a stranger's data becomes our own shape: every later reader -
+	 * the dialog, the tray, an extension, whatever comes next - then gets a
+	 * URL that is already a URL. esc_url_raw drops a disallowed protocol and
+	 * returns an empty string, and both render sites already treat an empty
+	 * URL as "no link".
+	 *
+	 * The paths that ACT on a provider URL were already closed and stay as
+	 * they are: download() demands https + api.unsplash.com before the API
+	 * key travels, and fetch() runs an allowlist plus wp_safe_remote_get.
+	 */
 	public static function normalize_unsplash( $body ) {
 		$results = array();
 		foreach ( (array) ( isset( $body['results'] ) ? $body['results'] : array() ) as $photo ) {
@@ -460,13 +486,13 @@ class Stock {
 				'w'      => isset( $photo['width'] ) ? (int) $photo['width'] : 0,
 				'h'      => isset( $photo['height'] ) ? (int) $photo['height'] : 0,
 				'author' => isset( $user['name'] ) ? $user['name'] : '',
-				'link'   => self::unsplash_referral( isset( $links['html'] ) ? $links['html'] : '' ),
+				'link'   => esc_url_raw( self::unsplash_referral( isset( $links['html'] ) ? $links['html'] : '' ) ),
 				// The credit has to point at the photographer's PROFILE, not
 				// at the picture: "your application must attribute Unsplash,
 				// the Unsplash photographer, and contain a link back to their
 				// Unsplash profile". `link` above stays the photo page, which
 				// is what the thumbnail links to.
-				'authorUrl' => self::unsplash_referral( isset( $ulinks['html'] ) ? $ulinks['html'] : '' ),
+				'authorUrl' => esc_url_raw( self::unsplash_referral( isset( $ulinks['html'] ) ? $ulinks['html'] : '' ) ),
 				// Not a URL anyone opens: Unsplash counts a use when this is
 				// requested WITH the API key, which is why only the server
 				// may call it. See Stock::download().
@@ -497,10 +523,10 @@ class Stock {
 				'w'      => isset( $photo['width'] ) ? (int) $photo['width'] : 0,
 				'h'      => isset( $photo['height'] ) ? (int) $photo['height'] : 0,
 				'author' => isset( $photo['photographer'] ) ? $photo['photographer'] : '',
-				'link'   => isset( $photo['url'] ) ? $photo['url'] : '',
+				'link'   => esc_url_raw( isset( $photo['url'] ) ? $photo['url'] : '' ),
 				// Pexels asks for the photographer to be credited and linked
 				// as well, and hands the profile over ready-made.
-				'authorUrl' => isset( $photo['photographer_url'] ) ? $photo['photographer_url'] : '',
+				'authorUrl' => esc_url_raw( isset( $photo['photographer_url'] ) ? $photo['photographer_url'] : '' ),
 			);
 		}
 		return array(
@@ -526,7 +552,7 @@ class Stock {
 				'w'      => isset( $hit['imageWidth'] ) ? (int) $hit['imageWidth'] : 0,
 				'h'      => isset( $hit['imageHeight'] ) ? (int) $hit['imageHeight'] : 0,
 				'author' => isset( $hit['user'] ) ? $hit['user'] : '',
-				'link'   => isset( $hit['pageURL'] ) ? $hit['pageURL'] : '',
+				'link'   => esc_url_raw( isset( $hit['pageURL'] ) ? $hit['pageURL'] : '' ),
 				// Pixabay gives no profile URL, but it is built from the two
 				// fields it does give. Only when both are there, otherwise the
 				// credit would link into nothing.

@@ -807,6 +807,26 @@ function openStudio( ctx ) {
 	params.source = srcSel.value;
 
 	async function loadFromMedia() {
+		// THE EDITOR'S OWN PICKER FIRST. `wp.media` is the WordPress admin
+		// modal and does not exist in the standalone studio on
+		// wunderpaint.com, so the guard below returned null and the button
+		// did nothing at all - no picker, no message.
+		if ( window.WPIE && window.WPIE.pickMedia ) {
+			const picked = await window.WPIE.pickMedia( {
+				multiple: false,
+				title: t( 'Choose image' ),
+				button: t( 'Use image' ),
+				types: 'image',
+			} );
+			if ( ! picked || ! picked.length ) {
+				return undefined;
+			}
+			return {
+				id: picked[ 0 ].id,
+				url: picked[ 0 ].url,
+				title: picked[ 0 ].title || '',
+			};
+		}
 		return new Promise( ( resolve ) => {
 			if ( ! window.wp || ! window.wp.media ) {
 				resolve( null );

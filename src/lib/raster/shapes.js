@@ -14,6 +14,7 @@ import {
 	scaledTile,
 	userTile,
 } from './patterns';
+import { extraShapePath } from '../shape-library';
 
 /**
  * Default dash/gap for a stroke style, derived from the stroke width so the
@@ -212,8 +213,12 @@ function drawArrowHead( ctx, tip, angle, kind, lw, color ) {
 export function drawShape( ctx, layer ) {
 	const { w, h } = layer;
 	ctx.beginPath();
-	if ( layer.pathD ) {
-		tracePathD( ctx, layer.pathD );
+	// A shape from the path library draws itself: the same string the
+	// exporter hands out is what lands on the canvas, so the two cannot
+	// drift the way the nine hand-written ones can.
+	const libD = layer.pathD ? null : extraShapePath( layer.shape, w, h );
+	if ( layer.pathD || libD ) {
+		tracePathD( ctx, layer.pathD || libD );
 		if ( layer.fill && 'transparent' !== layer.fill ) {
 			ctx.fillStyle = shapeFillStyle( ctx, layer );
 			ctx.fill();
@@ -321,26 +326,6 @@ export function drawShape( ctx, layer ) {
 			ctx.lineTo( w * 0.62, h * 0.92 );
 			ctx.lineTo( w * 0.62, h * 0.68 );
 			ctx.lineTo( 0, h * 0.68 );
-			ctx.closePath();
-			break;
-		case 'heart':
-			ctx.moveTo( w / 2, h * 0.95 );
-			ctx.bezierCurveTo(
-				-w * 0.18,
-				h * 0.5,
-				w * 0.08,
-				-h * 0.18,
-				w / 2,
-				h * 0.3
-			);
-			ctx.bezierCurveTo(
-				w * 0.92,
-				-h * 0.18,
-				w * 1.18,
-				h * 0.5,
-				w / 2,
-				h * 0.95
-			);
 			ctx.closePath();
 			break;
 		case 'speech': {

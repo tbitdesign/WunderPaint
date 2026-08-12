@@ -428,7 +428,7 @@ export function AboutDialog( { onClose } ) {
 						{ ! window.WPIE?.pro?.active && (
 							<a
 								className="ai-btn"
-								href="https://wp-image-editor.com/pricing/"
+								href="https://wp-image-editor.com/download/"
 								target="_blank"
 								rel="noreferrer"
 							>

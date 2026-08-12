@@ -463,8 +463,19 @@ export function openProjectOp( editor, extras ) {
 	input.click();
 }
 
-/** Insert the brand-kit logo as a layer (v1.1). */
-export async function insertLogoOp( editor, extras, logoUrl = '' ) {
+/**
+ * Insert the brand-kit logo as a layer (v1.1).
+ *
+ * `name` (v1.400.0) lets the Brand Kits section reuse this for the EU AI
+ * emblems, which are placed exactly like a logo but must not end up as a
+ * layer called "Logo" in everyone's layer list.
+ *
+ * @param {Object} editor  Editor handle.
+ * @param {Object} extras  Toasts and friends.
+ * @param {string} logoUrl Image URL; empty falls back to the site brand logo.
+ * @param {string} name    Layer name.
+ */
+export async function insertLogoOp( editor, extras, logoUrl = '', name = '' ) {
 	const url = logoUrl || editor.WPIE?.brand?.logoUrl;
 	if ( ! url ) {
 		extras?.toasts?.error?.(
@@ -486,7 +497,7 @@ export async function insertLogoOp( editor, extras, logoUrl = '' ) {
 		dispatch( {
 			type: 'ADD_LAYER',
 			layer: makeImage( {
-				name: 'Logo',
+				name: name || 'Logo',
 				x: Math.round( state.doc.w / 2 - w / 2 ),
 				y: Math.round( state.doc.h / 2 - h / 2 ),
 				w,
@@ -496,7 +507,7 @@ export async function insertLogoOp( editor, extras, logoUrl = '' ) {
 				naturalH: img.naturalHeight,
 			} ),
 		} );
-		commit( __( 'Insert logo', 'wunderpaint' ) );
+		commit( name || __( 'Insert logo', 'wunderpaint' ) );
 	} catch ( e ) {
 		extras?.toasts?.error?.(
 			__( 'Could not load the brand logo.', 'wunderpaint' )

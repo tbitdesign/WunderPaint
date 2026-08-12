@@ -20,6 +20,7 @@ import { FIELD_DEFS, toDataUrl, captionOne } from '../lib/caption-fields';
 import { mediaLib, ensureTagIds } from '../lib/media-library';
 import { COLOR_SWATCH } from '../lib/image-colors';
 import { UsagePanel, CreditsPanel } from './usage-panel';
+import { MetadataPanel } from './metadata-panel';
 import { ReplaceDialog } from './replace-dialog';
 import { RecropDialog } from './recrop-dialog';
 
@@ -339,6 +340,12 @@ export function MetaEditor( {
 									],
 									[ 'usage', __( 'Usage', 'wunderpaint' ) ],
 									[ 'origin', __( 'Origin', 'wunderpaint' ) ],
+									// Details describes the image, this tab
+									// describes the FILE (v1.401.0).
+									[
+										'file',
+										__( 'File data', 'wunderpaint' ),
+									],
 								].map( ( [ key, label ] ) => (
 									<button
 										key={ key }
@@ -436,6 +443,9 @@ export function MetaEditor( {
 							) }
 							{ 'origin' === leftTab && (
 								<CreditsPanel id={ id } bare />
+							) }
+							{ 'file' === leftTab && (
+								<MetadataPanel id={ id } bare />
 							) }
 						</div>
 

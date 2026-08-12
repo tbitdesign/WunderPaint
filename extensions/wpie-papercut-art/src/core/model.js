@@ -1,52 +1,70 @@
 /**
- * The scene model (v2): SHEETS carry OBJECTS.
+ * The scene model (v3): LAYERS carry OBJECTS, and nothing else.
  *
- * A sheet is one complete piece of paper. An object is a thing on it -
- * a deer, a forest, a moon, a cloud - and it keeps its own identity:
- * it can be picked, dragged, resized, moved to another sheet, deleted.
- * Nothing is ever baked irreversibly into the paper.
+ * v2 gave every sheet a forced substructure - a backdrop, a horizon with
+ * mounds, a strip hanging from the top edge, a border frame - because
+ * each sheet had to end up as one connected piece of cuttable paper.
+ * That requirement is gone (9 August 2026), and with it the whole idea
+ * of a sheet "base". A layer is now an empty transparency; a horizon, a
+ * backdrop or a border frame is simply an OBJECT you put on it, which
+ * means two ridges can share a layer, a deer can float in the sky, and
+ * nothing has to complete itself into anything.
  *
- * Every sheet completes itself into a FULL sheet, which is what makes
- * the stack cuttable and what the eye reads as layered paper:
- *
- *   full   - the whole page (the backdrop; cut objects punch holes)
- *   ridge | hills | dunes | waves | city - paper below a profile line
- *   ground - a flat horizon with soft mounds under whatever stands on it
- *   top    - paper hanging from the top edge (cloud banks)
- *   edge   - a border frame that holds corner branches
- *   photo | subject - the photo pipeline's sheets
+ * An object keeps its identity: pick it, drag it anywhere, resize,
+ * rotate, send it to another layer, delete it. `cut: true` punches it
+ * out of the layer it sits on instead of adding paper - and since no
+ * blade is involved, it may sit on ANY layer, not just a backdrop.
  */
 
-import {
-	GROUND_ANIMALS,
-	SKY_ANIMALS,
-	WATER_ANIMALS,
-} from './generators.js';
+import { GROUND_ANIMALS, SKY_ANIMALS, WATER_ANIMALS } from './generators.js';
 
 let uid = 0;
 export const newId = () =>
 	'p' + Date.now().toString( 36 ) + ( uid++ ).toString( 36 );
 
-export const FRAMES = [
-	'none',
+/**
+ * The windows a frame object can carry.
+ *
+ * Until v3.2 the frame was a SETTING (`params.frame`), always the
+ * frontmost sheet, unmovable, uncolourable and unable to carry anything.
+ * That is why nothing could be put on it. It is an object now, and this
+ * is its shape list: the drawn ones first, then the four that have dials
+ * and therefore cannot come out of any library.
+ */
+export const WINDOWS = [
 	'circle',
+	'oval',
 	'heart',
 	'arch',
-	'oval',
 	'hex',
 	'letter',
+	'star',
+	'ring',
+	'twinring',
+	'rect',
 ];
 
-/** Sheet bases the user can pick for a landscape sheet. */
-export const PROFILES = [ 'ridge', 'hills', 'dunes', 'waves', 'city' ];
-export const BASES = PROFILES.concat( [ 'full', 'ground', 'top', 'edge' ] );
+/** Windows built from dials rather than from a fixed outline. */
+export const PARAMETRIC_WINDOWS = [ 'star', 'ring', 'twinring' ];
+
+/** Landscape shapes a terrain object can take. `flat` is a plain horizon. */
+export const PROFILES = [ 'ridge', 'hills', 'dunes', 'waves', 'city', 'flat' ];
 
 export const TREE_SPECIES = [ 'conifer', 'broadleaf', 'birch', 'palm', 'bush' ];
 export const PLANT_SPECIES = [ 'grass', 'reeds', 'flowers', 'rocks' ];
 export const ORBS = [ 'moon', 'crescent', 'sun' ];
 export const CORNERS = [ 'tl', 'tr', 'bl', 'br' ];
 
+/**
+ * `backdrop`, `terrain` and `border` used to be sheet BASES, baked into
+ * the paper and unreachable. They are ordinary objects now, which is why
+ * a horizon can be picked up and dragged like everything else.
+ */
 export const OBJECT_KINDS = [
+	'backdrop',
+	'terrain',
+	'border',
+	'frame',
 	'animal',
 	'trees',
 	'plants',
@@ -57,6 +75,17 @@ export const OBJECT_KINDS = [
 	'branch',
 	'text',
 ];
+
+/**
+ * Nothing punches by default any more.
+ *
+ * A moon, a flock and a flyer used to arrive as HOLES, which was right
+ * while every one of them was forced onto the backdrop - there was paper
+ * around them. Once an object gets a layer of its own, a hole is cut
+ * into nothing and the thing is simply invisible. A control whose
+ * default outcome is "you see nothing" cannot be defended.
+ */
+const CUT_BY_DEFAULT = [];
 
 /* --------------------------------- looks -------------------------------- */
 
@@ -169,7 +198,58 @@ export function defaultObject( kind, extra = {} ) {
 		flip: false,
 		rot: 0,
 		seed: seedNow(),
+		cut: CUT_BY_DEFAULT.includes( kind ),
 	};
+	if ( 'backdrop' === kind ) {
+		// The whole page. It has no place and no size of its own.
+		return { ...base, x: 0.5, y: 0.5, scale: 100, cut: false, ...extra };
+	}
+	if ( 'terrain' === kind ) {
+		return {
+			...base,
+			profile: 'hills',
+			yBase: 78,
+			height: 36,
+			jag: 60,
+			x: 0.5,
+			y: 0.78,
+			scale: 100,
+			cut: false,
+			...extra,
+		};
+	}
+	if ( 'border' === kind ) {
+		return {
+			...base,
+			border: 3,
+			x: 0.5,
+			y: 0.5,
+			scale: 100,
+			cut: false,
+			...extra,
+		};
+	}
+	if ( 'frame' === kind ) {
+		// A full sheet with a window punched out of it. Everything else
+		// you drop on the same sheet - birds, cut-out words - becomes
+		// part of the passepartout and shares its paper.
+		return {
+			...base,
+			window: 'circle',
+			inset: 9,
+			letter: 'A',
+			points: 6,
+			sharp: 50,
+			width: 25,
+			tilt: 0,
+			gap: 55,
+			x: 0.5,
+			y: 0.5,
+			scale: 100,
+			cut: false,
+			...extra,
+		};
+	}
 	if ( 'animal' === kind ) {
 		return { ...base, species: 'deer', ...extra };
 	}
@@ -180,6 +260,7 @@ export function defaultObject( kind, extra = {} ) {
 			spread: 45,
 			count: 7,
 			scale: 24,
+			vary: 50,
 			...extra,
 		};
 	}
@@ -191,11 +272,12 @@ export function defaultObject( kind, extra = {} ) {
 			count: 14,
 			scale: 14,
 			y: 0.9,
+			vary: 50,
 			...extra,
 		};
 	}
 	if ( 'cloud' === kind ) {
-		return { ...base, y: 0.2, scale: 30, ...extra };
+		return { ...base, y: 0.2, scale: 30, puff: 50, wisp: 35, ...extra };
 	}
 	if ( 'orb' === kind ) {
 		return {
@@ -204,6 +286,7 @@ export function defaultObject( kind, extra = {} ) {
 			x: 0.7,
 			y: 0.24,
 			scale: 26,
+			rays: 12,
 			...extra,
 		};
 	}
@@ -240,12 +323,12 @@ export function defaultObject( kind, extra = {} ) {
 			...extra,
 		};
 	}
-	// text
+	// text - paper letters by default, `cut: true` punches them out
 	return {
 		...base,
 		value: 'WONDER',
 		family: '',
-		mode: 'paper',
+		lineGap: 20,
 		x: 0.5,
 		y: 0.85,
 		scale: 26,
@@ -253,63 +336,131 @@ export function defaultObject( kind, extra = {} ) {
 	};
 }
 
-/** Objects that punch a hole instead of adding paper. */
-export const isCutObject = ( o ) =>
-	'orb' === o.kind ||
-	'flyer' === o.kind ||
-	'flock' === o.kind ||
-	( 'text' === o.kind && 'cut' === o.mode );
+/**
+ * Objects that punch a hole instead of adding paper.
+ *
+ * In v2 this was decided by KIND, and cut objects had to live on the
+ * backdrop because a hole needs paper around it to stay cuttable. It is
+ * a per-object choice now: a moon can be a paper disc on one layer and
+ * a hole punched in the next.
+ */
+export const isCutObject = ( o ) => !! o.cut;
 
-/** Objects that stand on the ground rather than float. */
-export const isStanding = ( o ) =>
-	'animal' === o.kind || 'trees' === o.kind || 'plants' === o.kind;
-
-export function defaultSheet( base = 'ground', extra = {} ) {
+/** An empty transparency. What sits on it is entirely up to the objects. */
+export function defaultLayer( extra = {} ) {
 	return {
 		id: newId(),
-		base,
+		// 'elements' | 'photo' | 'subject' - where this layer's paper
+		// comes from. Photo layers get their mask from the picture, the
+		// rest from their objects.
+		source: 'elements',
+		band: 0,
 		color: '',
 		dx: 0,
 		dy: 0,
-		seed: seedNow(),
-		height: 'top' === base ? 55 : 36,
-		jag: 60,
-		yBase: 'top' === base ? 24 : 78,
-		border: 3,
-		band: 0,
+		shadow: 100,
 		objects: [],
 		...extra,
 	};
 }
 
+/**
+ * The v2 sheet bases, as the objects that replace them.
+ *
+ * One function, two callers: the migration of saved documents and the
+ * preset table, which was written in the old vocabulary and stays
+ * readable that way.
+ *
+ * @param {string} base v2 base name.
+ * @param {Object} s    The old sheet's fields (yBase, height, jag, seed, border).
+ * @return {Object|null} The object to put on the layer, or null.
+ */
+export function baseToObject( base, s = {} ) {
+	const seed = s.seed;
+	if ( 'full' === base ) {
+		return defaultObject( 'backdrop', seed ? { seed } : {} );
+	}
+	if ( 'top' === base ) {
+		return defaultObject( 'cloud', {
+			seed,
+			wide: true,
+			x: 0.5,
+			y: ( s.yBase ?? 24 ) / 100,
+			scale: s.height ?? 55,
+			cut: false,
+		} );
+	}
+	if ( 'edge' === base ) {
+		return defaultObject( 'border', { seed, border: s.border ?? 3 } );
+	}
+	if ( 'ground' === base || PROFILES.includes( base ) ) {
+		return defaultObject( 'terrain', {
+			seed,
+			profile: 'ground' === base ? 'flat' : base,
+			yBase: s.yBase ?? 78,
+			height: s.height ?? 36,
+			jag: s.jag ?? 60,
+			y: ( s.yBase ?? 78 ) / 100,
+		} );
+	}
+	return null;
+}
+
 export function defaultParams() {
 	return {
 		look: 'lightbox',
-		frame: 'none',
-		frameLetter: 'A',
-		frameInset: 9,
 		lightX: 30,
 		shadow: 55,
 		soft: 60,
 		grain: 35,
 		glow: 55,
-		cutWidth: 30,
-		minBridge: 2,
+		// The three look axes. The named LOOKS are presets on top of them.
+		colorSource: 'palette', // 'palette' | 'photo'
+		paper: 'smooth', // 'smooth' | 'fibre'
+		edge: 'shadow', // 'shadow' | 'rim'
 		detail: 50,
 		photo: {
-			source: 'none',
+			// The picture is where this studio starts, so a fresh scene
+			// reaches for the document straight away. If there is nothing
+			// to read - no editor, an empty canvas - the dialog falls back
+			// to the built-in scene and says nothing about it.
+			source: 'document',
 			layerId: '',
 			src: '',
-			bands: 4,
+			// Up to twenty now; the old ceiling of eight came from the
+			// cost of proving each sheet, not from the look.
+			bands: 6,
 			thresholds: [],
 			invert: false,
 			subject: false,
 			blur: 50,
+			// 'depth' uses the local depth model, 'luma' the brightness
+			// bands. 'depth' falls back to 'luma' when no model is there.
+			mode: 'depth',
 		},
-		sheets: [
-			defaultSheet( 'full', { yBase: 100 } ),
-			defaultSheet( 'hills', { seed: 12, yBase: 74, height: 30 } ),
-			defaultSheet( 'ground', { seed: 13, yBase: 92 } ),
+		layers: [
+			defaultLayer( { objects: [ defaultObject( 'backdrop' ) ] } ),
+			defaultLayer( {
+				objects: [
+					defaultObject( 'terrain', {
+						seed: 12,
+						profile: 'hills',
+						yBase: 74,
+						height: 30,
+						y: 0.74,
+					} ),
+				],
+			} ),
+			defaultLayer( {
+				objects: [
+					defaultObject( 'terrain', {
+						seed: 13,
+						profile: 'flat',
+						yBase: 92,
+						y: 0.92,
+					} ),
+				],
+			} ),
 		],
 	};
 }
@@ -344,7 +495,34 @@ function cleanObject( raw ) {
 		flip: !! raw.flip,
 		rot: num( raw.rot, 0, -180, 180 ),
 		seed: Math.max( 1, Math.floor( num( raw.seed, d.seed, 1, 1e9 ) ) ),
+		cut: undefined === raw.cut ? d.cut : !! raw.cut,
 	};
+	if ( 'terrain' === raw.kind ) {
+		o.profile = PROFILES.includes( raw.profile ) ? raw.profile : 'hills';
+		o.yBase = num( raw.yBase, d.yBase, 2, 100 );
+		o.height = num( raw.height, d.height, 0, 100 );
+		o.jag = num( raw.jag, d.jag, 0, 100 );
+		o.cut = false;
+	} else if ( 'frame' === raw.kind ) {
+		o.window = WINDOWS.includes( raw.window ) ? raw.window : 'circle';
+		o.inset = num( raw.inset, d.inset, 0, 30 );
+		o.letter = String( raw.letter || 'A' ).slice( 0, 1 ) || 'A';
+		o.points = Math.round( num( raw.points, d.points, 3, 24 ) );
+		o.sharp = num( raw.sharp, d.sharp, 0, 100 );
+		o.width = num( raw.width, d.width, 4, 80 );
+		o.tilt = num( raw.tilt, d.tilt, -90, 90 );
+		o.gap = num( raw.gap, d.gap, 10, 140 );
+		o.cut = false;
+	} else if ( 'border' === raw.kind ) {
+		o.border = num( raw.border, d.border, 1, 20 );
+		o.cut = false;
+	} else if ( 'backdrop' === raw.kind ) {
+		o.cut = false;
+	} else if ( 'cloud' === raw.kind ) {
+		o.wide = !! raw.wide;
+		o.puff = num( raw.puff, d.puff, 0, 100 );
+		o.wisp = num( raw.wisp, d.wisp, 0, 100 );
+	}
 	if ( 'animal' === raw.kind ) {
 		o.species = ANIMAL_SPECIES.includes( raw.species )
 			? raw.species
@@ -355,14 +533,17 @@ function cleanObject( raw ) {
 			: 'conifer';
 		o.spread = num( raw.spread, d.spread, 0, 200 );
 		o.count = Math.round( num( raw.count, d.count, 1, 40 ) );
+		o.vary = num( raw.vary, d.vary, 0, 100 );
 	} else if ( 'plants' === raw.kind ) {
 		o.species = PLANT_SPECIES.includes( raw.species )
 			? raw.species
 			: 'grass';
 		o.spread = num( raw.spread, d.spread, 0, 200 );
 		o.count = Math.round( num( raw.count, d.count, 1, 60 ) );
+		o.vary = num( raw.vary, d.vary, 0, 100 );
 	} else if ( 'orb' === raw.kind ) {
 		o.variant = ORBS.includes( raw.variant ) ? raw.variant : 'moon';
+		o.rays = Math.round( num( raw.rays, d.rays, 3, 40 ) );
 	} else if ( 'flyer' === raw.kind ) {
 		o.species = SKY_ANIMALS.includes( raw.species ) ? raw.species : 'eagle';
 	} else if ( 'flock' === raw.kind ) {
@@ -375,37 +556,45 @@ function cleanObject( raw ) {
 		o.corner = CORNERS.includes( raw.corner ) ? raw.corner : 'tl';
 		o.reach = num( raw.reach, d.reach, 15, 100 );
 	} else if ( 'text' === raw.kind ) {
-		o.value = String( raw.value ?? d.value ).slice( 0, 40 );
+		// Newlines survive: several words under each other are one block.
+		o.value = String( raw.value ?? d.value ).slice( 0, 80 );
 		o.family = String( raw.family || '' ).slice( 0, 80 );
-		o.mode = 'cut' === raw.mode ? 'cut' : 'paper';
+		o.lineGap = num( raw.lineGap, d.lineGap, 0, 120 );
+		// v2 carried the paper/cut choice for text in its own field.
+		o.cut = undefined === raw.cut ? 'cut' === raw.mode : !! raw.cut;
 	}
 	return o;
 }
 
-function cleanSheet( raw ) {
+const SOURCES = [ 'elements', 'photo', 'subject' ];
+
+function cleanLayer( raw ) {
 	if ( ! raw || 'object' !== typeof raw ) {
 		return null;
 	}
-	const base = BASES.concat( [ 'photo', 'subject' ] ).includes( raw.base )
-		? raw.base
-		: 'ground';
-	const d = defaultSheet( base );
+	const d = defaultLayer();
+	// A v2 sheet arriving here still has a base; it becomes the first
+	// object on the layer, ahead of whatever was standing on it.
+	const lead = raw.base ? baseToObject( raw.base, raw ) : null;
+	const objects = ( Array.isArray( raw.objects ) ? raw.objects : [] )
+		.map( cleanObject )
+		.filter( Boolean );
+	const source = SOURCES.includes( raw.source )
+		? raw.source
+		: ( 'photo' === raw.base && 'photo' ) ||
+		  ( 'subject' === raw.base && 'subject' ) ||
+		  'elements';
 	return {
 		id: 'string' === typeof raw.id && raw.id ? raw.id : d.id,
-		base,
+		source,
+		band: Math.round( num( raw.band, 0, 0, 19 ) ),
 		color: HEX.test( String( raw.color ) ) ? raw.color : '',
 		dx: num( raw.dx, 0, -1, 1 ),
 		dy: num( raw.dy, 0, -1, 1 ),
-		seed: Math.max( 1, Math.floor( num( raw.seed, d.seed, 1, 1e9 ) ) ),
-		height: num( raw.height, d.height, 0, 100 ),
-		jag: num( raw.jag, d.jag, 0, 100 ),
-		yBase: num( raw.yBase, d.yBase, 2, 100 ),
-		border: num( raw.border, d.border, 1, 20 ),
-		band: Math.round( num( raw.band, 0, 0, 7 ) ),
-		objects: ( Array.isArray( raw.objects ) ? raw.objects : [] )
-			.map( cleanObject )
+		shadow: num( raw.shadow, d.shadow, 0, 200 ),
+		objects: ( lead ? [ cleanObject( lead ), ...objects ] : objects )
 			.filter( Boolean )
-			.slice( 0, 24 ),
+			.slice( 0, 32 ),
 	};
 }
 
@@ -416,6 +605,11 @@ function cleanSheet( raw ) {
  * those saved scenes over: each old layer becomes a sheet, and every
  * baked element becomes a real object again.
  */
+// A v2-shaped sheet, not a finished layer: cleanLayer() turns the base
+// into its object. Both migrations therefore speak the old vocabulary
+// and only one place knows how to translate it.
+const rawSheet = ( base, extra = {} ) => ( { base, objects: [], ...extra } );
+
 function migrateV1( lagen ) {
 	const sheets = [];
 	for ( const l of lagen ) {
@@ -432,7 +626,7 @@ function migrateV1( lagen ) {
 			yBase: l.yBase,
 		};
 		if ( 'sky' === l.kind ) {
-			const s = defaultSheet( 'full', { ...common, yBase: 100 } );
+			const s = rawSheet( 'full', { ...common, yBase: 100 } );
 			if ( l.orb ) {
 				s.objects.push(
 					defaultObject( 'orb', {
@@ -464,9 +658,9 @@ function migrateV1( lagen ) {
 			}
 			sheets.push( s );
 		} else if ( 'clouds' === l.kind ) {
-			sheets.push( defaultSheet( 'top', { ...common } ) );
+			sheets.push( rawSheet( 'top', { ...common } ) );
 		} else if ( 'branch' === l.kind ) {
-			const s = defaultSheet( 'edge', { ...common } );
+			const s = rawSheet( 'edge', { ...common } );
 			s.objects.push(
 				defaultObject( 'branch', {
 					corner: l.corner || 'tl',
@@ -485,7 +679,7 @@ function migrateV1( lagen ) {
 			}
 			sheets.push( s );
 		} else if ( 'band' === l.kind ) {
-			const s = defaultSheet( l.profile || 'hills', { ...common } );
+			const s = rawSheet( l.profile || 'hills', { ...common } );
 			const groundY = ( l.yBase ?? 78 ) / 100;
 			if ( l.trees ) {
 				s.objects.push(
@@ -530,11 +724,11 @@ function migrateV1( lagen ) {
 			}
 			sheets.push( s );
 		} else if ( 'photoband' === l.kind ) {
-			sheets.push( defaultSheet( 'photo', { ...common, band: l.band } ) );
+			sheets.push( rawSheet( 'photo', { ...common, band: l.band } ) );
 		} else if ( 'subject' === l.kind ) {
-			sheets.push( defaultSheet( 'subject', { ...common } ) );
+			sheets.push( rawSheet( 'subject', { ...common } ) );
 		} else if ( 'text' === l.kind ) {
-			const s = defaultSheet( 'ground', {
+			const s = rawSheet( 'ground', {
 				...common,
 				yBase: Math.min( 98, ( l.y ?? 78 ) + 6 ),
 			} );
@@ -560,25 +754,55 @@ export function cleanParams( raw ) {
 		return d;
 	}
 	const photo = raw.photo && 'object' === typeof raw.photo ? raw.photo : {};
-	let sheets = Array.isArray( raw.sheets )
-		? raw.sheets.map( cleanSheet ).filter( Boolean )
+	// Three generations arrive here: v3 `layers`, v2 `sheets` and v1
+	// `lagen`. cleanLayer takes all three shapes, because a v2 sheet is
+	// just a layer that still names its base.
+	let layers = Array.isArray( raw.layers )
+		? raw.layers.map( cleanLayer ).filter( Boolean )
 		: null;
-	if ( ( ! sheets || ! sheets.length ) && Array.isArray( raw.lagen ) ) {
-		sheets = migrateV1( raw.lagen ).map( cleanSheet ).filter( Boolean );
+	if ( ( ! layers || ! layers.length ) && Array.isArray( raw.sheets ) ) {
+		layers = raw.sheets.map( cleanLayer ).filter( Boolean );
 	}
-	sheets = ( sheets && sheets.length ? sheets : d.sheets ).slice( 0, 12 );
+	if ( ( ! layers || ! layers.length ) && Array.isArray( raw.lagen ) ) {
+		layers = migrateV1( raw.lagen ).map( cleanLayer ).filter( Boolean );
+	}
+	// No ceiling of twelve any more: that number existed because each
+	// sheet cost a proof, and exceeding it silently deleted one.
+	layers = ( layers && layers.length ? layers : d.layers ).slice( 0, 40 );
+	// The frame used to be a SETTING that always sat in front. It is an
+	// object now, so an older document hands its setting over as one, on
+	// a sheet of its own at the very front.
+	const oldFrame = raw.frame;
+	if (
+		oldFrame &&
+		'none' !== oldFrame &&
+		! layers.some( ( l ) => l.objects.some( ( o ) => 'frame' === o.kind ) )
+	) {
+		layers = layers.concat( [
+			cleanLayer( {
+				objects: [
+					{
+						kind: 'frame',
+						window: WINDOWS.includes( oldFrame )
+							? oldFrame
+							: 'circle',
+						inset: raw.frameInset,
+						letter: raw.frameLetter,
+					},
+				],
+			} ),
+		] );
+	}
 	return {
 		look: LOOKS.some( ( l ) => l.id === raw.look ) ? raw.look : d.look,
-		frame: FRAMES.includes( raw.frame ) ? raw.frame : 'none',
-		frameLetter: String( raw.frameLetter || 'A' ).slice( 0, 2 ),
-		frameInset: num( raw.frameInset, d.frameInset, 2, 24 ),
 		lightX: num( raw.lightX, d.lightX, -100, 100 ),
 		shadow: num( raw.shadow, d.shadow, 0, 100 ),
 		soft: num( raw.soft, d.soft, 0, 100 ),
 		grain: num( raw.grain, d.grain, 0, 100 ),
 		glow: num( raw.glow, d.glow, 0, 100 ),
-		cutWidth: num( raw.cutWidth, d.cutWidth, 8, 100 ),
-		minBridge: num( raw.minBridge, d.minBridge, 1, 6 ),
+		colorSource: 'photo' === raw.colorSource ? 'photo' : 'palette',
+		paper: 'fibre' === raw.paper ? 'fibre' : 'smooth',
+		edge: 'rim' === raw.edge ? 'rim' : 'shadow',
 		detail: num( raw.detail, d.detail, 0, 100 ),
 		photo: {
 			source: [ 'none', 'document', 'layer', 'media', 'upload' ].includes(
@@ -592,26 +816,31 @@ export function cleanParams( raw ) {
 				photo.src.startsWith( 'data:image/' )
 					? photo.src
 					: '',
-			bands: Math.round( num( photo.bands, 4, 2, 8 ) ),
+			bands: Math.round( num( photo.bands, d.photo.bands, 2, 20 ) ),
 			thresholds: Array.isArray( photo.thresholds )
 				? photo.thresholds
-						.slice( 0, 7 )
+						.slice( 0, 19 )
 						.map( ( t ) => num( t, 0.5, 0.01, 0.99 ) )
 				: [],
 			invert: !! photo.invert,
 			subject: !! photo.subject,
 			blur: num( photo.blur, 50, 0, 100 ),
+			mode: 'luma' === photo.mode ? 'luma' : 'depth',
 		},
-		sheets,
+		layers,
 	};
 }
 
 /* -------------------------------- presets -------------------------------- */
 
-const S = ( base, extra, objects = [] ) => ( {
-	...defaultSheet( base, extra ),
-	objects,
-} );
+// The presets were written in the v2 vocabulary and read well that way,
+// so they keep speaking it: S() states a base and cleanLayer translates
+// it into the object that replaces it.
+const S = ( base, extra = {}, objects = [] ) =>
+	rawSheet( base, {
+		...extra,
+		objects,
+	} );
 const O = defaultObject;
 
 export const PRESETS = [
@@ -622,7 +851,7 @@ export const PRESETS = [
 			look: 'lightbox',
 			frame: 'none',
 			lightX: 30,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'flock', { count: 6, y: 0.14, spread: 70 } ),
 				] ),
@@ -657,7 +886,7 @@ export const PRESETS = [
 			look: 'forest',
 			frame: 'circle',
 			lightX: -25,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'flock', { species: 'birdfly', count: 4, y: 0.16 } ),
 				] ),
@@ -680,7 +909,12 @@ export const PRESETS = [
 					} ),
 				] ),
 				S( 'ground', { seed: 23, yBase: 90 }, [
-					O( 'animal', { species: 'deer', x: 0.38, y: 0.9, scale: 34 } ),
+					O( 'animal', {
+						species: 'deer',
+						x: 0.38,
+						y: 0.9,
+						scale: 34,
+					} ),
 					O( 'plants', {
 						species: 'grass',
 						y: 0.92,
@@ -700,7 +934,7 @@ export const PRESETS = [
 			frame: 'circle',
 			glow: 82,
 			lightX: 10,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'orb', { variant: 'moon', x: 0.62, y: 0.3, scale: 26 } ),
 				] ),
@@ -714,7 +948,12 @@ export const PRESETS = [
 						count: 6,
 						scale: 16,
 					} ),
-					O( 'animal', { species: 'wolf', x: 0.32, y: 0.84, scale: 30 } ),
+					O( 'animal', {
+						species: 'wolf',
+						x: 0.32,
+						y: 0.84,
+						scale: 30,
+					} ),
 				] ),
 			],
 		} ),
@@ -726,7 +965,7 @@ export const PRESETS = [
 			look: 'midnight',
 			frame: 'none',
 			lightX: -40,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'flock', { count: 7, y: 0.15, spread: 80 } ),
 				] ),
@@ -752,7 +991,7 @@ export const PRESETS = [
 			look: 'midnight',
 			frame: 'circle',
 			lightX: 20,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'flyer', {
 						species: 'gullfly',
@@ -763,7 +1002,12 @@ export const PRESETS = [
 				] ),
 				S( 'waves', { seed: 64, yBase: 54, height: 16, jag: 40 } ),
 				S( 'waves', { seed: 65, yBase: 74, height: 20, jag: 60 }, [
-					O( 'animal', { species: 'whale', x: 0.46, y: 0.74, scale: 28 } ),
+					O( 'animal', {
+						species: 'whale',
+						x: 0.46,
+						y: 0.74,
+						scale: 28,
+					} ),
 				] ),
 				S( 'waves', { seed: 66, yBase: 93, height: 22, jag: 80 } ),
 			],
@@ -776,7 +1020,7 @@ export const PRESETS = [
 			look: 'sunset',
 			frame: 'none',
 			lightX: 45,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'orb', { variant: 'sun', x: 0.3, y: 0.22, scale: 22 } ),
 					O( 'flock', { count: 8, y: 0.14, spread: 80 } ),
@@ -794,7 +1038,7 @@ export const PRESETS = [
 			look: 'rose',
 			frame: 'heart',
 			lightX: -20,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'flyer', {
 						species: 'butterfly',
@@ -830,13 +1074,23 @@ export const PRESETS = [
 			look: 'vintage',
 			frame: 'arch',
 			lightX: 35,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
-					O( 'flyer', { species: 'eagle', x: 0.52, y: 0.2, scale: 22 } ),
+					O( 'flyer', {
+						species: 'eagle',
+						x: 0.52,
+						y: 0.2,
+						scale: 22,
+					} ),
 				] ),
 				S( 'ridge', { seed: 82, yBase: 56, height: 42, jag: 90 } ),
 				S( 'ridge', { seed: 83, yBase: 80, height: 36, jag: 62 }, [
-					O( 'animal', { species: 'ibex', x: 0.26, y: 0.8, scale: 22 } ),
+					O( 'animal', {
+						species: 'ibex',
+						x: 0.26,
+						y: 0.8,
+						scale: 22,
+					} ),
 					O( 'trees', {
 						species: 'conifer',
 						x: 0.72,
@@ -856,7 +1110,7 @@ export const PRESETS = [
 			look: 'noirgold',
 			frame: 'hex',
 			lightX: -30,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'orb', { variant: 'moon', x: 0.3, y: 0.24, scale: 24 } ),
 				] ),
@@ -870,7 +1124,12 @@ export const PRESETS = [
 					} ),
 				] ),
 				S( 'ground', { seed: 93, yBase: 86 }, [
-					O( 'animal', { species: 'bear', x: 0.5, y: 0.86, scale: 28 } ),
+					O( 'animal', {
+						species: 'bear',
+						x: 0.5,
+						y: 0.86,
+						scale: 28,
+					} ),
 					O( 'plants', {
 						species: 'rocks',
 						y: 0.88,
@@ -889,7 +1148,7 @@ export const PRESETS = [
 			look: 'vintage',
 			frame: 'oval',
 			lightX: 25,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'orb', {
 						variant: 'crescent',
@@ -900,7 +1159,12 @@ export const PRESETS = [
 				] ),
 				S( 'city', { seed: 102, yBase: 66, height: 30 } ),
 				S( 'ground', { seed: 103, yBase: 92 }, [
-					O( 'animal', { species: 'cat', x: 0.56, y: 0.92, scale: 24 } ),
+					O( 'animal', {
+						species: 'cat',
+						x: 0.56,
+						y: 0.92,
+						scale: 24,
+					} ),
 				] ),
 			],
 		} ),
@@ -912,8 +1176,10 @@ export const PRESETS = [
 			look: 'lightbox',
 			frame: 'none',
 			lightX: -15,
-			sheets: [
-				S( 'full', { yBase: 100 }, [ O( 'flock', { count: 5, y: 0.15 } ) ] ),
+			layers: [
+				S( 'full', { yBase: 100 }, [
+					O( 'flock', { count: 5, y: 0.15 } ),
+				] ),
 				S( 'ridge', { seed: 112, yBase: 52, height: 38, jag: 74 } ),
 				S( 'hills', { seed: 113, yBase: 74, height: 28 }, [
 					O( 'trees', {
@@ -943,7 +1209,7 @@ export const PRESETS = [
 			look: 'sunset',
 			frame: 'none',
 			lightX: 55,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'orb', { variant: 'sun', x: 0.66, y: 0.24, scale: 26 } ),
 				] ),
@@ -969,9 +1235,14 @@ export const PRESETS = [
 			look: 'forest',
 			frame: 'none',
 			lightX: -35,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
-					O( 'flyer', { species: 'heron', x: 0.34, y: 0.2, scale: 14 } ),
+					O( 'flyer', {
+						species: 'heron',
+						x: 0.34,
+						y: 0.2,
+						scale: 14,
+					} ),
 				] ),
 				S( 'hills', { seed: 132, yBase: 48, height: 26 }, [
 					O( 'trees', {
@@ -1005,7 +1276,7 @@ export const PRESETS = [
 			look: 'sunset',
 			frame: 'circle',
 			lightX: -20,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'flock', { species: 'birdfly', count: 5, y: 0.18 } ),
 				] ),
@@ -1019,7 +1290,12 @@ export const PRESETS = [
 					} ),
 				] ),
 				S( 'ground', { seed: 143, yBase: 88 }, [
-					O( 'animal', { species: 'fox', x: 0.4, y: 0.88, scale: 22 } ),
+					O( 'animal', {
+						species: 'fox',
+						x: 0.4,
+						y: 0.88,
+						scale: 22,
+					} ),
 					O( 'plants', {
 						species: 'grass',
 						y: 0.9,
@@ -1039,7 +1315,7 @@ export const PRESETS = [
 			frame: 'arch',
 			glow: 70,
 			lightX: 0,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'orb', { variant: 'moon', x: 0.5, y: 0.28, scale: 30 } ),
 					O( 'flyer', {
@@ -1059,7 +1335,12 @@ export const PRESETS = [
 					} ),
 				] ),
 				S( 'ground', { seed: 153, yBase: 93 }, [
-					O( 'animal', { species: 'owl', x: 0.28, y: 0.93, scale: 20 } ),
+					O( 'animal', {
+						species: 'owl',
+						x: 0.28,
+						y: 0.93,
+						scale: 20,
+					} ),
 				] ),
 			],
 		} ),
@@ -1071,14 +1352,19 @@ export const PRESETS = [
 			look: 'vintage',
 			frame: 'none',
 			lightX: 40,
-			sheets: [
+			layers: [
 				S( 'full', { yBase: 100 }, [
 					O( 'orb', { variant: 'sun', x: 0.76, y: 0.28, scale: 20 } ),
 					O( 'flock', { count: 5, y: 0.16 } ),
 				] ),
 				S( 'hills', { seed: 162, yBase: 58, height: 24 } ),
 				S( 'ground', { seed: 163, yBase: 90 }, [
-					O( 'animal', { species: 'horse', x: 0.34, y: 0.9, scale: 26 } ),
+					O( 'animal', {
+						species: 'horse',
+						x: 0.34,
+						y: 0.9,
+						scale: 26,
+					} ),
 					O( 'animal', {
 						species: 'horse',
 						x: 0.6,

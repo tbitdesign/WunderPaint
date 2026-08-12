@@ -20,6 +20,18 @@ class Meshy {
 	const API = 'https://api.meshy.ai';
 
 	/**
+	 * Selectable generation models, newest first after `latest`. One list for
+	 * the settings allowlist, the settings form and the request builder, so a
+	 * new Meshy generation cannot be half-added.
+	 */
+	const MODELS = array( 'latest', 'meshy-7', 'meshy-6', 'meshy-5' );
+
+	/**
+	 * Selectable quality levels.
+	 */
+	const QUALITIES = array( 'low', 'standard', 'high', 'ultra' );
+
+	/**
 	 * Register hooks.
 	 */
 	public function hooks() {
@@ -83,27 +95,51 @@ class Meshy {
 	/**
 	 * Generation defaults from settings, mapped onto raw API params. Two
 	 * friendly knobs: the AI model and one quality level (quality steers
-	 * polygon count and texture resolution; PBR is always on).
+	 * texture resolution and the Ultra refinement pass; PBR is always on).
 	 *
-	 * @return array { model, polycount, hd }
+	 * The endpoint matters, because `latest` does not mean the same thing on
+	 * both: Image to 3D resolves it to Meshy 7, Text to 3D to Meshy 6, which
+	 * is the newest model that endpoint offers. Meshy 7 sent to Text to 3D is
+	 * rejected outright, so a pinned Meshy 7 is handed on as `latest` there -
+	 * that keeps the wish for "newest" and follows Meshy's own upgrades.
+	 *
+	 * @param string $endpoint 'image' | 'text'.
+	 * @return array { model, texture, remesh, polycount, ultra }
 	 */
-	private static function gen_defaults() {
-		$s       = Helpers::get_settings();
-		$model   = in_array( ( $s['meshy_model'] ?? 'latest' ), array( 'latest', 'meshy-6', 'meshy-5' ), true )
+	private static function gen_defaults( $endpoint = 'image' ) {
+		$s     = Helpers::get_settings();
+		$model = in_array( ( $s['meshy_model'] ?? 'latest' ), self::MODELS, true )
 			? (string) $s['meshy_model']
 			: 'latest';
-		$quality = (string) ( $s['meshy_quality'] ?? 'standard' );
-		$poly    = 30000;
-		if ( 'low' === $quality ) {
-			$poly = 10000;
-		} elseif ( 'high' === $quality ) {
-			$poly = 100000;
+		if ( 'text' === $endpoint && 'meshy-7' === $model ) {
+			$model = 'latest';
 		}
+		$quality = in_array( ( $s['meshy_quality'] ?? 'standard' ), self::QUALITIES, true )
+			? (string) $s['meshy_quality']
+			: 'standard';
+		$modern  = 'meshy-5' !== $model;
+
+		// `hd_texture` is deprecated and meant exactly 4k. 8k exists too, but
+		// is never requested: those files routinely land above the model
+		// library's size limit, and an import that fails after the credits
+		// are already spent is the worst outcome there is.
+		$texture = ( 'high' === $quality || 'ultra' === $quality ) && $modern ? '4k' : '2k';
+
+		// Meshy 6 and 7 ship usable topology on their own - remeshing is off
+		// by default there, and forcing it would grind down exactly the
+		// geometry the newer models are better at. Only the tier that
+		// promises a small file still asks for one; Meshy 5 always did.
+		$remesh = 'low' === $quality || ! $modern;
+
 		return array(
 			'model'     => $model,
-			'polycount' => $poly,
-			// 4K textures need Meshy 6+; 'high' turns them on automatically.
-			'hd'        => 'high' === $quality && 'meshy-5' !== $model,
+			'texture'   => $texture,
+			'remesh'    => $remesh,
+			'polycount' => 'low' === $quality ? 10000 : 30000,
+			// Extra refinement pass: Image to 3D only, Meshy 7 only, and it
+			// costs 5 credits more than the same job without it.
+			'ultra'     => 'ultra' === $quality && 'image' === $endpoint
+				&& in_array( $model, array( 'latest', 'meshy-7' ), true ),
 		);
 	}
 
@@ -214,20 +250,22 @@ class Meshy {
 				return new \WP_Error( 'wpie_meshy_image', __( 'Meshy needs a JPEG, PNG or WebP image.', 'wunderpaint' ), array( 'status' => 400 ) );
 			}
 			$bytes = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-			$gen   = self::gen_defaults();
-			$data  = self::request(
-				'POST',
-				'/openapi/v1/image-to-3d',
-				array(
-					'image_url'        => 'data:' . $mime . ';base64,' . base64_encode( $bytes ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-					'enable_pbr'       => true,
-					'should_texture'   => true,
-					'ai_model'         => $gen['model'],
-					'should_remesh'    => true,
-					'target_polycount' => $gen['polycount'],
-					'hd_texture'       => $gen['hd'],
-				)
+			$gen   = self::gen_defaults( 'image' );
+			$body  = array(
+				'image_url'          => 'data:' . $mime . ';base64,' . base64_encode( $bytes ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+				'enable_pbr'         => true,
+				'should_texture'     => true,
+				'ai_model'           => $gen['model'],
+				'should_remesh'      => $gen['remesh'],
+				'texture_resolution' => $gen['texture'],
 			);
+			if ( $gen['remesh'] ) {
+				$body['target_polycount'] = $gen['polycount'];
+			}
+			if ( $gen['ultra'] ) {
+				$body['ultra_mode'] = true;
+			}
+			$data = self::request( 'POST', '/openapi/v1/image-to-3d', $body );
 			if ( is_wp_error( $data ) ) {
 				return $data;
 			}
@@ -237,23 +275,32 @@ class Meshy {
 			);
 		}
 		if ( 'text' === $mode || 'text-refine' === $mode ) {
-			$gen  = self::gen_defaults();
-			$body = 'text' === $mode
-				? array(
-					'mode'             => 'preview',
-					'prompt'           => mb_substr( sanitize_textarea_field( (string) $request->get_param( 'prompt' ) ), 0, 600 ),
-					'art_style'        => 'realistic',
-					'ai_model'         => $gen['model'],
-					'should_remesh'    => true,
-					'target_polycount' => $gen['polycount'],
-				)
-				: array(
-					'mode'            => 'refine',
-					'preview_task_id' => sanitize_text_field( (string) $request->get_param( 'preview_id' ) ),
-					'enable_pbr'      => true,
-					'ai_model'        => $gen['model'],
-					'hd_texture'      => $gen['hd'],
+			$gen = self::gen_defaults( 'text' );
+			if ( 'text' === $mode ) {
+				$body = array(
+					'mode'          => 'preview',
+					'prompt'        => mb_substr( sanitize_textarea_field( (string) $request->get_param( 'prompt' ) ), 0, 600 ),
+					'ai_model'      => $gen['model'],
+					'should_remesh' => $gen['remesh'],
 				);
+				if ( $gen['remesh'] ) {
+					$body['target_polycount'] = $gen['polycount'];
+				}
+				// `art_style` is deprecated and unsupported from Meshy 6 on -
+				// sending it there is noise, so only a pinned Meshy 5 still
+				// gets the style it was always generated with.
+				if ( 'meshy-5' === $gen['model'] ) {
+					$body['art_style'] = 'realistic';
+				}
+			} else {
+				$body = array(
+					'mode'               => 'refine',
+					'preview_task_id'    => sanitize_text_field( (string) $request->get_param( 'preview_id' ) ),
+					'enable_pbr'         => true,
+					'ai_model'           => $gen['model'],
+					'texture_resolution' => $gen['texture'],
+				);
+			}
 			if ( 'text' === $mode && '' === $body['prompt'] ) {
 				return new \WP_Error( 'wpie_meshy_prompt', __( 'Describe the object first.', 'wunderpaint' ), array( 'status' => 400 ) );
 			}

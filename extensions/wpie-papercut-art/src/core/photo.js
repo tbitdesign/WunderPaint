@@ -62,9 +62,7 @@ export function blurLuma( luma, w, h, r ) {
 export function histogram( luma ) {
 	const bins = new Float32Array( 64 );
 	for ( let i = 0; i < luma.length; i++ ) {
-		bins[
-			Math.max( 0, Math.min( 63, Math.floor( luma[ i ] * 64 ) ) )
-		]++;
+		bins[ Math.max( 0, Math.min( 63, Math.floor( luma[ i ] * 64 ) ) ) ]++;
 	}
 	const max = Math.max( 1, ...bins );
 	for ( let i = 0; i < 64; i++ ) {
@@ -85,7 +83,9 @@ export function autoThresholds( luma, bands ) {
 	const sorted = Float32Array.from( luma ).sort();
 	const out = [];
 	for ( let k = 1; k < bands; k++ ) {
-		out.push( sorted[ Math.floor( ( k / bands ) * ( sorted.length - 1 ) ) ] );
+		out.push(
+			sorted[ Math.floor( ( k / bands ) * ( sorted.length - 1 ) ) ]
+		);
 	}
 	// Strictly ascending, clamped away from the ends.
 	for ( let i = 0; i < out.length; i++ ) {
@@ -119,6 +119,82 @@ export function bandMask( luma, w, h, thresholds, band, invert = false ) {
 	for ( let i = 0; i < luma.length; i++ ) {
 		const v = invert ? 1 - luma[ i ] : luma[ i ];
 		out[ i ] = v <= t ? 1 : 0;
+	}
+	return out;
+}
+
+/**
+ * Depth bands: the picture sliced by DISTANCE instead of brightness.
+ *
+ * Brightness only stands in for depth in a hazy landscape, where far
+ * happens to be pale. In everything else it lies - a dark shirt in the
+ * foreground lands at the back. With a real depth map the bands ARE
+ * depth layers.
+ *
+ * Cumulative like the luminance bands: band 0 is the nearest sheet, and
+ * every sheet behind it contains the ones in front, so a stack of paper
+ * holds together the way a real one does.
+ *
+ * @param {Uint8Array} depth One channel, 0 far .. 255 near.
+ * @param {number}     count How many layers (2..20).
+ * @return {Uint8Array[]} `count` masks, front to back.
+ */
+export function depthBands( depth, count ) {
+	const n = Math.max( 2, Math.round( count ) );
+	// Quantiles, not even steps: a picture whose depth sits in a narrow
+	// band would otherwise put everything on one sheet and leave the
+	// rest blank.
+	const sorted = Uint8Array.from( depth ).sort();
+	const cuts = [];
+	for ( let k = 1; k < n; k++ ) {
+		cuts.push(
+			sorted[ Math.floor( ( 1 - k / n ) * ( sorted.length - 1 ) ) ]
+		);
+	}
+	const out = [];
+	for ( let k = 0; k < n; k++ ) {
+		const mask = new Uint8Array( depth.length );
+		if ( k === n - 1 ) {
+			// The backmost sheet is the whole page: something has to
+			// carry the picture.
+			mask.fill( 1 );
+		} else {
+			const t = cuts[ k ];
+			for ( let i = 0; i < depth.length; i++ ) {
+				mask[ i ] = depth[ i ] >= t ? 1 : 0;
+			}
+		}
+		out.push( mask );
+	}
+	return out;
+}
+
+/**
+ * Resample a depth map onto another grid, nearest neighbour.
+ *
+ * @param {Object} map `{ w, h, depth }`.
+ * @param {number} w   Target width.
+ * @param {number} h   Target height.
+ * @return {Uint8Array} The resampled channel.
+ */
+export function resampleDepth( map, w, h ) {
+	const out = new Uint8Array( w * h );
+	// Cover-fit, the same way the photo itself is laid onto the sheet.
+	const s = Math.max( w / map.w, h / map.h );
+	const ox = ( w - map.w * s ) / 2;
+	const oy = ( h - map.h * s ) / 2;
+	for ( let y = 0; y < h; y++ ) {
+		const sy = Math.min(
+			map.h - 1,
+			Math.max( 0, Math.floor( ( y - oy ) / s ) )
+		);
+		for ( let x = 0; x < w; x++ ) {
+			const sx = Math.min(
+				map.w - 1,
+				Math.max( 0, Math.floor( ( x - ox ) / s ) )
+			);
+			out[ y * w + x ] = map.depth[ sy * map.w + sx ];
+		}
 	}
 	return out;
 }

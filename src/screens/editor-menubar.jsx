@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useMemo } from '@wordpress/element';
 import { __, _x } from '@wordpress/i18n';
 
 import { I } from '../icons';
+import { tipPreview, TIP_TILE } from '../lib/brush-preview';
 import { FILTERS, FONT_WEIGHTS } from '../store/constants';
 import { BlendModeSelect } from '../components/blend-select';
 import { FontPicker } from '../components/font-picker';
@@ -23,18 +24,8 @@ import {
 	deleteUserGradient,
 } from '../lib/gradient-presets';
 import { useGradients } from '../content/use-content';
-import {
-	BRUSH_TIPS,
-	isStampTip,
-	stampTipStroke,
-	getTip,
-} from '../lib/brush-tips';
-import { dashDefaults, drawSoftRoundStroke } from '../lib/raster';
-import {
-	listToolPresets,
-	saveToolPreset,
-	deleteToolPreset,
-} from '../lib/tool-presets';
+import { BRUSH_TIPS, isStampTip, getTip } from '../lib/brush-tips';
+import { dashDefaults } from '../lib/raster';
 import { EFFECTS } from '../lib/effects';
 import { TextStylePicker } from './text-style-picker';
 import { useSelectionStyle } from '../components/use-selection-style';
@@ -55,6 +46,7 @@ import { ScrubLabel } from '../components/scrub-label';
 import { GradientBar } from '../components/gradient-bar';
 import * as Ops from '../store/ops';
 import { currentLocale, availableLocales } from '../lib/editor-locale';
+import { ShapePicker } from '../components/shape-picker';
 
 /**
  * Build the menu model (spec 04.2, every listed item, all functional).
@@ -867,6 +859,13 @@ function buildMenus( editor, extras ) {
 				},
 				{ divider: true },
 				// Panels (v1.130.2): everything that shows/hides a work area.
+				{
+					label: state.showBrushPanel
+						? __( 'Hide Brush Panel', 'wunderpaint' )
+						: __( 'Show Brush Panel', 'wunderpaint' ),
+					run: () =>
+						editor.dispatch( { type: 'TOGGLE_BRUSH_PANEL' } ),
+				},
 				{
 					label: state.showNavigator
 						? __( 'Hide Navigator', 'wunderpaint' )
@@ -1765,50 +1764,6 @@ function GradientPresetPicker( { opts, set } ) {
 	);
 }
 
-/** Saved brush presets as one-click chips (F9, v0.5). */
-function BrushPresets( { opts, apply } ) {
-	const [ presets, setPresets ] = useState( listToolPresets );
-	return (
-		<div className="group" style={ { gap: 4 } }>
-			{ presets.map( ( preset ) => (
-				<button
-					key={ preset.name }
-					className="brush-preset-chip"
-					title={ `${ preset.size }px · ${ preset.opacity }% · ${ __(
-						'Alt-click removes',
-						'wunderpaint'
-					) }` }
-					onClick={ ( e ) => {
-						if ( e.altKey ) {
-							setPresets( deleteToolPreset( preset.name ) );
-						} else {
-							apply( preset );
-						}
-					} }
-				>
-					{ preset.name }
-				</button>
-			) ) }
-			<button
-				className="brush-preset-chip add"
-				title={ __( 'Save current brush as preset', 'wunderpaint' ) }
-				onClick={ async () => {
-					const name = await promptDialog( {
-						title: __( 'Save Brush Preset', 'wunderpaint' ),
-						label: __( 'Name', 'wunderpaint' ),
-						defaultValue: `${ opts.size }px`,
-					} );
-					if ( name ) {
-						setPresets( saveToolPreset( name, opts ) );
-					}
-				} }
-			>
-				＋
-			</button>
-		</div>
-	);
-}
-
 function NumberOpt( { label, value, onChange, width = 56, suffix, min, max } ) {
 	return (
 		<div className="group">
@@ -1836,49 +1791,15 @@ function NumberOpt( { label, value, onChange, width = 56, suffix, min, max } ) {
 	);
 }
 
-/** Rendered stroke preview for a brush tip (cached, v1.21). */
-const tipPreviewCache = {};
-function tipPreview( id ) {
-	if ( tipPreviewCache[ id ] ) {
-		return tipPreviewCache[ id ];
-	}
-	const c = document.createElement( 'canvas' );
-	c.width = 62;
-	c.height = 38;
-	const ctx = c.getContext( '2d' );
-	const pts = [];
-	for ( let i = 0; i <= 26; i++ ) {
-		const t = i / 26;
-		pts.push( {
-			x: 8 + t * 46,
-			y: 19 + Math.sin( t * Math.PI * 1.7 ) * 9,
-		} );
-	}
-	const path = { pts, size: 9, color: '#e6e8eb', opacity: 1, tip: id };
-	if ( isStampTip( id ) ) {
-		stampTipStroke( ctx, path );
-	} else {
-		const soft = getTip( id ).soft || 0;
-		if ( soft > 0 ) {
-			// Same feathered engine as the canvas render (v1.123).
-			drawSoftRoundStroke( ctx, path, soft );
-		} else {
-			ctx.strokeStyle = '#e6e8eb';
-			ctx.lineCap = 'round';
-			ctx.lineJoin = 'round';
-			ctx.beginPath();
-			pts.forEach( ( p, i ) =>
-				i ? ctx.lineTo( p.x, p.y ) : ctx.moveTo( p.x, p.y )
-			);
-			ctx.lineWidth = 9;
-			ctx.stroke();
-		}
-	}
-	tipPreviewCache[ id ] = c.toDataURL();
-	return tipPreviewCache[ id ];
-}
-
 /** Brush-tip picker: a trigger button + dropdown grid of previews (v1.22). */
+/*
+ * Kept in step with the panel width in controls.css (.brush-tip-panel).
+ * It is only read to keep the panel on screen, so a stale number does not
+ * break anything visible until the dropdown opens near the right edge -
+ * which is exactly why it is named here instead of sitting in the maths.
+ */
+const TIP_PANEL_W = 202;
+
 function BrushTipPicker( { value, onChange } ) {
 	const [ open, setOpen ] = useState( null );
 	const panelRef = useRef( null );
@@ -1911,13 +1832,16 @@ function BrushTipPicker( { value, onChange } ) {
 					const rect = e.currentTarget.getBoundingClientRect();
 					setOpen( {
 						position: 'fixed',
-						left: Math.min( rect.left, window.innerWidth - 232 ),
+						left: Math.min(
+							rect.left,
+							window.innerWidth - TIP_PANEL_W - 12
+						),
 						top: rect.bottom + 6,
 						zIndex: 700,
 					} );
 				} }
 			>
-				<img src={ tipPreview( current.id ) } alt="" />
+				<img src={ tipPreview( current.id, TIP_TILE ) } alt="" />
 				<span className="caret">▾</span>
 			</button>
 			{ open && (
@@ -1941,7 +1865,7 @@ function BrushTipPicker( { value, onChange } ) {
 								setOpen( null );
 							} }
 						>
-							<img src={ tipPreview( t.id ) } alt="" />
+							<img src={ tipPreview( t.id, TIP_TILE ) } alt="" />
 						</button>
 					) ) }
 				</div>
@@ -2140,17 +2064,6 @@ function ToolOptions( { extras, compact } ) {
 							<option value="xy">↔↕</option>
 						</select>
 					</div>
-				) }
-				{ [ 'brush', 'eraser' ].includes( tool ) && (
-					<BrushPresets
-						opts={ opts }
-						apply={ ( preset ) => {
-							set( 'size', preset.size );
-							set( 'opacity', preset.opacity );
-							set( 'flow', preset.flow );
-							set( 'hardness', preset.hardness );
-						} }
-					/>
 				) }
 			</>
 		);
@@ -2496,27 +2409,10 @@ function ToolOptions( { extras, compact } ) {
 					<span className="label">
 						{ __( 'Shape', 'wunderpaint' ) }
 					</span>
-					<select
+					<ShapePicker
 						value={ opts.shape }
-						style={ { width: 110 } }
-						onChange={ ( e ) => set( 'shape', e.target.value ) }
-					>
-						{ [
-							[ 'rect', __( 'Rectangle', 'wunderpaint' ) ],
-							[ 'ellipse', __( 'Ellipse', 'wunderpaint' ) ],
-							[ 'line', __( 'Line', 'wunderpaint' ) ],
-							[ 'polygon', __( 'Polygon', 'wunderpaint' ) ],
-							[ 'star', __( 'Star', 'wunderpaint' ) ],
-							[ 'arrow', __( 'Arrow', 'wunderpaint' ) ],
-							[ 'heart', __( 'Heart', 'wunderpaint' ) ],
-							[ 'speech', __( 'Speech Bubble', 'wunderpaint' ) ],
-							[ 'badge', __( 'Badge', 'wunderpaint' ) ],
-						].map( ( [ id, label ] ) => (
-							<option key={ id } value={ id }>
-								{ label }
-							</option>
-						) ) }
-					</select>
+						onChange={ ( id ) => set( 'shape', id ) }
+					/>
 					<span className="label">
 						{ __( 'Fill', 'wunderpaint' ) }
 					</span>
@@ -2870,10 +2766,14 @@ function ToolOptions( { extras, compact } ) {
 					</div>
 				</div>
 				<div className="group" style={ { overflow: 'visible' } }>
+					{ /* A pixel width on purpose, and one of the very few:
+					     the options bar is a horizontal row sized by what is
+					     in it, so there is no container width for a
+					     percentage to fill. */ }
 					<GradientBar
 						stops={ opts.stops || [] }
 						onChange={ ( stops ) => set( 'stops', stops ) }
-						width={ 150 }
+						width={ 170 }
 					/>
 					<button
 						className={ opts.reverse ? 'active' : '' }

@@ -72,6 +72,7 @@ class Plugin {
 			'recrop'      => Media_Recrop::class,
 			'oversize'    => Media_Oversize::class,
 			'credits'     => Media_Credits::class,
+			'meta_read'   => Media_Metadata::class,
 			'fonts'       => Fonts::class,
 			'geo'         => Geo::class,
 			'assistant'   => Assistant::class,

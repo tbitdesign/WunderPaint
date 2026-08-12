@@ -110,16 +110,14 @@ function GradientFillControls( { layer, up } ) {
 			</Field>
 			<div style={ { marginTop: 8 } }>
 				<Field label={ __( 'Gradient', 'wunderpaint' ) }>
-					{ /* Extra bottom room for the draggable gradient-stop handles. */ }
-					<div style={ { paddingBottom: 14 } }>
-						<GradientBar
-							stops={ layer.gradientStops || [] }
-							onChange={ ( gradientStops ) =>
-								up( { gradientStops } )
-							}
-							width={ 190 }
-						/>
-					</div>
+					{ /* The room for the stop handles is the bar's own margin
+					     now, so this no longer needs a spacer of its own. */ }
+					<GradientBar
+						stops={ layer.gradientStops || [] }
+						onChange={ ( gradientStops ) =>
+							up( { gradientStops } )
+						}
+					/>
 				</Field>
 			</div>
 			{ 'radial' !== kind && (
@@ -2455,7 +2453,6 @@ function GradientSection( { layer } ) {
 				<GradientBar
 					stops={ layer.stops }
 					onChange={ ( stops ) => up( { stops } ) }
-					width={ 230 }
 				/>
 			</div>
 			<button

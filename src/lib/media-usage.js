@@ -89,6 +89,18 @@ export const credits = {
 	overview: () => request( { path: '/media-credits', method: 'GET' } ),
 };
 
+/** What is embedded in the file itself, and how to take it back out (v1.401.0). */
+export const fileMeta = {
+	get: ( id ) =>
+		request( { path: `/media-metadata/${ id }`, method: 'GET' } ),
+	strip: ( id, what ) =>
+		request( {
+			path: `/media-metadata/${ id }`,
+			method: 'POST',
+			data: { what },
+		} ),
+};
+
 /**
  * Run the sweep to completion, reporting progress as it goes.
  *

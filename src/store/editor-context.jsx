@@ -21,6 +21,7 @@ import { scalePathD } from '../lib/path';
 import { measureTextHeight } from '../lib/raster';
 import * as History from './history';
 import * as SharedClipboard from './shared-clipboard';
+import { setDrawnTips } from '../lib/brush-tips';
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -309,6 +310,14 @@ export function initialState( { doc, layers, WPIE } ) {
 			( window.localStorage?.getItem( 'wpie-navigator' ) ?? null )
 				? !! WPIE?.demo
 				: '1' === window.localStorage?.getItem( 'wpie-navigator' ),
+		// The brush panel is ON by default: it is the whole point of the
+		// brush rebuild, and a panel nobody finds is a panel nobody uses.
+		// It only SHOWS for paint tools, so it costs nothing elsewhere.
+		showBrushPanel:
+			null ===
+			( window.localStorage?.getItem( 'wpie-brush-panel' ) ?? null )
+				? true
+				: '1' === window.localStorage?.getItem( 'wpie-brush-panel' ),
 		compare: false,
 		revealPasteboard: false, // v1.379.1: paint off-canvas content
 		proof: null, // CVD proofing mode (view-only, v1.1)
@@ -323,8 +332,79 @@ export function initialState( { doc, layers, WPIE } ) {
 	};
 }
 
+/**
+ * Where a new layer goes when the caller does not say (v1.399).
+ *
+ * It used to be "the very end", which is the very top - so however
+ * carefully you picked a layer first, everything you inserted landed above
+ * everything else and had to be dragged back down. The rule now is the one
+ * the adjustment layers and the new brush layer already followed: directly
+ * above what is selected.
+ *
+ * Two deliberate limits:
+ * - A selection INSIDE a group anchors on the whole group, not on the
+ *   member. Landing between two members would silently change a group the
+ *   user did not mean to touch (Thomas' call, 11.08.2026).
+ * - A layer that already names a `parent` is a studio building a group,
+ *   child by child. Those keep appending, so no extension has to change.
+ *
+ * @param {Object} state Editor state.
+ * @param {Object} layer The layer about to be added.
+ * @return {number} Index to splice at.
+ */
+function insertPoint( state, layer ) {
+	const layers = state.layers || [];
+	if ( ! layer || layer.parent ) {
+		return layers.length;
+	}
+	const anchors =
+		state.selectedIds && state.selectedIds.length
+			? state.selectedIds
+			: [ state.activeId ];
+	// Up to the outermost ancestor: that entry sits ABOVE its own members
+	// in flat order, so one past it is "above the whole group".
+	const rootOf = ( id ) => {
+		let cur = layers.find( ( l ) => l.id === id );
+		const seen = new Set();
+		while ( cur && cur.parent && ! seen.has( cur.id ) ) {
+			seen.add( cur.id );
+			const up = layers.find( ( l ) => l.id === cur.parent );
+			if ( ! up ) {
+				break;
+			}
+			cur = up;
+		}
+		return cur;
+	};
+	let at = -1;
+	for ( const id of anchors ) {
+		const root = id ? rootOf( id ) : null;
+		if ( root ) {
+			at = Math.max(
+				at,
+				layers.findIndex( ( l ) => l.id === root.id )
+			);
+		}
+	}
+	return at < 0 ? layers.length : at + 1;
+}
+
 export function reducer( state, action ) {
 	switch ( action.type ) {
+		// The brush panel follows the Navigator's pattern exactly: a stored
+		// preference, toggled from the View menu. It is not a seventh tab
+		// in the right rail - that grid is three over three and every
+		// tutorial video is built on it.
+		case 'TOGGLE_BRUSH_PANEL': {
+			const showBrushPanel = ! state.showBrushPanel;
+			try {
+				window.localStorage?.setItem(
+					'wpie-brush-panel',
+					showBrushPanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showBrushPanel };
+		}
 		case 'TOGGLE_NAVIGATOR': {
 			const showNavigator = ! state.showNavigator;
 			try {
@@ -384,7 +464,7 @@ export function reducer( state, action ) {
 			return { ...state, layers: action.layers };
 		case 'ADD_LAYER': {
 			const layers = [ ...state.layers ];
-			const index = action.index ?? layers.length;
+			const index = action.index ?? insertPoint( state, action.layer );
 			layers.splice( index, 0, action.layer );
 			let out = {
 				...state,
@@ -712,6 +792,21 @@ export function EditorProvider( { doc, layers, WPIE, children } ) {
 	// geometry (the "400px thumbnail looks cropped until redo" bug).
 	const stateRef = useRef( state );
 	stateRef.current = state;
+
+	// DRAWN BRUSH TIPS, and the timing is the whole point.
+	//
+	// A stroke stores only its tip's id, and `getTip` answers an unknown id
+	// with Hard Round and no complaint. So the document's own tips have to
+	// be in the registry BEFORE anything draws a layer. An effect would be
+	// too late: a child's effect runs before its parent's, and the canvas
+	// is the child. useMemo runs during this component's render, which is
+	// before any child renders at all.
+	//
+	// Not a violation worth agonising over: setDrawnTips is idempotent and
+	// the registry is a cache, not state.
+	useMemo( () => {
+		setDrawnTips( state.doc?.tips );
+	}, [ state.doc?.tips ] );
 	const live = useMemo(
 		() => ( {
 			get state() {

@@ -13,6 +13,7 @@
  */
 
 import { PANO_VERT, PANO_FRAG } from './panorama';
+import { safeUrl } from './safe-url';
 
 /** JSON that is safe inside an inline <script> block. */
 const jsData = ( value ) =>
@@ -20,11 +21,11 @@ const jsData = ( value ) =>
 		.replace( /</g, '\\u003c' )
 		.replace( />/g, '\\u003e' );
 
-/** Hotspot links: web schemes only - a javascript: URL never ships. */
-const safeUrl = ( url ) => {
-	const value = String( url || '' ).trim();
-	return /^(https?:|mailto:|tel:|\/|#)/i.test( value ) ? value : '';
-};
+// Hotspot links: web schemes only, a javascript: URL never ships. The rule
+// itself moved to safe-url.js on 10 August 2026, when the extension catalogue
+// turned out to need exactly the same judgement; it had been written here
+// first and copying it a second time would have been how the two versions
+// start to drift.
 
 /** Hotspot styling shared by the editor viewer and the embed (v1.378.2). */
 export const HOTSPOT_SIZES = { s: 11, m: 13, l: 16 };

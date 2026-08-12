@@ -19,6 +19,7 @@ import {
 	commandsToPathD,
 } from './corner-geometry';
 import { normalizePathD } from './path.js';
+import { extraShapePath } from './shape-library';
 
 const n = ( v ) => {
 	const r = Math.round( v * 1000 ) / 1000;
@@ -73,6 +74,11 @@ export function shapeToPathD( layer ) {
 	const rx = w / 2;
 	const ry = h / 2;
 	const cy = h / 2;
+	// Shapes that are DEFINED as path data need no second reading here.
+	const fromLibrary = extraShapePath( layer.shape, w, h );
+	if ( fromLibrary ) {
+		return normalizePathD( fromLibrary );
+	}
 	let d;
 	switch ( layer.shape ) {
 		case 'line':
@@ -121,16 +127,6 @@ export function shapeToPathD( layer ) {
 					w * 0.62
 				) } ${ n( h * 0.68 ) } ` +
 				`L 0 ${ n( h * 0.68 ) } Z`;
-			break;
-		case 'heart':
-			d =
-				`M ${ n( w / 2 ) } ${ n( h * 0.95 ) } ` +
-				`C ${ n( -w * 0.18 ) } ${ n( h * 0.5 ) } ${ n(
-					w * 0.08
-				) } ${ n( -h * 0.18 ) } ${ n( w / 2 ) } ${ n( h * 0.3 ) } ` +
-				`C ${ n( w * 0.92 ) } ${ n( -h * 0.18 ) } ${ n(
-					w * 1.18
-				) } ${ n( h * 0.5 ) } ${ n( w / 2 ) } ${ n( h * 0.95 ) } Z`;
 			break;
 		case 'speech': {
 			const r = Math.min( w, h ) * 0.12;

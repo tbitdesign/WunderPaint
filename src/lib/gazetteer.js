@@ -191,3 +191,79 @@ export function search( data, query, limit = 6 ) {
 			};
 		} );
 }
+
+/** Degrees per kilometer at the equator, for the flat-earth approximation. */
+const DEG_PER_KM = 1 / 111.32;
+
+/** How far out a bigger place may still outrank a closer one. */
+const TOWN_RADIUS_KM = 20;
+
+/**
+ * The place a person would name for a coordinate pair (v1.401.0).
+ *
+ * The metadata inspector turns a photo's GPS tag into something readable.
+ * "50.9375, 6.9603" tells nobody anything; "near Cologne, Germany" makes the
+ * point of the cleaner obvious at a glance.
+ *
+ * NOT simply the closest entry. The index carries city districts alongside
+ * cities, so the nearest row to the Cologne cathedral is "Altstadt Nord", to
+ * the Eiffel tower "Paris 16 Passy" and to the opera house "Sydney Central
+ * Business District" - all correct, all useless as an answer. Within
+ * TOWN_RADIUS_KM the most populated place wins instead, which is how a person
+ * would answer. Out in the country nothing qualifies and the nearest village
+ * is returned, which is again what a person would say.
+ *
+ * Answered from the same bundled index the search uses, so this asks no
+ * geocoding service and sends no coordinate anywhere. Distance uses an
+ * equirectangular approximation: far more precision than "which town is this"
+ * needs, and one cosine for the whole scan.
+ *
+ * @param {Object} data Loaded index.
+ * @param {number} lat  Latitude.
+ * @param {number} lon  Longitude.
+ * @return {Object|null} {name, country, display, km} or null.
+ */
+export function nearest( data, lat, lon ) {
+	if ( ! data || ! Number.isFinite( lat ) || ! Number.isFinite( lon ) ) {
+		return null;
+	}
+	const shrink = Math.cos( ( lat * Math.PI ) / 180 );
+	const reach = ( TOWN_RADIUS_KM * DEG_PER_KM ) ** 2;
+
+	let closest = -1;
+	let closestD = Infinity;
+	let biggest = -1;
+	let biggestPop = -1;
+	let biggestD = Infinity;
+
+	for ( let i = 0; i < data.c.length; i++ ) {
+		const row = data.c[ i ];
+		const dy = row[ 1 ] - lat;
+		const dx = ( row[ 2 ] - lon ) * shrink;
+		const d = dy * dy + dx * dx;
+		if ( d < closestD ) {
+			closestD = d;
+			closest = i;
+		}
+		if ( d <= reach && row[ 4 ] > biggestPop ) {
+			biggestPop = row[ 4 ];
+			biggest = i;
+			biggestD = d;
+		}
+	}
+
+	const pick = biggest >= 0 ? biggest : closest;
+	if ( pick < 0 ) {
+		return null;
+	}
+	const [ names, , , cc ] = data.c[ pick ];
+	const country = data.cc[ cc ] || cc;
+	return {
+		name: names[ 0 ],
+		country,
+		display: names[ 0 ] + ', ' + country,
+		km: Math.round(
+			Math.sqrt( biggest >= 0 ? biggestD : closestD ) / DEG_PER_KM
+		),
+	};
+}

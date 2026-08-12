@@ -33,6 +33,15 @@ class Scanner_Options extends Usage_Scanner {
 	}
 
 	/**
+	 * Options are site furniture, not posts; hits carry no post id.
+	 *
+	 * @return bool
+	 */
+	public function objects_are_posts() {
+		return false;
+	}
+
+	/**
 	 * Display name.
 	 *
 	 * @return string

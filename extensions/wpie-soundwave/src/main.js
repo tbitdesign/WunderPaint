@@ -380,7 +380,38 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 	}
 
-	pickBtn.onclick = () => {
+	/** What the studio hands back, in the shape this studio already uses. */
+	const useAudio = ( item ) => {
+		pcmBuffer = null;
+		params.audio = {
+			id: item.id,
+			url: item.url,
+			title: item.title || item.filename || '',
+		};
+		if ( titleInput && ! titleDirty ) {
+			titleInput.value = params.audio.title;
+		}
+		syncAudioInfo();
+		loadAudio( item.url );
+	};
+
+	pickBtn.onclick = async () => {
+		// THE EDITOR'S OWN PICKER FIRST. `wp.media` is the WordPress admin
+		// modal and does not exist in the standalone studio on
+		// wunderpaint.com, so this button only ever showed an error there.
+		// `types` takes 'audio' as readily as 'image'.
+		if ( window.WPIE && window.WPIE.pickMedia ) {
+			const picked = await window.WPIE.pickMedia( {
+				multiple: false,
+				title: t( 'Choose audio' ),
+				button: t( 'Use audio' ),
+				types: 'audio',
+			} );
+			if ( picked && picked.length ) {
+				useAudio( picked[ 0 ] );
+			}
+			return;
+		}
 		if ( ! window.wp || ! window.wp.media ) {
 			setStatus( t( 'Could not load the audio file.' ), true );
 			return;
@@ -392,18 +423,7 @@ async function openStudio( { editor, extras, layer } ) {
 			button: { text: t( 'Use audio' ) },
 		} );
 		frame.on( 'select', () => {
-			const item = frame.state().get( 'selection' ).first().toJSON();
-			pcmBuffer = null;
-			params.audio = {
-				id: item.id,
-				url: item.url,
-				title: item.title || item.filename || '',
-			};
-			if ( titleInput && ! titleDirty ) {
-				titleInput.value = params.audio.title;
-			}
-			syncAudioInfo();
-			loadAudio( item.url );
+			useAudio( frame.state().get( 'selection' ).first().toJSON() );
 		} );
 		frame.open();
 	};

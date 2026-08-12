@@ -33,6 +33,7 @@ import {
 	designs as designsApi,
 } from '../lib/api';
 import { insertAsset, listRecentAssets } from '../lib/asset-insert';
+import { labelTiles } from '../lib/eu-ai-labels';
 import { SearchIndexHint } from '../components/search-index-hint';
 import { searchModelInstalled, searchMediaLibrary } from '../lib/image-search';
 import {
@@ -1373,7 +1374,17 @@ function BrandStrip( { query, editor, extras } ) {
 			!! k.logoUrl &&
 			( ! query || k.name.toLowerCase().includes( query ) )
 	);
-	if ( ! kits.length ) {
+	// The EU AI emblems ride along here (v1.400.0) because this is already the
+	// shelf for things you lay ON a picture. They are inserted as plain image
+	// layers, so they can be moved and scaled like anything else. Nothing
+	// applies them by itself; see lib/eu-ai-labels.js.
+	const labels = labelTiles().filter(
+		( tile ) =>
+			! query ||
+			tile.name.toLowerCase().includes( query ) ||
+			'eu ai label'.includes( query )
+	);
+	if ( ! kits.length && ! labels.length ) {
 		return (
 			<div className="tray-hint">
 				{ __( 'No Brand Kit has a logo yet.', 'wunderpaint' ) }
@@ -1395,6 +1406,32 @@ function BrandStrip( { query, editor, extras } ) {
 						<img src={ kit.logoUrl } alt="" draggable={ false } />
 					</span>
 					<span className="tray-tile-name">{ kit.name }</span>
+				</button>
+			) ) }
+			{ labels.map( ( tile ) => (
+				<button
+					key={ tile.id }
+					className="tray-tile tray-tile-labeled"
+					title={ tile.name }
+					onClick={ () =>
+						Ops.insertLogoOp(
+							editor,
+							extras,
+							tile.url,
+							__( 'EU AI label', 'wunderpaint' )
+						)
+					}
+				>
+					<span
+						className="tray-tile-preview"
+						style={
+							// A white emblem on a white tile is invisible.
+							tile.dark ? { background: '#3c4043' } : undefined
+						}
+					>
+						<img src={ tile.url } alt="" draggable={ false } />
+					</span>
+					<span className="tray-tile-name">{ tile.name }</span>
 				</button>
 			) ) }
 		</div>

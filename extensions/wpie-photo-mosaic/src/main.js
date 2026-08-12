@@ -148,7 +148,7 @@ function openStudio( ctx ) {
 			}
 		};
 		walk( editor.state.layers, 0 );
-		add( 'media', t( 'Media library…' ) );
+		add( 'media', t( 'Media library' ) );
 	}
 	fillSourceOptions();
 	srcSel.value =
@@ -159,6 +159,31 @@ function openStudio( ctx ) {
 	params.source = srcSel.value;
 
 	function mediaFrame( title, button, multiple ) {
+		// THE EDITOR'S OWN PICKER FIRST. `wp.media` is the WordPress admin
+		// modal and simply does not exist in the standalone studio on
+		// wunderpaint.com, so the guard below returned null and the button
+		// did nothing at all - no picker, no message. 3D Gallery Studio
+		// asks WPIE.pickMedia first, which is why that one always worked.
+		//
+		// Same promise either way: an array of items, or null/undefined
+		// when the user backed out.
+		if ( window.WPIE && window.WPIE.pickMedia ) {
+			return window.WPIE.pickMedia( {
+				multiple: !! multiple,
+				title,
+				button,
+				types: 'image',
+			} ).then( ( picked ) =>
+				picked
+					? picked.map( ( item ) => ( {
+							id: item.id,
+							url: item.thumb || item.url,
+							full: item.url,
+							title: item.title || '',
+					  } ) )
+					: picked
+			);
+		}
 		return new Promise( ( resolve ) => {
 			if ( ! window.wp || ! window.wp.media ) {
 				resolve( null );
@@ -344,7 +369,7 @@ function openStudio( ctx ) {
 	const tileRow = el( 'div', 'wpiemos-tilebtns', tileSec );
 	const pickTilesBtn = el( 'button', 'ai-btn secondary', tileRow );
 	pickTilesBtn.type = 'button';
-	pickTilesBtn.textContent = t( 'Pick tile photos…' );
+	pickTilesBtn.textContent = t( 'Pick tile photos' );
 	const clearBtn = el( 'button', 'wpiemos-reset', tileRow );
 	clearBtn.type = 'button';
 	clearBtn.textContent = t( 'Clear' );
@@ -406,7 +431,7 @@ function openStudio( ctx ) {
 
 	pickTilesBtn.onclick = async () => {
 		const picked = await mediaFrame(
-			t( 'Pick tile photos…' ),
+			t( 'Pick tile photos' ),
 			t( 'Use photos' ),
 			true
 		);

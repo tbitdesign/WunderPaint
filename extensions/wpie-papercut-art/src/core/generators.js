@@ -32,7 +32,6 @@ const ellipse = ( cx, cy, rx, ry, n = 28, rot = 0 ) => {
 	return out;
 };
 
-
 /* ------------------------------- profiles ------------------------------- */
 
 /**
@@ -97,7 +96,7 @@ export function profileLine(
 			// Soft, wind-blown crests: asymmetric sine plus drift.
 			const k = 2 + Math.round( jag * 3 );
 			const s = Math.sin( x * k * Math.PI + seed );
-			v = ( Math.pow( Math.abs( s ), 0.7 ) * 0.6 + n( x * 1.6 ) * 0.4 );
+			v = Math.pow( Math.abs( s ), 0.7 ) * 0.6 + n( x * 1.6 ) * 0.4;
 		} else if ( 'waves' === kind ) {
 			// Scalloped water: rounded repeating arcs plus drift.
 			const kf = 7 + Math.round( jag * 8 );
@@ -152,9 +151,7 @@ export function profileAt( ys, x ) {
 	const t = Math.max( 0, Math.min( 1, x ) ) * ( ys.length - 1 );
 	const i = Math.floor( t );
 	const f = t - i;
-	return (
-		ys[ i ] * ( 1 - f ) + ys[ Math.min( ys.length - 1, i + 1 ) ] * f
-	);
+	return ys[ i ] * ( 1 - f ) + ys[ Math.min( ys.length - 1, i + 1 ) ] * f;
 }
 
 /* ------------------------------ silhouettes ------------------------------ */
@@ -197,13 +194,22 @@ const FLIPPED = new Set( [ 'wolf', 'horse', 'squirrel', 'dolphin' ] );
  * Place a silhouette: unit box scaled to `size` (share of sheet
  * height), standing at `x` with its feet on the given ground y.
  *
- * @param {string} kind   Silhouette id.
- * @param {Object} at     `{ x, y, size, flip }` - y is unit ground.
- * @param {number} w      Sheet width in px.
- * @param {number} h      Sheet height in px.
+ * @param {string}  kind     Silhouette id.
+ * @param {Object}  at       Where it stands.
+ * @param {number}  at.x     Unit x across the sheet.
+ * @param {number}  at.y     Unit ground line the feet sit on.
+ * @param {number}  at.size  Height as a share of the sheet.
+ * @param {boolean} at.flip  Face the other way.
+ * @param {number}  w        Sheet width in px.
+ * @param {number}  h        Sheet height in px.
  * @return {Array} One stamp (array of rings).
  */
-export function silhouetteStamp( kind, { x = 0.5, y = 1, size = 0.2, flip = false }, w, h ) {
+export function silhouetteStamp(
+	kind,
+	{ x = 0.5, y = 1, size = 0.2, flip = false },
+	w,
+	h
+) {
 	const s = SILHOUETTES[ kind ];
 	if ( ! s ) {
 		return [];
@@ -224,7 +230,12 @@ export function silhouetteStamp( kind, { x = 0.5, y = 1, size = 0.2, flip = fals
 }
 
 /** A silhouette standing on the profile line. */
-export function animalStamp( ys, { kind = 'deer', x = 0.5, scale = 0.22, flip = false }, w, h ) {
+export function animalStamp(
+	ys,
+	{ kind = 'deer', x = 0.5, scale = 0.22, flip = false },
+	w,
+	h
+) {
 	return silhouetteStamp(
 		kind,
 		{ x, y: profileAt( ys, x ) + 0.004, size: scale, flip },
@@ -251,8 +262,7 @@ function conifer( cx, ground, hgt, r, slim = 0.42 ) {
 		const t = i / tiers;
 		// Tier y from top down, tier half-width grows toward the base.
 		const y = bodyTop + t * hgt * 0.92;
-		const wHere =
-			hgt * slim * Math.pow( t, 0.78 ) * ( 0.92 + r() * 0.16 );
+		const wHere = hgt * slim * Math.pow( t, 0.78 ) * ( 0.92 + r() * 0.16 );
 		const x = cx + lean * ( 1 - t );
 		// Each tier: out to the tip, then a small step back inwards.
 		left.push( [ x - wHere, y + hgt * 0.055 ] );
@@ -312,7 +322,9 @@ function broadleaf( cx, ground, hgt, r, { slim = 1, birch = false } = {} ) {
 	// enough to read as foliage rather than as a lollipop.
 	const crownR = hgt * ( birch ? 0.26 : 0.42 ) * slim;
 	const crownY = topY - crownR * 0.45;
-	stamps.push( [ ellipse( topX, crownY, crownR * 1.02, crownR * 0.78, 34 ) ] );
+	stamps.push( [
+		ellipse( topX, crownY, crownR * 1.02, crownR * 0.78, 34 ),
+	] );
 	const blobs = birch ? 6 : 9 + Math.floor( r() * 4 );
 	for ( let i = 0; i < blobs; i++ ) {
 		// Lobes ride the upper half of the dome; the underside stays
@@ -392,7 +404,9 @@ function palm( cx, ground, hgt, r ) {
 		stamps.push( [ ring ] );
 	}
 	// A small crown knot ties the fronds together.
-	stamps.push( [ ellipse( topX, topY + hgt * 0.01, hgt * 0.045, hgt * 0.04, 18 ) ] );
+	stamps.push( [
+		ellipse( topX, topY + hgt * 0.01, hgt * 0.045, hgt * 0.04, 18 ),
+	] );
 	return stamps;
 }
 
@@ -428,7 +442,8 @@ export const TREE_KINDS = [ 'conifer', 'broadleaf', 'birch', 'palm', 'bush' ];
 const treeFn = {
 	conifer,
 	broadleaf,
-	birch: ( cx, ground, hgt, r ) => broadleaf( cx, ground, hgt, r, { birch: true } ),
+	birch: ( cx, ground, hgt, r ) =>
+		broadleaf( cx, ground, hgt, r, { birch: true } ),
 	palm,
 	bush: ( cx, ground, hgt, r ) => bush( cx, ground, hgt * 0.5, r ),
 };
@@ -448,11 +463,14 @@ export function treeCluster( o, w, h, ys ) {
 	const r = rng( o.seed + 31 );
 	const out = [];
 	const n = Math.max( 1, Math.round( o.count ) );
+	// vary 0..1: at 0 every tree is the same height (an orchard), at 1
+	// they range widely (a wild stand).
+	const vary = undefined === o.vary ? 0.5 : o.vary;
 	for ( let i = 0; i < n; i++ ) {
 		// Jittered even spacing beats pure random: no clumps, no gaps.
 		const t = n === 1 ? 0.5 : ( i + 0.5 + ( r() - 0.5 ) * 0.7 ) / n;
 		const x = o.x + ( t - 0.5 ) * o.spread;
-		const hgt = o.size * ( 0.68 + r() * 0.7 ) * h;
+		const hgt = o.size * ( 1 - vary * 0.45 + r() * vary * 1.4 ) * h;
 		const ground = ( ys ? profileAt( ys, x ) : o.y ) * h + hgt * 0.02;
 		out.push( ...make( x * w, ground, hgt, r ) );
 	}
@@ -472,10 +490,11 @@ export function plantCluster( o, w, h, ys ) {
 	const r = rng( o.seed + 87 );
 	const out = [];
 	const n = Math.max( 1, Math.round( o.count ) );
+	const vary = undefined === o.vary ? 0.5 : o.vary;
 	for ( let i = 0; i < n; i++ ) {
 		const t = n === 1 ? 0.5 : ( i + 0.5 + ( r() - 0.5 ) * 0.85 ) / n;
 		const x = o.x + ( t - 0.5 ) * o.spread;
-		const hgt = o.size * ( 0.6 + r() * 0.85 ) * h;
+		const hgt = o.size * ( 1 - vary * 0.4 + r() * vary * 1.7 ) * h;
 		const ground = ( ys ? profileAt( ys, x ) : o.y ) * h + hgt * 0.04;
 		const cx = x * w;
 		if ( 'reeds' === o.species ) {
@@ -569,7 +588,10 @@ function flowerStem( cx, ground, hgt, r ) {
 		for ( let k = 0; k < petals * 2; k++ ) {
 			const a = ( k / ( petals * 2 ) ) * TAU;
 			const rr = k % 2 ? rad * 0.42 : rad;
-			ring.push( [ headX + Math.cos( a ) * rr, headY + Math.sin( a ) * rr ] );
+			ring.push( [
+				headX + Math.cos( a ) * rr,
+				headY + Math.sin( a ) * rr,
+			] );
 		}
 		out.push( [ ring ] );
 	} else {
@@ -596,43 +618,37 @@ function boulder( cx, ground, hgt, r ) {
 }
 
 /**
- * A soft mound that carries a standing object down to the horizon, so
- * nothing ever floats on a flat ground sheet.
- *
- * @param {Object} bb     Object bbox in px.
- * @param {number} ground Horizon y in px.
- * @param {number} seed   For a little asymmetry.
- * @return {Array} Stamps.
- */
-export function moundStamp( bb, ground, seed ) {
-	const r = rng( seed + 401 );
-	const cx = ( bb.x0 + bb.x1 ) / 2;
-	const halfW = Math.max( ( bb.x1 - bb.x0 ) * 1.5, ( ground - bb.y1 ) * 1.6 );
-	const top = bb.y1 - Math.max( 2, ( ground - bb.y1 ) * 0.08 );
-	const ring = [];
-	const N = 28;
-	for ( let i = 0; i <= N; i++ ) {
-		const t = i / N;
-		const x = cx - halfW + t * halfW * 2;
-		// A wide, low cosine hill with a touch of asymmetry.
-		const bump = Math.pow( Math.cos( ( t - 0.5 ) * Math.PI ), 1.6 );
-		const skew = 1 + ( r() - 0.5 ) * 0.06;
-		ring.push( [ x, ground - ( ground - top ) * bump * skew ] );
-	}
-	ring.push( [ cx + halfW, ground + 4 ], [ cx - halfW, ground + 4 ] );
-	return [ [ ring ] ];
-}
-
-/**
  * A cumulus cloud as its own object: overlapping lobes on a flat base.
  * `wide` spreads the lobes across the whole sheet (the cloud bank).
  *
- * @param {Object} o `{ seed, x, y, size, wide }`.
- * @param {number} w Sheet width.
- * @param {number} h Sheet height.
+ * @param {Object}  o       Cloud settings.
+ * @param {number}  o.seed  Dice for the lobe placement.
+ * @param {number}  o.x     Unit x of the cloud's centre.
+ * @param {number}  o.y     Unit y of the cloud's centre.
+ * @param {number}  o.size  Size as a share of the sheet.
+ * @param {boolean} o.wide  Spread the lobes into a cloud bank.
+ * @param {number}  o.puff  0..1, piles the lobes into a towering cumulus.
+ * @param {number}  o.wisp  0..1, breaks the outline into separate tufts.
+ * @param {number}  w       Sheet width.
+ * @param {number}  h       Sheet height.
  * @return {Array} Stamps.
  */
-export function cloudCluster( { seed = 1, x = 0.5, y = 0.25, size = 0.3, wide = false }, w, h ) {
+export function cloudCluster(
+	{
+		seed = 1,
+		x = 0.5,
+		y = 0.25,
+		size = 0.3,
+		wide = false,
+		// puff 0..1 piles the lobes up into a towering cumulus; low
+		// values keep it a flat, drawn-out bank. wisp 0..1 breaks the
+		// outline up into separate tufts instead of one solid mass.
+		puff = 0.5,
+		wisp = 0.35,
+	},
+	w,
+	h
+) {
 	const r = rng( seed + 211 );
 	const stamps = [];
 	const groups = wide ? 5 + Math.floor( r() * 3 ) : 1;
@@ -642,16 +658,22 @@ export function cloudCluster( { seed = 1, x = 0.5, y = 0.25, size = 0.3, wide = 
 			? ( ( c + 0.5 + ( r() - 0.5 ) * 0.7 ) / groups ) * w
 			: x * w;
 		const cy = y * h;
-		const lobes = 4 + Math.floor( r() * 4 );
+		// More wisp means more, smaller lobes - that is what reads as a
+		// frayed edge rather than a balloon.
+		const lobes = 3 + Math.round( wisp * 6 ) + Math.floor( r() * 3 );
 		const sc = scale * ( wide ? 0.85 + r() * 0.5 : 1 );
 		for ( let i = 0; i < lobes; i++ ) {
 			const t = ( i + 0.5 ) / lobes;
-			const tall = Math.sin( Math.PI * t );
-			const rad = sc * ( 0.55 + tall * 0.75 ) * ( 0.85 + r() * 0.3 );
+			const tall = Math.pow( Math.sin( Math.PI * t ), 1.6 - puff );
+			const rad =
+				sc *
+				( 0.55 + tall * ( 0.35 + puff * 0.95 ) ) *
+				( 1 - wisp * 0.3 ) *
+				( 0.85 + r() * 0.3 );
 			stamps.push( [
 				ellipse(
-					cx + ( t - 0.5 ) * sc * 3.1,
-					cy - rad * 0.15 + sc * 0.25,
+					cx + ( t - 0.5 ) * sc * ( 3.1 - puff * 1.4 ),
+					cy - rad * ( 0.15 + puff * 0.5 ) + sc * 0.25,
 					rad * 1.15,
 					rad,
 					26
@@ -685,7 +707,11 @@ const circlePoly = ( cx, cy, r, n = 64 ) => {
 };
 
 /** Full moon, or a crescent when `phase` cuts into it. */
-export function moonPunch( { x = 0.78, y = 0.2, size = 0.13, crescent = false }, w, h ) {
+export function moonPunch(
+	{ x = 0.78, y = 0.2, size = 0.13, crescent = false },
+	w,
+	h
+) {
 	const cx = x * w;
 	const cy = y * h;
 	const r = ( size * h ) / 2;
@@ -710,7 +736,11 @@ export function moonPunch( { x = 0.78, y = 0.2, size = 0.13, crescent = false },
 }
 
 /** A sun with straight rays. */
-export function sunPunch( { x = 0.5, y = 0.24, size = 0.16, rays = 12 }, w, h ) {
+export function sunPunch(
+	{ x = 0.5, y = 0.24, size = 0.16, rays = 12 },
+	w,
+	h
+) {
 	const cx = x * w;
 	const cy = y * h;
 	const r = ( size * h ) / 2;
@@ -724,10 +754,22 @@ export function sunPunch( { x = 0.5, y = 0.24, size = 0.16, rays = 12 }, w, h ) 
 		const ny = Math.cos( a ) * wide;
 		out.push( [
 			[
-				[ cx + Math.cos( a ) * inner + nx, cy + Math.sin( a ) * inner + ny ],
-				[ cx + Math.cos( a ) * outer + nx * 0.4, cy + Math.sin( a ) * outer + ny * 0.4 ],
-				[ cx + Math.cos( a ) * outer - nx * 0.4, cy + Math.sin( a ) * outer - ny * 0.4 ],
-				[ cx + Math.cos( a ) * inner - nx, cy + Math.sin( a ) * inner - ny ],
+				[
+					cx + Math.cos( a ) * inner + nx,
+					cy + Math.sin( a ) * inner + ny,
+				],
+				[
+					cx + Math.cos( a ) * outer + nx * 0.4,
+					cy + Math.sin( a ) * outer + ny * 0.4,
+				],
+				[
+					cx + Math.cos( a ) * outer - nx * 0.4,
+					cy + Math.sin( a ) * outer - ny * 0.4,
+				],
+				[
+					cx + Math.cos( a ) * inner - nx,
+					cy + Math.sin( a ) * inner - ny,
+				],
 			],
 		] );
 	}
@@ -785,6 +827,69 @@ const heartPoly = ( cx, cy, s ) => {
  *
  * @return {Array|null} Polygons to punch, or null for frame 'none'.
  */
+/**
+ * Windows that need DIALS, and therefore cannot come from a library of
+ * drawn shapes: a star whose points you count yourself, rings whose
+ * width and lean you set, two rings that overlap as much as you like.
+ *
+ * All of them return STAMPS in pixel space (each stamp its own even-odd
+ * fill, the same contract the rest of this file uses), ready to be
+ * punched out of a full sheet of paper.
+ */
+
+/** A star with `points` tips; `sharp` 0..1 pulls the inner radius in. */
+export function starWindow( cx, cy, rx, ry, points = 6, sharp = 0.5 ) {
+	const n = Math.max( 3, Math.round( points ) );
+	const inner = 0.72 - sharp * 0.55;
+	const poly = [];
+	for ( let i = 0; i < n * 2; i++ ) {
+		const a = -Math.PI / 2 + ( i / ( n * 2 ) ) * TAU;
+		const f = i % 2 ? inner : 1;
+		poly.push( [
+			cx + Math.cos( a ) * rx * f,
+			cy + Math.sin( a ) * ry * f,
+		] );
+	}
+	return [ [ poly ] ];
+}
+
+/**
+ * An elliptical ring: the window is the ring itself, so the paper stays
+ * in the middle AND around it. Two rings, outer and inner, even-odd.
+ */
+export function ringWindow( cx, cy, rx, ry, width = 0.25, tilt = 0 ) {
+	const a = ( tilt * Math.PI ) / 180;
+	const cos = Math.cos( a );
+	const sin = Math.sin( a );
+	const turn = ( x, y ) => [
+		cx + ( x - cx ) * cos - ( y - cy ) * sin,
+		cy + ( x - cx ) * sin + ( y - cy ) * cos,
+	];
+	const band = Math.max( 0.02, Math.min( 0.9, width ) );
+	const ell = ( fx, fy ) =>
+		circlePoly( 0, 0, 1, 128 ).map( ( [ x, y ] ) =>
+			turn( cx + x * rx * fx, cy + y * ry * fy )
+		);
+	// One stamp, two rings: even-odd leaves the band standing.
+	return [ [ ell( 1, 1 ), ell( 1 - band, 1 - band ) ] ];
+}
+
+/**
+ * Two rings that reach into each other, the way two wedding bands lie.
+ * `gap` slides them apart, `width` sets how heavy the bands are.
+ */
+export function twinRingWindow( cx, cy, r, width = 0.22, gap = 0.55 ) {
+	const off = r * Math.max( 0.1, Math.min( 1.4, gap ) );
+	const band = Math.max( 0.04, Math.min( 0.8, width ) );
+	const one = ( ox ) => [
+		circlePoly( cx + ox, cy, r, 96 ),
+		circlePoly( cx + ox, cy, r * ( 1 - band ), 96 ),
+	];
+	// Two stamps, not one: each ring is filled even-odd on its own, so
+	// the overlap unites instead of cancelling out.
+	return [ one( -off ), one( off ) ];
+}
+
 export function frameWindow( kind, w, h, inset = 0.08 ) {
 	const cx = w / 2;
 	const cy = h / 2;
@@ -804,7 +909,11 @@ export function frameWindow( kind, w, h, inset = 0.08 ) {
 	}
 	if ( 'heart' === kind ) {
 		return [
-			heartPoly( cx, cy + Math.min( rw, rh ) * 0.08, Math.min( rw, rh ) * 1.12 ),
+			heartPoly(
+				cx,
+				cy + Math.min( rw, rh ) * 0.08,
+				Math.min( rw, rh ) * 1.12
+			),
 		];
 	}
 	if ( 'arch' === kind ) {
@@ -813,7 +922,10 @@ export function frameWindow( kind, w, h, inset = 0.08 ) {
 		const poly = [];
 		for ( let i = 0; i <= 64; i++ ) {
 			const a = Math.PI + ( i / 64 ) * Math.PI;
-			poly.push( [ cx + Math.cos( a ) * r, top + r + Math.sin( a ) * r ] );
+			poly.push( [
+				cx + Math.cos( a ) * r,
+				top + r + Math.sin( a ) * r,
+			] );
 		}
 		poly.push( [ cx + r, cy + rh ], [ cx - r, cy + rh ] );
 		return [ poly ];
@@ -837,12 +949,20 @@ export function frameWindow( kind, w, h, inset = 0.08 ) {
  * along it - the signature framing device of layered papercut art. It
  * stays attached to its corner, so the sheet is one piece by design.
  *
- * @param {Object} opts `{ seed, corner: 'tl'|'tr'|'bl'|'br', reach, leaf }`.
- * @param {number} w    Sheet width.
- * @param {number} h    Sheet height.
+ * @param {Object} opts        Branch settings.
+ * @param {number} opts.seed   Dice for the branch and its leaves.
+ * @param {string} opts.corner Which corner it grows from: tl, tr, bl or br.
+ * @param {number} opts.reach  How far across the sheet it reaches, 0..1.
+ * @param {number} opts.leaf   Leaf size, 0..1.
+ * @param {number} w           Sheet width.
+ * @param {number} h           Sheet height.
  * @return {Array} Stamps.
  */
-export function branchStamps( { seed = 1, corner = 'tl', reach = 0.55, leaf = 0.5 }, w, h ) {
+export function branchStamps(
+	{ seed = 1, corner = 'tl', reach = 0.55, leaf = 0.5 },
+	w,
+	h
+) {
 	const r = rng( seed + 131 );
 	const right = 'tr' === corner || 'br' === corner;
 	const bottom = 'bl' === corner || 'br' === corner;
@@ -885,7 +1005,8 @@ export function branchStamps( { seed = 1, corner = 'tl', reach = 0.55, leaf = 0.
 		const dir = i % 2 ? 1 : -1;
 		const tl = len * ( 0.13 + r() * 0.12 );
 		const ang =
-			Math.atan2( sy * 0.5, sx ) + dir * ( 0.6 + r() * 0.5 ) * ( bottom ? -1 : 1 );
+			Math.atan2( sy * 0.5, sx ) +
+			dir * ( 0.6 + r() * 0.5 ) * ( bottom ? -1 : 1 );
 		const tx = bx + Math.cos( ang ) * tl;
 		const ty = by + Math.sin( ang ) * tl;
 		stamps.push( [

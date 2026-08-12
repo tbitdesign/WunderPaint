@@ -12,6 +12,9 @@ import { drawImageFitted } from './image-fit';
 import { gaussianBlur, sharpen } from './effects';
 import { selectionToMaskCanvas } from '../store/selection';
 import { hexToRgb, colorLuminance } from './color';
+import { setDocTransform } from '../screens/canvas/paint-commit';
+import { getTip, isStampTip, pathIsShaped, stampTipStroke } from './brush-tips';
+import { drawSoftRoundStroke } from './raster/styles';
 
 /**
  * Create the live canvas for a raster layer (from dataUrl/image if present).
@@ -174,7 +177,20 @@ export function layerLocalMask( selection, doc, layer ) {
 /**
  * Paint one stroke path into a raster layer's own canvas.
  *
- * @param {Object} layer Raster layer (live canvas required).
+ * @param {Object} layer Raster layer (live canvas required). `x`/`y`/`w`/`h`
+ *                       and, when set, `rot`/`flipX`/`flipY` must describe
+ *                       the layer's doc-space box - `setDocTransform` maps
+ *                       `path`'s document coordinates through that box into
+ *                       this layer's own canvas pixels the same way the
+ *                       renderer maps the canvas back onto the document, so
+ *                       a stroke lands on the pixels the user actually
+ *                       pointed at even when the layer is scaled, flipped
+ *                       or rotated. A caller that paints into a canvas which
+ *                       is NOT a transformed layer box (e.g. `paintOnMask`'s
+ *                       doc-sized mask canvas below) must give `layer` its
+ *                       own `w`/`h` equal to that canvas's size and leave
+ *                       `rot`/`flipX`/`flipY` unset, which makes this the
+ *                       identity map - not skip it.
  * @param {Object} path  { d, color, size, opacity }, doc coordinates.
  * @param {Object} opts  { erase, hardness (0-100), flow (0-100), mask } —
  *                       mask = layer-local alpha canvas (selection clip).
@@ -189,7 +205,19 @@ export function paintStroke( layer, path, opts = {} ) {
 	// erase compositing behave identically (preview == pixels).
 	const scratch = createCanvas( layer.canvas.width, layer.canvas.height );
 	const sctx = scratch.getContext( '2d' );
-	sctx.translate( -layer.x, -layer.y );
+	// setDocTransform (screens/canvas/paint-commit.js) is the real inverse
+	// of the renderer's box-stretch/flip/rotate, not just a translate - see
+	// its own doc comment. A plain `translate(-layer.x, -layer.y)` (the old
+	// code here) is only right for a layer that was never resized, rotated
+	// or flipped, which used to be fine because painting NEVER wrote
+	// straight into an existing layer's canvas. Now that the brush does
+	// (Pinsel-Neubau Stufe 1), the eraser - the remaining caller of this
+	// function for a real layer - needs the same correct mapping or it
+	// erases pixels somewhere other than where the brush just painted them.
+	setDocTransform( sctx, layer, {
+		cw: layer.canvas.width,
+		ch: layer.canvas.height,
+	} );
 	sctx.lineCap = 'round';
 	sctx.lineJoin = 'round';
 	sctx.strokeStyle = path.color || '#000';
@@ -204,9 +232,46 @@ export function paintStroke( layer, path, opts = {} ) {
 			( path.size || 1 ) * ( 0.6 + 0.4 * ( hardness / 100 ) )
 		);
 	}
-	sctx.beginPath();
-	tracePathD( sctx, path.d );
-	sctx.stroke();
+	// The stroke as the mark-laying renderers want it: they resolve the
+	// tip's own numbers themselves and read flow off the path.
+	const marks = {
+		pts: path.pts,
+		size: path.size || 1,
+		color: path.color || '#000',
+		opacity: path.opacity ?? 1,
+		flow: flow / 100,
+		tip: path.tip,
+		seedOffset: path.seedOffset || 0,
+		spacing: path.spacing,
+		scatter: path.scatter,
+		alphaJitter: path.alphaJitter,
+		sizeJitter: path.sizeJitter,
+	};
+	const shaped = pathIsShaped( path );
+	if ( path.pts && path.pts.length && isStampTip( path.tip ) ) {
+		// A TIP, the same one the brush uses. Erasing with a texture is a
+		// real technique and the whole machine was already here; the eraser
+		// only ever knew how to drag a round line through the pixels.
+		sctx.shadowBlur = 0;
+		stampTipStroke( sctx, marks );
+	} else if ( path.pts && path.pts.length && shaped ) {
+		// A ROUND tip that has been shaped. The line below cannot scatter
+		// or thin out - it is one continuous stroke - so a shaped eraser
+		// has to lay dabs, through the very same renderer the brush uses
+		// or the two would drift apart. Without this branch the panel
+		// would offer four sliders that move nothing whenever the eraser
+		// holds Hard or Soft Round, which is most of the time.
+		sctx.shadowBlur = 0;
+		drawSoftRoundStroke(
+			sctx,
+			marks,
+			Math.max( getTip( path.tip ).soft || 0, 1 - hardness / 100 )
+		);
+	} else {
+		sctx.beginPath();
+		tracePathD( sctx, path.d );
+		sctx.stroke();
+	}
 
 	if ( mask ) {
 		sctx.setTransform( 1, 0, 0, 1, 0, 0 );
@@ -234,7 +299,15 @@ export function paintStroke( layer, path, opts = {} ) {
  * @param {Object}            opts   paintStroke opts (hardness, flow).
  */
 export function paintOnMask( canvas, path, opts = {} ) {
-	const target = { x: 0, y: 0, canvas };
+	// The mask canvas is doc-sized and never itself transformed - `path`'s
+	// coordinates are already document coordinates, painted straight onto
+	// it (spec 06.1: the RENDERER later maps this doc-sized mask onto the
+	// layer's own transformed content, so the mask follows the layer's
+	// move/scale/rotate/flip, not the stroke drawn into it here). Giving
+	// `target` its own size as `w`/`h` (with `rot`/`flipX`/`flipY` left
+	// unset) makes `paintStroke`'s setDocTransform() reduce to the
+	// identity map - same net effect as the old bare translate(-0, -0).
+	const target = { x: 0, y: 0, w: canvas.width, h: canvas.height, canvas };
 	const lum = colorLuminance( path.color || '#000000' );
 	paintStroke(
 		target,

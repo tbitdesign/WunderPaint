@@ -52,8 +52,13 @@ import { doAction } from '@wordpress/hooks';
  * additionally receives `children` (the group's current child layers),
  * and group generators with a resolve hook get a "Refresh …" entry in
  * the canvas and layers-panel context menus.
+ * 2.16.0 (v1.396.0): `ml.depthMap( dataUrl )` - the local Depth Anything
+ * V2 map as one grayscale channel ({ w, h, depth }, 0 far, 255 near).
+ * The model has been in the editor since v1.27 for depth blur; a studio
+ * that wants to slice a picture INTO its depth (Papercut Art) had no way
+ * to reach it. Additive and optional: feature-detect and fall back.
  */
-export const API_VERSION = '2.15.0';
+export const API_VERSION = '2.20.0';
 
 const NS_RE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
 

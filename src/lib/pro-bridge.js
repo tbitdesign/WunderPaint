@@ -73,6 +73,7 @@ import { listExportPresets } from './export-presets';
 import { exportSvg, importSvg } from './svg-io';
 import { rng, EASINGS } from './seeded';
 import { removeBackgroundLocal } from './local-image-ops';
+import { depthMap } from './depth-blur';
 import {
 	recordCanvas,
 	pickRecorderMime,
@@ -111,9 +112,14 @@ import { FontPicker } from '../components/font-picker';
 import { KitSelect } from '../components/kit-select';
 import { MediaPicker } from '../components/media-picker';
 import { IconPicker } from '../components/icon-picker';
+import { GradientBar } from '../components/gradient-bar';
 import { I } from '../icons';
-import { confirmDialog } from './dialogs';
+import { confirmDialog, promptDialog } from './dialogs';
 import { API_VERSION as EXT_API_VERSION, apiSatisfies } from './extensions';
+import * as stampDoc from './stamp-doc';
+import { openStampMaker } from './stamp-maker';
+import { shapeToPathD, isParametricShape } from './shape-path';
+import { SHAPE_CHOICES } from '../components/shape-picker';
 
 export const proBridge = Object.freeze( {
 	api: {
@@ -294,6 +300,15 @@ export const proBridge = Object.freeze( {
 		// task token. Every extension that tried to caption an image had to
 		// rebuild that, and the documented example got it wrong.
 		captionImage,
+		// depthMap (API 2.16, additive): Depth Anything V2 small, local
+		// and in-browser, as ONE grayscale channel - 0 far, 255 near.
+		// Depth blur has run this model since v1.27, but a studio that
+		// wanted to slice a picture INTO its depth had no way to ask, and
+		// estimateDepth() hands back three full RGBA buffers a studio has
+		// no use for. Papercut Art builds its paper stack from it and
+		// falls back to brightness bands when the model is not installed,
+		// so this stays a nice-to-have, never a requirement.
+		depthMap,
 	},
 	watermark: { applyWatermark },
 	exportPresets: { listExportPresets },
@@ -322,12 +337,49 @@ export const proBridge = Object.freeze( {
 	// running editor or wants a reload, and a second implementation over
 	// there would be a second thing to keep in step with the PHP gate.
 	extensions: { API_VERSION: EXT_API_VERSION, apiSatisfies },
+	// stamps (v1.397 / API 2.17, additive): the stamp recipe engine. A stamp
+	// is a list of ELEMENTS with real parameters rather than a bitmap, so it
+	// stays editable and renders crisp at any size. It came out of Particle
+	// Strokes and moved in here the moment the brush needed the same thing
+	// for a drawn tip: the free plugin cannot reach into a Pro extension for
+	// a component, and a copy on each side would drift within a release.
+	// Draws into any 2D context, touches neither the DOM nor WebGL.
+	// openStampMaker draws from the same module: the maker is the only
+	// editor for these recipes, and `colour: false` / `motion: false` turn
+	// it into the brush-tip variant instead of a second maker.
+	stamps: { ...stampDoc, openStampMaker },
+	// shapes (v1.397 / API 2.18, additive): the editor's own shape
+	// geometry as PATH DATA. Every studio that wanted a heart, a shield or
+	// a speech bubble drew its own, slightly different one; the shapes
+	// were here all along and simply unreachable. `list` is what the shape
+	// picker shows, `pathD` gives layer-local path data for any of them at
+	// any size, and `fromLayer` does the same for a shape layer that is
+	// already in the document.
+	shapes: {
+		list: () =>
+			SHAPE_CHOICES.map( ( s ) => ( { id: s.id, name: s.name() } ) ),
+		pathD: ( id, w, h, over ) =>
+			shapeToPathD( {
+				type: 'shape',
+				shape: id,
+				w,
+				h,
+				...( over || {} ),
+			} ),
+		fromLayer: shapeToPathD,
+		isParametric: isParametricShape,
+	},
 	components: {
 		HelpLink,
 		// confirmDialog (v1.392 / API 2.14, additive): the editor's own
 		// confirmation, so an add-on never has to fall back to the browser's
 		// native window.confirm.
 		confirmDialog,
+		// promptDialog (API 2.20, additive): the editor's own one-field
+		// dialog, for the times an extension needs a NAME. Without it a
+		// studio reaches for window.prompt, which is the native popup the
+		// house rules forbid - and which no theme can style.
+		promptDialog,
 		// mountColorButton (v1.145, additive): the editor's color swatch +
 		// popover rendered into a plain DOM node, for framework-free
 		// extension packs. Returns { set( color ), unmount() }.
@@ -352,6 +404,39 @@ export const proBridge = Object.freeze( {
 					} )
 				);
 			render( color );
+			return { set: render, unmount: () => root.unmount() };
+		},
+		// mountGradientBar (API 2.19, additive): the editor's OWN multi-stop
+		// gradient bar in a plain DOM node - click the bar to add a stop,
+		// drag to move one, double-click to recolour, right-click to drop
+		// it. Stops are the house shape, `[ { color, at } ]`, so a gradient
+		// built in an extension is the same object the editor works with.
+		//
+		// It exists because Particle Strokes had grown its own strip with a
+		// plus and a minus button, and a second gradient editor is a second
+		// set of habits to learn for the same job.
+		//
+		// `width` is optional and should stay that way: the bar fills its
+		// container on its own, which is right in every card at every panel
+		// width. A pixel number is only for a place with no width to fill,
+		// such as a horizontal toolbar row.
+		mountGradientBar( node, { stops, onChange, width } ) {
+			const root = createRoot( node );
+			// Controlled component, same contract as the colour swatch: it
+			// re-renders itself before telling the host, so a caller that
+			// forgets to echo the value back does not see its edit undone.
+			const render = ( value ) =>
+				root.render(
+					createElement( GradientBar, {
+						stops: value,
+						width,
+						onChange: ( next ) => {
+							render( next );
+							onChange( next );
+						},
+					} )
+				);
+			render( stops );
 			return { set: render, unmount: () => root.unmount() };
 		},
 		// mountVarButton (v1.162, additive): the editor's dynamic-variable

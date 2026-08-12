@@ -10,6 +10,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 
 import { I } from '../../icons';
+import { safeUrl } from '../../lib/safe-url';
 import { POINT_LABELS, categoryLabel } from './labels';
 
 // Canonical product URLs. Deep links are DERIVED, never fetched from the
@@ -138,8 +139,17 @@ export function ExtensionDetail( {
 							p }
 					</span>
 				) ) }
-				{ !! card.homepage && (
-					<a href={ card.homepage } target="_blank" rel="noreferrer">
+				{ /*
+				   The one address here we did not write: it comes out of the
+				   package's own manifest. Through safeUrl, so a manifest
+				   cannot hand React a javascript: link (see safe-url.js).
+				*/ }
+				{ !! safeUrl( card.homepage ) && (
+					<a
+						href={ safeUrl( card.homepage ) }
+						target="_blank"
+						rel="noreferrer"
+					>
 						{ __( 'Website', 'wunderpaint' ) }
 					</a>
 				) }

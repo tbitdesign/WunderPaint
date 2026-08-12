@@ -1,11 +1,14 @@
 /**
  * WPIE extension: Papercut Art.
  *
- * Layered papercut scenes with real depth. Sheets come from parametric
- * silhouettes, from a photo sliced along its brightness, from the local
- * subject cutout and from typed words - every sheet runs through the
- * cuttability engine and is proven to be one piece of paper. Insert as
- * editable layers, export cutting SVGs, record the reveal.
+ * Layered papercut pictures with real depth. Layers come from parametric
+ * silhouettes, from a photo sliced along its DEPTH, from the local
+ * subject cutout and from typed words. Insert as editable layers, one
+ * per sheet of paper.
+ *
+ * Until v3 every layer also had to be a physically cuttable piece of
+ * paper. Nothing is cut any more - the pictures only have to look good -
+ * and that single change is what let the handling come loose.
  */
 
 import { t } from './i18n.js';
@@ -13,13 +16,12 @@ import { PaperEngine } from './ui/engine.js';
 import {
 	cleanParams,
 	defaultParams,
-	defaultSheet,
+	defaultLayer,
 	defaultObject,
-	isCutObject,
-	isStanding,
 	PRESETS,
 	LOOKS,
-	FRAMES,
+	PROFILES,
+	WINDOWS,
 	TREE_SPECIES,
 	PLANT_SPECIES,
 	ORBS,
@@ -31,9 +33,23 @@ import {
 	WATER_ANIMALS,
 } from './core/generators.js';
 import { autoThresholds, histogram } from './core/photo.js';
-import { buildZip } from './core/zip.js';
+
+/**
+ * The library and the thumbnails describe their little scenes in the old
+ * sheet vocabulary, which reads well: "a backdrop, a ridge, a ground".
+ * cleanParams() turns a base into the object that replaces it, so this
+ * shape is still a legal way to state a layer.
+ *
+ * @param {string} base  Old base name.
+ * @param {Object} extra yBase, height, jag, seed, border, objects.
+ * @return {Object} A layer, stated the short way.
+ */
+const rawSheet = ( base, extra = {} ) => ( { base, objects: [], ...extra } );
 
 const GEN_ID = 'wpie-papercut-art/scene';
+
+// Objects that cover the page: no corner to drag, no size, no rotation.
+const FULL_PAGE_KINDS = [ 'backdrop', 'terrain', 'border', 'frame' ];
 
 const ICON_BRAND =
 	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03,.14-.09,.17-.17l.91-2.45c.03-.07,.13-.07,.16,0Z"/></svg>';
@@ -45,8 +61,6 @@ const I = {
 		'<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/>'
 	),
 	x: svg( '<path d="M18 6l-12 12M6 6l12 12"/>', 12 ),
-	up: svg( '<path d="M6 15l6 -6l6 6"/>', 12 ),
-	down: svg( '<path d="M6 9l6 6l6 -6"/>', 12 ),
 	sun: svg(
 		'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4l1.4 -1.4M17 7l1.4 -1.4"/>',
 		16
@@ -66,22 +80,14 @@ const I = {
 	wand: svg(
 		'<path d="M6 21l15 -15l-3 -3l-15 15z"/><path d="M15 6l3 3"/><path d="M9 3v4M3 9h4M5 5l2 2"/>'
 	),
-	merge: svg( '<path d="M12 4v10M8 10l4 4l4 -4M5 20h14"/>', 12 ),
-	lift: svg( '<path d="M12 20V10M8 14l4 -4l4 4M5 4h14"/>', 12 ),
+	grip: svg(
+		'<circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
+		12
+	),
 	flip: svg( '<path d="M12 3v18M8 8l-4 4l4 4M16 8l4 4l-4 4"/>', 12 ),
 	palette: svg(
 		'<path d="M12 21a9 9 0 1 1 9 -9c0 2 -1.5 3 -3 3h-2a2 2 0 0 0 -2 2c0 .5 .2 1 .6 1.4c.4 .4 .4 1 .1 1.5c-.5 .7 -1.5 1.1 -2.7 1.1"/><circle cx="8" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/>'
 	),
-};
-
-const KIND_LABEL = {
-	sky: 'Sky',
-	clouds: 'Cloud bank',
-	branch: 'Corner branch',
-	band: 'Band',
-	photoband: 'Photo band',
-	subject: 'Subject',
-	text: 'Text',
 };
 
 /* -------------------------- library thumbnails --------------------------- */
@@ -102,7 +108,11 @@ function openStudio( ctx ) {
 		error: () => {},
 	};
 	const layer = ctx && ctx.layer;
-	const editing = !! ( layer && layer.generator && layer.generator.id === GEN_ID );
+	const editing = !! (
+		layer &&
+		layer.generator &&
+		layer.generator.id === GEN_ID
+	);
 	const params = cleanParams(
 		editing ? layer.generator.params : defaultParams()
 	);
@@ -111,7 +121,7 @@ function openStudio( ctx ) {
 		title: 'Papercut Art',
 		subtitle: editing
 			? t( 'Adjust the scene, the group updates in place.' )
-			: t( 'Layered paper scenes with real depth - every sheet provably cuttable.' ),
+			: t( 'Layered paper pictures with real depth.' ),
 		width: 1460,
 		closeOnBackdrop: true,
 		onClose: () => destroy(),
@@ -132,7 +142,7 @@ function openStudio( ctx ) {
 	sunBtn.innerHTML = I.sun;
 	const hint = ui.el( 'div', 'wpiepca-hint', view );
 	hint.textContent = t(
-		'Click to pick · drag to move · Alt-drag to turn · drag the sun for the light'
+		'Click to pick · drag to move · corner handles resize · Del removes · Ctrl+Z undoes'
 	);
 	const side = ui.el( 'div', 'wpiepca-side', body );
 
@@ -163,51 +173,73 @@ function openStudio( ctx ) {
 		}
 		canvas.style.width = w + 'px';
 		canvas.style.height = h + 'px';
-		engine.setSize( Math.min( 1100, w * 1.6 ), Math.min( 1100 / ar, ( w * 1.6 ) / ar ) );
+		engine.setSize(
+			Math.min( 1100, w * 1.6 ),
+			Math.min( 1100 / ar, ( w * 1.6 ) / ar )
+		);
 	};
 
 	/* ----------------------------- rebuilds ---------------------------- */
 
-	let buildTimer = 0;
 	const rebuild = () => {
 		engine.build( params );
 		engine.render( { selected } );
 		syncStatus();
 		syncSun();
 	};
-	const rebuildSoon = () => {
-		clearTimeout( buildTimer );
-		buildTimer = setTimeout( rebuild, 120 );
+	/**
+	 * The same thing, without the status line - for the frames of a drag.
+	 *
+	 * There used to be a 120ms debounce here, and it was the single worst
+	 * thing about this studio: `clearTimeout` reset the timer on every
+	 * pointermove, so during a CONTINUOUS drag it never fired at all. The
+	 * picture stood still until you paused, then jumped. It existed
+	 * because a rebuild had to re-prove every sheet. Nothing is proven any
+	 * more, and the per-layer cache means one moved object costs one
+	 * layer, so the honest thing is to just draw.
+	 */
+	const rebuildLive = () => {
+		engine.build( params );
+		engine.render( { selected } );
 	};
 	const repaint = () => engine.render( { selected } );
 
 	const syncSun = () => {
-		sunBtn.style.left =
-			'calc(50% + ' + ( params.lightX / 100 ) * 30 + '%)';
+		sunBtn.style.left = 'calc(50% + ' + ( params.lightX / 100 ) * 30 + '%)';
 	};
 
 	const syncStatus = () => {
-		const sheets = engine.allSheets();
-		const empty = sheets.filter( ( s ) => ! s.rings.length ).length;
-		const n = sheets.length;
-		const objs = params.sheets.reduce(
+		const built = engine.allLayers();
+		const empty = built.filter( ( s ) => ! s.rings.length ).length;
+		const objs = params.layers.reduce(
 			( a, s ) => a + s.objects.length,
 			0
 		);
-		status.textContent =
-			n +
-			' ' +
-			t( 'sheets' ) +
-			' · ' +
+		const photoOn = 'none' !== params.photo.source;
+		// Count THINGS, not layers. The layer is not a word this studio
+		// says any more, so the status line must not say it either.
+		const things =
 			objs +
+			built.filter( ( s ) => 'elements' !== s.layer.source ).length;
+		status.textContent =
+			things +
 			' ' +
 			t( 'objects' ) +
-			' · ' +
+			// Say WHICH way the picture was sliced. Brightness only stands
+			// in for distance in a hazy landscape, so a user looking at a
+			// portrait that came out wrong deserves to know why.
+			( photoOn
+				? ' · ' +
+				  ( engine.hasDepth()
+						? t( 'sliced by real depth' )
+						: t( 'sliced by brightness' ) )
+				: '' ) +
 			( empty
-				? t(
-						'Some sheets are empty - add elements or adjust the photo bands.'
+				? ' · ' +
+				  t(
+						'Some layers are empty - add elements or adjust the depth.'
 				  )
-				: t( 'Every sheet is one piece of paper.' ) );
+				: '' );
 		if ( ampelEl ) {
 			ampelEl.textContent = status.textContent;
 			ampelEl.classList.toggle( 'is-warn', !! empty );
@@ -224,21 +256,76 @@ function openStudio( ctx ) {
 		];
 	};
 
-	/** The object with that id, plus the sheet carrying it. */
+	/** The object with that id, plus the layer carrying it. */
 	const findObject = ( id ) => {
-		for ( const s of params.sheets ) {
+		for ( const s of params.layers ) {
 			const o = s.objects.find( ( x ) => x.id === id );
 			if ( o ) {
-				return { sheet: s, object: o };
+				return { layer: s, object: o };
 			}
 		}
 		return null;
 	};
-	const findSheet = ( id ) => params.sheets.find( ( s ) => s.id === id );
+	const findLayer = ( id ) => params.layers.find( ( s ) => s.id === id );
+
+	/* ------------------------------- undo ------------------------------- */
+
+	// A plain ring of snapshots. Everything that changes the scene calls
+	// mark() first, so Ctrl+Z is a real way back and not a promise.
+	const undoStack = [];
+	const mark = () => {
+		undoStack.push( JSON.stringify( params ) );
+		if ( undoStack.length > 30 ) {
+			undoStack.shift();
+		}
+	};
+	const undo = () => {
+		const prev = undoStack.pop();
+		if ( ! prev ) {
+			return;
+		}
+		const restored = cleanParams( JSON.parse( prev ) );
+		for ( const k of Object.keys( params ) ) {
+			delete params[ k ];
+		}
+		Object.assign( params, restored );
+		if ( selected && ! findObject( selected ) && ! findLayer( selected ) ) {
+			selected = null;
+		}
+		rebuild();
+		syncAll();
+	};
+
+	/* ----------------------------- dragging ----------------------------- */
 
 	let drag = null;
 	canvas.addEventListener( 'pointerdown', ( e ) => {
 		const [ px, py ] = canvasPoint( e );
+		// Handles first, always: they sit ON the shape, and a hit test
+		// that ignores what the eye sees is the classic drag-and-drop bug
+		// in this family.
+		const handles = selected ? engine.handlesFor( selected ) : null;
+		const grabbed =
+			handles &&
+			handles.find(
+				( hnd ) => Math.hypot( hnd.x - px, hnd.y - py ) <= hnd.r * 1.8
+			);
+		if ( grabbed ) {
+			const found = findObject( selected );
+			if ( found ) {
+				mark();
+				drag = {
+					kind: 'rot' === grabbed.id ? 'rotate' : 'scale',
+					obj: found.object,
+					x: e.clientX,
+					y: e.clientY,
+					rot0: found.object.rot,
+					scale0: found.object.scale,
+				};
+				canvas.setPointerCapture( e.pointerId );
+				return;
+			}
+		}
 		const hit = engine.hitAt( px, py );
 		if ( ! hit ) {
 			selected = null;
@@ -247,11 +334,13 @@ function openStudio( ctx ) {
 			repaint();
 			return;
 		}
+		mark();
 		if ( 'object' === hit.type ) {
 			selected = hit.object.id;
 			drag = {
-				// Alt turns the drag into a rotation, the way every
-				// canvas app does it.
+				// Alt still turns a plain drag into a rotation, for hands
+				// that know the trick; the handle is for the ones that do
+				// not.
 				kind: e.altKey ? 'rotate' : 'object',
 				obj: hit.object,
 				x: e.clientX,
@@ -259,16 +348,17 @@ function openStudio( ctx ) {
 				x0: hit.object.x,
 				y0: hit.object.y,
 				rot0: hit.object.rot,
+				scale0: hit.object.scale,
 			};
 		} else {
-			selected = hit.sheet.id;
+			selected = hit.layer.id;
 			drag = {
-				kind: 'sheet',
-				sheet: hit.sheet,
+				kind: 'layer',
+				layer: hit.layer,
 				x: e.clientX,
 				y: e.clientY,
-				dx0: hit.sheet.dx,
-				dy0: hit.sheet.dy,
+				dx0: hit.layer.dx,
+				dy0: hit.layer.dy,
 			};
 		}
 		canvas.setPointerCapture( e.pointerId );
@@ -289,33 +379,32 @@ function openStudio( ctx ) {
 				-180,
 				Math.min( 180, Math.round( drag.rot0 + ddx * 360 ) )
 			);
-			rebuildSoon();
+			rebuildLive();
+		} else if ( 'scale' === drag.kind ) {
+			// Pulling away from the middle grows it; the diagonal reads
+			// as one number so a corner handle behaves like every other.
+			const f = 1 + ( ddx + ddy ) * 1.6;
+			drag.obj.scale = Math.max(
+				3,
+				Math.min( 140, Math.round( drag.scale0 * f ) )
+			);
+			rebuildLive();
 		} else if ( 'object' === drag.kind ) {
+			// Both axes, for everything. Trees and animals used to refuse
+			// the pointer's y and moved the horizon of their sheet
+			// instead, which is exactly what "I move the whole sheet
+			// instead of the bird" meant.
 			drag.obj.x = Math.max( -0.15, Math.min( 1.15, drag.x0 + ddx ) );
-			// Standing objects ride their sheet's profile, so only the
-			// free ones (moon, flyer, cloud, text) take a y from the
-			// pointer at all.
-			if ( ! isStanding( drag.obj ) ) {
-				drag.obj.y = Math.max( -0.15, Math.min( 1.15, drag.y0 + ddy ) );
-			} else {
-				const sh = findObject( drag.obj.id );
-				if ( sh && 'ground' === sh.sheet.base ) {
-					sh.sheet.yBase = Math.max(
-						10,
-						Math.min( 100, sh.sheet.yBase + ddy * 100 )
-					);
-					drag.y = e.clientY;
-				}
-			}
-			rebuildSoon();
+			drag.obj.y = Math.max( -0.15, Math.min( 1.15, drag.y0 + ddy ) );
+			rebuildLive();
 		} else {
-			drag.sheet.dx = Math.max( -0.5, Math.min( 0.5, drag.dx0 + ddx ) );
-			drag.sheet.dy = Math.max( -0.5, Math.min( 0.5, drag.dy0 + ddy ) );
+			drag.layer.dx = Math.max( -0.5, Math.min( 0.5, drag.dx0 + ddx ) );
+			drag.layer.dy = Math.max( -0.5, Math.min( 0.5, drag.dy0 + ddy ) );
 			repaint();
 		}
 	} );
 	const endDrag = () => {
-		if ( drag && ( 'object' === drag.kind || 'rotate' === drag.kind ) ) {
+		if ( drag && 'layer' !== drag.kind ) {
 			rebuild();
 			syncAll();
 		}
@@ -350,38 +439,144 @@ function openStudio( ctx ) {
 	} );
 	sunBtn.addEventListener( 'pointerup', () => ( sunDrag = null ) );
 
+	/* ------------------------------ keyboard ----------------------------- */
+
+	// There was no keydown handler at all before v3: Delete did not
+	// delete, the arrows did nothing, and there was no way back.
+	const onKey = ( e ) => {
+		if ( ! document.body.contains( canvas ) ) {
+			return;
+		}
+		const tag = ( e.target && e.target.tagName ) || '';
+		if ( 'INPUT' === tag || 'TEXTAREA' === tag || 'SELECT' === tag ) {
+			return;
+		}
+		if ( ( e.ctrlKey || e.metaKey ) && 'z' === e.key.toLowerCase() ) {
+			e.preventDefault();
+			undo();
+			return;
+		}
+		if ( ! selected ) {
+			return;
+		}
+		const found = findObject( selected );
+		if ( 'Delete' === e.key || 'Backspace' === e.key ) {
+			e.preventDefault();
+			mark();
+			if ( found ) {
+				const i = found.layer.objects.indexOf( found.object );
+				found.layer.objects.splice( i, 1 );
+			} else if ( params.layers.length > 1 ) {
+				const li = params.layers.findIndex(
+					( s ) => s.id === selected
+				);
+				if ( li >= 0 ) {
+					params.layers.splice( li, 1 );
+				}
+			}
+			selected = null;
+			rebuild();
+			syncAll();
+			return;
+		}
+		const step = e.shiftKey ? 0.05 : 0.005;
+		const nudge = {
+			ArrowLeft: [ -step, 0 ],
+			ArrowRight: [ step, 0 ],
+			ArrowUp: [ 0, -step ],
+			ArrowDown: [ 0, step ],
+		}[ e.key ];
+		if ( ! nudge ) {
+			return;
+		}
+		e.preventDefault();
+		mark();
+		if ( found ) {
+			found.object.x = Math.max(
+				-0.15,
+				Math.min( 1.15, found.object.x + nudge[ 0 ] )
+			);
+			found.object.y = Math.max(
+				-0.15,
+				Math.min( 1.15, found.object.y + nudge[ 1 ] )
+			);
+			rebuild();
+			syncSelection();
+		} else {
+			// `sheet`, not `layer`: the outer `layer` is the EDITOR's layer
+			// this studio was opened on. Two different things under one
+			// name in one file is how the wrong one gets moved.
+			const sheet = findLayer( selected );
+			if ( sheet ) {
+				sheet.dx = Math.max(
+					-0.5,
+					Math.min( 0.5, sheet.dx + nudge[ 0 ] )
+				);
+				sheet.dy = Math.max(
+					-0.5,
+					Math.min( 0.5, sheet.dy + nudge[ 1 ] )
+				);
+				repaint();
+			}
+		}
+	};
+	document.addEventListener( 'keydown', onKey );
+
 	/* ------------------------------ placement ---------------------------- */
 
-	/** Where a new object goes, and on which kind of fresh sheet. */
-	const addObject = ( obj ) => {
-		const sky = params.sheets.find( ( s ) => 'full' === s.base );
-		if ( isCutObject( obj ) ) {
-			// Holes need paper around them: they belong on the backdrop.
-			const host = sky || params.sheets[ 0 ];
-			if ( host ) {
-				host.objects.push( obj );
+	/**
+	 * Put a new object on the stack.
+	 *
+	 * v2 gave every standing element a COMPLETE sheet of its own, with a
+	 * horizon at its feet and mounds underneath, because a sheet had to
+	 * be one connected piece of paper. Five trees meant five sheets, all
+	 * called "Flat ground", and past twelve one of them was deleted
+	 * without a word. A new element simply gets its own layer now, and
+	 * nothing is ever silently thrown away.
+	 *
+	 * @param {Object}  obj       The object.
+	 * @param {Object}  opts      Placement.
+	 * @param {?string} opts.onto An existing layer id to share, or null
+	 *                            for a layer of its own.
+	 */
+	const addObject = ( obj, { onto = null } = {} ) => {
+		mark();
+		// A picture has ONE passepartout. Picking a second window means
+		// "this one instead", not "two frames on top of each other".
+		if ( 'frame' === obj.kind ) {
+			for ( const l of params.layers ) {
+				const k = l.objects.findIndex( ( o ) => 'frame' === o.kind );
+				if ( k >= 0 ) {
+					l.objects[ k ] = { ...obj, id: l.objects[ k ].id };
+					selected = l.objects[ k ].id;
+					rebuild();
+					syncAll();
+					return;
+				}
 			}
-		} else if ( 'cloud' === obj.kind ) {
-			const s = defaultSheet( 'top', {
-				yBase: Math.max( 12, obj.y * 100 - 6 ),
-			} );
-			s.objects.push( obj );
-			params.sheets.splice( sky ? 1 : 0, 0, s );
-		} else if ( 'branch' === obj.kind ) {
-			const s = defaultSheet( 'edge', { border: 3 } );
-			s.objects.push( obj );
-			params.sheets.push( s );
-		} else {
-			// Everything that stands gets its OWN complete sheet: a
-			// horizon at its feet, mounds where it needs them.
-			const s = defaultSheet( 'ground', {
-				yBase: Math.min( 98, obj.y * 100 + 4 ),
-			} );
-			s.objects.push( obj );
-			params.sheets.push( s );
 		}
-		if ( params.sheets.length > 12 ) {
-			params.sheets.splice( 1, 1 );
+		const host = onto ? findLayer( onto ) : null;
+		if ( host ) {
+			host.objects.push( obj );
+		} else {
+			// Sky things go towards the back, things on the ground to the
+			// front - a first guess the user can override by dragging the
+			// layer up or down.
+			const sheet = defaultLayer( { objects: [ obj ] } );
+			if ( 'cloud' === obj.kind || 'flock' === obj.kind ) {
+				params.layers.splice( 1, 0, sheet );
+			} else {
+				// A passepartout is the last sheet by definition; anything
+				// else lands in front of what is there but behind it.
+				const frameAt = params.layers.findIndex( ( l ) =>
+					l.objects.some( ( o ) => 'frame' === o.kind )
+				);
+				if ( 'frame' !== obj.kind && frameAt >= 0 ) {
+					params.layers.splice( frameAt, 0, sheet );
+				} else {
+					params.layers.push( sheet );
+				}
+			}
 		}
 		selected = obj.id;
 		rebuild();
@@ -415,15 +610,28 @@ function openStudio( ctx ) {
 			requestAnimationFrame( pumpThumbs );
 		}
 	};
-	const thumbOf = ( sheets, extra = {} ) => () => {
-		thumbEngine.build(
-			cleanParams( { ...defaultParams(), frame: 'none', ...extra, sheets } )
-		);
-		thumbEngine.render();
-		return thumbEngine.canvas.toDataURL( 'image/png' );
-	};
+	const thumbOf =
+		( layers, extra = {} ) =>
+		() => {
+			thumbEngine.build(
+				cleanParams( {
+					...defaultParams(),
+					photo: { source: 'none' },
+					...extra,
+					layers,
+				} )
+			);
+			thumbEngine.render();
+			return thumbEngine.canvas.toDataURL( 'image/png' );
+		};
 	const presetThumb = ( p ) => () => {
-		thumbEngine.build( cleanParams( { ...defaultParams(), ...p.patch() } ) );
+		thumbEngine.build(
+			cleanParams( {
+				...defaultParams(),
+				photo: { source: 'none' },
+				...p.patch(),
+			} )
+		);
 		thumbEngine.render();
 		return thumbEngine.canvas.toDataURL( 'image/png' );
 	};
@@ -444,16 +652,103 @@ function openStudio( ctx ) {
 
 	const cap = ( s ) => t( s.charAt( 0 ).toUpperCase() + s.slice( 1 ) );
 
+	/**
+	 * Ask before a scene wipes the work, in the editor's own dialog.
+	 *
+	 * `window.confirm` used to do this: a system box in the browser's own
+	 * language, outside the editor's look, and one the editor cannot style
+	 * or place. The bridge has carried a real one since API 2.14.
+	 *
+	 * On a core too old to have it we go AHEAD rather than refuse. The line
+	 * above the grid already says that picking one replaces what you have,
+	 * `mark()` puts an undo step in first, and a tile that silently does
+	 * nothing is the worse failure of the two.
+	 *
+	 * @return {Promise<boolean>} Whether to replace.
+	 */
+	async function askReplace() {
+		const ask =
+			bridge && bridge.components && bridge.components.confirmDialog;
+		if ( ! ask ) {
+			return true;
+		}
+		return ask( {
+			title: t( 'Start from a scene' ),
+			message: t( 'Replace the current picture with this scene?' ),
+			confirmLabel: t( 'Replace' ),
+			destructive: true,
+		} );
+	}
+
 	const buildLibrary = () => {
-		const pf = famSection( t( 'Scenes' ) );
+		// Scenes REPLACE everything. They used to sit in the same grid as
+		// the elements, look the same and answer the same click, so one
+		// stray hit wiped the work - with no undo to come back from. They
+		// get their own block, their own colour, and a question.
+		ui.el( 'div', 'wpiepca-famhead', left, t( 'Start from a scene' ) );
+		ui.el(
+			'div',
+			'wpiepca-note',
+			left,
+			t( 'Picking one replaces what you have.' )
+		);
+		const pf = ui.el( 'div', 'wpiepca-libgrid is-scenes', left );
 		for ( const p of PRESETS ) {
-			tile( pf, p.label, 'preset:' + p.id, presetThumb( p ), () => {
-				Object.assign( params, cleanParams( { ...params, ...p.patch() } ) );
+			tile( pf, p.label, 'preset:' + p.id, presetThumb( p ), async () => {
+				const busy = params.layers.some( ( s ) => s.objects.length );
+				if ( busy && ! ( await askReplace() ) ) {
+					return;
+				}
+				mark();
+				Object.assign(
+					params,
+					cleanParams( { ...params, ...p.patch() } )
+				);
 				selected = null;
 				rebuild();
 				syncAll();
 			} );
 		}
+
+		const wf = famSection( t( 'Passepartout' ) );
+		for ( const win of WINDOWS ) {
+			tile(
+				wf,
+				t( WINDOW_LABEL[ win ] || win ),
+				'win:' + win,
+				thumbOf( [
+					rawSheet( 'hills', { seed: 3, yBase: 70, height: 34 } ),
+					{
+						objects: [
+							defaultObject( 'frame', {
+								window: win,
+								inset: 11,
+							} ),
+						],
+					},
+				] ),
+				() => addObject( defaultObject( 'frame', { window: win } ) )
+			);
+		}
+
+		const bf = famSection( t( 'Paper' ) );
+		tile(
+			bf,
+			t( 'Backdrop' ),
+			'base:full',
+			thumbOf( [ rawSheet( 'full' ) ] ),
+			() => addObject( defaultObject( 'backdrop' ) )
+		);
+		tile(
+			bf,
+			t( 'Frame edge' ),
+			'base:edge',
+			thumbOf( [
+				rawSheet( 'full' ),
+				rawSheet( 'edge', { border: 4 } ),
+			] ),
+			() => addObject( defaultObject( 'border' ) )
+		);
 
 		const lf = famSection( t( 'Landscape' ) );
 		const lands = [
@@ -462,27 +757,38 @@ function openStudio( ctx ) {
 			[ t( 'Dunes' ), 'dunes' ],
 			[ t( 'Waves' ), 'waves' ],
 			[ t( 'City skyline' ), 'city' ],
-			[ t( 'Flat ground' ), 'ground' ],
+			[ t( 'Flat ground' ), 'flat' ],
 		];
-		for ( const [ label, base ] of lands ) {
+		for ( const [ label, profile ] of lands ) {
 			tile(
 				lf,
 				label,
-				'base:' + base,
+				'base:' + profile,
 				thumbOf( [
-					defaultSheet( 'full', { yBase: 100 } ),
-					defaultSheet( base, { seed: 8, yBase: 62, height: 40 } ),
-					defaultSheet( base, { seed: 9, yBase: 88, height: 32 } ),
+					rawSheet( 'full', { yBase: 100 } ),
+					rawSheet( 'flat' === profile ? 'ground' : profile, {
+						seed: 8,
+						yBase: 62,
+						height: 40,
+					} ),
+					rawSheet( 'flat' === profile ? 'ground' : profile, {
+						seed: 9,
+						yBase: 88,
+						height: 32,
+					} ),
 				] ),
 				() => {
-					const s = defaultSheet( base, {
-						yBase: Math.min( 96, 52 + params.sheets.length * 8 ),
-						height: 'waves' === base ? 20 : 34,
-					} );
-					params.sheets.push( s );
-					selected = s.id;
-					rebuild();
-					syncAll();
+					// A horizon is an object like any other now, so it can
+					// be picked, dragged and reshaped afterwards.
+					const yBase = Math.min( 96, 52 + params.layers.length * 8 );
+					addObject(
+						defaultObject( 'terrain', {
+							profile,
+							yBase,
+							y: yBase / 100,
+							height: 'waves' === profile ? 20 : 34,
+						} )
+					);
 				}
 			);
 		}
@@ -494,9 +800,9 @@ function openStudio( ctx ) {
 				cap( species ),
 				'tree:' + species,
 				thumbOf( [
-					defaultSheet( 'full', { yBase: 100 } ),
+					rawSheet( 'full', { yBase: 100 } ),
 					{
-						...defaultSheet( 'ground', { seed: 21, yBase: 88 } ),
+						...rawSheet( 'ground', { seed: 21, yBase: 88 } ),
 						objects: [
 							defaultObject( 'trees', {
 								species,
@@ -527,9 +833,9 @@ function openStudio( ctx ) {
 				cap( species ),
 				'plant:' + species,
 				thumbOf( [
-					defaultSheet( 'full', { yBase: 100 } ),
+					rawSheet( 'full', { yBase: 100 } ),
 					{
-						...defaultSheet( 'ground', { seed: 31, yBase: 86 } ),
+						...rawSheet( 'ground', { seed: 31, yBase: 86 } ),
 						objects: [
 							defaultObject( 'plants', {
 								species,
@@ -562,9 +868,9 @@ function openStudio( ctx ) {
 				cap( species ),
 				'an:' + species,
 				thumbOf( [
-					defaultSheet( 'full', { yBase: 100 } ),
+					rawSheet( 'full', { yBase: 100 } ),
 					{
-						...defaultSheet( 'ground', { seed: 41, yBase: 88 } ),
+						...rawSheet( 'ground', { seed: 41, yBase: 88 } ),
 						objects: [
 							defaultObject( 'animal', {
 								species,
@@ -589,19 +895,32 @@ function openStudio( ctx ) {
 
 		const sf = famSection( t( 'Sky' ) );
 		const skyItems = [
-			[ t( 'Cloud' ), () => defaultObject( 'cloud', { x: 0.4, y: 0.22 } ) ],
+			[
+				t( 'Cloud' ),
+				() => defaultObject( 'cloud', { x: 0.4, y: 0.22 } ),
+			],
 			[
 				t( 'Moon' ),
-				() => defaultObject( 'orb', { variant: 'moon', x: 0.7, y: 0.24 } ),
+				() =>
+					defaultObject( 'orb', {
+						variant: 'moon',
+						x: 0.7,
+						y: 0.24,
+					} ),
 			],
 			[
 				t( 'Crescent' ),
 				() =>
-					defaultObject( 'orb', { variant: 'crescent', x: 0.7, y: 0.24 } ),
+					defaultObject( 'orb', {
+						variant: 'crescent',
+						x: 0.7,
+						y: 0.24,
+					} ),
 			],
 			[
 				t( 'Sun' ),
-				() => defaultObject( 'orb', { variant: 'sun', x: 0.7, y: 0.24 } ),
+				() =>
+					defaultObject( 'orb', { variant: 'sun', x: 0.7, y: 0.24 } ),
 			],
 			[ t( 'Flock' ), () => defaultObject( 'flock', { count: 5 } ) ],
 			...SKY_ANIMALS.map( ( species ) => [
@@ -617,12 +936,18 @@ function openStudio( ctx ) {
 				'sky:' + probe.kind + ( probe.species || probe.variant || '' ),
 				thumbOf( [
 					{
-						...defaultSheet( 'full', { yBase: 100 } ),
+						...rawSheet( 'full', { yBase: 100 } ),
 						objects: [
-							{ ...probe, id: 'thumb', x: 0.5, y: 0.4, scale: probe.scale * 1.8 },
+							{
+								...probe,
+								id: 'thumb',
+								x: 0.5,
+								y: 0.4,
+								scale: probe.scale * 1.8,
+							},
 						],
 					},
-					defaultSheet( 'hills', { seed: 9, yBase: 92, height: 20 } ),
+					rawSheet( 'hills', { seed: 9, yBase: 92, height: 20 } ),
 				] ),
 				() => addObject( make() )
 			);
@@ -634,11 +959,13 @@ function openStudio( ctx ) {
 			t( 'Corner branch' ),
 			'fr:branch',
 			thumbOf( [
-				defaultSheet( 'full', { yBase: 100 } ),
-				defaultSheet( 'hills', { seed: 9, yBase: 90, height: 22 } ),
+				rawSheet( 'full', { yBase: 100 } ),
+				rawSheet( 'hills', { seed: 9, yBase: 90, height: 22 } ),
 				{
-					...defaultSheet( 'edge', { border: 3 } ),
-					objects: [ defaultObject( 'branch', { corner: 'tl', reach: 62 } ) ],
+					...rawSheet( 'edge', { border: 3 } ),
+					objects: [
+						defaultObject( 'branch', { corner: 'tl', reach: 62 } ),
+					],
 				},
 			] ),
 			() => addObject( defaultObject( 'branch' ) )
@@ -648,9 +975,9 @@ function openStudio( ctx ) {
 			t( 'Words' ),
 			'fr:text',
 			thumbOf( [
-				defaultSheet( 'full', { yBase: 100 } ),
+				rawSheet( 'full', { yBase: 100 } ),
 				{
-					...defaultSheet( 'ground', { seed: 3, yBase: 96 } ),
+					...rawSheet( 'ground', { seed: 3, yBase: 96 } ),
 					objects: [
 						defaultObject( 'text', {
 							value: 'ART',
@@ -684,27 +1011,45 @@ function openStudio( ctx ) {
 		}
 	};
 
-	const BASE_LABEL = {
-		full: 'Backdrop',
+	const WINDOW_LABEL = {
+		circle: 'Circle',
+		oval: 'Oval',
+		heart: 'Heart',
+		arch: 'Arch',
+		hex: 'Hexagon',
+		rect: 'Rectangle',
+		star: 'Star',
+		ring: 'Ring',
+		twinring: 'Twin rings',
+		letter: 'Initial letter',
+	};
+	const PROFILE_LABEL = {
 		ridge: 'Mountain ridge',
 		hills: 'Rolling hills',
 		dunes: 'Dunes',
 		waves: 'Waves',
 		city: 'City skyline',
-		ground: 'Flat ground',
-		top: 'Cloud bank',
-		edge: 'Frame edge',
-		photo: 'Photo band',
-		subject: 'Subject',
+		flat: 'Flat ground',
 	};
-	const sheetName = ( s ) =>
-		t( BASE_LABEL[ s.base ] || 'Sheet' ) +
-		( 'photo' === s.base ? ' ' + ( s.band + 1 ) : '' );
 	const objectName = ( o ) => {
-		if ( 'animal' === o.kind || 'flyer' === o.kind ) {
-			return cap( o.species );
+		if ( 'terrain' === o.kind ) {
+			return t( PROFILE_LABEL[ o.profile ] || 'Landscape' );
 		}
-		if ( 'trees' === o.kind || 'plants' === o.kind ) {
+		if ( 'backdrop' === o.kind ) {
+			return t( 'Backdrop' );
+		}
+		if ( 'border' === o.kind ) {
+			return t( 'Frame edge' );
+		}
+		if ( 'frame' === o.kind ) {
+			return t( WINDOW_LABEL[ o.window ] || 'Passepartout' );
+		}
+		if (
+			'animal' === o.kind ||
+			'flyer' === o.kind ||
+			'trees' === o.kind ||
+			'plants' === o.kind
+		) {
 			return cap( o.species );
 		}
 		if ( 'orb' === o.kind ) {
@@ -720,6 +1065,33 @@ function openStudio( ctx ) {
 			return t( 'Corner branch' );
 		}
 		return o.value ? '"' + o.value + '"' : t( 'Words' );
+	};
+
+	/**
+	 * What a layer is called in the stack.
+	 *
+	 * v2 named every row after its hidden substructure, so ten rows read
+	 * "Flat ground" and told you nothing. A layer has no substructure any
+	 * more, so it is named after what you can actually see on it.
+	 *
+	 * @param {Object} s     The layer.
+	 * @param {number} index Its place in the stack.
+	 * @return {string} A name.
+	 */
+	const layerName = ( s, index ) => {
+		if ( 'photo' === s.source ) {
+			return t( 'Depth' ) + ' ' + ( s.band + 1 );
+		}
+		if ( 'subject' === s.source ) {
+			return t( 'Subject' );
+		}
+		if ( ! s.objects.length ) {
+			return t( 'Empty layer' );
+		}
+		const names = s.objects.map( objectName );
+		return names.length > 2
+			? names[ 0 ] + ' +' + ( names.length - 1 )
+			: names.join( ', ' ) || t( 'Layer' ) + ' ' + ( index + 1 );
 	};
 
 	const miniBtn = ( row, icon, title, disabled, onClick ) => {
@@ -746,6 +1118,123 @@ function openStudio( ctx ) {
 		}
 	};
 
+	/**
+	 * The stack, as ONE flat list of things from front to back.
+	 *
+	 * There used to be two nested stacks here - layers, with objects
+	 * beneath them - and only one of them was ever the user's idea of the
+	 * picture. Thomas, 9 August: "ich habe flat ground mit grass, deer,
+	 * flat ground [...] das blickt doch kein Mensch." He was right: the
+	 * layer was bookkeeping I had handed him, it repeated the same name
+	 * twice, and it split one question (what colour is this thing?) into
+	 * two rules.
+	 *
+	 * So the layer is gone from the interface. A row is a THING. The
+	 * grouping still exists underneath and rearranges itself: giving a
+	 * thing its own colour, or dragging it somewhere, quietly puts it on
+	 * a sheet of its own.
+	 *
+	 * @return {Array} `[ { id, layer, object } ]`, frontmost first.
+	 */
+	const flatRows = () => {
+		const rows = [];
+		for ( let i = params.layers.length - 1; i >= 0; i-- ) {
+			const sheet = params.layers[ i ];
+			if ( 'elements' !== sheet.source || ! sheet.objects.length ) {
+				rows.push( { id: sheet.id, layer: sheet, object: null } );
+				continue;
+			}
+			for ( let k = sheet.objects.length - 1; k >= 0; k-- ) {
+				const object = sheet.objects[ k ];
+				rows.push( { id: object.id, layer: sheet, object } );
+			}
+		}
+		return rows;
+	};
+
+	/**
+	 * Move a thing in the stack.
+	 *
+	 * @param {string} rowId  The row's id.
+	 * @param {Object|string} to A layer to sit in front of, or the string
+	 *                           'front' / 'back' for the two ends.
+	 */
+	const moveThing = ( rowId, to ) => {
+		const rows = flatRows();
+		const from = rows.find( ( r ) => r.id === rowId );
+		if ( ! from ) {
+			return;
+		}
+		mark();
+		// Where in the layer array the thing lands. The array runs back to
+		// front, so "in front of L" is one past L.
+		const slotFor = () => {
+			if ( 'back' === to ) {
+				return 0;
+			}
+			if ( 'front' === to || ! to ) {
+				return params.layers.length;
+			}
+			const at = params.layers.indexOf( to );
+			return at < 0 ? params.layers.length : at + 1;
+		};
+		if ( ! from.object ) {
+			// A photo sheet moves as a whole; it has no objects to split.
+			const at = params.layers.indexOf( from.layer );
+			params.layers.splice( at, 1 );
+			params.layers.splice( Math.max( 0, slotFor() ), 0, from.layer );
+		} else {
+			// Dragging SPLITS: the thing gets a sheet of its own at the new
+			// place, which is exactly what "I moved it there" should mean.
+			const k = from.layer.objects.indexOf( from.object );
+			from.layer.objects.splice( k, 1 );
+			params.layers.splice(
+				Math.max( 0, slotFor() ),
+				0,
+				defaultLayer( {
+					color: from.layer.color,
+					shadow: from.layer.shadow,
+					objects: [ from.object ],
+				} )
+			);
+		}
+		// Sheets that are left empty were bookkeeping, not a decision.
+		params.layers = params.layers.filter(
+			( l ) => 'elements' !== l.source || l.objects.length
+		);
+		if ( ! params.layers.length ) {
+			params.layers = [ defaultLayer() ];
+		}
+		rebuild();
+		syncAll();
+	};
+
+	/** The colour of one thing. Setting it splits the thing out. */
+	const setThingColor = ( row, hex ) => {
+		mark();
+		if ( ! row.object || 1 === row.layer.objects.length ) {
+			row.layer.color = hex;
+			rebuild();
+			return;
+		}
+		const k = row.layer.objects.indexOf( row.object );
+		row.layer.objects.splice( k, 1 );
+		const at = params.layers.indexOf( row.layer );
+		params.layers.splice(
+			at + 1,
+			0,
+			defaultLayer( {
+				color: hex,
+				shadow: row.layer.shadow,
+				objects: [ row.object ],
+			} )
+		);
+		rebuild();
+		syncAll();
+	};
+
+	let dragRow = null;
+
 	const syncStack = () => {
 		if ( ! stackBody ) {
 			return;
@@ -753,114 +1242,158 @@ function openStudio( ctx ) {
 		unmountAll();
 		rowsById = new Map();
 		stackBody.textContent = '';
-		// Front sheet first: the list reads like the stack looks.
-		for ( let i = params.sheets.length - 1; i >= 0; i-- ) {
-			const sheet = params.sheets[ i ];
+		const rows = flatRows();
+		ui.el( 'div', 'wpiepca-edge', stackBody, t( 'Front' ) );
+		rows.forEach( ( r, n ) => {
 			const row = ui.el(
 				'div',
-				'wpiepca-lrow' + ( selected === sheet.id ? ' is-on' : '' ),
+				'wpiepca-lrow' + ( selected === r.id ? ' is-on' : '' ),
 				stackBody
 			);
-			rowsById.set( sheet.id, row );
+			rowsById.set( r.id, row );
 			row.onclick = () => {
-				selected = sheet.id;
+				selected = r.id;
 				syncHighlight();
 				syncSelection();
 				repaint();
 			};
-			ui.el( 'span', 'wpiepca-lname', row, sheetName( sheet ) );
+			ui.el( 'span', 'wpiepca-grip', row ).innerHTML = I.grip;
+			ui.el(
+				'span',
+				'wpiepca-lname',
+				row,
+				r.object ? objectName( r.object ) : layerName( r.layer, n )
+			);
 			const colorHost = ui.el( 'span', 'wpiepca-lcolor', row );
-			// The picker lives INSIDE this host; letting the click reach
-			// the row would reselect and rebuild the whole stack, which
-			// tears the popover down in the same tick.
+			// The picker renders its popover INSIDE this host; letting the
+			// click reach the row would reselect and rebuild the list,
+			// tearing the popover down in the same tick.
 			colorHost.addEventListener( 'pointerdown', ( e ) =>
 				e.stopPropagation()
 			);
 			colorHost.addEventListener( 'click', ( e ) => e.stopPropagation() );
 			if ( bridge.components && bridge.components.mountColorButton ) {
 				const built = engine
-					.allSheets()
-					.find( ( s ) => s.sheet.id === sheet.id );
+					.allLayers()
+					.find( ( s ) => s.layer.id === r.layer.id );
 				const handle = bridge.components.mountColorButton( colorHost, {
-					color: sheet.color || ( built && built.color ) || '#888888',
+					color:
+						r.layer.color || ( built && built.color ) || '#888888',
 					onChange: ( c ) => {
-						sheet.color = 'string' === typeof c ? c : c && c.hex;
-						handle.set( sheet.color );
-						rebuildSoon();
+						const hex = 'string' === typeof c ? c : c && c.hex;
+						handle.set( hex );
+						setThingColor( r, hex );
 					},
 				} );
 				unmounts.push( handle );
 			}
-			miniBtn( row, I.up, t( 'Move forward' ), i === params.sheets.length - 1, () => {
-				const tmp = params.sheets[ i + 1 ];
-				params.sheets[ i + 1 ] = sheet;
-				params.sheets[ i ] = tmp;
-				rebuild();
-				syncAll();
-			} );
-			miniBtn( row, I.down, t( 'Move back' ), 0 === i, () => {
-				const tmp = params.sheets[ i - 1 ];
-				params.sheets[ i - 1 ] = sheet;
-				params.sheets[ i ] = tmp;
-				rebuild();
-				syncAll();
-			} );
-			miniBtn(
-				row,
-				I.x,
-				t( 'Remove' ),
-				params.sheets.length <= 1,
-				() => {
-					params.sheets.splice( i, 1 );
-					selected = null;
-					rebuild();
-					syncAll();
+			miniBtn( row, I.x, t( 'Remove' ), rows.length <= 1, () => {
+				mark();
+				if ( r.object ) {
+					r.layer.objects.splice(
+						r.layer.objects.indexOf( r.object ),
+						1
+					);
 				}
-			);
-			// The objects living on this sheet.
-			for ( let k = sheet.objects.length - 1; k >= 0; k-- ) {
-				const obj = sheet.objects[ k ];
-				const orow = ui.el(
-					'div',
-					'wpiepca-orow' + ( selected === obj.id ? ' is-on' : '' ),
-					stackBody
+				params.layers = params.layers.filter(
+					( l ) =>
+						l !== r.layer ||
+						( 'elements' === l.source && l.objects.length )
 				);
-				rowsById.set( obj.id, orow );
-				orow.onclick = () => {
-					selected = obj.id;
-					syncHighlight();
-					syncSelection();
-					repaint();
+				if ( ! params.layers.length ) {
+					params.layers = [ defaultLayer() ];
+				}
+				if ( selected === r.id ) {
+					selected = null;
+				}
+				rebuild();
+				syncAll();
+			} );
+
+			// Pointer events, not HTML5 drag and drop: the latter needs a
+			// DataTransfer, does nothing at all on touch, and behaves
+			// differently inside the editor's modal. This is the same
+			// gesture the stage already uses.
+			const grip = row.querySelector( '.wpiepca-grip' );
+			grip.addEventListener( 'pointerdown', ( e ) => {
+				e.preventDefault();
+				e.stopPropagation();
+				grip.setPointerCapture( e.pointerId );
+				dragRow = {
+					id: r.id,
+					y: e.clientY,
+					moved: false,
+					target: null,
 				};
-				ui.el( 'span', 'wpiepca-oname', orow, objectName( obj ) );
-				miniBtn( orow, I.merge, t( 'Move to the sheet behind' ), 0 === i, () => {
-					sheet.objects.splice( k, 1 );
-					params.sheets[ i - 1 ].objects.push( obj );
-					rebuild();
-					syncAll();
-				} );
-				miniBtn(
-					orow,
-					I.lift,
-					t( 'Move to the sheet in front' ),
-					i === params.sheets.length - 1,
-					() => {
-						sheet.objects.splice( k, 1 );
-						params.sheets[ i + 1 ].objects.push( obj );
-						rebuild();
-						syncAll();
-					}
+				row.classList.add( 'is-drag' );
+			} );
+			grip.addEventListener( 'pointermove', ( e ) => {
+				if ( ! dragRow || dragRow.id !== r.id ) {
+					return;
+				}
+				if (
+					! dragRow.moved &&
+					Math.abs( e.clientY - dragRow.y ) < 4
+				) {
+					return;
+				}
+				dragRow.moved = true;
+				dragRow.target = null;
+				for ( const el of stackBody.children ) {
+					el.classList.remove( 'is-over' );
+				}
+				// What is under the pointer decides where it lands, which
+				// is the only rule a hand can predict.
+				const under = document
+					.elementsFromPoint( e.clientX, e.clientY )
+					.find(
+						( el ) =>
+							el.classList &&
+							( el.classList.contains( 'wpiepca-lrow' ) ||
+								el.classList.contains( 'wpiepca-edge' ) )
+					);
+				if ( ! under || under === row ) {
+					return;
+				}
+				under.classList.add( 'is-over' );
+				dragRow.target = under;
+			} );
+			const endRowDrag = () => {
+				if ( ! dragRow || dragRow.id !== r.id ) {
+					return;
+				}
+				row.classList.remove( 'is-drag' );
+				const target = dragRow.moved ? dragRow.target : null;
+				const id = dragRow.id;
+				dragRow = null;
+				for ( const el of stackBody.children ) {
+					el.classList.remove( 'is-over' );
+				}
+				if ( ! target ) {
+					return;
+				}
+				// Dropping ON a row means "put it in front of that one";
+				// the BACK marker at the bottom means "all the way back".
+				if ( target.classList.contains( 'wpiepca-edge' ) ) {
+					moveThing(
+						id,
+						target.classList.contains( 'is-tail' )
+							? 'back'
+							: 'front'
+					);
+					return;
+				}
+				const hit = rows.find(
+					( x ) => rowsById.get( x.id ) === target
 				);
-				miniBtn( orow, I.x, t( 'Remove' ), false, () => {
-					sheet.objects.splice( k, 1 );
-					if ( selected === obj.id ) {
-						selected = null;
-					}
-					rebuild();
-					syncAll();
-				} );
-			}
-		}
+				moveThing( id, hit ? hit.layer : 'front' );
+			};
+			grip.addEventListener( 'pointerup', endRowDrag );
+			grip.addEventListener( 'pointercancel', endRowDrag );
+		} );
+		// The very back is a drop target too, or nothing could ever be
+		// moved behind the last thing.
+		ui.el( 'div', 'wpiepca-edge is-tail', stackBody, t( 'Back' ) );
 	};
 
 	const sliderRow = ( parent, label, value, min, max, onInput, step = 1 ) =>
@@ -872,7 +1405,7 @@ function openStudio( ctx ) {
 		}
 		selBody.textContent = '';
 		const objHit = selected ? findObject( selected ) : null;
-		const sheet = ! objHit && selected ? findSheet( selected ) : null;
+		const sheet = ! objHit && selected ? findLayer( selected ) : null;
 		if ( ! objHit && ! sheet ) {
 			ui.el(
 				'div',
@@ -886,13 +1419,31 @@ function openStudio( ctx ) {
 			const o = objHit.object;
 			ui.el( 'div', 'wpiepca-note', selBody, objectName( o ) );
 			if ( 'text' === o.kind ) {
-				const input = ui.el( 'input', 'dsm-input', selBody );
-				input.type = 'text';
+				// A textarea, not an input: several words under each other
+				// are one block, and a single-line field cannot hold a
+				// line break at all.
+				const input = ui.el(
+					'textarea',
+					'dsm-input wpiepca-words',
+					selBody
+				);
+				input.rows = 3;
 				input.value = o.value;
 				input.oninput = () => {
-					o.value = input.value.slice( 0, 40 );
-					rebuildSoon();
+					o.value = input.value.slice( 0, 80 );
+					rebuildLive();
 				};
+				sliderRow(
+					selBody,
+					t( 'Line gap' ),
+					o.lineGap,
+					0,
+					120,
+					( v ) => {
+						o.lineGap = v;
+						rebuildLive();
+					}
+				);
 				if ( bridge.components && bridge.components.mountFontPicker ) {
 					const host = ui.el(
 						'span',
@@ -920,27 +1471,172 @@ function openStudio( ctx ) {
 					} );
 					unmounts.push( fp );
 				}
-				ui.select( ui.row( selBody, t( 'Cut style' ) ), {
-					options: [
-						{ value: 'paper', label: t( 'Paper letters' ) },
-						{ value: 'cut', label: t( 'Cut out' ) },
-					],
-					value: o.mode,
+			}
+			if ( 'terrain' === o.kind ) {
+				ui.select( ui.row( selBody, t( 'Shape' ) ), {
+					options: PROFILES.map( ( v ) => ( {
+						value: v,
+						label: t( PROFILE_LABEL[ v ] || v ),
+					} ) ),
+					value: o.profile,
 					onChange: ( v ) => {
-						o.mode = v;
+						mark();
+						o.profile = v;
 						rebuild();
+						syncAll();
 					},
+				} );
+				sliderRow( selBody, t( 'Horizon' ), o.yBase, 2, 100, ( v ) => {
+					o.yBase = v;
+					o.y = v / 100;
+					rebuildLive();
+				} );
+				if ( 'flat' !== o.profile ) {
+					sliderRow(
+						selBody,
+						t( 'Height' ),
+						o.height,
+						0,
+						100,
+						( v ) => {
+							o.height = v;
+							rebuildLive();
+						}
+					);
+					sliderRow(
+						selBody,
+						t( 'Ruggedness' ),
+						o.jag,
+						0,
+						100,
+						( v ) => {
+							o.jag = v;
+							rebuildLive();
+						}
+					);
+				}
+			}
+			if ( 'border' === o.kind ) {
+				sliderRow( selBody, t( 'Border' ), o.border, 1, 20, ( v ) => {
+					o.border = v;
+					rebuildLive();
+				} );
+			}
+			if ( 'frame' === o.kind ) {
+				ui.select( ui.row( selBody, t( 'Window' ) ), {
+					options: WINDOWS.map( ( v ) => ( {
+						value: v,
+						label: t( WINDOW_LABEL[ v ] || v ),
+					} ) ),
+					value: o.window,
+					onChange: ( v ) => {
+						mark();
+						o.window = v;
+						rebuild();
+						syncAll();
+					},
+				} );
+				if ( 'letter' === o.window ) {
+					const inp = ui.el( 'input', 'dsm-input', selBody );
+					inp.type = 'text';
+					inp.maxLength = 1;
+					inp.value = o.letter;
+					inp.oninput = () => {
+						o.letter = inp.value.slice( 0, 1 ) || 'A';
+						rebuildLive();
+					};
+				}
+				sliderRow( selBody, t( 'Border' ), o.inset, 0, 30, ( v ) => {
+					o.inset = v;
+					rebuildLive();
+				} );
+				if ( 'star' === o.window ) {
+					sliderRow(
+						selBody,
+						t( 'Points' ),
+						o.points,
+						3,
+						24,
+						( v ) => {
+							o.points = v;
+							rebuildLive();
+						}
+					);
+					sliderRow(
+						selBody,
+						t( 'Sharpness' ),
+						o.sharp,
+						0,
+						100,
+						( v ) => {
+							o.sharp = v;
+							rebuildLive();
+						}
+					);
+				}
+				if ( 'ring' === o.window || 'twinring' === o.window ) {
+					sliderRow(
+						selBody,
+						t( 'Band width' ),
+						o.width,
+						4,
+						80,
+						( v ) => {
+							o.width = v;
+							rebuildLive();
+						}
+					);
+				}
+				if ( 'ring' === o.window ) {
+					sliderRow( selBody, t( 'Tilt' ), o.tilt, -90, 90, ( v ) => {
+						o.tilt = v;
+						rebuildLive();
+					} );
+				}
+				if ( 'twinring' === o.window ) {
+					sliderRow(
+						selBody,
+						t( 'Overlap' ),
+						o.gap,
+						10,
+						140,
+						( v ) => {
+							o.gap = v;
+							rebuildLive();
+						}
+					);
+				}
+			}
+			if ( 'cloud' === o.kind ) {
+				sliderRow( selBody, t( 'Billow' ), o.puff, 0, 100, ( v ) => {
+					o.puff = v;
+					rebuildLive();
+				} );
+				sliderRow( selBody, t( 'Fray' ), o.wisp, 0, 100, ( v ) => {
+					o.wisp = v;
+					rebuildLive();
 				} );
 			}
 			if ( 'orb' === o.kind ) {
 				ui.select( ui.row( selBody, t( 'Shape' ) ), {
-					options: ORBS.map( ( v ) => ( { value: v, label: cap( v ) } ) ),
+					options: ORBS.map( ( v ) => ( {
+						value: v,
+						label: cap( v ),
+					} ) ),
 					value: o.variant,
 					onChange: ( v ) => {
+						mark();
 						o.variant = v;
 						rebuild();
+						syncAll();
 					},
 				} );
+				if ( 'sun' === o.variant ) {
+					sliderRow( selBody, t( 'Rays' ), o.rays, 3, 40, ( v ) => {
+						o.rays = v;
+						rebuildLive();
+					} );
+				}
 			}
 			if ( 'animal' === o.kind || 'flyer' === o.kind ) {
 				const list =
@@ -948,7 +1644,10 @@ function openStudio( ctx ) {
 						? SKY_ANIMALS
 						: GROUND_ANIMALS.concat( WATER_ANIMALS );
 				ui.select( ui.row( selBody, t( 'Kind' ) ), {
-					options: list.map( ( v ) => ( { value: v, label: cap( v ) } ) ),
+					options: list.map( ( v ) => ( {
+						value: v,
+						label: cap( v ),
+					} ) ),
 					value: o.species,
 					onChange: ( v ) => {
 						o.species = v;
@@ -960,7 +1659,10 @@ function openStudio( ctx ) {
 			if ( 'trees' === o.kind || 'plants' === o.kind ) {
 				const list = 'trees' === o.kind ? TREE_SPECIES : PLANT_SPECIES;
 				ui.select( ui.row( selBody, t( 'Kind' ) ), {
-					options: list.map( ( v ) => ( { value: v, label: cap( v ) } ) ),
+					options: list.map( ( v ) => ( {
+						value: v,
+						label: cap( v ),
+					} ) ),
 					value: o.species,
 					onChange: ( v ) => {
 						o.species = v;
@@ -970,12 +1672,23 @@ function openStudio( ctx ) {
 				} );
 				sliderRow( selBody, t( 'Count' ), o.count, 1, 30, ( v ) => {
 					o.count = v;
-					rebuildSoon();
+					rebuildLive();
 				} );
 				sliderRow( selBody, t( 'Spread' ), o.spread, 0, 150, ( v ) => {
 					o.spread = v;
-					rebuildSoon();
+					rebuildLive();
 				} );
+				sliderRow(
+					selBody,
+					t( 'Height variation' ),
+					o.vary,
+					0,
+					100,
+					( v ) => {
+						o.vary = v;
+						rebuildLive();
+					}
+				);
 			}
 			if ( 'flock' === o.kind ) {
 				ui.select( ui.row( selBody, t( 'Kind' ) ), {
@@ -991,11 +1704,11 @@ function openStudio( ctx ) {
 				} );
 				sliderRow( selBody, t( 'Count' ), o.count, 1, 20, ( v ) => {
 					o.count = v;
-					rebuildSoon();
+					rebuildLive();
 				} );
 				sliderRow( selBody, t( 'Spread' ), o.spread, 5, 150, ( v ) => {
 					o.spread = v;
-					rebuildSoon();
+					rebuildLive();
 				} );
 			}
 			if ( 'branch' === o.kind ) {
@@ -1014,95 +1727,91 @@ function openStudio( ctx ) {
 				} );
 				sliderRow( selBody, t( 'Reach' ), o.reach, 15, 100, ( v ) => {
 					o.reach = v;
-					rebuildSoon();
+					rebuildLive();
 				} );
 			}
-			sliderRow( selBody, t( 'Size' ), o.scale, 3, 140, ( v ) => {
-				o.scale = v;
-				rebuildSoon();
-			} );
-			sliderRow( selBody, t( 'Rotation' ), o.rot, -180, 180, ( v ) => {
-				o.rot = v;
-				rebuildSoon();
-			} );
+			if ( ! FULL_PAGE_KINDS.includes( o.kind ) ) {
+				sliderRow( selBody, t( 'Size' ), o.scale, 3, 140, ( v ) => {
+					o.scale = v;
+					rebuildLive();
+				} );
+				sliderRow(
+					selBody,
+					t( 'Rotation' ),
+					o.rot,
+					-180,
+					180,
+					( v ) => {
+						o.rot = v;
+						rebuildLive();
+					}
+				);
+				// Punching used to be decided by KIND, and a hole was only
+				// allowed on a backdrop. Any object, any layer.
+				ui.check( selBody, {
+					label: t( 'Punch out of the paper' ),
+					checked: !! o.cut,
+					onChange: ( v ) => {
+						mark();
+						o.cut = v;
+						rebuild();
+						syncAll();
+					},
+				} );
+			}
 			const row = ui.el( 'div', 'wpiepca-row', selBody );
 			ui.el( 'span', 'dsm-label wpiepca-lbl', row, t( 'Variation' ) );
 			miniBtn( row, I.dice, t( 'Roll a new variation' ), false, () => {
 				o.seed = 1 + Math.floor( Math.random() * 999999 );
 				rebuild();
 			} );
-			if ( 'orb' !== o.kind && 'cloud' !== o.kind && 'branch' !== o.kind ) {
+			if (
+				'orb' !== o.kind &&
+				'cloud' !== o.kind &&
+				'branch' !== o.kind
+			) {
 				miniBtn( row, I.flip, t( 'Flip' ), false, () => {
 					o.flip = ! o.flip;
 					rebuild();
 				} );
 			}
 			miniBtn( row, I.x, t( 'Remove' ), false, () => {
-				const idx = objHit.sheet.objects.indexOf( o );
-				objHit.sheet.objects.splice( idx, 1 );
+				mark();
+				const idx = objHit.layer.objects.indexOf( o );
+				objHit.layer.objects.splice( idx, 1 );
+				params.layers = params.layers.filter(
+					( l ) => 'elements' !== l.source || l.objects.length
+				);
+				if ( ! params.layers.length ) {
+					params.layers = [ defaultLayer() ];
+				}
 				selected = null;
 				rebuild();
 				syncAll();
 			} );
+			// The shadow this thing casts. It belongs to the sheet it sits
+			// on, and a thing usually has that sheet to itself.
+			sliderRow(
+				selBody,
+				t( 'Shadow' ),
+				objHit.layer.shadow,
+				0,
+				200,
+				( v ) => {
+					objHit.layer.shadow = v;
+					rebuildLive();
+				}
+			);
 			return;
 		}
-		// A sheet is selected.
-		ui.el( 'div', 'wpiepca-note', selBody, sheetName( sheet ) );
-		if ( ! [ 'photo', 'subject', 'full' ].includes( sheet.base ) ) {
-			ui.select( ui.row( selBody, t( 'Paper' ) ), {
-				options: [
-					{ value: 'ground', label: t( 'Flat ground' ) },
-					{ value: 'ridge', label: t( 'Mountain ridge' ) },
-					{ value: 'hills', label: t( 'Rolling hills' ) },
-					{ value: 'dunes', label: t( 'Dunes' ) },
-					{ value: 'waves', label: t( 'Waves' ) },
-					{ value: 'city', label: t( 'City skyline' ) },
-					{ value: 'top', label: t( 'Cloud bank' ) },
-					{ value: 'edge', label: t( 'Frame edge' ) },
-					{ value: 'full', label: t( 'Backdrop' ) },
-				],
-				value: sheet.base,
-				onChange: ( v ) => {
-					sheet.base = v;
-					rebuild();
-					syncAll();
-				},
-			} );
-		}
-		if ( 'edge' === sheet.base ) {
-			sliderRow( selBody, t( 'Border' ), sheet.border, 1, 20, ( v ) => {
-				sheet.border = v;
-				rebuildSoon();
-			} );
-		} else if ( ! [ 'photo', 'subject', 'full' ].includes( sheet.base ) ) {
-			sliderRow( selBody, t( 'Horizon' ), sheet.yBase, 2, 100, ( v ) => {
-				sheet.yBase = v;
-				rebuildSoon();
-			} );
-			if ( 'ground' !== sheet.base ) {
-				sliderRow( selBody, t( 'Height' ), sheet.height, 0, 100, ( v ) => {
-					sheet.height = v;
-					rebuildSoon();
-				} );
-				sliderRow(
-					selBody,
-					t( 'Ruggedness' ),
-					sheet.jag,
-					0,
-					100,
-					( v ) => {
-						sheet.jag = v;
-						rebuildSoon();
-					}
-				);
-			}
-			const row = ui.el( 'div', 'wpiepca-row', selBody );
-			ui.el( 'span', 'dsm-label wpiepca-lbl', row, t( 'Variation' ) );
-			miniBtn( row, I.dice, t( 'Roll a new variation' ), false, () => {
-				sheet.seed = 1 + Math.floor( Math.random() * 999999 );
-				rebuild();
-			} );
-		}
+		// A photo sheet is selected. It has no shape of its own to edit:
+		// its outline comes from the picture.
+		const index = params.layers.indexOf( sheet );
+		ui.el( 'div', 'wpiepca-note', selBody, layerName( sheet, index ) );
+		sliderRow( selBody, t( 'Shadow' ), sheet.shadow, 0, 200, ( v ) => {
+			sheet.shadow = v;
+			rebuildLive();
+		} );
 	};
 
 	/* ------------------------------ photo ------------------------------- */
@@ -1128,7 +1837,11 @@ function openStudio( ctx ) {
 	const flattenLayers = ( layers, out = [] ) => {
 		for ( const l of layers || [] ) {
 			out.push( l );
-			if ( Array.isArray( l.children ) && l.children.length && 'object' === typeof l.children[ 0 ] ) {
+			if (
+				Array.isArray( l.children ) &&
+				l.children.length &&
+				'object' === typeof l.children[ 0 ]
+			) {
 				flattenLayers( l.children, out );
 			}
 		}
@@ -1149,20 +1862,61 @@ function openStudio( ctx ) {
 			img.src = url;
 		} );
 
+	/**
+	 * Lay the photo out as a stack of depth layers.
+	 *
+	 * Anything the user placed by hand stays: only the photo's own layers
+	 * are replaced. The ceiling of twelve is gone, twenty depth layers is
+	 * the point of the thing.
+	 */
 	const applyPhotoSheets = () => {
 		const bands = params.photo.bands;
-		const keep = params.sheets.filter( ( s ) =>
-			s.objects.some( ( o ) => 'text' === o.kind )
+		const keep = params.layers.filter(
+			( s ) => 'elements' === s.source && s.objects.length
 		);
-		const sheets = [];
+		const fresh = [];
 		for ( let b = bands - 1; b >= 0; b-- ) {
-			sheets.push( defaultSheet( 'photo', { band: b } ) );
+			fresh.push( defaultLayer( { source: 'photo', band: b } ) );
 		}
 		if ( params.photo.subject ) {
-			sheets.push( defaultSheet( 'subject' ) );
+			fresh.push( defaultLayer( { source: 'subject' } ) );
 		}
-		params.sheets = sheets.concat( keep ).slice( 0, 12 );
+		params.layers = fresh.concat( keep );
 		selected = null;
+	};
+
+	/**
+	 * The local depth map for the current photo, if the editor has the
+	 * model.
+	 *
+	 * This is what makes the photo strand worth anything: brightness only
+	 * stands in for distance in a hazy landscape. It is deliberately
+	 * OPTIONAL - `bridge.ml.depthMap` arrived with API 2.16, the model is
+	 * an opt-in download, and a studio must never send someone off to
+	 * install something before it works. Without it the brightness bands
+	 * carry on, and the status line says so.
+	 */
+	const loadDepth = async () => {
+		const ml = bridge.ml;
+		if (
+			! ml ||
+			! ml.depthMap ||
+			! ml.isModelInstalled ||
+			! ml.isModelInstalled( 'depth' ) ||
+			! photoSrcUrl ||
+			'luma' === params.photo.mode
+		) {
+			engine.setDepth( null );
+			return;
+		}
+		try {
+			status.textContent = t( 'Reading the depth…' );
+			engine.setDepth( await ml.depthMap( photoSrcUrl ) );
+		} catch ( e ) {
+			// A model that will not run is not an error the user caused.
+			engine.setDepth( null );
+		}
+		syncStatus();
 	};
 
 	const loadPhotoSource = async () => {
@@ -1174,7 +1928,11 @@ function openStudio( ctx ) {
 		try {
 			let c = null;
 			if ( 'document' === src || 'layer' === src ) {
-				if ( ! editor || ! bridge.raster || ! bridge.raster.renderToCanvas ) {
+				if (
+					! editor ||
+					! bridge.raster ||
+					! bridge.raster.renderToCanvas
+				) {
 					return;
 				}
 				let layers = editor.state.layers || [];
@@ -1189,12 +1947,20 @@ function openStudio( ctx ) {
 					);
 					layers = one ? [ one ] : layers;
 				}
-				c = await bridge.raster.renderToCanvas( editor.state.doc, layers, {
-					scale: Math.min(
-						1,
-						1200 / Math.max( editor.state.doc.w, editor.state.doc.h )
-					),
-				} );
+				c = await bridge.raster.renderToCanvas(
+					editor.state.doc,
+					layers,
+					{
+						scale: Math.min(
+							1,
+							1200 /
+								Math.max(
+									editor.state.doc.w,
+									editor.state.doc.h
+								)
+						),
+					}
+				);
 			} else if ( params.photo.src ) {
 				c = await canvasFromImage( params.photo.src );
 			}
@@ -1204,7 +1970,11 @@ function openStudio( ctx ) {
 			engine.setPhoto( c );
 			photoSrcUrl = c.toDataURL( 'image/png' );
 			const lm = engine.lumaAt( 240, 160, params.photo.blur );
-			params.photo.thresholds = autoThresholds( lm.luma, params.photo.bands );
+			params.photo.thresholds = autoThresholds(
+				lm.luma,
+				params.photo.bands
+			);
+			await loadDepth();
 			drawHistogram();
 			if ( params.photo.subject ) {
 				await loadSubject();
@@ -1285,7 +2055,7 @@ function openStudio( ctx ) {
 				dragIdx < th.length - 1 ? th[ dragIdx + 1 ] - 0.01 : 0.98;
 			th[ dragIdx ] = Math.max( lo, Math.min( hi, x ) );
 			drawHistogram();
-			rebuildSoon();
+			rebuildLive();
 		} );
 		histCanvas.addEventListener( 'pointerup', () => ( dragIdx = -1 ) );
 	};
@@ -1315,13 +2085,19 @@ function openStudio( ctx ) {
 				},
 			} );
 		}
-		if ( 'media' === src && bridge.components && bridge.components.mountMediaPicker ) {
+		if (
+			'media' === src &&
+			bridge.components &&
+			bridge.components.mountMediaPicker
+		) {
 			const node = ui.el( 'div', 'wpiepca-media', photoExtra );
 			bridge.components.mountMediaPicker( node, {
 				height: 170,
 				onPick: async ( item ) => {
 					try {
-						const c = await canvasFromImage( item.fullUrl || item.url );
+						const c = await canvasFromImage(
+							item.fullUrl || item.url
+						);
 						params.photo.src = c.toDataURL( 'image/jpeg', 0.9 );
 						await loadPhotoSource();
 						applyPhotoSheets();
@@ -1358,142 +2134,10 @@ function openStudio( ctx ) {
 	/* --------------------------- build the side -------------------------- */
 
 	const buildSide = () => {
-		const stackSec = ui.section( side, {
-			icon: I.layers,
-			title: t( 'Sheets & objects' ),
+		const photoSec = ui.section( side, {
+			icon: I.photo,
+			title: t( 'Photo' ),
 		} );
-		stackBody = ui.el( 'div', 'wpiepca-lstack', stackSec );
-		const addSheetBtn = ui.btn( stackSec, {
-			label: t( 'Add empty sheet' ),
-			onClick: () => {
-				const s = defaultSheet( 'ground', {
-					yBase: Math.min( 97, 60 + params.sheets.length * 8 ),
-				} );
-				params.sheets.push( s );
-				selected = s.id;
-				rebuild();
-				syncAll();
-			},
-		} );
-		void addSheetBtn;
-
-		const selSec = ui.section( side, {
-			icon: I.wand,
-			title: t( 'Selection' ),
-		} );
-		selBody = ui.el( 'div', 'wpiepca-lage', selSec );
-
-		const lookSec = ui.section( side, { icon: I.palette, title: t( 'Look' ) } );
-		const chips = ui.el( 'div', 'wpiepca-looks', lookSec );
-		for ( const look of LOOKS ) {
-			const chip = ui.el( 'button', 'wpiepca-look', chips );
-			chip.type = 'button';
-			chip.title = look.label;
-			chip.style.background = `linear-gradient(135deg, ${ look.front } 0%, ${ look.back } 60%, ${ look.bg[ 1 ] } 100%)`;
-			chip.classList.toggle( 'is-on', params.look === look.id );
-			chip.onclick = () => {
-				params.look = look.id;
-				chips
-					.querySelectorAll( '.wpiepca-look' )
-					.forEach( ( c ) => c.classList.remove( 'is-on' ) );
-				chip.classList.add( 'is-on' );
-				rebuild();
-			};
-		}
-		sliderRow( lookSec, t( 'Glow' ), params.glow, 0, 100, ( v ) => {
-			params.glow = v;
-			repaint();
-		} );
-		sliderRow( lookSec, t( 'Paper grain' ), params.grain, 0, 100, ( v ) => {
-			params.grain = v;
-			repaint();
-		} );
-
-		const frameSec = ui.section( side, { icon: I.frame, title: t( 'Frame' ) } );
-		const frameExtra = ui.el( 'div', null, frameSec );
-		const frameLabels = {
-			none: t( 'None' ),
-			circle: t( 'Circle' ),
-			heart: t( 'Heart' ),
-			arch: t( 'Arch' ),
-			oval: t( 'Oval' ),
-			hex: t( 'Hexagon' ),
-			letter: t( 'Initial letter' ),
-		};
-		const syncFrameExtra = () => {
-			frameExtra.textContent = '';
-			if ( 'letter' === params.frame ) {
-				const inp = ui.el( 'input', 'dsm-input', frameExtra );
-				inp.type = 'text';
-				inp.maxLength = 1;
-				inp.value = params.frameLetter;
-				inp.oninput = () => {
-					params.frameLetter = inp.value.slice( 0, 1 ) || 'A';
-					rebuildSoon();
-				};
-			}
-		};
-		ui.select( ui.row( frameSec, t( 'Frame' ) ), {
-			options: FRAMES.map( ( f ) => ( { value: f, label: frameLabels[ f ] } ) ),
-			value: params.frame,
-			onChange: ( v ) => {
-				params.frame = v;
-				syncFrameExtra();
-				rebuild();
-			},
-		} );
-		frameSec.appendChild( frameExtra );
-		syncFrameExtra();
-		sliderRow( frameSec, t( 'Border' ), params.frameInset, 2, 24, ( v ) => {
-			params.frameInset = v;
-			rebuildSoon();
-		} );
-
-		const lightSec = ui.section( side, { icon: I.sun, title: t( 'Light & paper' ) } );
-		lightSlider = sliderRow(
-			lightSec,
-			t( 'Light' ),
-			params.lightX,
-			-100,
-			100,
-			( v ) => {
-				params.lightX = v;
-				syncSun();
-				repaint();
-			}
-		);
-		sliderRow( lightSec, t( 'Shadow' ), params.shadow, 0, 100, ( v ) => {
-			params.shadow = v;
-			repaint();
-		} );
-		sliderRow( lightSec, t( 'Softness' ), params.soft, 0, 100, ( v ) => {
-			params.soft = v;
-			repaint();
-		} );
-
-		const cutSec = ui.section( side, { icon: I.scissors, title: t( 'Cutting' ) } );
-		sliderRow( cutSec, t( 'Cut width (cm)' ), params.cutWidth, 8, 100, ( v ) => {
-			params.cutWidth = v;
-			rebuildSoon();
-		} );
-		ui.select( ui.row( cutSec, t( 'Min bridge (mm)' ) ), {
-			options: [ 1, 1.5, 2, 2.5, 3, 4, 5, 6 ].map( ( v ) => ( {
-				value: String( v ),
-				label: String( v ),
-			} ) ),
-			value: String( params.minBridge ),
-			onChange: ( v ) => {
-				params.minBridge = Number( v );
-				rebuild();
-			},
-		} );
-		sliderRow( cutSec, t( 'Detail' ), params.detail, 0, 100, ( v ) => {
-			params.detail = v;
-			rebuildSoon();
-		} );
-		ampelEl = ui.el( 'div', 'wpiepca-ampel', cutSec, '' );
-
-		const photoSec = ui.section( side, { icon: I.photo, title: t( 'Photo' ) } );
 		ui.select( ui.row( photoSec, t( 'Source' ) ), {
 			options: [
 				{ value: 'none', label: t( 'None' ) },
@@ -1520,22 +2164,59 @@ function openStudio( ctx ) {
 			},
 		} );
 		photoExtra = ui.el( 'div', null, photoSec );
-		sliderRow( photoSec, t( 'Depth sheets' ), params.photo.bands, 2, 8, ( v ) => {
-			params.photo.bands = v;
-			if ( engine.photoCanvas ) {
-				const lm = engine.lumaAt( 240, 160, params.photo.blur );
-				params.photo.thresholds = autoThresholds( lm.luma, v );
-				applyPhotoSheets();
-				drawHistogram();
-				rebuild();
-				syncStack();
+		sliderRow(
+			photoSec,
+			t( 'Depth layers' ),
+			params.photo.bands,
+			2,
+			20,
+			( v ) => {
+				params.photo.bands = v;
+				if ( engine.photoCanvas ) {
+					const lm = engine.lumaAt( 240, 160, params.photo.blur );
+					params.photo.thresholds = autoThresholds( lm.luma, v );
+					applyPhotoSheets();
+					drawHistogram();
+					rebuild();
+					syncStack();
+				}
 			}
-		} );
-		sliderRow( photoSec, t( 'Smoothing' ), params.photo.blur, 0, 100, ( v ) => {
-			params.photo.blur = v;
-			drawHistogram();
-			rebuildSoon();
-		} );
+		);
+		// Only worth offering where there is a choice: without the local
+		// model there is only one way to slice a picture.
+		if (
+			bridge.ml &&
+			bridge.ml.depthMap &&
+			bridge.ml.isModelInstalled &&
+			bridge.ml.isModelInstalled( 'depth' )
+		) {
+			ui.select( ui.row( photoSec, t( 'Slice by' ) ), {
+				options: [
+					{ value: 'depth', label: t( 'Real depth' ) },
+					{ value: 'luma', label: t( 'Brightness' ) },
+				],
+				value: params.photo.mode,
+				onChange: async ( v ) => {
+					mark();
+					params.photo.mode = v;
+					await loadDepth();
+					rebuild();
+					syncAll();
+				},
+			} );
+		}
+		sliderRow(
+			photoSec,
+			t( 'Smoothing' ),
+			params.photo.blur,
+			0,
+			100,
+			( v ) => {
+				params.photo.blur = v;
+				drawHistogram();
+				rebuildLive();
+			}
+		);
 		ui.check( photoSec, {
 			label: t( 'Bright side front' ),
 			checked: params.photo.invert,
@@ -1569,6 +2250,132 @@ function openStudio( ctx ) {
 			photoSec,
 			t( 'Photo sheets replace the current layers.' )
 		);
+		const stackSec = ui.section( side, {
+			icon: I.layers,
+			title: t( 'Sheets & objects' ),
+		} );
+		stackBody = ui.el( 'div', 'wpiepca-lstack', stackSec );
+		const addSheetBtn = ui.btn( stackSec, {
+			label: t( 'Add empty sheet' ),
+			onClick: () => {
+				const s = rawSheet( 'ground', {
+					yBase: Math.min( 97, 60 + params.layers.length * 8 ),
+				} );
+				params.layers.push( s );
+				selected = s.id;
+				rebuild();
+				syncAll();
+			},
+		} );
+		void addSheetBtn;
+
+		const selSec = ui.section( side, {
+			icon: I.wand,
+			title: t( 'Selection' ),
+		} );
+		selBody = ui.el( 'div', 'wpiepca-lage', selSec );
+
+		const lookSec = ui.section( side, {
+			icon: I.palette,
+			title: t( 'Look' ),
+		} );
+		const chips = ui.el( 'div', 'wpiepca-looks', lookSec );
+		for ( const look of LOOKS ) {
+			const chip = ui.el( 'button', 'wpiepca-look', chips );
+			chip.type = 'button';
+			chip.title = look.label;
+			chip.style.background = `linear-gradient(135deg, ${ look.front } 0%, ${ look.back } 60%, ${ look.bg[ 1 ] } 100%)`;
+			chip.classList.toggle( 'is-on', params.look === look.id );
+			chip.onclick = () => {
+				params.look = look.id;
+				chips
+					.querySelectorAll( '.wpiepca-look' )
+					.forEach( ( c ) => c.classList.remove( 'is-on' ) );
+				chip.classList.add( 'is-on' );
+				rebuild();
+			};
+		}
+		sliderRow( lookSec, t( 'Glow' ), params.glow, 0, 100, ( v ) => {
+			params.glow = v;
+			repaint();
+		} );
+		sliderRow( lookSec, t( 'Paper grain' ), params.grain, 0, 100, ( v ) => {
+			params.grain = v;
+			repaint();
+		} );
+
+		const lightSec = ui.section( side, {
+			icon: I.sun,
+			title: t( 'Light & paper' ),
+		} );
+		lightSlider = sliderRow(
+			lightSec,
+			t( 'Light' ),
+			params.lightX,
+			-100,
+			100,
+			( v ) => {
+				params.lightX = v;
+				syncSun();
+				repaint();
+			}
+		);
+		sliderRow( lightSec, t( 'Shadow' ), params.shadow, 0, 100, ( v ) => {
+			params.shadow = v;
+			repaint();
+		} );
+		sliderRow( lightSec, t( 'Softness' ), params.soft, 0, 100, ( v ) => {
+			params.soft = v;
+			repaint();
+		} );
+
+		// The three look axes. The named looks above are presets on them,
+		// so turning a dial here simply leaves the preset behind.
+		const paperSec = ui.section( side, {
+			icon: I.scissors,
+			title: t( 'Paper' ),
+		} );
+		ui.select( ui.row( paperSec, t( 'Colour from' ) ), {
+			options: [
+				{ value: 'palette', label: t( 'The look' ) },
+				{ value: 'photo', label: t( 'The photo' ) },
+			],
+			value: params.colorSource,
+			onChange: ( v ) => {
+				mark();
+				params.colorSource = v;
+				rebuild();
+			},
+		} );
+		ui.select( ui.row( paperSec, t( 'Surface' ) ), {
+			options: [
+				{ value: 'smooth', label: t( 'Smooth' ) },
+				{ value: 'fibre', label: t( 'Fibrous' ) },
+			],
+			value: params.paper,
+			onChange: ( v ) => {
+				mark();
+				params.paper = v;
+				rebuild();
+			},
+		} );
+		ui.select( ui.row( paperSec, t( 'Separation' ) ), {
+			options: [
+				{ value: 'shadow', label: t( 'Deep shadow' ) },
+				{ value: 'rim', label: t( 'Narrow rim' ) },
+			],
+			value: params.edge,
+			onChange: ( v ) => {
+				mark();
+				params.edge = v;
+				repaint();
+			},
+		} );
+		sliderRow( paperSec, t( 'Detail' ), params.detail, 0, 100, ( v ) => {
+			params.detail = v;
+			rebuildLive();
+		} );
+		ampelEl = ui.el( 'div', 'wpiepca-ampel', paperSec, '' );
 	};
 
 	const syncAll = () => {
@@ -1579,41 +2386,6 @@ function openStudio( ctx ) {
 
 	/* ------------------------------ exports ------------------------------ */
 
-	const download = ( blob, name ) => {
-		const a = document.createElement( 'a' );
-		a.href = URL.createObjectURL( blob );
-		a.download = name;
-		a.click();
-		setTimeout( () => URL.revokeObjectURL( a.href ), 4000 );
-	};
-
-	const exportZip = () => {
-		const { files, mmW, mmH, sheets } = engine.cutSvgs( params );
-		const readme = [
-			'Papercut Art - cut package',
-			'',
-			`Physical size: ${ mmW } x ${ mmH.toFixed( 0 ) } mm (scale the SVGs together to resize).`,
-			`Minimum bridge width: ${ params.minBridge } mm.`,
-			'Stack order: layer-01 is the BACK sheet, the highest number is the front.',
-			'Every file is one connected piece: cut the black shape, keep the sheet.',
-			'',
-			...files.map(
-				( f, i ) =>
-					`${ f.name }  color ${ f.color }  (${ f.kind })`
-			),
-		].join( '\n' );
-		const zip = buildZip( [
-			...files.map( ( f ) => ( { name: f.name, data: f.data } ) ),
-			{ name: 'README.txt', data: readme },
-		] );
-		download(
-			new Blob( [ zip ], { type: 'application/zip' } ),
-			'papercut-art.zip'
-		);
-		toasts.success( t( 'Cut package saved.' ) );
-		void sheets;
-	};
-
 	const insert = () => {
 		if ( ! editor || ! bridge.documents ) {
 			return;
@@ -1621,7 +2393,7 @@ function openStudio( ctx ) {
 		const scale = Math.min( 1, 2200 / Math.max( doc.w, doc.h ) );
 		const iw = Math.round( doc.w * scale );
 		const ih = Math.round( doc.h * scale );
-		const { images } = engine.sheetImages( iw, ih, params );
+		const { images } = engine.layerImages( iw, ih, params );
 		if ( editing && layer ) {
 			const old = editor.state.layers || [];
 			const gone = descendantIds( old, layer.id );
@@ -1642,15 +2414,15 @@ function openStudio( ctx ) {
 			params: JSON.parse( JSON.stringify( params ) ),
 		};
 		editor.dispatch( { type: 'ADD_LAYER', layer: group } );
-		images.forEach( ( { sheet, src }, i ) => {
+		images.forEach( ( { layer: built, src }, i ) => {
 			const child = bridge.documents.makeImage( {
 				name:
 					'Papercut ' +
 					( i + 1 ) +
 					' - ' +
-					( '__frame' === sheet.sheet.id
+					( '__frame' === built.layer.id
 						? t( 'Frame' )
-						: sheetName( sheet.sheet ) ),
+						: layerName( built.layer, i ) ),
 				x: 0,
 				y: 0,
 				w: doc.w,
@@ -1668,32 +2440,9 @@ function openStudio( ctx ) {
 		modal.close();
 	};
 
-	const recordReveal = async () => {
-		if ( ! bridge.video || ! bridge.video.canRecordCanvas || ! bridge.video.canRecordCanvas() ) {
-			toasts.error( t( 'This browser cannot record video.' ) );
-			return;
-		}
-		status.textContent = t( 'Recording…' );
-		try {
-			const blob = await engine.recordReveal( bridge.video );
-			const ext =
-				bridge.video.recordingExtension
-					? bridge.video.recordingExtension()
-					: 'webm';
-			download( blob, 'papercut-art.' + ext );
-		} catch ( e ) {
-			toasts.error( t( 'This browser cannot record video.' ) );
-		}
-		syncStatus();
-	};
-
 	/* ------------------------------ footer ------------------------------- */
 
 	ui.btn( actions, { label: t( 'Cancel' ), onClick: () => modal.close() } );
-	ui.btn( actions, { label: t( 'Cut package (ZIP)' ), onClick: exportZip } );
-	if ( bridge.video && bridge.video.canRecordCanvas && bridge.video.canRecordCanvas() ) {
-		ui.btn( actions, { label: t( 'Reveal video' ), onClick: recordReveal } );
-	}
 	ui.btn( actions, {
 		label: editing ? t( 'Update' ) : t( 'Insert' ),
 		primary: true,
@@ -1704,6 +2453,7 @@ function openStudio( ctx ) {
 
 	function destroy() {
 		closed = true;
+		document.removeEventListener( 'keydown', onKey );
 		unmountAll();
 		if ( window.__pca && window.__pca.engine === engine ) {
 			delete window.__pca;
@@ -1716,6 +2466,18 @@ function openStudio( ctx ) {
 		fitCanvas();
 		if ( 'none' !== params.photo.source ) {
 			await loadPhotoSource();
+			// A fresh scene lays the picture out as depth layers right
+			// away - that IS the first step. An existing group keeps the
+			// layers it was saved with, and a run without a readable
+			// document quietly falls back to the built-in scene.
+			if ( ! editing ) {
+				if ( engine.photoCanvas ) {
+					applyPhotoSheets();
+				} else {
+					params.photo.source = 'none';
+					syncPhotoExtra();
+				}
+			}
 		}
 		rebuild();
 		syncAll();
@@ -1732,6 +2494,10 @@ function openStudio( ctx ) {
 			syncAll();
 			repaint();
 		},
+		rerender: () => {
+			rebuild();
+			syncAll();
+		},
 		get params() {
 			return params;
 		},
@@ -1740,7 +2506,14 @@ function openStudio( ctx ) {
 		applyPreset: ( id ) => {
 			const p = PRESETS.find( ( x ) => x.id === id );
 			if ( p ) {
-				Object.assign( params, p.patch() );
+				// Through cleanParams, exactly like the tile does. Assigning
+				// a patch RAW leaves the v2 `base` on the layer, and every
+				// later clean (undo, insert, reopen) then builds that base's
+				// object a second time - the scene grows on its own.
+				Object.assign(
+					params,
+					cleanParams( { ...params, ...p.patch() } )
+				);
 				rebuild();
 				syncAll();
 			}

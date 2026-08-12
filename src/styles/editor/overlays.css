@@ -360,10 +360,27 @@
 	vector-effect: non-scaling-stroke;
 }
 
-/* Gradient bar */
+/* Gradient bar.
+
+   THE MARGIN IS NOT DECORATION. A stop handle is 12px wide and sits on
+   `translateX(-50%)`, so the one at position 0 hangs 6px past the bar's
+   left edge and the one at position 1 hangs 6px past its right; the
+   handle is also 26px tall against the bar's 18, so it overhangs top and
+   bottom too. Without room around the bar the first stop is sliced in
+   half by whatever contains it - which is every gradient control in the
+   editor, not just the one in the brush panel. Symmetric on purpose: the
+   right-hand stop has exactly the same problem and only looks fine
+   because nothing has clipped it yet.
+
+   The vertical half is the same argument: the handle stands 4px proud of
+   the bar at the top and 4px at the foot, so 5px of margin left one pixel
+   of air and every gradient control in the editor read as cramped. The
+   room belongs here, once, rather than as a `paddingBottom` some panels
+   remembered to add and others did not. */
 #wpie-root .gradient-bar {
 	position: relative;
 	height: 18px;
+	margin: 9px 7px;
 	border-radius: 3px;
 	border: 1px solid var(--ed-border-strong);
 	cursor: copy;

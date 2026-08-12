@@ -111,6 +111,63 @@ locally as well, or opt into loading them from the Google Fonts CDN instead
 switched on.
 
 
+Bundled inside the free extensions (bundled-extensions/)
+--------------------------------------------------------
+
+Nineteen free extensions ship with the plugin. They are editor add-ons rather
+than WordPress plugins and run entirely in the browser. Five of them carry
+third-party code or data of their own, listed here because it travels in the
+download. Where a licence asks for a notice next to the file, that notice sits
+in the extension's own folder as well.
+
+highlight.js 11.11.1 — syntax highlighting in Code Shot (the core plus thirty
+language definitions)
+  BSD-3-Clause. Copyright (c) 2006 Ivan Sagalaev and other contributors.
+  https://github.com/highlightjs/highlight.js
+  Bundled into bundled-extensions/wpie-code-shot/extension.js.
+
+three.js 0.185.1 — the WebGL renderer that folds the paper in Origami,
+including RoomEnvironment from three/examples/jsm
+  MIT License. Copyright (c) 2010-2025 three.js authors.
+  https://github.com/mrdoob/three.js
+  Bundled into bundled-extensions/wpie-origami/extension.js.
+
+tz-lookup 6.1.25 — offline time zone for a pair of coordinates, so Mystic
+Studio can place a chart in local time without asking a service
+  CC0-1.0 (public domain dedication). The Dark Sky Company.
+  Bundled into bundled-extensions/wpie-mystic-studio/extension.js.
+
+JetBrains Mono — the typeface Code Shot sets code in (Regular and Bold)
+  SIL Open Font License, Version 1.1 (OFL-1.1), directly GPL-compatible.
+  Copyright 2020 The JetBrains Mono Project Authors,
+  https://github.com/JetBrains/JetBrainsMono. Files:
+  bundled-extensions/wpie-code-shot/fonts/JetBrainsMono-Regular.woff2 and
+  -Bold.woff2, with FONT-LICENSE.md in the same folder.
+
+Moon photograph — the full disc in Mystic Studio
+  NASA/JPL, Galileo spacecraft, 7 December 1992 (PIA00405,
+  https://photojournal.jpl.nasa.gov/catalog/PIA00405). NASA imagery, public
+  domain, resized to 1200 px. File:
+  bundled-extensions/wpie-mystic-studio/textures/moon.jpg, with TEXTURES.md
+  in the same folder.
+
+Star positions and constellation figures — Star Map Posters, and the zodiac
+figures Mystic Studio draws from the same source
+  Yale Bright Star Catalogue, public domain. The constellation lines come from
+  d3-celestial, BSD-3-Clause, Copyright (c) 2015 Olaf Frohn.
+  https://github.com/ofrohn/d3-celestial
+  Built into bundled-extensions/wpie-star-map/extension.js and
+  bundled-extensions/wpie-mystic-studio/extension.js; Star Map Posters also
+  names both on screen next to the finished poster.
+
+Oldenburg map excerpt (bundled-extensions/wpie-map-studio/oldenburg.json)
+  Map Studio ships one small area of real map geometry so that the studio has
+  something to show before any map is fetched. Derived from OpenStreetMap,
+  (c) OpenStreetMap contributors, Open Database License (ODbL),
+  https://www.openstreetmap.org/copyright. Map Studio carries the same credit
+  on screen whenever it draws a map.
+
+
 Provided by WordPress at runtime (NOT bundled)
 ----------------------------------------------
 
@@ -135,7 +192,8 @@ coordinates rounded to four decimals, plus country code and population.
 Rebuild with `node tools/build-gazetteer.mjs`. The source files are NOT
 downloaded at run time; the index is built once and shipped.
 
-Map geometry itself is not bundled: it is fetched at edit time through the
-plugin's server-side geo proxy from OpenFreeMap and the OpenStreetMap
-Overpass instances, and is (c) OpenStreetMap contributors under the Open
-Database License (ODbL), https://www.openstreetmap.org/copyright
+Map geometry is fetched at edit time through the plugin's server-side geo
+proxy from OpenFreeMap and the OpenStreetMap Overpass instances, and is
+(c) OpenStreetMap contributors under the Open Database License (ODbL),
+https://www.openstreetmap.org/copyright. One small excerpt does ship with the
+plugin as sample data; it is listed above under the bundled extensions.

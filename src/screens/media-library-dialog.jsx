@@ -4231,6 +4231,17 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							>
 								{ __( 'Copy file URL', 'wunderpaint' ) }
 							</button>
+							{ /* A plain link, not a fetch-and-blob dance: the
+							     file is on this very site, so the browser's own
+							     download attribute does the right thing and
+							     costs no memory for a large original. */ }
+							<a
+								className="ai-btn secondary sm"
+								href={ previewItem.url }
+								download={ previewItem.filename || undefined }
+							>
+								{ __( 'Download', 'wunderpaint' ) }
+							</a>
 							<button
 								type="button"
 								className="ai-btn secondary sm"
@@ -4249,31 +4260,39 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 								{ __( 'Close', 'wunderpaint' ) }
 							</button>
 						</div>
-						{ previewIndex > 0 && (
-							<button
-								type="button"
-								className="nav prev"
-								aria-label={ __( 'Previous', 'wunderpaint' ) }
-								onClick={ () =>
-									setPreviewId( items[ previewIndex - 1 ].id )
-								}
-							>
-								{ I.chevRight( { size: 18 } ) }
-							</button>
-						) }
-						{ previewIndex < items.length - 1 && (
-							<button
-								type="button"
-								className="nav next"
-								aria-label={ __( 'Next', 'wunderpaint' ) }
-								onClick={ () =>
-									setPreviewId( items[ previewIndex + 1 ].id )
-								}
-							>
-								{ I.chevRight( { size: 18 } ) }
-							</button>
-						) }
 					</div>
+					{ /* The arrows sit on the OVERLAY, not inside .inner
+					     (v1.402.0). Anchored to the box they moved with every
+					     image, because the box is as wide as its picture - so
+					     stepping through a folder meant re-aiming for every
+					     single click, and a full-width image pushed them off
+					     screen entirely. */ }
+					{ previewIndex > 0 && (
+						<button
+							type="button"
+							className="nav prev"
+							aria-label={ __( 'Previous', 'wunderpaint' ) }
+							onClick={ ( e ) => {
+								e.stopPropagation();
+								setPreviewId( items[ previewIndex - 1 ].id );
+							} }
+						>
+							{ I.chevRight( { size: 18 } ) }
+						</button>
+					) }
+					{ previewIndex < items.length - 1 && (
+						<button
+							type="button"
+							className="nav next"
+							aria-label={ __( 'Next', 'wunderpaint' ) }
+							onClick={ ( e ) => {
+								e.stopPropagation();
+								setPreviewId( items[ previewIndex + 1 ].id );
+							} }
+						>
+							{ I.chevRight( { size: 18 } ) }
+						</button>
+					) }
 				</div>
 			) }
 			{ cleanupOpen && (

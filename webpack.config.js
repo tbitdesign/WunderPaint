@@ -17,12 +17,20 @@ module.exports = {
 		// cache them across plugin updates; a content hash in the filename
 		// is the only reliable cache buster (v1.56.1).
 		chunkFilename: '[name].[contenthash:8].js',
+		// Files that travel as assets rather than as code (the vectorizer's
+		// wasm, the onnxruntime ESM bundle) default to a bare content hash,
+		// which lands in build/ as a binary nobody can place by looking at
+		// it. Keeping the source name in front of the hash makes every file
+		// in build/ say what it is - asked for by the wordpress.org review
+		// on 13.08.2026 (v1.403.0).
+		assetModuleFilename: '[name].[contenthash:8][ext]',
 	},
 	module: {
 		...defaultConfig.module,
 		rules: [
 			// WASM binaries (VTracer) ship as plain assets and are loaded
 			// with `new URL( …, import.meta.url )` at run time (v1.124).
+			// Their filename comes from output.assetModuleFilename above.
 			{ test: /\.wasm$/, type: 'asset/resource' },
 			...defaultConfig.module.rules,
 		],

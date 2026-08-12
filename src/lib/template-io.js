@@ -80,6 +80,14 @@ export function templateFromDoc( doc, layers, meta = {} ) {
 			dpi: doc.dpi,
 			colorMode: doc.colorMode,
 			name: slugify( name ),
+			// THE TIPS TRAVEL WITH IT. A stroke records only its tip's id,
+			// and an id nobody can resolve falls back to Hard Round without
+			// a word - so a design saved as a template came back painted
+			// with the wrong brush. Only the recipes actually used are
+			// worth carrying, but a document holds a handful at most and
+			// working out which ones a stroke references means walking
+			// every path of every layer; the whole list is a few kilobytes.
+			...( doc.tips && doc.tips.length ? { tips: doc.tips } : {} ),
 		},
 		layers: serializeLayers( layers ),
 	};

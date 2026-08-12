@@ -37,7 +37,7 @@ class Extensions {
 	// Mirror of API_VERSION in src/lib/extensions.js (the enqueue gate
 	// runs server-side); tests/php/extensions.php asserts they never
 	// drift.
-	const API_VERSION = '2.15.0';
+	const API_VERSION = '2.20.0';
 
 	/**
 	 * Register hooks.

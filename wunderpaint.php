@@ -3,7 +3,7 @@
  * Plugin Name:       WunderPaint
  * Plugin URI:        https://wp-image-editor.com
  * Description:       Design graphics, edit photos and automate your images.
- * Version:           1.395.0
+ * Version:           1.403.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            TBIT DESIGN - Thomas Breher
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPIE_VERSION', '1.395.0' );
+define( 'WPIE_VERSION', '1.403.0' );
 define( 'WPIE_FILE', __FILE__ );
 define( 'WPIE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPIE_URL', plugin_dir_url( __FILE__ ) );
@@ -60,6 +60,7 @@ require_once WPIE_DIR . 'includes/class-media-replace.php';
 require_once WPIE_DIR . 'includes/class-media-recrop.php';
 require_once WPIE_DIR . 'includes/class-media-oversize.php';
 require_once WPIE_DIR . 'includes/class-media-credits.php';
+require_once WPIE_DIR . 'includes/class-media-metadata.php';
 require_once WPIE_DIR . 'includes/class-fonts.php';
 require_once WPIE_DIR . 'includes/class-content-cache.php';
 require_once WPIE_DIR . 'includes/class-geo.php';

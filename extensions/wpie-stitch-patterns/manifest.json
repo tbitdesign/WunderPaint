@@ -1,7 +1,7 @@
 {
 	"name": "Stitch Patterns",
 	"slug": "wpie-stitch-patterns",
-	"version": "2.4.0",
+	"version": "2.4.1",
 	"author": "TBIT DESIGN - Thomas Breher",
 	"description": "EIGHT craft sheets, computed entirely in your browser: CROSS-STITCH (tinted cells + chart symbols), DIAMOND PAINTING (faceted drills, +3% reserve), FUSE BEADS with pegboard split lines (29 or 50), a gauge-aware KNITTING CHART (stitches are not square - the chart keeps your photo's proportions), C2C CROCHET a LATCH-HOOK RUG chart with per-color pack estimates, real STRING ART (greedy error-accumulation threading around 144-288 nails with contrast stretch and edge boost - faces stay readable - plus an optional numbered WINDING GUIDE sheet so you can actually build it) and a STRING MANDALA (the classic times-table chord patterns: cardioids, nephroids, rosettes - no image needed). Source: the whole document (default), any layer picked by name, or the media library. Yarn colors come from the image (median cut with accent rescue so blue eyes survive), from ten preset palettes, your brand kit or up to four custom colors - the chart is quantized to exactly those yarns. Every sheet takes a multi-line title in the editor font catalog with a text size factor. Counting grid, edge numbers and a legend with per-color usage (skeins, drills, beads, knots) included. Insert as an editable layer and reopen via Edit Stitch Patterns.",
 	"main": "extension.js",

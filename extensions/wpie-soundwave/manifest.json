@@ -1,7 +1,7 @@
 {
 	"name": "Soundwave Art",
 	"slug": "wpie-soundwave",
-	"version": "2.1.0",
+	"version": "2.1.1",
 	"author": "TBIT DESIGN - Thomas Breher",
 	"description": "The waveform of any audio file as a poster: pick a track from the media library (the wedding song, a heartbeat, a podcast episode) and style it in TWELVE wave styles - bars, line, filled, dots, pulse, LED, circle, ridgeline (the record-sleeve mountain lines), spiral (the whole song wound into one image), sunburst rings, or the heartbeat running around a heart or hexagon contour. Color it solid, with curated gradients including gold, copper and chrome foils, or let the SOUND pick the colors (bassy parts dark, trebly parts bright). Add neon glow, a mirror reflection, or split left and right channel into two colors. Insert as a classic poster with title, subtitle and duration, or as a music player card with progress bar and timestamps - all as editable layers. The audio is analyzed locally in the browser. Reopen any wave via Edit Soundwave Art.",
 	"main": "extension.js",

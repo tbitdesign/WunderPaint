@@ -1988,10 +1988,17 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	border-radius: 50%;
 }
 
+/* The popover grew from three rows to eleven, so it scrolls rather than
+   running off the bottom of the screen. The measured clamp keeps it in
+   view; this keeps it usable once it hits that ceiling. */
 #wpie-root .brush-hud-rows {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	max-height: min(62vh, 520px);
+	padding-right: 2px;
+	overflow-x: hidden;
+	overflow-y: auto;
 }
 
 #wpie-root .brush-hud-rows label {
@@ -2031,10 +2038,885 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	border-radius: 3px;
 }
 
+/* Layer-mode switch: stacks below Size/Hardness/Color as another row in
+   `.brush-hud-rows` (a flex column), but is a plain checkbox + text row,
+   not the 58/120/44 label/slider/value grid the other rows use. The
+   two-class selector (specificity 1,2,0) is needed to win over
+   `.brush-hud-rows label` (1,1,1), which would otherwise force this label
+   into that grid too. */
+#wpie-root .brush-hud-rows .brush-hud-check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+	cursor: pointer;
+}
+
 /* Titlebar stays dark in both themes, keep the brand lettering light. The
    plate follows it, otherwise the light theme would put the grey variant on
    dark chrome. */
 #wpie-root .ed-titlebar .wpie-brandmark {
 	color: #fdfdfd;
 	--brand-plate: #fff;
+}
+
+/* Style chooser in the brush popover. Same row shape as the checkbox next
+   to it, so the popover keeps one rhythm. */
+#wpie-root .brush-hud-rows .brush-hud-style {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	grid-template-columns: none;
+	font-size: 11px;
+	color: var( --ed-text-muted, #9aa3ad );
+}
+
+#wpie-root .brush-hud-rows .brush-hud-style select {
+	flex: 0 0 auto;
+	min-width: 108px;
+	font-size: 11px;
+	padding: 2px 4px;
+}
+
+/* ------------------------------ brush panel ------------------------------
+   The tips are pictures, so the strip carries them at a size you can
+   actually read at a glance; everything else is one repeating row shape so
+   the eye has nothing to re-learn between sections. */
+#wpie-root .bp {
+	display: flex;
+	gap: 10px;
+	align-items: stretch;
+
+	/* The float body has no padding of its own, so the panel's contents
+	   sat right on its edge. */
+	padding: 6px 6px 8px;
+
+}
+
+/* Only the two-column shape needs the width. The eraser's panel is one
+   column of sliders and was sitting in a window twice its size. */
+#wpie-root .bp.has-tips {
+	min-width: 320px;
+}
+
+#wpie-root .bp-tips {
+	flex: 0 0 auto;
+	width: 120px;
+	max-height: 76vh;
+	overflow-y: auto;
+	overflow-x: hidden;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+
+	/* Headings sat flush against the panel edge; the strip carries the
+	   indent so heading and grid stay on the same left line. */
+	padding-left: 4px;
+	padding-right: 4px;
+	border-right: 1px solid var( --ed-border, #2a2f36 );
+}
+
+#wpie-root .bp-tip {
+	flex: 0 0 auto;
+	padding: 1px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: #14171c;
+	cursor: pointer;
+	line-height: 0;
+}
+
+#wpie-root .bp-tip:hover {
+	border-color: var( --ed-border, #3a414d );
+}
+
+#wpie-root .bp-tip.is-on {
+	border-color: var( --accent, #3b66ff );
+	background: rgb( 59 102 255 / 14% );
+}
+
+#wpie-root .bp-tip img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+#wpie-root .bp-main {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	min-width: 200px;
+
+	/* The same ceiling as the tip strip: two columns of one panel
+	   should not start scrolling at different screen heights. */
+	max-height: 76vh;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-right: 2px;
+}
+
+#wpie-root .bp-sect {
+
+	/* The column is a flexbox now (the layer option is pinned to its
+	   foot); without this the sections would squeeze instead of letting
+	   the column scroll on a short screen. */
+	flex: 0 0 auto;
+	margin-bottom: 12px;
+}
+
+/* A heading that carries an action on its right. Baseline, not centre: the
+   heading is 10px uppercase and the button 10px text, and centring two
+   different boxes leaves the two lines of type visibly out of step. */
+#wpie-root .bp-head {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+	justify-content: space-between;
+}
+
+#wpie-root .bp-sect-head {
+	display: block;
+	margin-bottom: 5px;
+	font-size: 10px;
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+	color: var( --ed-text-dim, #8b929c );
+}
+
+/* Two columns, because at the narrower width three cut "Watercolour"
+   short - a style you cannot read is a style nobody picks. */
+#wpie-root .bp-styles {
+	display: grid;
+	grid-template-columns: repeat( 2, 1fr );
+	gap: 4px;
+}
+
+#wpie-root .bp-style {
+	padding: 5px 4px;
+	font-size: 11px;
+	border-radius: 6px;
+	border: 1px solid var( --ed-border, #2a2f36 );
+	background: var( --surface-input, #232830 );
+	color: var( --ed-text, #e8ecf1 );
+	cursor: pointer;
+}
+
+#wpie-root .bp-style.is-on {
+	background: var( --accent, #3b66ff );
+	border-color: var( --accent, #3b66ff );
+	color: #fff;
+}
+
+#wpie-root .bp-row {
+	display: grid;
+	grid-template-columns: 62px 1fr 28px;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 3px;
+	font-size: 11px;
+	color: var( --ed-text-muted, #9aa3ad );
+}
+
+#wpie-root .bp-row input[ type='range' ] {
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .bp-row-val {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	color: var( --ed-text, #e8ecf1 );
+}
+
+/* Sits on the heading line, so it has to stay out of the way: quiet until
+   you hover it, and never wider than the word on it. */
+#wpie-root .bp-reset {
+	flex: 0 0 auto;
+	padding: 1px 7px;
+	font-size: 10px;
+	border-radius: 5px;
+	border: 1px solid var( --ed-border, #2a2f36 );
+	background: transparent;
+	color: var( --ed-text-dim, #8b929c );
+	cursor: pointer;
+}
+
+#wpie-root .bp-reset:hover {
+	border-color: var( --accent, #3b66ff );
+	color: var( --ed-text, #e8ecf1 );
+}
+
+/* The wheel gets the whole column and the recent colours sit under it:
+   beside it the wheel had to shrink to a size you cannot aim at. */
+#wpie-root .bp-colour {
+	display: block;
+}
+
+/* Three, side by side. They are one question with three answers, and a
+   2x2 grid with a gap in it says the opposite. */
+#wpie-root .bp-modes {
+	grid-template-columns: repeat(3, 1fr);
+	margin: 12px 0 8px;
+}
+
+/* The gradient block is three controls stacked - bar, handles, slider - and
+   the handles stand 4px proud of the bar top and bottom, so measured air is
+   always less than it reads on paper. */
+#wpie-root .bp-ramp {
+	margin: 14px 0 10px;
+}
+
+/* Air before Repeats: the slider under the bar was sitting on it. */
+#wpie-root .bp-ramp .bp-row {
+	margin-top: 16px;
+}
+
+/* Ten colours across a narrow column are small squares whatever you do, so
+   the gap has to do the separating. At 3px they read as one striped band. */
+#wpie-root .bp-recent {
+	display: grid;
+	grid-template-columns: repeat(10, 1fr);
+	gap: 5px;
+	margin-top: 14px;
+}
+
+#wpie-root .bp-recent button {
+	height: 18px;
+	padding: 0;
+	border: 1px solid rgb(255 255 255 / 18%);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+/* The option belongs to the panel, not to Colour: pinned to the foot so
+   the space the tall tip strip leaves over is used on purpose.
+
+   No rule above it. `margin-top: auto` already pushes it to the foot with
+   the whole leftover column between it and Colour, which separates it far
+   better than a line ever did - the line was only drawing what the gap was
+   saying already. */
+#wpie-root .bp-check {
+	display: flex;
+	flex: 0 0 auto;
+	gap: 8px;
+	align-items: center;
+	margin-top: auto;
+	padding-top: 14px;
+	font-size: 11px;
+	color: var( --ed-text-muted, #9aa3ad );
+}
+
+/* Brand mark in a floating panel's head. */
+#wpie-root .ed-float-icon {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 6px;
+	line-height: 0;
+}
+
+/* Colour wheel: every hue at once, the shade square inside it. */
+#wpie-root .cw {
+	position: relative;
+	touch-action: none;
+	user-select: none;
+	margin: 0 auto;
+}
+
+#wpie-root .cw canvas {
+	display: block;
+}
+
+#wpie-root .cw-sq {
+	position: absolute;
+	border-radius: 4px;
+	pointer-events: none;
+}
+
+#wpie-root .cw-dot,
+#wpie-root .cw-ringdot {
+	position: absolute;
+	width: 11px;
+	height: 11px;
+	margin: -6px 0 0 -6px;
+	border: 2px solid #fff;
+	border-radius: 50%;
+	box-shadow: 0 0 0 1px rgb( 0 0 0 / 55% );
+	pointer-events: none;
+}
+
+/* The tip groups: painting tips first, decoration behind a heading of its
+   own. A marker and a heart are not the same kind of thing and should not
+   sit in the same undifferentiated list. */
+
+/* The way in to the maker. First thing in the strip, because a tip you
+   drew yourself belongs above the gallery you were given. */
+#wpie-root .bp-newtip {
+	width: 100%;
+	margin-bottom: 6px;
+	padding: 5px 4px;
+	font-size: 11px;
+	color: var(--ed-text, #e8ecf1);
+	cursor: pointer;
+	background: var(--surface-input, #232830);
+	border: 1px dashed var(--ed-border, #3a414d);
+	border-radius: 6px;
+}
+
+#wpie-root .bp-newtip:hover {
+	border-color: var(--accent, #3b66ff);
+}
+
+#wpie-root .bp-shelf {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	margin-top: 3px;
+}
+
+#wpie-root .bp-shelfitem {
+	overflow: hidden;
+	padding: 4px 6px;
+	font-size: 11px;
+	color: var(--ed-text, #e8ecf1);
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+	background: var(--surface-input, #232830);
+	border: 1px solid var(--ed-border, #2a2f36);
+	border-radius: 6px;
+}
+
+#wpie-root .bp-shelfitem:hover {
+	border-color: var(--accent, #3b66ff);
+}
+
+#wpie-root .bp-tipgroup {
+	margin-bottom: 7px;
+}
+
+#wpie-root .bp-tipgrid {
+	display: grid;
+	grid-template-columns: repeat( 3, 1fr );
+	gap: 3px;
+	margin-top: 3px;
+}
+
+/* The canvas area hides the system cursor while a paint tool is active
+   (it draws its own brush ring instead). A floating panel lives inside
+   that area, so it inherited `cursor: none` and the mouse disappeared
+   over every part of the panel that was not a control. */
+#wpie-root .ed-float-panel,
+#wpie-root .ed-float-panel * {
+	cursor: default;
+}
+
+#wpie-root .ed-float-panel button,
+#wpie-root .ed-float-panel input,
+#wpie-root .ed-float-panel select,
+#wpie-root .ed-float-panel label {
+	cursor: pointer;
+}
+
+#wpie-root .ed-float-panel input[ type='range' ] {
+	cursor: ew-resize;
+}
+
+#wpie-root .ed-float-head {
+	cursor: move;
+}
+
+#wpie-root .cw,
+#wpie-root .cw * {
+	cursor: crosshair;
+}
+
+/* ------------------------- the stamp maker -------------------------------
+   Shared chrome for a recipe editor: the brush's drawn tips and the
+   Particle Strokes stamp are the same dialog. Taken over VERBATIM from the
+   extension, prefix renamed and nothing else. The first attempt rewrote the
+   selectors to add #wpie-root - which they already had - and a comment
+   sitting above a rule made the rewrite prepend it a second time. A
+   selector reading "#wpie-root #wpie-root .x" matches nothing, so the maker
+   lost its drawing area and its library strip had no width. Do not "scope"
+   this block; it is scoped. */
+#wpie-root .wpie-sm-tool {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	padding: 4px 8px;
+	font-size: 11px;
+	line-height: 1.4;
+	border-radius: 20px;
+	border: 1px solid var(--ed-border, #2b303a);
+	background: var(--ed-panel, #1c1f25);
+	color: inherit;
+	cursor: pointer;
+}
+
+/* Choosers. Not invented styling - just the grid the shared button needs. */
+#wpie-root .wpie-sm-pick {
+	display: grid;
+	gap: 6px;
+}
+
+#wpie-root .wpie-sm-pick3 {
+	grid-template-columns: 1fr 1fr;
+}
+
+#wpie-root .wpie-sm-pick button {
+	padding: 6px 4px;
+	font-size: 11.5px;
+	border-radius: 7px;
+	border: 1px solid var(--ed-border, #2b303a);
+	background: var(--surface-input, #232830);
+	color: var(--text-primary, #e7e9ee);
+	cursor: pointer;
+}
+
+#wpie-root .wpie-sm-pick button[aria-pressed='true'] {
+	background: var(--accent, #3b66ff);
+	border-color: var(--accent, #3b66ff);
+	color: #fff;
+}
+
+#wpie-root .wpie-sm-side input[type='range'],
+#wpie-root .wpie-sm-makerside input[type='range'] {
+	width: 100%;
+}
+
+#wpie-root .wpie-sm-sub {
+	margin: 12px 0 6px;
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ed-text-dim, #b9c0cc);
+}
+
+/* The stamp square keeps its cursor wherever it is used. */
+#wpie-root .wpie-sm-bigstamp {
+	cursor: crosshair;
+	touch-action: none;
+}
+
+#wpie-root .wpie-sm-makercol {
+	margin: 10px 0;
+}
+
+/* The curve panel. The dot on a target is how you see at a glance which of
+   the six carry a curve, without clicking through all of them. */
+#wpie-root .wpie-sm-pick button[data-on='true']::after {
+	content: '';
+	display: inline-block;
+	width: 5px;
+	height: 5px;
+	margin-left: 5px;
+	border-radius: 50%;
+	background: var(--accent, #3b66ff);
+	vertical-align: middle;
+}
+
+#wpie-root .wpie-sm-pick button[aria-pressed='true'][data-on='true']::after {
+	background: #fff;
+}
+
+/* --------------------------- the stamp maker ------------------------------
+   A workbench, not a dialog with a canvas in it: what you can add on the
+   left, the square in the middle, the selected element's own settings on the
+   right. The square gets the room because judging an edge is the whole job.
+   ------------------------------------------------------------------------ */
+#wpie-root .wpie-sm-makerdlg {
+	width: min( 1240px, 96vw );
+	height: min( 720px, 92vh );
+	max-width: none;
+}
+
+#wpie-root .wpie-sm-maker {
+	display: flex;
+	gap: 14px;
+	flex: 1;
+	min-height: 0;
+}
+
+#wpie-root .wpie-sm-makerleft {
+	width: 262px;
+	flex: 0 0 auto;
+	overflow-y: auto;
+
+	/* No sideways scrollbar, ever: a panel of sliders that can be pushed
+	   left is a panel whose labels disappear. */
+	overflow-x: hidden;
+	min-height: 0;
+	padding-right: 4px;
+}
+
+#wpie-root .wpie-sm-makermid {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	align-items: center;
+}
+
+#wpie-root .wpie-sm-makerside {
+	width: 292px;
+	flex: 0 0 auto;
+	overflow-y: auto;
+	overflow-x: hidden;
+	min-height: 0;
+	padding-right: 4px;
+}
+
+/* The kit's slider row has no min-width of its own, so in a narrow column
+   its head and its track fought for the space and pushed a horizontal
+   scrollbar out. Both are told to fit instead. */
+#wpie-root .wpie-sm-makerside .dsm-sliderrow,
+#wpie-root .wpie-sm-makerside .dsm-sliderrow-head,
+#wpie-root .wpie-sm-makerleft .dsm-sliderrow,
+#wpie-root .wpie-sm-makerleft .dsm-sliderrow-head {
+	min-width: 0;
+	max-width: 100%;
+}
+
+#wpie-root .wpie-sm-makerside input[type='range'],
+#wpie-root .wpie-sm-makerside .dsm-select,
+#wpie-root .wpie-sm-makerside .ai-btn {
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+/* The square and its handle layer share one box, so a selection ring lines
+   up with the shape it belongs to at every window size. */
+#wpie-root .wpie-sm-makerview {
+	position: relative;
+	width: 420px;
+	max-width: 100%;
+	aspect-ratio: 1 / 1;
+	border-radius: 10px;
+	overflow: hidden;
+	background-color: #20242c;
+	background-image:
+		linear-gradient(45deg, #2a2f38 25%, transparent 25%),
+		linear-gradient(-45deg, #2a2f38 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, #2a2f38 75%),
+		linear-gradient(-45deg, transparent 75%, #2a2f38 75%);
+	background-size: 16px 16px;
+	background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+#wpie-root .wpie-sm-makerview .wpie-sm-bigstamp,
+#wpie-root .wpie-sm-makermarks {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+
+#wpie-root .wpie-sm-makermarks {
+	pointer-events: none;
+}
+
+#wpie-root .wpie-sm-makerhint {
+	position: absolute;
+	top: auto;
+	bottom: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgb(10 12 16 / 55%);
+	color: rgb(255 255 255 / 82%);
+	font-size: 10px;
+	border-radius: 20px;
+	padding: 3px 12px;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+#wpie-root .wpie-sm-makerfoot {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	width: 420px;
+	max-width: 100%;
+}
+
+#wpie-root .wpie-sm-makerspace {
+	flex: 1 1 auto;
+}
+
+/* The element list. One row per element, topmost first, because that is the
+   order they are seen in. */
+#wpie-root .wpie-sm-ellist {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .wpie-sm-elrow {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 6px;
+	border-radius: 7px;
+	border: 1px solid transparent;
+	background: var(--surface-input, #232830);
+	cursor: pointer;
+	font-size: 11.5px;
+}
+
+#wpie-root .wpie-sm-elrow.is-sel {
+	border-color: var(--accent, #3b66ff);
+}
+
+#wpie-root .wpie-sm-elswatch {
+	width: 12px;
+	height: 12px;
+	flex: 0 0 auto;
+	border-radius: 3px;
+	border: 1px solid rgb(255 255 255 / 25%);
+}
+
+#wpie-root .wpie-sm-elswatch.is-erase {
+	background:
+		linear-gradient(45deg, transparent 44%, #ff3d5e 44% 56%, transparent 56%)
+		center / 100% 100%;
+}
+
+#wpie-root .wpie-sm-elname {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .wpie-sm-elmove {
+	color: var(--accent, #3b66ff);
+	font-weight: 700;
+}
+
+#wpie-root .wpie-sm-elbtn {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	line-height: 1;
+	font-size: 11px;
+	border-radius: 4px;
+	border: 1px solid var(--ed-border, #2b303a);
+	background: transparent;
+	color: var(--text-muted, #98a0ae);
+	cursor: pointer;
+}
+
+#wpie-root .wpie-sm-elbtn:hover {
+	color: var(--text-primary, #e7e9ee);
+	border-color: var(--accent, #3b66ff);
+}
+
+#wpie-root .wpie-sm-elempty {
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--text-muted, #98a0ae);
+	padding: 6px 2px;
+}
+
+#wpie-root .wpie-sm-note {
+	font-size: 10.5px;
+	line-height: 1.45;
+	color: var(--text-muted, #98a0ae);
+	margin: 6px 0 2px;
+}
+
+#wpie-root .wpie-sm-swatches {
+	display: grid;
+	grid-template-columns: repeat(10, 1fr);
+	gap: 3px;
+	margin: 6px 0 8px;
+}
+
+#wpie-root .wpie-sm-swatches button {
+	height: 16px;
+	padding: 0;
+	border-radius: 4px;
+	border: 1px solid rgb(255 255 255 / 18%);
+	cursor: pointer;
+}
+
+#wpie-root .wpie-sm-file {
+	display: block;
+	width: 100%;
+	margin: 8px 0;
+	font-size: 11px;
+	color: var(--text-muted, #98a0ae);
+}
+
+/* The stamp strip under the square: shipped stamps first, then saved ones.
+   It sits next to the thing it changes, because a stamp is a picture and
+   pictures belong where you are looking. */
+#wpie-root .wpie-sm-libwrap {
+	width: 420px;
+	max-width: 100%;
+}
+
+#wpie-root .wpie-sm-libhead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 5px;
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ed-text-dim, #b9c0cc);
+}
+
+#wpie-root .wpie-sm-libstrip {
+	display: flex;
+	gap: 6px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding-bottom: 4px;
+}
+
+#wpie-root .wpie-sm-libtile {
+	position: relative;
+	flex: 0 0 auto;
+	width: 58px;
+	padding: 2px;
+	border-radius: 8px;
+	border: 1px solid var(--ed-border, #2b303a);
+	background: #14171c;
+	color: var(--text-muted, #98a0ae);
+	font-size: 9.5px;
+	line-height: 1.3;
+	cursor: pointer;
+}
+
+#wpie-root .wpie-sm-libtile:hover {
+	border-color: var(--accent, #3b66ff);
+	color: var(--text-primary, #e7e9ee);
+}
+
+#wpie-root .wpie-sm-libtile canvas {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+#wpie-root .wpie-sm-libtile span {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .wpie-sm-libdel {
+	position: absolute;
+	top: 1px;
+	right: 2px;
+	width: 14px;
+	height: 14px;
+	line-height: 13px;
+	text-align: center;
+	border-radius: 4px;
+	background: rgb(0 0 0 / 55%);
+	color: #fff;
+	font-size: 9px;
+}
+
+#wpie-root .wpie-sm-libdel:hover {
+	background: #ff3d5e;
+}
+
+
+/* ------------------------- the shape picker ------------------------------
+   Previews instead of names, the same move the brush tips made. The button
+   carries the OPTIONS BAR's metrics, not its own: 24px tall, 3px radius,
+   the same border and background as every select and field beside it. A
+   control that is two pixels taller than its neighbours is what makes a
+   toolbar look assembled from parts. */
+#wpie-root .shape-picker {
+	position: relative;
+	display: inline-flex;
+}
+
+#wpie-root .ed-tool-opts .shape-picker-btn {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	width: 110px;
+	height: 24px;
+	min-height: 24px;
+	padding: 0 6px 0 3px;
+	font-size: 12px;
+	line-height: 22px;
+	color: var(--ed-text);
+	text-align: left;
+	cursor: pointer;
+	background-color: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 3px;
+}
+
+/* No accent outline on hover: nothing else in this bar lights up, and a
+   blue edge on one control reads as an error state. */
+#wpie-root .ed-tool-opts .shape-picker-btn:hover {
+	background-color: var(--ed-panel);
+}
+
+#wpie-root .shape-picker-btn span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .shape-picker-btn svg {
+	flex: none;
+}
+
+#wpie-root .shape-picker-out {
+	position: fixed;
+	inset: 0;
+	z-index: 699;
+}
+
+#wpie-root .shape-picker-pop {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 6px;
+	padding: 6px;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 3px;
+	box-shadow: var(--shadow-lg, 0 12px 32px rgb(0 0 0 / 45%));
+}
+
+#wpie-root .shape-picker-item {
+	display: grid;
+	place-items: center;
+	padding: 0;
+	line-height: 0;
+	color: var(--ed-text-dim);
+	cursor: pointer;
+	background: var(--ed-panel);
+	border: 1px solid transparent;
+	border-radius: 3px;
+}
+
+#wpie-root .shape-picker-item:hover {
+	color: var(--ed-text);
+	border-color: var(--ed-border-strong);
+}
+
+#wpie-root .shape-picker-item.is-on {
+	color: #fff;
+	background: var(--accent, #3b66ff);
+	border-color: var(--accent, #3b66ff);
 }

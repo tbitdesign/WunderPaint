@@ -978,8 +978,8 @@
 	width: 348px;
 	min-width: 300px;
 	min-height: 180px;
-	max-width: 560px;
-	max-height: 78vh;
+	max-width: 640px;
+	max-height: 88vh;
 	overflow: hidden;
 	resize: both;
 	background: var(--ed-panel);

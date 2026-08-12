@@ -1,9 +1,21 @@
 /**
  * Modal host for lib/dialogs.js prompt/confirm requests, editor-styled
  * replacement for native browser popups. Mounted once in EditorScreen.
+ *
+ * PORTALLED OUT OF THE EDITOR SHELL, and the reason is a piece of CSS that
+ * reads as if it could not matter: `.editor-root` is `position: fixed` with
+ * `z-index: auto`, and a positioned element like that is painted as ONE
+ * unit on level nought. Everything inside it is painted with it - so this
+ * dialog's z-index of seven hundred counted only against its own siblings,
+ * and any extension dialog next door, at a hundred, covered it whole. Asked
+ * for a name from inside a studio, the box opened behind the studio.
+ *
+ * As a child of #wpie-root it is a sibling of those dialogs instead, and
+ * seven hundred means what it says. Measured both ways before it was
+ * written down.
  */
 
-import { useState, useEffect, useRef } from '@wordpress/element';
+import { useState, useEffect, useRef, createPortal } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 import { bindDialogHost } from '../lib/dialogs';
@@ -82,7 +94,7 @@ export function DialogHost() {
 				: value
 		);
 
-	return (
+	const box = (
 		<div
 			className="modal-backdrop"
 			style={ { zIndex: 700 } }
@@ -218,4 +230,9 @@ export function DialogHost() {
 			</div>
 		</div>
 	);
+
+	// Into #wpie-root, beside the extension dialogs, never inside the
+	// editor shell - see the note at the top of this file.
+	const host = document.getElementById( 'wpie-root' );
+	return host ? createPortal( box, host ) : box;
 }

@@ -1,18 +1,28 @@
 /**
- * The paper compositor: proven rings in, layered-lightbox pictures out.
+ * The paper compositor: rings in, layered paper pictures out.
  *
  * All canvas work lives here - the core stays pure. The engine renders
- * the live preview, bakes stills and per-sheet images for the insert,
- * writes the cutting SVGs and records the reveal video.
+ * the live preview, bakes stills, and cuts one transparent image per
+ * layer for the insert.
  */
 
 import { buildScene } from '../core/scene.js';
 import { ringsToPath, scaleRings, rng } from '../core/geom.js';
-import { lumaOf, blurLuma, alphaMask } from '../core/photo.js';
+import {
+	lumaOf,
+	blurLuma,
+	alphaMask,
+	depthBands,
+	resampleDepth,
+} from '../core/photo.js';
 import { trace as traceMask } from '../core/mask.js';
 import { lookById } from '../core/model.js';
 
-const clamp01 = ( v ) => Math.max( 0, Math.min( 1, v ) );
+const SELECT_COLOR = 'rgba(59, 102, 255, 0.95)';
+// Handles sit this far outside the shape, in canvas pixels.
+const HANDLE_PAD = 4;
+// Page-covering objects have no meaningful corner to drag.
+const FULL_PAGE_KINDS = [ 'backdrop', 'terrain', 'border', 'frame' ];
 
 /** Deterministic paper-grain tile, generated once. */
 function grainTile() {
@@ -33,6 +43,36 @@ function grainTile() {
 	return c;
 }
 
+/**
+ * Deterministic paper-FIBRE tile: the same noise drawn out sideways, so
+ * it reads as a tooth in the sheet rather than as sand. Generated once.
+ */
+function fibreTile() {
+	const c = document.createElement( 'canvas' );
+	c.width = 96;
+	c.height = 96;
+	const g = c.getContext( '2d' );
+	const img = g.createImageData( 96, 96 );
+	const r = rng( 1907 );
+	// One value per row-run: a fibre is long in x and thin in y.
+	for ( let y = 0; y < 96; y++ ) {
+		let x = 0;
+		while ( x < 96 ) {
+			const run = 3 + Math.floor( r() * 12 );
+			const v = 108 + Math.floor( r() * 40 );
+			for ( let k = 0; k < run && x < 96; k++, x++ ) {
+				const i = y * 96 + x;
+				img.data[ i * 4 ] = v;
+				img.data[ i * 4 + 1 ] = v;
+				img.data[ i * 4 + 2 ] = v;
+				img.data[ i * 4 + 3 ] = 255;
+			}
+		}
+	}
+	g.putImageData( img, 0, 0 );
+	return c;
+}
+
 export class PaperEngine {
 	constructor( canvas ) {
 		this.canvas = canvas;
@@ -40,6 +80,7 @@ export class PaperEngine {
 		this.w = 2;
 		this.h = 2;
 		this.grain = grainTile();
+		this.fibre = fibreTile();
 		this.scene = null;
 		this.params = null;
 		// Photo pixels arrive as canvases; luma caches per size+blur.
@@ -63,8 +104,106 @@ export class PaperEngine {
 	setPhoto( canvas ) {
 		this.photoCanvas = canvas;
 		this._lumaCache = null;
+		this._depth = null;
+		this._bandCache = null;
 		this._cache.clear();
 		this._photoKey = 'p' + Date.now().toString( 36 );
+	}
+
+	/**
+	 * Hand in the local depth map for the current photo, or null to go
+	 * back to brightness bands.
+	 *
+	 * @param {Object|null} map `{ w, h, depth }` from bridge.ml.depthMap.
+	 */
+	setDepth( map ) {
+		this._depth = map;
+		this._bandCache = null;
+		this._cache.clear();
+		this._photoKey = 'd' + Date.now().toString( 36 );
+	}
+
+	/** Whether a real depth map is available for this picture. */
+	hasDepth() {
+		return !! this._depth;
+	}
+
+	/**
+	 * The depth bands at a given grid size, cached: slicing is cheap but
+	 * a twenty-layer stack asks for it twenty times per build.
+	 *
+	 * @param {number} w     Grid width.
+	 * @param {number} h     Grid height.
+	 * @param {number} count How many bands.
+	 * @return {Uint8Array[]|null} Masks, or null without a depth map.
+	 */
+	bandsAt( w, h, count ) {
+		if ( ! this._depth ) {
+			return null;
+		}
+		const key = w + 'x' + h + ':' + count;
+		if ( this._bandCache && this._bandCache.key === key ) {
+			return this._bandCache.value;
+		}
+		const value = depthBands( resampleDepth( this._depth, w, h ), count );
+		this._bandCache = { key, value };
+		return value;
+	}
+
+	/**
+	 * The average photo colour inside each band - the second colour
+	 * source, and the one that makes a photo stack look like the photo.
+	 *
+	 * @param {Array} bands Masks from bandsAt().
+	 * @param {number} w    Grid width.
+	 * @param {number} h    Grid height.
+	 * @return {string[]} One hex colour per band.
+	 */
+	bandColors( bands, w, h ) {
+		if ( ! this.photoCanvas || ! bands ) {
+			return null;
+		}
+		const c = document.createElement( 'canvas' );
+		c.width = w;
+		c.height = h;
+		const g = c.getContext( '2d' );
+		const pw = this.photoCanvas.width;
+		const ph = this.photoCanvas.height;
+		const s = Math.max( w / pw, h / ph );
+		g.drawImage(
+			this.photoCanvas,
+			( w - pw * s ) / 2,
+			( h - ph * s ) / 2,
+			pw * s,
+			ph * s
+		);
+		const px = g.getImageData( 0, 0, w, h ).data;
+		return bands.map( ( mask, k ) => {
+			// Only the ring this band adds, not everything behind it -
+			// otherwise every layer averages towards the same grey.
+			const inner = k > 0 ? bands[ k - 1 ] : null;
+			let r = 0;
+			let gg = 0;
+			let b = 0;
+			let n = 0;
+			for ( let i = 0; i < mask.length; i++ ) {
+				if ( ! mask[ i ] || ( inner && inner[ i ] ) ) {
+					continue;
+				}
+				r += px[ i * 4 ];
+				gg += px[ i * 4 + 1 ];
+				b += px[ i * 4 + 2 ];
+				n++;
+			}
+			if ( ! n ) {
+				return null;
+			}
+			const hex = ( v ) =>
+				Math.round( v / n )
+					.toString( 16 )
+					.padStart( 2, '0' );
+			return '#' + hex( r ) + hex( gg ) + hex( b );
+		} );
 	}
 
 	setSubject( canvas ) {
@@ -144,7 +283,16 @@ export class PaperEngine {
 		g.textAlign = 'center';
 		g.textBaseline = 'alphabetic';
 		g.fillStyle = '#fff';
-		g.fillText( obj.value || '', obj.x * w, obj.y * h );
+		// Several words under each other are one block, not three
+		// objects: LOVE / LIVE / HOME punched out of a passepartout has
+		// to line up, and lining up three separate things by hand is
+		// exactly the fiddling this studio should spare you.
+		const lines = String( obj.value || '' ).split( /\r?\n/ );
+		const step = px * ( ( obj.lineGap ?? 20 ) / 100 + 1 );
+		const top = obj.y * h - ( ( lines.length - 1 ) * step ) / 2;
+		lines.forEach( ( line, i ) => {
+			g.fillText( line, obj.x * w, top + i * step );
+		} );
 		const mask = alphaMask( g.getImageData( 0, 0, w, h ).data, w, h, 0.4 );
 		const rings = traceMask( { w, h, data: mask } );
 		return rings.length ? [ rings ] : [];
@@ -164,21 +312,34 @@ export class PaperEngine {
 	}
 
 	buildCtx( w, h, params, cache = null ) {
+		const live = 'none' !== params.photo.source;
+		// Real depth if the model gave us one and the user did not ask for
+		// the old way; brightness bands otherwise. Never a hard
+		// requirement - a missing model just makes it worse, not broken.
+		const bands =
+			live && 'luma' !== params.photo.mode
+				? this.bandsAt( w, h, params.photo.bands )
+				: null;
 		return {
 			w,
 			h,
 			cache,
+			bands,
+			bandColors:
+				bands && 'photo' === params.colorSource
+					? this.bandColors( bands, w, h )
+					: null,
 			photoKey:
 				( this._photoKey || '' ) +
-				( 'none' === params.photo.source
-					? ''
-					: params.photo.thresholds.join( ',' ) +
+				( live
+					? params.photo.thresholds.join( ',' ) +
 					  params.photo.invert +
-					  params.photo.blur ),
-			photo:
-				'none' !== params.photo.source
-					? this.lumaAt( w, h, params.photo.blur )
-					: null,
+					  params.photo.blur +
+					  params.photo.mode +
+					  params.photo.bands +
+					  params.colorSource
+					: '' ),
+			photo: live ? this.lumaAt( w, h, params.photo.blur ) : null,
 			subject: params.photo.subject ? this.subjectAt( w, h ) : null,
 			textStamps: ( obj, ww, hh ) => this.textStamps( obj, ww, hh ),
 			rasterLetter: ( l, ww, hh ) => this.rasterLetter( l, ww, hh ),
@@ -195,22 +356,22 @@ export class PaperEngine {
 		return this.scene;
 	}
 
-	/** All sheets back to front, frame last. */
-	allSheets( scene = this.scene ) {
+	/** All layers back to front, frame last. */
+	allLayers( scene = this.scene ) {
 		if ( ! scene ) {
 			return [];
 		}
-		return scene.frame ? [ ...scene.sheets, scene.frame ] : scene.sheets;
+		return scene.frame ? [ ...scene.layers, scene.frame ] : scene.layers;
 	}
 
-	sheetPath( sheet, w = this.w, h = this.h, baseW = this.w ) {
+	layerPath( sheet, w = this.w, h = this.h, baseW = this.w ) {
 		const s = w / baseW;
 		const p = new Path2D(
 			ringsToPath(
 				scaleRings( sheet.rings, s ).map( ( ring ) =>
 					ring.map( ( [ x, y ] ) => [
-						x + sheet.sheet.dx * w,
-						y + sheet.sheet.dy * h,
+						x + sheet.layer.dx * w,
+						y + sheet.layer.dy * h,
 					] )
 				)
 			)
@@ -219,38 +380,67 @@ export class PaperEngine {
 	}
 
 	/**
-	 * Paint one sheet (its paper + its drop shadow) onto a context.
+	 * Paint one layer (its paper and the shadow it casts) onto a context.
 	 *
-	 * @param {Object} g       2d context.
-	 * @param {Object} sheet   Scene sheet.
-	 * @param {Object} opts    `{ w, h, baseW, reveal }` reveal 0..1 slides in.
+	 * Two of the three look axes live here. `edge` decides whether the
+	 * layers are separated by a deep, soft shadow (the lightbox) or by a
+	 * narrow hard rim (the poster); `paper` decides whether the surface
+	 * is flat or has a tooth.
+	 *
+	 * @param {Object} g          2d context.
+	 * @param {Object} layer      Built scene layer.
+	 * @param {Object} opts       Target geometry.
+	 * @param {number} opts.w     Target width in px.
+	 * @param {number} opts.h     Target height in px.
+	 * @param {number} opts.baseW Width the rings were built at, for scale.
 	 */
-	paintSheet( g, sheet, { w, h, baseW, reveal = 1 } = {} ) {
+	paintLayer( g, layer, { w, h, baseW } = {} ) {
 		const p = this.params;
-		if ( ! sheet.rings.length || reveal <= 0 ) {
+		if ( ! layer.rings.length ) {
 			return;
 		}
-		const path = this.sheetPath( sheet, w, h, baseW );
-		const slide = ( 1 - reveal ) * h * 0.1;
+		const path = this.layerPath( layer, w, h, baseW );
+		const amt = ( layer.layer.shadow ?? 100 ) / 100;
 		g.save();
-		g.globalAlpha = Math.min( 1, reveal * 1.4 );
-		g.translate( 0, slide );
-		const depth = 1 + ( p.shadow / 100 ) * h * 0.028;
-		g.shadowColor = `rgba(10, 12, 20, ${ 0.16 + ( p.shadow / 100 ) * 0.3 })`;
-		g.shadowBlur = 1 + ( p.soft / 100 ) * h * 0.02;
-		g.shadowOffsetX = -( p.lightX / 100 ) * depth;
-		g.shadowOffsetY = depth * 0.85;
-		g.fillStyle = sheet.color;
+		if ( 'rim' === p.edge ) {
+			const d = 1 + ( p.shadow / 100 ) * h * 0.004 * amt;
+			g.shadowColor = `rgba(10, 12, 20, ${ 0.42 * amt })`;
+			g.shadowBlur = 0;
+			g.shadowOffsetX = -( p.lightX / 100 ) * d;
+			g.shadowOffsetY = d;
+		} else {
+			const depth = 1 + ( p.shadow / 100 ) * h * 0.028 * amt;
+			g.shadowColor = `rgba(10, 12, 20, ${
+				( 0.16 + ( p.shadow / 100 ) * 0.3 ) * amt
+			})`;
+			g.shadowBlur = 1 + ( p.soft / 100 ) * h * 0.02;
+			g.shadowOffsetX = -( p.lightX / 100 ) * depth;
+			g.shadowOffsetY = depth * 0.85;
+		}
+		g.fillStyle = layer.color;
 		g.fill( path, 'evenodd' );
 		g.shadowColor = 'transparent';
-		// Paper grain, clipped to the sheet.
-		if ( p.grain > 0 ) {
+		const fibre = 'fibre' === p.paper;
+		if ( p.grain > 0 || fibre ) {
 			g.clip( path, 'evenodd' );
-			g.globalAlpha = ( p.grain / 100 ) * 0.16 * Math.min( 1, reveal );
 			g.globalCompositeOperation = 'overlay';
-			const pat = g.createPattern( this.grain, 'repeat' );
-			g.fillStyle = pat;
-			g.fillRect( 0, -slide - h * 0.1, w, h * 1.3 );
+			if ( p.grain > 0 ) {
+				g.globalAlpha = ( p.grain / 100 ) * 0.16;
+				g.fillStyle = g.createPattern( this.grain, 'repeat' );
+				g.fillRect( 0, 0, w, h );
+			}
+			if ( fibre ) {
+				// A coarser, drawn-out tooth on top of the fine grain.
+				// Scaled with the picture so a 2000px still does not look
+				// like sandpaper next to a 700px stage.
+				const s = Math.max( 1, h / 700 );
+				g.globalAlpha = 0.3;
+				g.save();
+				g.scale( s, s );
+				g.fillStyle = g.createPattern( this.fibre, 'repeat' );
+				g.fillRect( 0, 0, w / s, h / s );
+				g.restore();
+			}
 		}
 		g.restore();
 	}
@@ -277,71 +467,120 @@ export class PaperEngine {
 		}
 	}
 
+	/**
+	 * The handle boxes of the selected object, in canvas pixels.
+	 *
+	 * Four corners resize, one stalk above the top edge turns. Returned
+	 * rather than only drawn, so the stage can hit-test exactly what the
+	 * eye sees - the lesson from every drag-and-drop round in this family.
+	 *
+	 * @param {string} objId Selected object id.
+	 * @return {Array|null} `[ { id, x, y, r } ]` or null.
+	 */
+	handlesFor( objId ) {
+		const obj = objId ? this.objectPath( objId ) : null;
+		if ( ! obj || ! obj.bbox || FULL_PAGE_KINDS.includes( obj.kind ) ) {
+			return null;
+		}
+		const dx = obj.layer.layer.dx * this.w;
+		const dy = obj.layer.layer.dy * this.h;
+		const x0 = obj.bbox.x0 + dx - HANDLE_PAD;
+		const y0 = obj.bbox.y0 + dy - HANDLE_PAD;
+		const x1 = obj.bbox.x1 + dx + HANDLE_PAD;
+		const y1 = obj.bbox.y1 + dy + HANDLE_PAD;
+		const r = Math.max( 5, this.w / 130 );
+		return [
+			{ id: 'nw', x: x0, y: y0, r },
+			{ id: 'ne', x: x1, y: y0, r },
+			{ id: 'se', x: x1, y: y1, r },
+			{ id: 'sw', x: x0, y: y1, r },
+			{ id: 'rot', x: ( x0 + x1 ) / 2, y: y0 - r * 3.4, r },
+		];
+	}
+
 	/** Draw the whole scene onto the live canvas. */
-	render( { reveals = null, selected = null } = {} ) {
+	render( { selected = null } = {} ) {
 		const g = this.ctx;
 		const { w, h } = this;
 		if ( ! this.scene ) {
 			return;
 		}
 		this.paintBackdrop( g, w, h );
-		const sheets = this.allSheets();
-		sheets.forEach( ( sheet, i ) => {
-			this.paintSheet( g, sheet, {
-				w,
-				h,
-				baseW: w,
-				reveal: reveals ? reveals[ i ] : 1,
-			} );
+		const layers = this.allLayers();
+		layers.forEach( ( layer ) => {
+			this.paintLayer( g, layer, { w, h, baseW: w } );
 		} );
-		if ( selected ) {
-			const obj = this.objectPath( selected );
-			g.save();
-			g.strokeStyle = 'rgba(59, 102, 255, 0.95)';
-			g.lineWidth = Math.max( 1.5, w / 420 );
-			g.setLineDash( [ 6, 5 ] );
-			if ( obj ) {
-				g.stroke( obj.path );
-				if ( obj.bbox ) {
-					// A light box around the object as a grab hint.
-					g.setLineDash( [ 2, 4 ] );
-					g.globalAlpha = 0.5;
-					g.strokeRect(
-						obj.bbox.x0 + obj.sheet.sheet.dx * w - 4,
-						obj.bbox.y0 + obj.sheet.sheet.dy * h - 4,
-						obj.bbox.x1 - obj.bbox.x0 + 8,
-						obj.bbox.y1 - obj.bbox.y0 + 8
-					);
-				}
-			} else {
-				const sel = sheets.find( ( s ) => s.sheet.id === selected );
-				if ( sel && sel.rings.length ) {
-					g.stroke( this.sheetPath( sel ), 'evenodd' );
-				}
+		if ( ! selected ) {
+			return;
+		}
+		const obj = this.objectPath( selected );
+		g.save();
+		g.strokeStyle = SELECT_COLOR;
+		g.lineWidth = Math.max( 1.5, w / 420 );
+		g.setLineDash( [ 6, 5 ] );
+		if ( ! obj ) {
+			const sel = layers.find( ( s ) => s.layer.id === selected );
+			if ( sel && sel.rings.length ) {
+				g.stroke( this.layerPath( sel ), 'evenodd' );
 			}
 			g.restore();
+			return;
 		}
+		g.stroke( obj.path );
+		const handles = this.handlesFor( selected );
+		if ( ! handles ) {
+			g.restore();
+			return;
+		}
+		const box = handles.slice( 0, 4 );
+		g.setLineDash( [ 2, 4 ] );
+		g.globalAlpha = 0.5;
+		g.strokeRect(
+			box[ 0 ].x,
+			box[ 0 ].y,
+			box[ 2 ].x - box[ 0 ].x,
+			box[ 2 ].y - box[ 0 ].y
+		);
+		// The stalk to the rotation handle, so it reads as belonging.
+		g.globalAlpha = 0.7;
+		g.setLineDash( [] );
+		const rot = handles[ 4 ];
+		g.beginPath();
+		g.moveTo( rot.x, box[ 0 ].y );
+		g.lineTo( rot.x, rot.y );
+		g.stroke();
+		g.globalAlpha = 1;
+		for ( const hnd of handles ) {
+			g.beginPath();
+			g.arc( hnd.x, hnd.y, hnd.r, 0, Math.PI * 2 );
+			g.fillStyle = 'rot' === hnd.id ? SELECT_COLOR : '#ffffff';
+			g.fill();
+			g.strokeStyle = 'rot' === hnd.id ? '#ffffff' : SELECT_COLOR;
+			g.lineWidth = Math.max( 1.2, w / 600 );
+			g.stroke();
+		}
+		g.restore();
 	}
 
 	/**
 	 * What is under the pointer: an OBJECT first (its own shape, not
 	 * the paper it sits on), otherwise the sheet whose paper covers the
 	 * point. This is the whole difference between grabbing the bird and
-	 * grabbing the entire sheet.
+	 * grabbing the entire layer.
 	 *
 	 * @param {number} x Canvas x.
 	 * @param {number} y Canvas y.
-	 * @return {Object|null} `{ type: 'object'|'sheet', sheet, object }`.
+	 * @return {Object|null} `{ type: 'object'|'layer', layer, object }`.
 	 */
 	hitAt( x, y ) {
-		const sheets = this.allSheets();
+		const sheets = this.allLayers();
 		for ( let i = sheets.length - 1; i >= 0; i-- ) {
 			const s = sheets[ i ];
-			if ( '__frame' === s.sheet.id ) {
+			if ( '__frame' === s.layer.id ) {
 				continue;
 			}
-			const ox = x - s.sheet.dx * this.w;
-			const oy = y - s.sheet.dy * this.h;
+			const ox = x - s.layer.dx * this.w;
+			const oy = y - s.layer.dy * this.h;
 			for ( let k = s.shapes.length - 1; k >= 0; k-- ) {
 				const shape = s.shapes[ k ];
 				const bb = shape.bbox;
@@ -354,28 +593,50 @@ export class PaperEngine {
 				) {
 					continue;
 				}
-				const obj = s.sheet.objects.find( ( o ) => o.id === shape.id );
+				const obj = s.layer.objects.find( ( o ) => o.id === shape.id );
 				if ( ! obj ) {
+					continue;
+				}
+				// A passepartout is a card with a window cut OUT of it, and
+				// the window is punched into the paper after the shape is
+				// recorded - so the shape still describes the whole card.
+				// Testing it claims the opening too, which is the entire
+				// picture, and since the frame sits at the very front every
+				// click landed on it instead of on the thing being framed.
+				// Ask the paper that is really drawn: it carries the window,
+				// whatever cut it, a shape or a letter.
+				if ( 'frame' === shape.kind ) {
+					if (
+						s.rings.length &&
+						this.ctx.isPointInPath(
+							this.layerPath( s ),
+							x,
+							y,
+							'evenodd'
+						)
+					) {
+						return { type: 'object', layer: s.layer, object: obj };
+					}
 					continue;
 				}
 				// Inside the box is enough for small things; big ones
 				// test their real outline so a click lands honestly.
 				const big = bb.x1 - bb.x0 > this.w * 0.25;
 				if ( ! big || this.shapeHit( shape, ox, oy ) ) {
-					return { type: 'object', sheet: s.sheet, object: obj };
+					return { type: 'object', layer: s.layer, object: obj };
 				}
 			}
 		}
 		for ( let i = sheets.length - 1; i >= 0; i-- ) {
 			const s = sheets[ i ];
-			if ( '__frame' === s.sheet.id ) {
+			if ( '__frame' === s.layer.id ) {
 				continue;
 			}
 			if (
 				s.rings.length &&
-				this.ctx.isPointInPath( this.sheetPath( s ), x, y, 'evenodd' )
+				this.ctx.isPointInPath( this.layerPath( s ), x, y, 'evenodd' )
 			) {
-				return { type: 'sheet', sheet: s.sheet, object: null };
+				return { type: 'layer', layer: s.layer, object: null };
 			}
 		}
 		return null;
@@ -398,7 +659,7 @@ export class PaperEngine {
 
 	/** The outline of one object, for the selection marker. */
 	objectPath( objId ) {
-		for ( const s of this.allSheets() ) {
+		for ( const s of this.allLayers() ) {
 			const shape = s.shapes.find( ( x ) => x.id === objId );
 			if ( ! shape ) {
 				continue;
@@ -407,27 +668,24 @@ export class PaperEngine {
 			for ( const stamp of shape.stamps ) {
 				for ( const ring of stamp ) {
 					p.moveTo(
-						ring[ 0 ][ 0 ] + s.sheet.dx * this.w,
-						ring[ 0 ][ 1 ] + s.sheet.dy * this.h
+						ring[ 0 ][ 0 ] + s.layer.dx * this.w,
+						ring[ 0 ][ 1 ] + s.layer.dy * this.h
 					);
 					for ( let i = 1; i < ring.length; i++ ) {
 						p.lineTo(
-							ring[ i ][ 0 ] + s.sheet.dx * this.w,
-							ring[ i ][ 1 ] + s.sheet.dy * this.h
+							ring[ i ][ 0 ] + s.layer.dx * this.w,
+							ring[ i ][ 1 ] + s.layer.dy * this.h
 						);
 					}
 					p.closePath();
 				}
 			}
-			return { path: p, bbox: shape.bbox, sheet: s };
+			return { path: p, bbox: shape.bbox, kind: shape.kind, layer: s };
 		}
 		return null;
 	}
 
-	/**
-	 * High-res still. Rebuilds the scene at the target size so the
-	 * millimeter guarantees hold at print resolution too.
-	 */
+	/** High-res still. Rebuilds the scene at the target size. */
 	still( w, h, params = this.params ) {
 		const scene = buildScene( params, this.buildCtx( w, h, params ) );
 		const c = document.createElement( 'canvas' );
@@ -435,97 +693,30 @@ export class PaperEngine {
 		c.height = h;
 		const g = c.getContext( '2d' );
 		this.paintBackdrop( g, w, h, params );
-		for ( const sheet of this.allSheets( scene ) ) {
-			this.paintSheet( g, sheet, { w, h, baseW: w } );
+		for ( const sheet of this.allLayers( scene ) ) {
+			this.paintLayer( g, sheet, { w, h, baseW: w } );
 		}
 		return c.toDataURL( 'image/png' );
 	}
 
 	/**
-	 * Per-sheet transparent PNGs at document size - the insert gives
+	 * Per-layer transparent PNGs at document size - the insert gives
 	 * every paper layer its own editable editor layer.
 	 */
-	sheetImages( w, h, params = this.params ) {
+	layerImages( w, h, params = this.params ) {
 		const scene = buildScene( params, this.buildCtx( w, h, params ) );
 		const out = [];
-		for ( const sheet of this.allSheets( scene ) ) {
+		for ( const sheet of this.allLayers( scene ) ) {
 			const c = document.createElement( 'canvas' );
 			c.width = w;
 			c.height = h;
 			const g = c.getContext( '2d' );
-			this.paintSheet( g, sheet, { w, h, baseW: w } );
+			this.paintLayer( g, sheet, { w, h, baseW: w } );
 			out.push( {
-				sheet,
+				layer: sheet,
 				src: c.toDataURL( 'image/png' ),
 			} );
 		}
 		return { images: out, scene };
-	}
-
-	/**
-	 * Cutting SVGs, one per sheet, real-world sized: the viewBox is in
-	 * millimeters of the chosen cut width.
-	 */
-	cutSvgs( params = this.params, res = 1600 ) {
-		const w = res;
-		const h = Math.round( ( res * this.h ) / this.w );
-		const scene = buildScene( params, this.buildCtx( w, h, params ) );
-		const mmW = params.cutWidth * 10;
-		const mmH = ( mmW * h ) / w;
-		const files = [];
-		const sheets = this.allSheets( scene );
-		sheets.forEach( ( sheet, i ) => {
-			if ( ! sheet.rings.length ) {
-				return;
-			}
-			const rings = scaleRings( sheet.rings, mmW / w );
-			const d = ringsToPath( rings, 2 );
-			files.push( {
-				name: `layer-${ String( i + 1 ).padStart( 2, '0' ) }-${ sheet.sheet.base }.svg`,
-				data:
-					`<svg xmlns="http://www.w3.org/2000/svg" width="${ mmW }mm" height="${ mmH.toFixed( 1 ) }mm" viewBox="0 0 ${ mmW } ${ mmH.toFixed( 1 ) }">\n` +
-					`<path d="${ d }" fill="${ sheet.color }" fill-rule="evenodd" stroke="none"/>\n` +
-					`</svg>\n`,
-				color: sheet.color,
-				kind: sheet.sheet.base,
-				pieces: sheet.pieces,
-			} );
-		} );
-		return { files, mmW, mmH, sheets };
-	}
-
-	/**
-	 * Record the reveal: sheets slide in back to front, then hold.
-	 *
-	 * @param {Object} bridgeVideo `bridge.video`.
-	 * @return {Promise<Blob>} The recording.
-	 */
-	recordReveal( bridgeVideo ) {
-		const sheets = this.allSheets();
-		const per = 0.55;
-		const total = 1.2 + sheets.length * per;
-		const rec = bridgeVideo.recordCanvas( this.canvas, { fps: 30 } );
-		return new Promise( ( resolve, reject ) => {
-			const t0 = performance.now();
-			const step = () => {
-				const t = ( performance.now() - t0 ) / 1000;
-				const reveals = sheets.map( ( s, i ) => {
-					const local = ( t - i * per * 0.7 ) / per;
-					const e = clamp01( local );
-					return 1 - Math.pow( 1 - e, 3 );
-				} );
-				this.render( { reveals } );
-				if ( t < total ) {
-					requestAnimationFrame( step );
-				} else {
-					this.render();
-					setTimeout( () => {
-						rec.stop();
-						rec.blob.then( resolve, reject );
-					}, 400 );
-				}
-			};
-			requestAnimationFrame( step );
-		} );
 	}
 }
