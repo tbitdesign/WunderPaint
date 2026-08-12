@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.403.0
+Stable tag: 1.403.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,7 +161,7 @@ The handbook lives right inside the editor (press ?), the built-in help assistan
 
 All of it is public, at https://github.com/tbitdesign/WunderPaint - the readable original of every generated file this plugin ships. Node.js 20 and npm are the only things needed to rebuild them.
 
-* build/*.js and build/*.css are webpack output, built from src/ with "npm ci && npm run build".
+* build/*.js and build/*.css are webpack output, built from src/ with "npm ci && npm run build". The files named after a library (build/agpsd.<hash>.js, build/jszip.<hash>.js and so on) are those npm dependencies, bundled by the same run; each one is listed with its own source link under "Which third-party libraries are bundled?" below.
 * bundled-extensions/<slug>/extension.js is esbuild output, built from extensions/<slug>/src/ with "bash tools/bundle-free-extensions.sh".
 * languages/*.mo and languages/*.json are compiled from the .po files that travel next to them.
 * build/vtracer.<hash>.wasm is not compiled during that build and is not ours: webpack copies it out of the npm package vtracer-wasm (MIT), a WebAssembly build of VTracer (https://github.com/visioncortex/vtracer, MIT). It is the vectorizer behind the editor's Vectorize command, which turns a bitmap into paths in the browser.
@@ -171,18 +171,20 @@ BUILD.md in that repository lists every generated file next to its source and th
 
 = Which third-party libraries are bundled? =
 
-* ag-psd — MIT License (PSD read/write)
-* Tabler Icons — MIT License (icon library)
-* qrcode — MIT License (QR-code generation)
-* jsQR — Apache License 2.0 (the in-dialog scan check that decodes the rendered code)
-* jszip — MIT License (ZIP reading and writing for project files and exports; dual-licensed MIT or GPL-3.0-or-later, used here under MIT)
-* vtracer-wasm — MIT License (colour image vectorization; a WebAssembly build of VTracer by Vision Cortex, also MIT; ships as build/vtracer.<hash>.wasm)
-* imagetracerjs — The Unlicense (vectorization fallback where WebAssembly is unavailable)
-* gifenc — MIT License (animated GIF encoding)
-* upng-js — MIT License (APNG encoding)
-* unicode-emoji-json — MIT License (emoji metadata)
-* onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build is bundled with the plugin, never loaded from a CDN)
-* @huggingface/transformers (transformers.js) — Apache License 2.0 (in-browser runtime for the local AI features, bundled from npm; formerly published as @xenova/transformers)
+Each library below is bundled into its own file under build/, named after the library, so a file there can be traced back to its source at a glance. Full attributions and copyright notices are in third-party-licenses.txt.
+
+* ag-psd — MIT License (PSD read/write). Source: https://github.com/Agamnentzar/ag-psd — build/agpsd.<hash>.js
+* Tabler Icons — MIT License (icon library). Source: https://github.com/tabler/tabler-icons — build/icons-lib.<hash>.js and assets/ui-icons/
+* qrcode — MIT License (QR-code generation). Source: https://github.com/soldair/node-qrcode — build/qrcode.<hash>.js
+* jsQR — Apache License 2.0 (the in-dialog scan check that decodes the rendered code). Source: https://github.com/cozmo/jsQR — build/jsqr.<hash>.js
+* jszip — MIT License (ZIP reading and writing for project files and exports; dual-licensed MIT or GPL-3.0-or-later, used here under MIT). Source: https://github.com/Stuk/jszip — build/jszip.<hash>.js
+* vtracer-wasm — MIT License (colour image vectorization; a WebAssembly build of VTracer by Vision Cortex, also MIT). Source: https://github.com/jsscheller/vtracer-wasm and https://github.com/visioncortex/vtracer — build/vtracer.<hash>.wasm
+* imagetracerjs — The Unlicense (vectorization fallback where WebAssembly is unavailable). Source: https://github.com/jankovicsandras/imagetracerjs — build/imagetracer.<hash>.js
+* gifenc — MIT License (animated GIF encoding). Source: https://github.com/mattdesl/gifenc — build/gifenc.<hash>.js
+* upng-js — MIT License (APNG encoding). Source: https://github.com/photopea/UPNG.js — build/upng.<hash>.js
+* unicode-emoji-json — MIT License (emoji metadata). Source: https://github.com/muan/unicode-emoji-json — build/emoji-lib.<hash>.js
+* onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build is bundled with the plugin, never loaded from a CDN). Source: https://github.com/microsoft/onnxruntime — build/ort.<hash>.js, build/ort.wasm.min.<hash>.mjs and assets/ort/
+* @huggingface/transformers (transformers.js) — Apache License 2.0 (in-browser runtime for the local AI features, bundled from npm; formerly published as @xenova/transformers). Source: https://github.com/huggingface/transformers.js — build/transformers.<hash>.js
 * U²-Netp model — Apache License 2.0 (Xuebin Qin et al., U²-Net), the background-removal model; licence text and notice travel with it.
 * Fonts — 10 self-hosted families ship with the plugin (Roboto, Open Sans, Inter, Montserrat, Poppins, Oswald, Bebas Neue, Anton, Playfair Display, Lora); a larger catalog can be downloaded to your own server under Settings → Fonts. All ten are under the SIL Open Font License 1.1. See assets/fonts/OFL.txt. Sourced from the @fontsource project / Google Fonts.
 
@@ -248,6 +250,9 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+= 1.403.1 =
+* Every bundled library now names its own source next to its license, and says which file in the plugin it is, so anyone can go from a file in the download to the code it was built from.
+
 = 1.403.0 =
 * Where an image is used is now answered only to people who are allowed to edit that very image, and the answer leaves out any post the person asking may not read. Before, anyone who could use the editor could ask about any image in the library and see the titles of the posts it appears in, including drafts and private posts that were none of their business.
 * The readme and BUILD.md now name the source of every generated file the plugin ships, and the vectorizer's WebAssembly file carries its own name (build/vtracer.<hash>.wasm) instead of a bare hash, so it is obvious what it is and where it comes from.

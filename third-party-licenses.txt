@@ -20,9 +20,11 @@ Bundled JavaScript libraries
 
 ag-psd — PSD read/write
   MIT License. Copyright (c) 2016 Agamnentzar.
+  Source: https://github.com/Agamnentzar/ag-psd  Ships as build/agpsd.<hash>.js
 
 gifenc — animated GIF encoding
   MIT License. Copyright (c) 2017 Matt DesLauriers.
+  Source: https://github.com/mattdesl/gifenc  Ships as build/gifenc.<hash>.js
 
 jszip — ZIP reading/writing (project files, exports)
   Dual-licensed MIT or GPL-3.0-or-later; used here under the MIT License.
@@ -31,6 +33,7 @@ jszip — ZIP reading/writing (project files, exports)
   Puzrin and Andrei Tuputcyn), lie (MIT, Copyright (c) 2014-2018 Calvin
   Metcalf, Jordan Harband), readable-stream (MIT, Copyright Node.js
   contributors) and setimmediate (MIT, Copyright (c) 2012 Barnesandnoble.com).
+  Source: https://github.com/Stuk/jszip  Ships as build/jszip.<hash>.js
 
 onnxruntime-web — local (in-browser) neural-network inference
   MIT License. Copyright (c) Microsoft Corporation. The CPU WebAssembly
@@ -39,6 +42,8 @@ onnxruntime-web — local (in-browser) neural-network inference
   (Apache-2.0, Copyright Daniel Wirtz), protobufjs (BSD-3-Clause, Copyright (c)
   2016 Daniel Wirtz), guid-typescript (ISC), platform (MIT, Copyright
   2014-2020 Benjamin Tan) and onnxruntime-common (MIT, Microsoft Corporation).
+  Source: https://github.com/microsoft/onnxruntime  Ships as build/ort.<hash>.js
+  and build/ort.wasm.min.<hash>.mjs, plus the WebAssembly pair in assets/ort/.
 
 @huggingface/transformers (transformers.js) — in-browser runtime for the local
 AI features (Smart Select, Depth Blur, Blur Faces, local alt text, semantic
@@ -50,22 +55,33 @@ image search)
   assets/ort/ (Microsoft Corporation, MIT, with the Apache-2.0/BSD-3-Clause
   components noted under onnxruntime-web above). The full Apache-2.0 text is
   in node_modules/@huggingface/transformers/LICENSE.
+  Source: https://github.com/huggingface/transformers.js
+  Ships as build/transformers.<hash>.js
 
 
 vtracer-wasm — colour image vectorization (the Vectorize command)
   MIT License. Copyright (c) 2025 jsscheller. A WebAssembly build of VTracer
   (https://github.com/visioncortex/vtracer, MIT, Copyright (c) 2020 Vision
-  Cortex). Ships as build/*.wasm.
+  Cortex). Ships as build/vtracer.<hash>.wasm.
+  Source: https://github.com/jsscheller/vtracer-wasm
 
 imagetracerjs — vectorization fallback where WebAssembly is unavailable
   The Unlicense (public domain). By Andras Jankovics.
+  Source: https://github.com/jankovicsandras/imagetracerjs
+  Ships as build/imagetracer.<hash>.js
 
 qrcode — QR-code generation
   MIT License. Copyright (c) 2012 Ryan Day. Includes dijkstrajs (MIT) and
   pngjs (MIT, Copyright (c) 2015 Luke Page & original contributors).
+  Source: https://github.com/soldair/node-qrcode  Ships as build/qrcode.<hash>.js
+
+jsQR — decodes a rendered QR code again, for the check inside the QR dialog
+  Apache License 2.0. Copyright (c) 2016 Cosmo Wolfe.
+  Source: https://github.com/cozmo/jsQR  Ships as build/jsqr.<hash>.js
 
 upng-js — APNG encoding
   MIT License. Copyright (c) 2017 Photopea.
+  Source: https://github.com/photopea/UPNG.js  Ships as build/upng.<hash>.js
 
 
 Bundled build-time assets (embedded into the plugin build)
@@ -75,9 +91,11 @@ Tabler Icons — user-interface icon paths
   MIT License. Copyright (c) 2020-present Paweł Kuna.
   Used for the icon library chunk (src/icons-lib) and, since v1.51, for
   curated editor UI icons (assets/ui-icons -> src/ui-icons.json).
+  Source: https://github.com/tabler/tabler-icons  Ships as build/icons-lib.<hash>.js
 
 unicode-emoji-json — emoji metadata
   MIT License. Copyright (c) Mesach Harmasendro.
+  Source: https://github.com/muan/unicode-emoji-json  Ships as build/emoji-lib.<hash>.js
 
 
 Bundled machine-learning model
