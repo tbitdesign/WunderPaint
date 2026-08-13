@@ -3,14 +3,14 @@
 msgid ""
 msgstr ""
 "Language: de_DE\n"
-"Project-Id-Version: WunderPaint 1.402.1\n"
+"Project-Id-Version: WunderPaint 1.403.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wunderpaint\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-12T09:09:18+00:00\n"
+"POT-Creation-Date: 2026-08-13T00:07:01+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wunderpaint\n"
@@ -178,23 +178,23 @@ msgstr "Ein Prompt ist erforderlich."
 msgid "Describe the illustration you want first."
 msgstr "Beschreibe zuerst die gewünschte Illustration."
 
-#: includes/class-ai-provider.php:2545
+#: includes/class-ai-provider.php:2551
 msgid "Could not parse the illustration response. Please try again."
 msgstr "Die Illustrations-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen."
 
-#: includes/class-ai-provider.php:2549
+#: includes/class-ai-provider.php:2555
 msgid "The illustration response contained unsupported content. Please try again."
 msgstr "Die Illustrations-Antwort enthielt nicht unterstützte Inhalte. Bitte erneut versuchen."
 
-#: includes/class-ai-provider.php:2590
+#: includes/class-ai-provider.php:2596
 msgid "Could not parse the caption response. Please try again."
 msgstr "Die Beschriftungs-Antwort konnte nicht gelesen werden. Bitte erneut versuchen."
 
-#: includes/class-ai-provider.php:2628
+#: includes/class-ai-provider.php:2634
 msgid "Unknown provider."
 msgstr "Unbekannter Anbieter."
 
-#: includes/class-ai-provider.php:2634
+#: includes/class-ai-provider.php:2640
 msgid "Not configured."
 msgstr "Nicht konfiguriert."
 
@@ -347,13 +347,13 @@ msgstr "Editor lädt…"
 #: src/screens/help-dialog.jsx:84
 #: src/screens/library-dialog.jsx:136
 #: src/screens/magic-resize-dialog.jsx:88
-#: src/screens/media-library-dialog.jsx:1844
-#: src/screens/media-library-dialog.jsx:3460
-#: src/screens/media-library-dialog.jsx:3497
-#: src/screens/media-library-dialog.jsx:3633
-#: src/screens/media-library-dialog.jsx:3778
-#: src/screens/media-library-dialog.jsx:3999
-#: src/screens/media-library-dialog.jsx:4260
+#: src/screens/media-library-dialog.jsx:1854
+#: src/screens/media-library-dialog.jsx:3482
+#: src/screens/media-library-dialog.jsx:3519
+#: src/screens/media-library-dialog.jsx:3655
+#: src/screens/media-library-dialog.jsx:3800
+#: src/screens/media-library-dialog.jsx:4021
+#: src/screens/media-library-dialog.jsx:4282
 #: src/screens/meta-editor.jsx:296
 #: src/screens/mockup-dialog.jsx:351
 #: src/screens/open-template-dialog.jsx:55
@@ -618,37 +618,41 @@ msgid "Unknown attachment."
 msgstr "Unbekannter Anhang."
 
 #: includes/class-media-library.php:753
-#: includes/class-media-library.php:1016
-#: includes/class-media-library.php:1063
+#: includes/class-media-library.php:1038
+#: includes/class-media-library.php:1085
 #: includes/class-media-quarantine.php:346
 msgid "No images selected."
 msgstr "Keine Bilder ausgewählt."
 
-#: includes/class-media-library.php:896
+#: includes/class-media-library.php:911
+msgid "You are not allowed to create shared folders or tags."
+msgstr "Du darfst keine geteilten Ordner oder Tags anlegen."
+
+#: includes/class-media-library.php:918
 msgid "A name is required."
 msgstr "Ein Name ist erforderlich."
 
-#: includes/class-media-library.php:937
+#: includes/class-media-library.php:959
 msgid "You are not allowed to change shared folders."
 msgstr "Du darfst geteilte Ordner nicht ändern."
 
-#: includes/class-media-library.php:948
+#: includes/class-media-library.php:970
 msgid "A folder cannot be its own parent."
 msgstr "Ein Ordner kann nicht sein eigener übergeordneter Ordner sein."
 
-#: includes/class-media-library.php:953
+#: includes/class-media-library.php:975
 msgid "Nothing to update."
 msgstr "Nichts zu aktualisieren."
 
-#: includes/class-media-library.php:993
+#: includes/class-media-library.php:1015
 msgid "You are not allowed to delete shared folders or tags."
 msgstr "Du darfst geteilte Ordner oder Tags nicht löschen."
 
-#: includes/class-media-library.php:997
+#: includes/class-media-library.php:1019
 msgid "Could not delete."
 msgstr "Konnte nicht gelöscht werden."
 
-#: includes/class-media-library.php:1126
+#: includes/class-media-library.php:1148
 msgid "A name and a valid kind are required."
 msgstr "Ein Name und ein gültiger Typ sind erforderlich."
 
@@ -825,8 +829,8 @@ msgstr "Bearbeiten"
 
 #: includes/class-media.php:214
 #: src/help/content.js:1016
-#: src/screens/media-library-dialog.jsx:1784
-#: src/screens/media-library-dialog.jsx:1792
+#: src/screens/media-library-dialog.jsx:1794
+#: src/screens/media-library-dialog.jsx:1802
 msgid "Media Library Manager"
 msgstr "Mediathek-Manager"
 
@@ -982,7 +986,7 @@ msgstr "Kategorie"
 #: includes/class-post-data.php:208
 #: src/screens/alt-text-dialog.jsx:835
 #: src/screens/alt-text-dialog.jsx:1389
-#: src/screens/media-library-dialog.jsx:1949
+#: src/screens/media-library-dialog.jsx:1964
 #: src/screens/meta-editor.jsx:483
 msgid "Tags"
 msgstr "Schlagwörter"
@@ -1004,8 +1008,8 @@ msgstr "Lesezeit"
 
 #: includes/class-post-data.php:215
 #: src/lib/dynamic-content.js:23
-#: src/screens/media-library-dialog.jsx:2598
-#: src/screens/media-library-dialog.jsx:2649
+#: src/screens/media-library-dialog.jsx:2620
+#: src/screens/media-library-dialog.jsx:2671
 msgid "Author"
 msgstr "Autor"
 
@@ -1058,7 +1062,7 @@ msgstr "KI-Hintergrund"
 #: includes/media-usage/class-scanner-postmeta.php:369
 #: src/lib/dynamic-content.js:31
 #: src/screens/design-dialog.jsx:96
-#: src/screens/media-library-dialog.jsx:3194
+#: src/screens/media-library-dialog.jsx:3216
 msgid "Featured image"
 msgstr "Beitragsbild"
 
@@ -1280,7 +1284,7 @@ msgstr "Nicht installiert"
 #: includes/class-settings.php:389
 #: src/screens/editor-titlebar.jsx:343
 #: src/screens/export-dialog.jsx:1894
-#: src/screens/media-library-dialog.jsx:4243
+#: src/screens/media-library-dialog.jsx:4265
 msgid "Download"
 msgstr "Herunterladen"
 
@@ -1546,7 +1550,7 @@ msgstr "Anfragen"
 
 #: includes/class-settings.php:984
 #: src/screens/editor-menubar.jsx:1070
-#: src/screens/media-library-dialog.jsx:2512
+#: src/screens/media-library-dialog.jsx:2534
 msgid "Images"
 msgstr "Bilder"
 
@@ -1597,8 +1601,8 @@ msgstr "Diese optionalen Modelle treiben lokale Browser-Funktionen an (Smart Sel
 #: src/screens/editor-canvas.jsx:230
 #: src/screens/editor-menubar.jsx:1978
 #: src/screens/editor-menubar.jsx:2527
-#: src/screens/media-library-dialog.jsx:2572
-#: src/screens/media-library-dialog.jsx:2646
+#: src/screens/media-library-dialog.jsx:2594
+#: src/screens/media-library-dialog.jsx:2668
 #: src/screens/panels/brush-panel.jsx:255
 #: src/screens/panels/properties-panel.jsx:1594
 #: src/screens/panels/properties-panel.jsx:2390
@@ -1625,7 +1629,7 @@ msgstr "Status"
 #: src/screens/library-tray.jsx:1220
 #: src/screens/library/content-sections.jsx:524
 #: src/screens/library/content-sections.jsx:676
-#: src/screens/media-library-dialog.jsx:3039
+#: src/screens/media-library-dialog.jsx:3061
 #: src/screens/open-template-dialog.jsx:68
 #: src/screens/post-picker-dialog.jsx:202
 #: src/screens/stock-dialog.jsx:472
@@ -1766,8 +1770,8 @@ msgstr "Vollständige Bibliothek herunterladen"
 #: src/screens/editor-titlebar.jsx:237
 #: src/screens/export-dialog.jsx:1882
 #: src/screens/generate-dialog.jsx:533
-#: src/screens/media-library-dialog.jsx:3933
-#: src/screens/media-library-dialog.jsx:4066
+#: src/screens/media-library-dialog.jsx:3955
+#: src/screens/media-library-dialog.jsx:4088
 #: src/screens/mockup-dialog.jsx:697
 #: src/screens/panels/ai-panel.jsx:1125
 #: src/screens/panorama-dialog.jsx:981
@@ -1836,12 +1840,12 @@ msgstr "Datei"
 #: src/screens/library/user-sections.jsx:401
 #: src/screens/library/user-sections.jsx:517
 #: src/screens/library/user-sections.jsx:558
-#: src/screens/media-library-dialog.jsx:977
-#: src/screens/media-library-dialog.jsx:1020
-#: src/screens/media-library-dialog.jsx:1755
-#: src/screens/media-library-dialog.jsx:2193
-#: src/screens/media-library-dialog.jsx:3219
-#: src/screens/media-library-dialog.jsx:3220
+#: src/screens/media-library-dialog.jsx:985
+#: src/screens/media-library-dialog.jsx:1028
+#: src/screens/media-library-dialog.jsx:1764
+#: src/screens/media-library-dialog.jsx:2215
+#: src/screens/media-library-dialog.jsx:3241
+#: src/screens/media-library-dialog.jsx:3242
 #: src/screens/pages-bar.jsx:130
 #: src/screens/panels/actions-panel.jsx:238
 #: src/screens/panels/layers-panel.jsx:461
@@ -1860,7 +1864,7 @@ msgstr "Familienname (optional, wird aus dem Dateinamen übernommen)"
 
 #: includes/class-settings.php:1291
 #: src/screens/batch-watermark-dialog.jsx:395
-#: src/screens/media-library-dialog.jsx:2334
+#: src/screens/media-library-dialog.jsx:2356
 msgid "Upload"
 msgstr "Upload"
 
@@ -2212,35 +2216,35 @@ msgstr "Du darfst diese Vorlage nicht löschen."
 msgid "A category needs a name."
 msgstr "Eine Kategorie braucht einen Namen."
 
-#: includes/class-user-library.php:134
+#: includes/class-user-library.php:143
 msgid "You are not allowed to rename or delete shared categories."
 msgstr "Du darfst geteilte Kategorien nicht umbenennen oder löschen."
 
-#: includes/class-user-library.php:160
+#: includes/class-user-library.php:169
 msgid "Unknown category action."
 msgstr "Unbekannte Kategorie-Aktion."
 
-#: includes/class-user-library.php:187
+#: includes/class-user-library.php:196
 msgid "Unknown library kind."
 msgstr "Unbekannte Bibliotheks-Art."
 
-#: includes/class-user-library.php:194
+#: includes/class-user-library.php:203
 msgid "Invalid library item."
 msgstr "Ungültiges Bibliotheks-Element."
 
-#: includes/class-user-library.php:198
+#: includes/class-user-library.php:207
 msgid "This item is too large to save."
 msgstr "Dieses Element ist zu groß zum Speichern."
 
-#: includes/class-user-library.php:218
+#: includes/class-user-library.php:227
 msgid "You are not allowed to change this library item."
 msgstr "Du darfst dieses Bibliothekselement nicht ändern."
 
-#: includes/class-user-library.php:253
+#: includes/class-user-library.php:262
 msgid "The library is full. Delete some of your own items first."
 msgstr "Die Bibliothek ist voll. Bitte zuerst eigene Einträge löschen."
 
-#: includes/class-user-library.php:285
+#: includes/class-user-library.php:294
 msgid "You are not allowed to delete this library item."
 msgstr "Du darfst dieses Bibliothekselement nicht löschen."
 
@@ -2271,31 +2275,31 @@ msgstr "%1$s (%2$s)"
 #: includes/media-usage/class-scanner-content.php:142
 #: includes/media-usage/class-scanner-postmeta.php:353
 #: src/screens/alt-text-dialog.jsx:1191
-#: src/screens/media-library-dialog.jsx:2722
-#: src/screens/media-library-dialog.jsx:3000
-#: src/screens/media-library-dialog.jsx:4193
+#: src/screens/media-library-dialog.jsx:2744
+#: src/screens/media-library-dialog.jsx:3022
+#: src/screens/media-library-dialog.jsx:4215
 #: src/screens/post-picker-dialog.jsx:224
 msgid "(no title)"
 msgstr "(kein Titel)"
 
-#: includes/media-usage/class-scanner-options.php:41
+#: includes/media-usage/class-scanner-options.php:50
 msgid "Site settings and widgets"
 msgstr "Website-Einstellungen und Widgets"
 
-#: includes/media-usage/class-scanner-options.php:174
+#: includes/media-usage/class-scanner-options.php:183
 msgid "Site setting"
 msgstr "Website-Einstellung"
 
-#: includes/media-usage/class-scanner-options.php:188
+#: includes/media-usage/class-scanner-options.php:197
 msgid "Site icon"
 msgstr "Website-Icon"
 
-#: includes/media-usage/class-scanner-options.php:194
+#: includes/media-usage/class-scanner-options.php:203
 msgid "Theme settings (logo, header, background)"
 msgstr "Theme-Einstellungen (Logo, Kopfbereich, Hintergrund)"
 
 #. translators: %s: widget option name.
-#: includes/media-usage/class-scanner-options.php:198
+#: includes/media-usage/class-scanner-options.php:207
 #, php-format
 msgid "Widget: %s"
 msgstr "Widget: %s"
@@ -2322,15 +2326,15 @@ msgstr "SEO-Vorschaubild"
 msgid "Custom field %s"
 msgstr "Eigenes Feld %s"
 
-#: includes/media-usage/class-scanner-terms.php:37
+#: includes/media-usage/class-scanner-terms.php:46
 msgid "Categories and user profiles"
 msgstr "Kategorien und Benutzerprofile"
 
-#: includes/media-usage/class-scanner-terms.php:177
+#: includes/media-usage/class-scanner-terms.php:186
 msgid "Category or term image"
 msgstr "Kategorie- oder Begriffsbild"
 
-#: includes/media-usage/class-scanner-terms.php:182
+#: includes/media-usage/class-scanner-terms.php:191
 msgid "User profile"
 msgstr "Benutzerprofil"
 
@@ -2711,7 +2715,7 @@ msgstr "%d Bilder sind noch nicht für die semantische Suche indexiert."
 
 #: src/components/search-index-hint.jsx:60
 #: src/screens/library/search-section.jsx:319
-#: src/screens/media-library-dialog.jsx:2238
+#: src/screens/media-library-dialog.jsx:2260
 #: src/screens/status-dialog.jsx:484
 msgid "Index now"
 msgstr "Jetzt indexieren"
@@ -4806,7 +4810,7 @@ msgid "Soft Round"
 msgstr "Weich rund"
 
 #: src/lib/brush-tips.js:39
-#: src/screens/media-library-dialog.jsx:2581
+#: src/screens/media-library-dialog.jsx:2603
 #: src/screens/panorama-dialog.jsx:835
 #: src/screens/workspace-dialog.jsx:46
 msgid "Medium"
@@ -5251,7 +5255,7 @@ msgstr "Dieser Browser kann kein Video aufzeichnen. Chrome, Edge, Firefox und Sa
 
 #: src/lib/caption-fields.js:36
 #: src/screens/export-dialog.jsx:1601
-#: src/screens/media-library-dialog.jsx:2640
+#: src/screens/media-library-dialog.jsx:2662
 #: src/screens/qr-dialog.jsx:813
 msgid "Title"
 msgstr "Titel"
@@ -5507,7 +5511,7 @@ msgid "File name"
 msgstr "Dateiname"
 
 #: src/lib/dynamic-content.js:81
-#: src/screens/media-library-dialog.jsx:2533
+#: src/screens/media-library-dialog.jsx:2555
 msgid "File type"
 msgstr "Dateityp"
 
@@ -5995,7 +5999,7 @@ msgstr "100%"
 
 #: src/lib/shortcuts.js:444
 #: src/screens/alt-text-dialog.jsx:1109
-#: src/screens/media-library-dialog.jsx:2352
+#: src/screens/media-library-dialog.jsx:2374
 msgid "Select all"
 msgstr "Alle auswählen"
 
@@ -8109,12 +8113,12 @@ msgstr "Nach Titel suchen"
 #: src/screens/media-library-dialog.jsx:158
 #: src/screens/media-library-dialog.jsx:528
 #: src/screens/media-library-dialog.jsx:659
-#: src/screens/media-library-dialog.jsx:988
-#: src/screens/media-library-dialog.jsx:1031
-#: src/screens/media-library-dialog.jsx:1832
-#: src/screens/media-library-dialog.jsx:1882
-#: src/screens/media-library-dialog.jsx:1910
-#: src/screens/media-library-dialog.jsx:1922
+#: src/screens/media-library-dialog.jsx:996
+#: src/screens/media-library-dialog.jsx:1039
+#: src/screens/media-library-dialog.jsx:1842
+#: src/screens/media-library-dialog.jsx:1892
+#: src/screens/media-library-dialog.jsx:1920
+#: src/screens/media-library-dialog.jsx:1932
 msgid "All images"
 msgstr "Alle Bilder"
 
@@ -8124,8 +8128,8 @@ msgid "Missing alt text"
 msgstr "Ohne Alt-Text"
 
 #: src/screens/alt-text-dialog.jsx:1119
-#: src/screens/media-library-dialog.jsx:1835
-#: src/screens/media-library-dialog.jsx:2359
+#: src/screens/media-library-dialog.jsx:1845
+#: src/screens/media-library-dialog.jsx:2381
 #: src/screens/status-dialog.jsx:693
 msgid "Clear"
 msgstr "Leeren"
@@ -8133,26 +8137,26 @@ msgstr "Leeren"
 #. translators: %d: count.
 #. translators: %d: count
 #: src/screens/alt-text-dialog.jsx:1129
-#: src/screens/media-library-dialog.jsx:3048
-#: src/screens/media-library-dialog.jsx:4053
+#: src/screens/media-library-dialog.jsx:3070
+#: src/screens/media-library-dialog.jsx:4075
 #, js-format
 msgid "%d selected"
 msgstr "%d ausgewählt"
 
 #: src/screens/alt-text-dialog.jsx:1166
-#: src/screens/media-library-dialog.jsx:2828
-#: src/screens/media-library-dialog.jsx:2942
-#: src/screens/media-library-dialog.jsx:4253
+#: src/screens/media-library-dialog.jsx:2850
+#: src/screens/media-library-dialog.jsx:2964
+#: src/screens/media-library-dialog.jsx:4275
 msgid "Edit metadata"
 msgstr "Metadaten bearbeiten"
 
 #: src/screens/alt-text-dialog.jsx:1181
-#: src/screens/media-library-dialog.jsx:2985
+#: src/screens/media-library-dialog.jsx:3007
 msgid "no alt"
 msgstr "kein Alt"
 
 #: src/screens/alt-text-dialog.jsx:1199
-#: src/screens/media-library-dialog.jsx:3010
+#: src/screens/media-library-dialog.jsx:3032
 msgid "(no alt text)"
 msgstr "(kein Alt-Text)"
 
@@ -8589,8 +8593,8 @@ msgstr "Transparent"
 
 #: src/screens/beautify-dialog.jsx:911
 #: src/screens/chart-studio/index.jsx:430
-#: src/screens/media-library-dialog.jsx:2766
-#: src/screens/media-library-dialog.jsx:2968
+#: src/screens/media-library-dialog.jsx:2788
+#: src/screens/media-library-dialog.jsx:2990
 #: src/screens/mockup-dialog.jsx:662
 msgid "Preview"
 msgstr "Vorschau"
@@ -8627,7 +8631,7 @@ msgstr "+ Neues Kit"
 #: src/screens/library/content-sections.jsx:727
 #: src/screens/library/user-sections.jsx:348
 #: src/screens/library/user-sections.jsx:477
-#: src/screens/media-library-dialog.jsx:1046
+#: src/screens/media-library-dialog.jsx:1054
 #: src/screens/panels/layers-panel.jsx:106
 #: src/store/ops/content-ops.js:306
 #: src/store/ops/edit-ops.js:333
@@ -10213,7 +10217,7 @@ msgstr "Die Prüfung wurde mit einem Fehler abgebrochen."
 
 #: src/screens/cleanup-dialog.jsx:98
 #: src/screens/cleanup-dialog.jsx:107
-#: src/screens/media-library-dialog.jsx:3382
+#: src/screens/media-library-dialog.jsx:3404
 msgid "Clean up the library"
 msgstr "Mediathek aufräumen"
 
@@ -10266,8 +10270,8 @@ msgid "The library has not been checked yet."
 msgstr "Die Mediathek wurde noch nicht geprüft."
 
 #: src/screens/cleanup-dialog.jsx:296
-#: src/screens/media-library-dialog.jsx:2783
-#: src/screens/media-library-dialog.jsx:2909
+#: src/screens/media-library-dialog.jsx:2805
+#: src/screens/media-library-dialog.jsx:2931
 #: src/screens/timeline-bar.jsx:125
 msgid "Stop"
 msgstr "Stopp"
@@ -10780,7 +10784,7 @@ msgid "Document name"
 msgstr "Dokumentname"
 
 #: src/screens/create-dialog.jsx:402
-#: src/screens/media-library-dialog.jsx:2644
+#: src/screens/media-library-dialog.jsx:2666
 #: src/screens/meta-editor.jsx:367
 msgid "Dimensions"
 msgstr "Abmessungen"
@@ -12293,7 +12297,7 @@ msgid "Social (safe zones)"
 msgstr "Social (sichere Bereiche)"
 
 #: src/screens/editor-menubar.jsx:2750
-#: src/screens/media-library-dialog.jsx:2642
+#: src/screens/media-library-dialog.jsx:2664
 #: src/screens/panels/properties-panel.jsx:100
 #: src/screens/panels/properties-panel.jsx:1133
 #: src/screens/panels/properties-panel.jsx:1830
@@ -12956,7 +12960,7 @@ msgid "New guide"
 msgstr "Neue Hilfslinie"
 
 #: src/screens/guides-dialog.jsx:128
-#: src/screens/media-library-dialog.jsx:2551
+#: src/screens/media-library-dialog.jsx:2573
 msgid "Orientation"
 msgstr "Ausrichtung"
 
@@ -13457,7 +13461,7 @@ msgstr "Design duplizieren"
 #: src/screens/library/user-sections.jsx:293
 #: src/screens/library/user-sections.jsx:297
 #: src/screens/library/user-sections.jsx:304
-#: src/screens/media-library-dialog.jsx:3071
+#: src/screens/media-library-dialog.jsx:3093
 msgid "Move to folder"
 msgstr "In Ordner verschieben"
 
@@ -13598,8 +13602,8 @@ msgstr "Ähnliche Bilder"
 
 #: src/screens/media-library-dialog.jsx:817
 #: src/screens/media-library-dialog.jsx:827
-#: src/screens/media-library-dialog.jsx:1351
-#: src/screens/media-library-dialog.jsx:1361
+#: src/screens/media-library-dialog.jsx:1359
+#: src/screens/media-library-dialog.jsx:1369
 msgid "Move to trash"
 msgstr "In den Papierkorb"
 
@@ -13625,576 +13629,576 @@ msgstr "Als Beitragsbild von „%s“ gesetzt."
 msgid "Could not load an image."
 msgstr "Ein Bild konnte nicht geladen werden."
 
-#: src/screens/media-library-dialog.jsx:939
-#: src/screens/media-library-dialog.jsx:1931
+#: src/screens/media-library-dialog.jsx:947
+#: src/screens/media-library-dialog.jsx:1942
 msgid "New folder"
 msgstr "Neuer Ordner"
 
-#: src/screens/media-library-dialog.jsx:940
-#: src/screens/media-library-dialog.jsx:956
-#: src/screens/media-library-dialog.jsx:3557
+#: src/screens/media-library-dialog.jsx:948
+#: src/screens/media-library-dialog.jsx:964
+#: src/screens/media-library-dialog.jsx:3579
 msgid "Folder name"
 msgstr "Ordnername"
 
-#: src/screens/media-library-dialog.jsx:955
+#: src/screens/media-library-dialog.jsx:963
 msgid "Rename folder"
 msgstr "Ordner umbenennen"
 
-#: src/screens/media-library-dialog.jsx:972
+#: src/screens/media-library-dialog.jsx:980
 msgid "Delete folder"
 msgstr "Ordner löschen"
 
-#: src/screens/media-library-dialog.jsx:973
+#: src/screens/media-library-dialog.jsx:981
 msgid "Delete this folder? The images stay in your library."
 msgstr "Diesen Ordner löschen? Die Bilder bleiben in deiner Mediathek."
 
-#: src/screens/media-library-dialog.jsx:999
-#: src/screens/media-library-dialog.jsx:1973
+#: src/screens/media-library-dialog.jsx:1007
+#: src/screens/media-library-dialog.jsx:1989
 msgid "New tag"
 msgstr "Neuer Tag"
 
-#: src/screens/media-library-dialog.jsx:1000
+#: src/screens/media-library-dialog.jsx:1008
 msgid "Tag name"
 msgstr "Tag-Name"
 
-#: src/screens/media-library-dialog.jsx:1015
-#: src/screens/media-library-dialog.jsx:2058
+#: src/screens/media-library-dialog.jsx:1023
+#: src/screens/media-library-dialog.jsx:2079
 msgid "Delete tag"
 msgstr "Tag löschen"
 
-#: src/screens/media-library-dialog.jsx:1016
+#: src/screens/media-library-dialog.jsx:1024
 msgid "Delete this tag? The images stay in your library."
 msgstr "Diesen Tag löschen? Die Bilder bleiben in deiner Mediathek."
 
-#: src/screens/media-library-dialog.jsx:1045
+#: src/screens/media-library-dialog.jsx:1053
 msgid "Save smart folder"
 msgstr "Intelligenten Ordner speichern"
 
 #. translators: %d: count.
-#: src/screens/media-library-dialog.jsx:1161
+#: src/screens/media-library-dialog.jsx:1169
 #, js-format
 msgid "Created %d folder(s)."
 msgstr "%d Ordner erstellt."
 
-#: src/screens/media-library-dialog.jsx:1171
+#: src/screens/media-library-dialog.jsx:1179
 msgid "Please name the folder first."
 msgstr "Bitte benenne zuerst den Ordner."
 
 #. translators: 1: count, 2: folder name.
-#: src/screens/media-library-dialog.jsx:1183
+#: src/screens/media-library-dialog.jsx:1191
 #, js-format
 msgid "Created \"%2$s\" with %1$d images."
 msgstr "„%2$s“ mit %1$d Bildern erstellt."
 
 #. translators: %d: count.
-#: src/screens/media-library-dialog.jsx:1304
+#: src/screens/media-library-dialog.jsx:1312
 #, js-format
 msgid "Auto-tagged %d image(s) with AI."
 msgstr "%d Bild(er) per KI automatisch getaggt."
 
 #. translators: 1: count, 2: retention period in days.
-#: src/screens/media-library-dialog.jsx:1354
+#: src/screens/media-library-dialog.jsx:1362
 #, js-format
 msgid "Move %1$d selected image(s) to the trash? The files stay put for %2$d days."
 msgstr "%1$d ausgewählte(s) Bild(er) in den Papierkorb legen? Die Dateien bleiben %2$d Tage liegen."
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:1499
+#: src/screens/media-library-dialog.jsx:1507
 #, js-format
 msgid "Imported %d file(s)."
 msgstr "%d Datei(en) importiert."
 
-#: src/screens/media-library-dialog.jsx:1537
-#: src/screens/media-library-dialog.jsx:1604
-#: src/screens/media-library-dialog.jsx:1647
+#: src/screens/media-library-dialog.jsx:1545
+#: src/screens/media-library-dialog.jsx:1612
+#: src/screens/media-library-dialog.jsx:1655
 msgid "Select images first, then run this tool."
 msgstr "Wähle zuerst Bilder aus, dann dieses Werkzeug ausführen."
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:1614
+#: src/screens/media-library-dialog.jsx:1622
 #, js-format
 msgid "Regenerated thumbnails for %d image(s)."
 msgstr "Thumbnails für %d Bild(er) neu erzeugt."
 
-#: src/screens/media-library-dialog.jsx:1633
+#: src/screens/media-library-dialog.jsx:1641
 msgid "No broken files found."
 msgstr "Keine defekten Dateien gefunden."
 
-#: src/screens/media-library-dialog.jsx:1636
+#: src/screens/media-library-dialog.jsx:1644
 msgid "Broken files"
 msgstr "Defekte Dateien"
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:1679
+#: src/screens/media-library-dialog.jsx:1687
 #, js-format
 msgid "Renamed %d image(s)."
 msgstr "%d Bild(er) umbenannt."
 
-#: src/screens/media-library-dialog.jsx:1737
+#: src/screens/media-library-dialog.jsx:1746
 msgid "New subfolder"
 msgstr "Neuer Unterordner"
 
-#: src/screens/media-library-dialog.jsx:1746
-#: src/screens/media-library-dialog.jsx:4076
+#: src/screens/media-library-dialog.jsx:1755
+#: src/screens/media-library-dialog.jsx:4098
 msgid "Rename"
 msgstr "Umbenennen"
 
-#: src/screens/media-library-dialog.jsx:1796
+#: src/screens/media-library-dialog.jsx:1806
 msgid "Organize your media with folders, tags and search."
 msgstr "Organisiere deine Medien mit Ordnern, Tags und Suche."
 
-#: src/screens/media-library-dialog.jsx:1808
+#: src/screens/media-library-dialog.jsx:1818
 msgid "Search images by what they show"
 msgstr "Bilder nach ihrem Inhalt suchen"
 
-#: src/screens/media-library-dialog.jsx:1858
+#: src/screens/media-library-dialog.jsx:1868
 msgid "Your local library: images you add here stay in this browser only - nothing is uploaded anywhere."
 msgstr "Deine lokale Bibliothek: Bilder, die du hier hinzufügst, bleiben nur in diesem Browser - nichts wird irgendwohin hochgeladen."
 
-#: src/screens/media-library-dialog.jsx:1862
+#: src/screens/media-library-dialog.jsx:1872
 msgid "Demo library: browse, search and explore freely - changes (upload, move, rename, delete) are switched off here."
 msgstr "Demo-Mediathek: Stöbern, Suchen und Ausprobieren nach Herzenslust - Änderungen (Hochladen, Verschieben, Umbenennen, Löschen) sind hier abgeschaltet."
 
-#: src/screens/media-library-dialog.jsx:1913
+#: src/screens/media-library-dialog.jsx:1923
 msgid "Drop here to remove from folders"
 msgstr "Hier ablegen, um aus Ordnern zu entfernen"
 
-#: src/screens/media-library-dialog.jsx:1929
+#: src/screens/media-library-dialog.jsx:1939
 msgid "Folders"
 msgstr "Ordner"
 
-#: src/screens/media-library-dialog.jsx:1941
+#: src/screens/media-library-dialog.jsx:1956
 msgid "No folders yet."
 msgstr "Noch keine Ordner."
 
-#: src/screens/media-library-dialog.jsx:1955
-#: src/screens/media-library-dialog.jsx:2413
-#: src/screens/media-library-dialog.jsx:2414
+#: src/screens/media-library-dialog.jsx:1970
+#: src/screens/media-library-dialog.jsx:2435
+#: src/screens/media-library-dialog.jsx:2436
 msgid "List view"
 msgstr "Listenansicht"
 
-#: src/screens/media-library-dialog.jsx:1959
+#: src/screens/media-library-dialog.jsx:1974
 msgid "Cloud view"
 msgstr "Cloud-Ansicht"
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:2002
-#: src/screens/media-library-dialog.jsx:2279
-#: src/screens/media-library-dialog.jsx:3548
+#: src/screens/media-library-dialog.jsx:2022
+#: src/screens/media-library-dialog.jsx:2301
+#: src/screens/media-library-dialog.jsx:3570
 #, js-format
 msgid "%d images"
 msgstr "%d Bilder"
 
-#: src/screens/media-library-dialog.jsx:2021
-#: src/screens/media-library-dialog.jsx:2072
+#: src/screens/media-library-dialog.jsx:2041
+#: src/screens/media-library-dialog.jsx:2094
 msgid "No tags yet."
 msgstr "Noch keine Tags."
 
-#: src/screens/media-library-dialog.jsx:2092
+#: src/screens/media-library-dialog.jsx:2114
 msgid "Show fewer tags"
 msgstr "Weniger Tags anzeigen"
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:2097
+#: src/screens/media-library-dialog.jsx:2119
 #, js-format
 msgid "Show all %d tags"
 msgstr "Alle %d Tags anzeigen"
 
-#: src/screens/media-library-dialog.jsx:2110
+#: src/screens/media-library-dialog.jsx:2132
 msgid "Smart folders"
 msgstr "Intelligente Ordner"
 
 #. translators: 1: done 2: total
-#: src/screens/media-library-dialog.jsx:2217
+#: src/screens/media-library-dialog.jsx:2239
 #, js-format
 msgid "Indexing %1$d / %2$d"
 msgstr "Indexiere %1$d / %2$d"
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:2230
+#: src/screens/media-library-dialog.jsx:2252
 #, js-format
 msgid "%d images not searchable yet"
 msgstr "%d Bilder noch nicht durchsuchbar"
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:2272
+#: src/screens/media-library-dialog.jsx:2294
 #, js-format
 msgid "%d results"
 msgstr "%d Treffer"
 
 #. translators: %s: size
-#: src/screens/media-library-dialog.jsx:2289
+#: src/screens/media-library-dialog.jsx:2311
 #, js-format
 msgid "%s shown"
 msgstr "%s angezeigt"
 
-#: src/screens/media-library-dialog.jsx:2308
+#: src/screens/media-library-dialog.jsx:2330
 msgid "Save as smart folder"
 msgstr "Als intelligenten Ordner speichern"
 
-#: src/screens/media-library-dialog.jsx:2321
+#: src/screens/media-library-dialog.jsx:2343
 msgid "Fill with Metadata Assistant"
 msgstr "Mit Metadaten-Assistent füllen"
 
-#: src/screens/media-library-dialog.jsx:2367
+#: src/screens/media-library-dialog.jsx:2389
 msgid "WordPress Media Library"
 msgstr "WordPress-Mediathek"
 
 #. translators: %d: selected count
-#: src/screens/media-library-dialog.jsx:2379
+#: src/screens/media-library-dialog.jsx:2401
 #, js-format
 msgid "Use selection (%d)"
 msgstr "Auswahl verwenden (%d)"
 
-#: src/screens/media-library-dialog.jsx:2399
-#: src/screens/media-library-dialog.jsx:2400
+#: src/screens/media-library-dialog.jsx:2421
+#: src/screens/media-library-dialog.jsx:2422
 msgid "Grid view"
 msgstr "Raster-Ansicht"
 
-#: src/screens/media-library-dialog.jsx:2477
+#: src/screens/media-library-dialog.jsx:2499
 #: src/screens/panels/adjust-panel.jsx:255
 #: src/screens/panels/brush-panel.jsx:335
 #: src/screens/panels/properties-panel.jsx:683
 msgid "Reset"
 msgstr "Zurücksetzen"
 
-#: src/screens/media-library-dialog.jsx:2489
+#: src/screens/media-library-dialog.jsx:2511
 msgid "Sort"
 msgstr "Sortierung"
 
-#: src/screens/media-library-dialog.jsx:2509
+#: src/screens/media-library-dialog.jsx:2531
 msgid "Media type"
 msgstr "Medientyp"
 
-#: src/screens/media-library-dialog.jsx:2515
+#: src/screens/media-library-dialog.jsx:2537
 msgid "Videos"
 msgstr "Videos"
 
-#: src/screens/media-library-dialog.jsx:2518
+#: src/screens/media-library-dialog.jsx:2540
 msgid "Audio"
 msgstr "Audio"
 
-#: src/screens/media-library-dialog.jsx:2521
+#: src/screens/media-library-dialog.jsx:2543
 msgid "Documents"
 msgstr "Dokumente"
 
-#: src/screens/media-library-dialog.jsx:2524
+#: src/screens/media-library-dialog.jsx:2546
 msgid "All media"
 msgstr "Alle Medien"
 
-#: src/screens/media-library-dialog.jsx:2536
+#: src/screens/media-library-dialog.jsx:2558
 msgid "Any file type"
 msgstr "Beliebiger Dateityp"
 
-#: src/screens/media-library-dialog.jsx:2554
+#: src/screens/media-library-dialog.jsx:2576
 msgid "Any shape"
 msgstr "Beliebige Form"
 
-#: src/screens/media-library-dialog.jsx:2557
+#: src/screens/media-library-dialog.jsx:2579
 msgid "Landscape"
 msgstr "Querformat"
 
-#: src/screens/media-library-dialog.jsx:2560
+#: src/screens/media-library-dialog.jsx:2582
 msgid "Portrait"
 msgstr "Hochformat"
 
-#: src/screens/media-library-dialog.jsx:2563
+#: src/screens/media-library-dialog.jsx:2585
 #: src/screens/qr-dialog.jsx:999
 #: src/screens/qr-dialog.jsx:1026
 msgid "Square"
 msgstr "Eckig"
 
-#: src/screens/media-library-dialog.jsx:2575
+#: src/screens/media-library-dialog.jsx:2597
 msgid "Any size"
 msgstr "Beliebige Größe"
 
-#: src/screens/media-library-dialog.jsx:2578
+#: src/screens/media-library-dialog.jsx:2600
 #: src/screens/panorama-dialog.jsx:832
 #: src/screens/workspace-dialog.jsx:45
 msgid "Small"
 msgstr "Klein"
 
-#: src/screens/media-library-dialog.jsx:2584
+#: src/screens/media-library-dialog.jsx:2606
 #: src/screens/panorama-dialog.jsx:841
 #: src/screens/workspace-dialog.jsx:47
 msgid "Large"
 msgstr "Groß"
 
-#: src/screens/media-library-dialog.jsx:2587
+#: src/screens/media-library-dialog.jsx:2609
 msgid "Huge"
 msgstr "Riesig"
 
-#: src/screens/media-library-dialog.jsx:2601
+#: src/screens/media-library-dialog.jsx:2623
 msgid "Any author"
 msgstr "Alle Autoren"
 
-#: src/screens/media-library-dialog.jsx:2615
+#: src/screens/media-library-dialog.jsx:2637
 msgid "Upload month"
 msgstr "Upload-Monat"
 
-#: src/screens/media-library-dialog.jsx:2618
+#: src/screens/media-library-dialog.jsx:2640
 msgid "Any date"
 msgstr "Beliebiges Datum"
 
-#: src/screens/media-library-dialog.jsx:2647
+#: src/screens/media-library-dialog.jsx:2669
 msgid "Date"
 msgstr "Datum"
 
-#: src/screens/media-library-dialog.jsx:2787
-#: src/screens/media-library-dialog.jsx:2913
+#: src/screens/media-library-dialog.jsx:2809
+#: src/screens/media-library-dialog.jsx:2935
 #: src/screens/panels/actions-panel.jsx:231
 #: src/screens/panorama-dialog.jsx:799
 #: src/screens/timeline-bar.jsx:133
 msgid "Play"
 msgstr "Abspielen"
 
-#: src/screens/media-library-dialog.jsx:2816
-#: src/screens/media-library-dialog.jsx:2955
-#: src/screens/media-library-dialog.jsx:4232
+#: src/screens/media-library-dialog.jsx:2838
+#: src/screens/media-library-dialog.jsx:2977
+#: src/screens/media-library-dialog.jsx:4254
 msgid "Copy file URL"
 msgstr "Datei-URL kopieren"
 
-#: src/screens/media-library-dialog.jsx:3023
+#: src/screens/media-library-dialog.jsx:3045
 msgid "No files here."
 msgstr "Keine Dateien hier."
 
-#: src/screens/media-library-dialog.jsx:3038
+#: src/screens/media-library-dialog.jsx:3060
 msgid "Loading more…"
 msgstr "Mehr wird geladen…"
 
-#: src/screens/media-library-dialog.jsx:3077
-#: src/screens/media-library-dialog.jsx:3799
+#: src/screens/media-library-dialog.jsx:3099
+#: src/screens/media-library-dialog.jsx:3821
 msgid "No folder"
 msgstr "Kein Ordner"
 
-#: src/screens/media-library-dialog.jsx:3101
+#: src/screens/media-library-dialog.jsx:3123
 msgid "Add tag"
 msgstr "Tag hinzufügen"
 
-#: src/screens/media-library-dialog.jsx:3125
+#: src/screens/media-library-dialog.jsx:3147
 msgid "Remove tag"
 msgstr "Tag entfernen"
 
-#: src/screens/media-library-dialog.jsx:3143
+#: src/screens/media-library-dialog.jsx:3165
 msgid "Generate tags, mood and text automatically"
 msgstr "Tags, Stimmung und Texte automatisch erzeugen"
 
 #. translators: 1: done 2: total
-#: src/screens/media-library-dialog.jsx:3151
+#: src/screens/media-library-dialog.jsx:3173
 #, js-format
 msgid "Tagging %1$d/%2$d"
 msgstr "Tagge %1$d/%2$d"
 
-#: src/screens/media-library-dialog.jsx:3158
+#: src/screens/media-library-dialog.jsx:3180
 msgid "Auto-tag"
 msgstr "Auto-Tag"
 
-#: src/screens/media-library-dialog.jsx:3172
+#: src/screens/media-library-dialog.jsx:3194
 msgid "Find similar"
 msgstr "Ähnliche finden"
 
-#: src/screens/media-library-dialog.jsx:3187
+#: src/screens/media-library-dialog.jsx:3209
 msgid "Select exactly one image."
 msgstr "Genau ein Bild auswählen."
 
-#: src/screens/media-library-dialog.jsx:3202
-#: src/screens/media-library-dialog.jsx:4221
+#: src/screens/media-library-dialog.jsx:3224
+#: src/screens/media-library-dialog.jsx:4243
 msgid "Insert into design"
 msgstr "In Design einfügen"
 
-#: src/screens/media-library-dialog.jsx:3245
-#: src/screens/media-library-dialog.jsx:3292
+#: src/screens/media-library-dialog.jsx:3267
+#: src/screens/media-library-dialog.jsx:3314
 msgid "Suggest folders"
 msgstr "Ordner vorschlagen"
 
-#: src/screens/media-library-dialog.jsx:3246
-#: src/screens/media-library-dialog.jsx:3314
+#: src/screens/media-library-dialog.jsx:3268
+#: src/screens/media-library-dialog.jsx:3336
 msgid "Find duplicates"
 msgstr "Duplikate finden"
 
-#: src/screens/media-library-dialog.jsx:3247
-#: src/screens/media-library-dialog.jsx:3327
+#: src/screens/media-library-dialog.jsx:3269
+#: src/screens/media-library-dialog.jsx:3349
 msgid "Regenerate thumbnails"
 msgstr "Thumbnails neu erzeugen"
 
-#: src/screens/media-library-dialog.jsx:3251
-#: src/screens/media-library-dialog.jsx:3340
-#: src/screens/media-library-dialog.jsx:3983
+#: src/screens/media-library-dialog.jsx:3273
+#: src/screens/media-library-dialog.jsx:3362
+#: src/screens/media-library-dialog.jsx:4005
 msgid "Rename by pattern"
 msgstr "Nach Muster umbenennen"
 
-#: src/screens/media-library-dialog.jsx:3255
-#: src/screens/media-library-dialog.jsx:3354
+#: src/screens/media-library-dialog.jsx:3277
+#: src/screens/media-library-dialog.jsx:3376
 msgid "Add Watermarks"
 msgstr "Wasserzeichen hinzufügen"
 
-#: src/screens/media-library-dialog.jsx:3259
-#: src/screens/media-library-dialog.jsx:3399
+#: src/screens/media-library-dialog.jsx:3281
+#: src/screens/media-library-dialog.jsx:3421
 msgid "Generate Metadata"
 msgstr "Metadaten erzeugen"
 
-#: src/screens/media-library-dialog.jsx:3263
-#: src/screens/media-library-dialog.jsx:3425
+#: src/screens/media-library-dialog.jsx:3285
+#: src/screens/media-library-dialog.jsx:3447
 msgid "Optimize images"
 msgstr "Bilder optimieren"
 
-#: src/screens/media-library-dialog.jsx:3268
-#: src/screens/media-library-dialog.jsx:3368
+#: src/screens/media-library-dialog.jsx:3290
+#: src/screens/media-library-dialog.jsx:3390
 msgid "Find broken files"
 msgstr "Defekte Dateien finden"
 
-#: src/screens/media-library-dialog.jsx:3284
 #: src/screens/media-library-dialog.jsx:3306
+#: src/screens/media-library-dialog.jsx:3328
 msgid "Needs the image search model."
 msgstr "Benötigt das Bildsuche-Modell."
 
-#: src/screens/media-library-dialog.jsx:3411
+#: src/screens/media-library-dialog.jsx:3433
 msgid "Opens the Image Processor in Optimize mode; select images first to preload them."
 msgstr "Öffnet den Bildprozessor im Optimieren-Modus; vorher ausgewählte Bilder werden übernommen."
 
-#: src/screens/media-library-dialog.jsx:3441
+#: src/screens/media-library-dialog.jsx:3463
 msgid "Media Library Tools"
 msgstr "Mediathek-Werkzeuge"
 
-#: src/screens/media-library-dialog.jsx:3446
+#: src/screens/media-library-dialog.jsx:3468
 msgid "Preparing colors and sizes in the background"
 msgstr "Farben und Größen werden im Hintergrund vorbereitet"
 
-#: src/screens/media-library-dialog.jsx:3482
+#: src/screens/media-library-dialog.jsx:3504
 msgid "Suggested folders"
 msgstr "Vorgeschlagene Ordner"
 
-#: src/screens/media-library-dialog.jsx:3488
+#: src/screens/media-library-dialog.jsx:3510
 msgid "Groups of visually similar images. Name a group to turn it into a folder."
 msgstr "Gruppen visuell ähnlicher Bilder. Benenne eine Gruppe, um daraus einen Ordner zu machen."
 
-#: src/screens/media-library-dialog.jsx:3515
+#: src/screens/media-library-dialog.jsx:3537
 msgid "Auto-name"
 msgstr "Auto-benennen"
 
-#: src/screens/media-library-dialog.jsx:3528
+#: src/screens/media-library-dialog.jsx:3550
 msgid "Create all"
 msgstr "Alle erstellen"
 
-#: src/screens/media-library-dialog.jsx:3536
+#: src/screens/media-library-dialog.jsx:3558
 msgid "No clear groups found. Index more images first."
 msgstr "Keine klaren Gruppen gefunden. Indexiere zuerst mehr Bilder."
 
-#: src/screens/media-library-dialog.jsx:3587
+#: src/screens/media-library-dialog.jsx:3609
 msgid "Create"
 msgstr "Erstellen"
 
-#: src/screens/media-library-dialog.jsx:3618
+#: src/screens/media-library-dialog.jsx:3640
 msgid "Duplicate images"
 msgstr "Doppelte Bilder"
 
-#: src/screens/media-library-dialog.jsx:3624
+#: src/screens/media-library-dialog.jsx:3646
 msgid "Near-identical images, grouped. Click an image to keep or trash it, then move the marked ones to the trash."
 msgstr "Nahezu identische Bilder, gruppiert. Klicke ein Bild an, um es zu behalten oder zu markieren, dann verschiebe die markierten in den Papierkorb."
 
-#: src/screens/media-library-dialog.jsx:3642
+#: src/screens/media-library-dialog.jsx:3664
 msgid "No duplicates found."
 msgstr "Keine Duplikate gefunden."
 
-#: src/screens/media-library-dialog.jsx:3679
+#: src/screens/media-library-dialog.jsx:3701
 msgid "Marked for trash. Click to keep."
 msgstr "Für Papierkorb markiert. Klicken zum Behalten."
 
-#: src/screens/media-library-dialog.jsx:3683
+#: src/screens/media-library-dialog.jsx:3705
 msgid "Kept. Click to mark for trash."
 msgstr "Behalten. Klicken zum Markieren."
 
 #. translators: 1: total, 2: marked
-#: src/screens/media-library-dialog.jsx:3709
+#: src/screens/media-library-dialog.jsx:3731
 #, js-format
 msgid "%1$d copies, %2$d marked"
 msgstr "%1$d Kopien, %2$d markiert"
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:3726
+#: src/screens/media-library-dialog.jsx:3748
 #, js-format
 msgid "Trash %d"
 msgstr "%d löschen"
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:3760
+#: src/screens/media-library-dialog.jsx:3782
 #, js-format
 msgid "Import %d file(s)"
 msgstr "%d Datei(en) importieren"
 
-#: src/screens/media-library-dialog.jsx:3768
+#: src/screens/media-library-dialog.jsx:3790
 msgid "Check the list, choose where they land, then import."
 msgstr "Liste prüfen, Ziel wählen, dann importieren."
 
-#: src/screens/media-library-dialog.jsx:3819
+#: src/screens/media-library-dialog.jsx:3841
 msgid "Optimize (max 2048px, WebP)"
 msgstr "Optimieren (max. 2048px, WebP)"
 
-#: src/screens/media-library-dialog.jsx:3831
+#: src/screens/media-library-dialog.jsx:3853
 msgid "Needs a caption model or a provider."
 msgstr "Benötigt ein Caption-Modell oder einen Provider."
 
-#: src/screens/media-library-dialog.jsx:3852
+#: src/screens/media-library-dialog.jsx:3874
 msgid "Describe on import (alt, caption, tags)"
 msgstr "Beim Import beschreiben (Alt, Caption, Tags)"
 
-#: src/screens/media-library-dialog.jsx:3877
+#: src/screens/media-library-dialog.jsx:3899
 msgid "Checking for duplicates"
 msgstr "Prüfe auf Duplikate"
 
 #. translators: %d: id
-#: src/screens/media-library-dialog.jsx:3886
+#: src/screens/media-library-dialog.jsx:3908
 #, js-format
 msgid "Looks like #%d already exists"
 msgstr "Sieht aus wie #%d, existiert schon"
 
-#: src/screens/media-library-dialog.jsx:3903
+#: src/screens/media-library-dialog.jsx:3925
 msgid "Include"
 msgstr "Einschließen"
 
-#: src/screens/media-library-dialog.jsx:3904
+#: src/screens/media-library-dialog.jsx:3926
 #: src/screens/onboarding.jsx:173
 #: src/screens/use-image-dialog.jsx:250
 msgid "Skip"
 msgstr "Überspringen"
 
 #. translators: 1: done 2: total
-#: src/screens/media-library-dialog.jsx:3913
+#: src/screens/media-library-dialog.jsx:3935
 #, js-format
 msgid "Importing %1$d / %2$d"
 msgstr "Importiere %1$d / %2$d"
 
-#: src/screens/media-library-dialog.jsx:3921
+#: src/screens/media-library-dialog.jsx:3943
 msgid "Describing uses your cloud provider (costs apply)."
 msgstr "Beschreiben nutzt deinen Cloud-Provider (Kosten fallen an)."
 
 #. translators: %d: count
-#: src/screens/media-library-dialog.jsx:3949
+#: src/screens/media-library-dialog.jsx:3971
 #, js-format
 msgid "Import %d"
 msgstr "%d importieren"
 
-#: src/screens/media-library-dialog.jsx:3989
+#: src/screens/media-library-dialog.jsx:4011
 msgid "Set the title of the selected images from a pattern. Use ### for a counter and the { } button for variables."
 msgstr "Setzt den Titel der ausgewählten Bilder aus einem Muster. ### ist ein Zähler, über den { }-Knopf Variablen einfügen."
 
-#: src/screens/media-library-dialog.jsx:4100
+#: src/screens/media-library-dialog.jsx:4122
 msgid "Set as featured image"
 msgstr "Als Beitragsbild setzen"
 
-#: src/screens/media-library-dialog.jsx:4101
+#: src/screens/media-library-dialog.jsx:4123
 msgid "Choose the post or page."
 msgstr "Wähle den Beitrag oder die Seite."
 
-#: src/screens/media-library-dialog.jsx:4183
+#: src/screens/media-library-dialog.jsx:4205
 msgid "Open file"
 msgstr "Datei öffnen"
 
-#: src/screens/media-library-dialog.jsx:4274
+#: src/screens/media-library-dialog.jsx:4296
 msgid "Previous"
 msgstr "Zurück"
 
-#: src/screens/media-library-dialog.jsx:4287
+#: src/screens/media-library-dialog.jsx:4309
 #: src/screens/onboarding.jsx:180
 msgid "Next"
 msgstr "Weiter"

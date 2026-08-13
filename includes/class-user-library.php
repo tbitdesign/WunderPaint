@@ -130,6 +130,15 @@ class User_Library {
 		// Categories are shared labels: anyone may add one, but renaming or
 		// deleting one relabels every editor's assets, so limit those to users
 		// who may manage taxonomies (editor+). (WPIE-003)
+		//
+		// Adding stays open on purpose, and unlike the media folders next
+		// door that is not an oversight. A category here is a plain string,
+		// and the same user may already put any string into the `category`
+		// field of an asset they save; gating the add action would forbid the
+		// label list while leaving the labels themselves free, which protects
+		// nothing and only breaks filing. Renaming and deleting are different
+		// because they reach into assets that belong to other people. The
+		// list is capped at 50 so it cannot be used to flood the option.
 		if ( in_array( $action, array( 'rename', 'delete' ), true ) && ! current_user_can( 'manage_categories' ) ) {
 			return new \WP_Error( 'wpie_forbidden', __( 'You are not allowed to rename or delete shared categories.', 'wunderpaint' ), array( 'status' => rest_authorization_required_code() ) );
 		}

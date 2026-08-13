@@ -97,6 +97,12 @@ unicode-emoji-json — emoji metadata
   MIT License. Copyright (c) Mesach Harmasendro.
   Source: https://github.com/muan/unicode-emoji-json  Ships as build/emoji-lib.<hash>.js
 
+EU AI labelling emblems (assets/eu-ai-labels/, twelve SVG files)
+  Published by the European Commission for labelling AI-generated content and
+  bundled byte-identical to the originals; free to use, no attribution
+  required. They are not modified here: the editor places the file as it is.
+  Source: https://digital-strategy.ec.europa.eu/en/policies/eu-icons-labelling-ai-generated-content
+
 
 Bundled machine-learning model
 ------------------------------

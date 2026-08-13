@@ -891,6 +891,28 @@ class Media_Library {
 	 * @return array|\WP_Error
 	 */
 	private function create_term( $taxonomy, $req, $with_parent ) {
+		// Creating one is the same kind of act as renaming or deleting one:
+		// it puts a row into a taxonomy the whole site shares. Renaming and
+		// deleting were gated in the WPIE-010 pass and creating was not, and
+		// that asymmetry is what the wordpress.org review pointed at on
+		// 13.08.2026 when it listed the /media-library/folders collection.
+		//
+		// The capability comes from the taxonomy itself rather than being
+		// hardcoded, so a site that registers these taxonomies with its own
+		// capabilities is honoured instead of overruled. By default
+		// edit_terms is manage_categories, which an Editor has and an Author
+		// does not. Putting media INTO an existing folder stays at the
+		// editor capability - that is `assign`, and it is the daily work.
+		$tax = get_taxonomy( $taxonomy );
+		$cap = $tax && isset( $tax->cap->edit_terms ) ? $tax->cap->edit_terms : 'manage_categories';
+		if ( ! current_user_can( $cap ) ) {
+			return new \WP_Error(
+				'wpie_forbidden',
+				__( 'You are not allowed to create shared folders or tags.', 'wunderpaint' ),
+				array( 'status' => rest_authorization_required_code() )
+			);
+		}
+
 		$name = sanitize_text_field( (string) $req->get_param( 'name' ) );
 		if ( '' === $name ) {
 			return new \WP_Error( 'wpie_bad_name', __( 'A name is required.', 'wunderpaint' ), array( 'status' => 400 ) );

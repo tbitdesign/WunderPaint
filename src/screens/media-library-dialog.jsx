@@ -934,6 +934,14 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 
 	/* --------------------------- folders/tags -------------------------- */
 
+	// Whether this user may create, rename or delete the SHARED media folders
+	// and tags. The routes check the same capability (Media_Library, WPIE-010
+	// and v1.404.0); hiding these buttons is not the protection, it only
+	// avoids offering an action that would come back as a refusal. Filing
+	// media into an existing folder is a different thing and stays open to
+	// everybody who may use the editor.
+	const canTerms = !! window.WPIE?.canManageTerms;
+
 	const addFolder = async ( parent = 0 ) => {
 		const name = await promptDialog( {
 			title: __( 'New folder', 'wunderpaint' ),
@@ -1732,35 +1740,37 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 					<span className="ico">{ I.folder( { size: 15 } ) }</span>
 					<span className="nm">{ f.name }</span>
 					<span className="ct">{ f.count }</span>
-					<span className="acts">
-						<button
-							title={ __( 'New subfolder', 'wunderpaint' ) }
-							onClick={ ( e ) => {
-								e.stopPropagation();
-								addFolder( f.id );
-							} }
-						>
-							{ I.plus( { size: 12 } ) }
-						</button>
-						<button
-							title={ __( 'Rename', 'wunderpaint' ) }
-							onClick={ ( e ) => {
-								e.stopPropagation();
-								renameFolder( f );
-							} }
-						>
-							{ I.pencil( { size: 12 } ) }
-						</button>
-						<button
-							title={ __( 'Delete', 'wunderpaint' ) }
-							onClick={ ( e ) => {
-								e.stopPropagation();
-								deleteFolder( f );
-							} }
-						>
-							{ I.trash( { size: 12 } ) }
-						</button>
-					</span>
+					{ canTerms && (
+						<span className="acts">
+							<button
+								title={ __( 'New subfolder', 'wunderpaint' ) }
+								onClick={ ( e ) => {
+									e.stopPropagation();
+									addFolder( f.id );
+								} }
+							>
+								{ I.plus( { size: 12 } ) }
+							</button>
+							<button
+								title={ __( 'Rename', 'wunderpaint' ) }
+								onClick={ ( e ) => {
+									e.stopPropagation();
+									renameFolder( f );
+								} }
+							>
+								{ I.pencil( { size: 12 } ) }
+							</button>
+							<button
+								title={ __( 'Delete', 'wunderpaint' ) }
+								onClick={ ( e ) => {
+									e.stopPropagation();
+									deleteFolder( f );
+								} }
+							>
+								{ I.trash( { size: 12 } ) }
+							</button>
+						</span>
+					) }
 				</div>
 				{ renderFolderRows( f.id, depth + 1 ) }
 			</div>
@@ -1927,12 +1937,17 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 						<div className="wpie-mlm-sec">
 							<div className="wpie-mlm-sechead">
 								<span>{ __( 'Folders', 'wunderpaint' ) }</span>
-								<button
-									title={ __( 'New folder', 'wunderpaint' ) }
-									onClick={ () => addFolder( 0 ) }
-								>
-									{ I.plus( { size: 14 } ) }
-								</button>
+								{ canTerms && (
+									<button
+										title={ __(
+											'New folder',
+											'wunderpaint'
+										) }
+										onClick={ () => addFolder( 0 ) }
+									>
+										{ I.plus( { size: 14 } ) }
+									</button>
+								) }
 							</div>
 							{ folders.length ? (
 								renderFolderRows( 0, 0 )
@@ -1969,12 +1984,17 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 											? I.list( { size: 14 } )
 											: I.grid( { size: 13 } ) }
 									</button>
-									<button
-										title={ __( 'New tag', 'wunderpaint' ) }
-										onClick={ addTagTerm }
-									>
-										{ I.plus( { size: 14 } ) }
-									</button>
+									{ canTerms && (
+										<button
+											title={ __(
+												'New tag',
+												'wunderpaint'
+											) }
+											onClick={ addTagTerm }
+										>
+											{ I.plus( { size: 14 } ) }
+										</button>
+									) }
 								</span>
 							</div>
 							{ tagCloud ? (
@@ -2053,18 +2073,20 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 												</span>
 												<b>{ t.count }</b>
 											</button>
-											<button
-												className="x"
-												title={ __(
-													'Delete tag',
-													'wunderpaint'
-												) }
-												onClick={ () =>
-													deleteTagTerm( t )
-												}
-											>
-												{ I.close( { size: 11 } ) }
-											</button>
+											{ canTerms && (
+												<button
+													className="x"
+													title={ __(
+														'Delete tag',
+														'wunderpaint'
+													) }
+													onClick={ () =>
+														deleteTagTerm( t )
+													}
+												>
+													{ I.close( { size: 11 } ) }
+												</button>
+											) }
 										</span>
 									) ) }
 									{ ! tags.length && (

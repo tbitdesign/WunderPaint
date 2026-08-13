@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.403.2
+Stable tag: 1.404.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -185,6 +185,7 @@ Each library below is bundled into its own file under build/, named after the li
 * unicode-emoji-json — MIT License (emoji metadata). Source: https://github.com/muan/unicode-emoji-json — build/emoji-lib.<hash>.js
 * onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build is bundled with the plugin, never loaded from a CDN). Source: https://github.com/microsoft/onnxruntime — build/ort.<hash>.js, build/ort.wasm.min.<hash>.mjs and assets/ort/
 * @huggingface/transformers (transformers.js) — Apache License 2.0 (in-browser runtime for the local AI features, bundled from npm; formerly published as @xenova/transformers). Source: https://github.com/huggingface/transformers.js — build/transformers.<hash>.js
+* EU AI labelling emblems — published by the European Commission for labelling AI-generated content, bundled byte-identical and free to use without attribution. Source: https://digital-strategy.ec.europa.eu/en/policies/eu-icons-labelling-ai-generated-content — assets/eu-ai-labels/
 * U²-Netp model — Apache License 2.0 (Xuebin Qin et al.), the background-removal model; licence text and notice travel with it in assets/models/. Source: https://github.com/xuebinqin/U-2-Net — assets/models/u2netp.onnx (ONNX is an open, documented format; the weights are read by the runtime, never executed)
 * Fonts — 10 self-hosted families ship with the plugin (Roboto, Open Sans, Inter, Montserrat, Poppins, Oswald, Bebas Neue, Anton, Playfair Display, Lora); a larger catalog can be downloaded to your own server under Settings → Fonts. All ten are under the SIL Open Font License 1.1. See assets/fonts/OFL.txt. Sourced from the @fontsource project / Google Fonts.
 
@@ -250,6 +251,10 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+= 1.404.0 =
+* Creating a shared media folder or tag now asks for the same right as renaming or deleting one. Both of those already did; creating did not, so anyone who could open the editor could add rows to a taxonomy the whole site shares. Filing pictures into folders that already exist is untouched, and the buttons for creating are simply not shown to people who may not use them.
+* Every bundled component now names its source next to its license, down to the European Commission's AI labelling emblems and the background-removal model.
+
 = 1.403.2 =
 * The background-removal model now names its source alongside its license, the last bundled component that did not.
 

@@ -363,6 +363,12 @@ class Editor_Page {
 			'fontsFirstRun'   => empty( $settings['fonts_choice'] ),
 			'customFonts'     => Fonts::client_fonts( $settings ),
 			'canManage'       => current_user_can( 'manage_options' ),
+			// Whether this user may create, rename or delete the SHARED media
+			// folders and tags. Same capability the routes check, so the
+			// buttons appear exactly when the action would go through
+			// (v1.404.0). Filing media into an existing folder is a different
+			// thing and stays open to everyone who may use the editor.
+			'canManageTerms'  => current_user_can( 'manage_categories' ),
 			'returnUrl'       => self::return_url(),
 			'siteName'        => get_bloginfo( 'name' ),
 			'siteUrl'         => home_url(),
