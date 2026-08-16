@@ -231,6 +231,45 @@ class Media_Orphans {
 		);
 	}
 
+	/**
+	 * Whether an uploads-relative path is an attachment's file, and so NOT an
+	 * orphan. Mirrors scan_dir()'s definition exactly: a match is either the
+	 * stored original (_wp_attached_file) or a generated size of one (the
+	 * size-stripped basename resolves to a known original). Any database error
+	 * returns true, so a file is kept rather than moved on incomplete data.
+	 *
+	 * @param string $rel Uploads-relative path.
+	 * @return bool True when the file is referenced (in use).
+	 */
+	private static function is_referenced( $rel ) {
+		global $wpdb;
+		$rel = ltrim( str_replace( '\\', '/', (string) $rel ), '/' );
+		if ( '' === $rel ) {
+			return true;
+		}
+		$dir = ltrim( (string) dirname( '/' . $rel ), '/' );
+		$like             = '' === $dir ? '%' : $wpdb->esc_like( $dir . '/' ) . '%';
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded to one directory, value prepared.
+		$rows = $wpdb->get_col( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value LIKE %s", $like ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			return true; // Fail closed: do not move on an incomplete answer.
+		}
+		$known = array();
+		foreach ( $rows as $stored ) {
+			if ( ltrim( (string) dirname( '/' . $stored ), '/' ) !== $dir ) {
+				continue;
+			}
+			$known[ strtolower( wp_basename( (string) $stored ) ) ] = true;
+		}
+		$entry = wp_basename( $rel );
+		if ( isset( $known[ strtolower( $entry ) ] ) ) {
+			return true;
+		}
+		$stripped = strtolower( wp_basename( Media_Usage::resolver()->strip_size( $entry ) ) );
+		return isset( $known[ $stripped ] );
+	}
+
 	/* ------------------------------ quarantine ----------------------------- */
 
 	/**
@@ -262,6 +301,14 @@ class Media_Orphans {
 			}
 			$src = $base . $rel;
 			if ( ! is_file( $src ) ) {
+				continue;
+			}
+			// Only genuine orphans may move, whatever the caller sent. The
+			// scan is what decides orphan status, but nothing forced a caller
+			// to have run it, so re-check here against the same definition:
+			// a file that IS an attachment's original or one of its generated
+			// sizes is in use and must stay put. Fails closed on a DB error.
+			if ( self::is_referenced( $rel ) ) {
 				continue;
 			}
 			$dst = $hold . '/' . str_replace( '/', '__', $rel );
@@ -383,8 +430,23 @@ class Media_Orphans {
 	/**
 	 * REST routes under wpie/v1/media-orphans/*.
 	 */
+	/**
+	 * Who may run media maintenance. This tool scans the whole uploads tree
+	 * and moves files out of it, which is site-wide housekeeping, not
+	 * per-attachment editing. Gating it on the editor capability let any
+	 * upload_files user (Author and up) hand in the paths of IN-USE files -
+	 * a site's logo, another user's images - and have them relocated, then
+	 * permanently deleted by the retention cron. It belongs to the site
+	 * administrator, like WP's own bulk media deletion.
+	 *
+	 * @return bool
+	 */
+	public static function can_manage() {
+		return current_user_can( 'manage_options' );
+	}
+
 	public function register_routes() {
-		$perm = array( REST_Controller::class, 'can_use_editor' );
+		$perm = array( self::class, 'can_manage' );
 
 		register_rest_route(
 			WPIE_REST_NS,

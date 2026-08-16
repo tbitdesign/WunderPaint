@@ -5575,7 +5575,7 @@ msgstr "Male. Der Strich geht in die gewählte Ebene, oder auf eine eigene, wenn
 #: src/help/content.js:123
 #: build-standalone/144.ba1c6490.js:5384
 msgid "Draw a brush tip builds your own tip out of shapes, holes included. It is kept as a recipe, so it stays sharp at any size and travels inside the document."
-msgstr "„Pinselspitze zeichnen\" baut deine eigene Spitze aus Formen, Löcher inbegriffen. Sie wird als Rezept gehalten, bleibt also bei jeder Größe scharf und reist im Dokument mit."
+msgstr "„Pinselspitze zeichnen“ baut deine eigene Spitze aus Formen, Löcher inbegriffen. Sie wird als Rezept gehalten, bleibt also bei jeder Größe scharf und reist im Dokument mit."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:127
@@ -6693,7 +6693,7 @@ msgstr "Mit einem API-Key (Einstellungen → KI-Anbieter) kommen Text-zu-Bild-Ge
 #: src/help/content.js:595
 #: build-standalone/144.ba1c6490.js:5856
 msgid "Four newer cloud helpers: the 360° format chip generates seamless panoramas for the panorama tool, \"Turn into editable vector\" turns a prompt into real shape layers via the local tracer, Design Review has an art director judge your design in your editor language, and Improve Text offers five stronger alternatives for the selected text layer."
-msgstr "Vier neuere Cloud-Helfer: Der 360°-Format-Chip erzeugt nahtlose Panoramen für das Panorama-Werkzeug, \"In bearbeitbaren Vektor umwandeln\" macht aus einem Prompt echte Form-Ebenen über den lokalen Tracer, Design Review lässt einen Art Director dein Design in deiner Editor-Sprache beurteilen, und Improve Text liefert fünf stärkere Alternativen für die gewählte Text-Ebene."
+msgstr "Vier neuere Cloud-Helfer: Der 360°-Format-Chip erzeugt nahtlose Panoramen für das Panorama-Werkzeug, „In bearbeitbaren Vektor umwandeln“ macht aus einem Prompt echte Form-Ebenen über den lokalen Tracer, Design Review lässt einen Art Director dein Design in deiner Editor-Sprache beurteilen, und Improve Text liefert fünf stärkere Alternativen für die gewählte Text-Ebene."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:599
@@ -6993,7 +6993,7 @@ msgstr "Mach aus jedem Design eine wiederverwendbare Vorlage, die sich selbst mi
 #: src/help/content.js:746
 #: build-standalone/144.ba1c6490.js:6007
 msgid "Draw the text box the way the design needs it and set a min and max font size: long titles shrink until they fit, and text that still overflows is shortened with an ellipsis. A variable with no value hides its layer, so a discount badge bound to \"Discount %\" simply disappears on products that are not on sale."
-msgstr "Zieh die Textbox so, wie das Design sie braucht, und lege Min- und Max-Schriftgröße fest: Lange Titel schrumpfen, bis sie passen, und Text, der trotzdem überläuft, wird mit … gekürzt. Eine Variable ohne Wert blendet ihre Ebene aus, ein Rabatt-Badge mit „Rabatt %\" verschwindet also einfach bei Produkten ohne Sale."
+msgstr "Zieh die Textbox so, wie das Design sie braucht, und lege Min- und Max-Schriftgröße fest: Lange Titel schrumpfen, bis sie passen, und Text, der trotzdem überläuft, wird mit … gekürzt. Eine Variable ohne Wert blendet ihre Ebene aus, ein Rabatt-Badge mit „Rabatt %“ verschwindet also einfach bei Produkten ohne Sale."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:750
@@ -7009,7 +7009,7 @@ msgstr "Gebundene Bildebenen bekommen unter Eigenschaften eine Bildanpassung: �
 #: src/help/content.js:754
 #: build-standalone/144.ba1c6490.js:6015
 msgid "Use View → \"Preview with Post\" to see the design with a real post's content while you work, everything stays non-destructive and your dummy text comes back when you exit the preview. Save the design via File → \"Save as Dynamic Template\"."
-msgstr "Mit Ansicht → „Preview with Post\" siehst du das Design mit dem Inhalt eines echten Beitrags, während du arbeitest, alles bleibt non-destruktiv und dein Platzhaltertext kommt zurück, sobald du die Vorschau verlässt. Speichere das Design über Datei → „Als dynamisches Template speichern\"."
+msgstr "Mit Ansicht → „Preview with Post“ siehst du das Design mit dem Inhalt eines echten Beitrags, während du arbeitest, alles bleibt non-destruktiv und dein Platzhaltertext kommt zurück, sobald du die Vorschau verlässt. Speichere das Design über Datei → „Als dynamisches Template speichern“."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:758
@@ -7017,7 +7017,7 @@ msgstr "Mit Ansicht → „Preview with Post\" siehst du das Design mit dem Inha
 #: src/help/content.js:758
 #: build-standalone/144.ba1c6490.js:6019
 msgid "Automation → Images → \"Featured Images\" runs templates over your content: search and filter posts, pages or products, select them in bulk, pick a template and press Process. For each entry an AI background is generated from its content (with an optional style text or reference image and your brand colors), placeholders resolve, the finished image renders and is set as the featured image. Generated images keep their full layer stack, so they open from the Media Library ready for editing, and \"Also save as PDF\" stores a print-ready PDF alongside the image."
-msgstr "Automation → Bilder → „Beitragsbilder\" wendet Vorlagen auf deine Inhalte an: Beiträge, Seiten oder Produkte suchen und filtern, per Checkbox auswählen, Vorlage wählen und auf Verarbeiten klicken. Für jeden Eintrag wird aus dem Inhalt ein KI-Hintergrund generiert (mit optionalem Stil-Text oder Referenzbild und deinen Markenfarben), die Platzhalter werden aufgelöst, das fertige Bild gerendert und als Beitragsbild gesetzt. Generierte Bilder behalten ihren kompletten Ebenen-Stapel, öffnen sich aus der Mediathek also direkt bearbeitbar, und „Auch als PDF speichern\" legt ein druckfertiges PDF neben dem Bild ab."
+msgstr "Automation → Bilder → „Beitragsbilder“ wendet Vorlagen auf deine Inhalte an: Beiträge, Seiten oder Produkte suchen und filtern, per Checkbox auswählen, Vorlage wählen und auf Verarbeiten klicken. Für jeden Eintrag wird aus dem Inhalt ein KI-Hintergrund generiert (mit optionalem Stil-Text oder Referenzbild und deinen Markenfarben), die Platzhalter werden aufgelöst, das fertige Bild gerendert und als Beitragsbild gesetzt. Generierte Bilder behalten ihren kompletten Ebenen-Stapel, öffnen sich aus der Mediathek also direkt bearbeitbar, und „Auch als PDF speichern“ legt ein druckfertiges PDF neben dem Bild ab."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:762
@@ -7421,7 +7421,7 @@ msgstr "Öffne ein Bild im Media Library Manager, und der Reiter Verwendung list
 #: src/help/content.js:949
 #: build-standalone/144.ba1c6490.js:6210
 msgid "Media Library Tools → \"Clean up the library\" applies the same check to the whole library at once and sorts the result into four groups: in use, unused, uploaded recently, and not checked. Only the \"unused\" group can be cleaned up. Images from the last two weeks are held back on purpose, because an image uploaded on Tuesday has probably just not been placed yet."
-msgstr "Media Library Tools → \"Mediathek aufräumen\" wendet dieselbe Prüfung auf die ganze Mediathek an und sortiert das Ergebnis in vier Gruppen: in Verwendung, unbenutzt, kürzlich hochgeladen und nicht geprüft. Nur die Gruppe \"unbenutzt\" lässt sich aufräumen. Bilder der letzten zwei Wochen werden absichtlich zurückgehalten, denn ein Bild, das am Dienstag hochgeladen wurde, ist wahrscheinlich einfach noch nicht eingebaut."
+msgstr "Media Library Tools → „Mediathek aufräumen“ wendet dieselbe Prüfung auf die ganze Mediathek an und sortiert das Ergebnis in vier Gruppen: in Verwendung, unbenutzt, kürzlich hochgeladen und nicht geprüft. Nur die Gruppe „unbenutzt“ lässt sich aufräumen. Bilder der letzten zwei Wochen werden absichtlich zurückgehalten, denn ein Bild, das am Dienstag hochgeladen wurde, ist wahrscheinlich einfach noch nicht eingebaut."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:953
@@ -7429,7 +7429,7 @@ msgstr "Media Library Tools → \"Mediathek aufräumen\" wendet dieselbe Prüfun
 #: src/help/content.js:953
 #: build-standalone/144.ba1c6490.js:6214
 msgid "Nothing is deleted at the moment you ask for it. Images move to the WordPress trash with their file left in place, so every address on your site keeps working even if the check was wrong about one of them. After the retention period a scheduled job looks at each entry a second time, and anything that turns out to be in use by then restores itself. Until that point you can put any of it back from the \"Waiting to be deleted\" tab."
-msgstr "Es wird nichts in dem Moment gelöscht, in dem du es verlangst. Bilder wandern in den WordPress-Papierkorb, ihre Datei bleibt liegen, damit jede Adresse deiner Website weiter funktioniert, selbst wenn die Prüfung bei einem Bild falsch lag. Nach Ablauf der Frist sieht ein geplanter Lauf jeden Eintrag ein zweites Mal an, und was sich dann als in Verwendung erweist, holt sich selbst zurück. Bis dahin kannst du alles im Reiter \"Wartet auf Löschung\" zurückholen."
+msgstr "Es wird nichts in dem Moment gelöscht, in dem du es verlangst. Bilder wandern in den WordPress-Papierkorb, ihre Datei bleibt liegen, damit jede Adresse deiner Website weiter funktioniert, selbst wenn die Prüfung bei einem Bild falsch lag. Nach Ablauf der Frist sieht ein geplanter Lauf jeden Eintrag ein zweites Mal an, und was sich dann als in Verwendung erweist, holt sich selbst zurück. Bis dahin kannst du alles im Reiter „Wartet auf Löschung“ zurückholen."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:957
@@ -7445,7 +7445,7 @@ msgstr "Daneben stehen zwei weitere Listen. Verwaiste Dateien sind Dateien im Up
 #: src/help/content.js:963
 #: build-standalone/144.ba1c6490.js:6224
 msgid "Open Media Library Tools → \"Clean up the library\" and press \"Check the library\". The scan works through your content in slices and can be stopped at any time."
-msgstr "Öffne Media Library Tools → \"Mediathek aufräumen\" und klicke auf \"Mediathek prüfen\". Die Prüfung arbeitet deine Inhalte in Abschnitten ab und lässt sich jederzeit anhalten."
+msgstr "Öffne Media Library Tools → „Mediathek aufräumen“ und klicke auf „Mediathek prüfen“. Die Prüfung arbeitet deine Inhalte in Abschnitten ab und lässt sich jederzeit anhalten."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:967
@@ -7453,7 +7453,7 @@ msgstr "Öffne Media Library Tools → \"Mediathek aufräumen\" und klicke auf \
 #: src/help/content.js:967
 #: build-standalone/144.ba1c6490.js:6228
 msgid "Read the four numbers before you touch anything. If most of your library is \"uploaded recently\" or \"not checked\", there is nothing to clean up yet."
-msgstr "Lies die vier Zahlen, bevor du irgendetwas anfasst. Wenn der größte Teil deiner Mediathek \"kürzlich hochgeladen\" oder \"nicht geprüft\" ist, gibt es noch nichts aufzuräumen."
+msgstr "Lies die vier Zahlen, bevor du irgendetwas anfasst. Wenn der größte Teil deiner Mediathek „kürzlich hochgeladen“ oder „nicht geprüft“ ist, gibt es noch nichts aufzuräumen."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:971
@@ -7477,7 +7477,7 @@ msgstr "Wähle aus, was weg soll, und verschiebe es in die Quarantäne. Jedes Bi
 #: src/help/content.js:979
 #: build-standalone/144.ba1c6490.js:6240
 msgid "Check the \"Waiting to be deleted\" tab before the period runs out if you want anything back."
-msgstr "Sieh im Reiter \"Wartet auf Löschung\" nach, bevor die Frist abläuft, falls du etwas zurückhaben willst."
+msgstr "Sieh im Reiter „Wartet auf Löschung“ nach, bevor die Frist abläuft, falls du etwas zurückhaben willst."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:985
@@ -7541,7 +7541,7 @@ msgstr "Mediathek verwalten"
 #: src/help/content.js:1018
 #: build-standalone/144.ba1c6490.js:6279
 msgid "Assets → \"Manage Media Library\" opens a full manager for your whole library. Organize with real folders and tags (stored as WordPress taxonomies, so they persist outside the editor too): drag images between folders, multi-select with Shift and Ctrl, and bulk move, tag, set as featured image or delete."
-msgstr "Assets → „Mediathek verwalten\" öffnet einen vollständigen Manager für deine gesamte Mediathek. Ordne mit echten Ordnern und Tags (als WordPress-Taxonomien gespeichert, also auch außerhalb des Editors dauerhaft): ziehe Bilder zwischen Ordnern, wähle mehrere mit Umschalt und Strg aus und verschiebe, tagge, setze als Beitragsbild oder lösche im Stapel."
+msgstr "Assets → „Mediathek verwalten“ öffnet einen vollständigen Manager für deine gesamte Mediathek. Ordne mit echten Ordnern und Tags (als WordPress-Taxonomien gespeichert, also auch außerhalb des Editors dauerhaft): ziehe Bilder zwischen Ordnern, wähle mehrere mit Umschalt und Strg aus und verschiebe, tagge, setze als Beitragsbild oder lösche im Stapel."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:1022
@@ -7549,7 +7549,7 @@ msgstr "Assets → „Mediathek verwalten\" öffnet einen vollständigen Manager
 #: src/help/content.js:1022
 #: build-standalone/144.ba1c6490.js:6283
 msgid "Search combines everything: type a phrase for semantic search (finds images by what they show, using the local model) and narrow by color, file type, orientation and size, then sort the results. Smart folders collect Missing alt text, Unused and Reclaim space automatically, and you can save any search as your own smart folder."
-msgstr "Die Suche kombiniert alles: gib einen Begriff für die semantische Suche ein (findet Bilder anhand ihres Inhalts über das lokale Modell) und grenze nach Farbe, Dateityp, Ausrichtung und Größe ein, dann sortiere die Ergebnisse. Intelligente Ordner sammeln automatisch „Ohne Alt-Text\", „Unbenutzt\" und „Speicher zurückgewinnen\", und du kannst jede Suche als eigenen intelligenten Ordner speichern."
+msgstr "Die Suche kombiniert alles: gib einen Begriff für die semantische Suche ein (findet Bilder anhand ihres Inhalts über das lokale Modell) und grenze nach Farbe, Dateityp, Ausrichtung und Größe ein, dann sortiere die Ergebnisse. Intelligente Ordner sammeln automatisch „Ohne Alt-Text“, „Unbenutzt“ und „Speicher zurückgewinnen“, und du kannst jede Suche als eigenen intelligenten Ordner speichern."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:1026
@@ -7557,7 +7557,7 @@ msgstr "Die Suche kombiniert alles: gib einen Begriff für die semantische Suche
 #: src/help/content.js:1026
 #: build-standalone/144.ba1c6490.js:6287
 msgid "Media Library Tools (bottom of the sidebar) hold the housekeeping: Suggest folders clusters similar images, Find duplicates groups near-identical ones for review with a keep-or-trash choice per image, plus Regenerate thumbnails, Rename by pattern, Find broken files and Generate Metadata."
-msgstr "Die Mediathek-Werkzeuge (unten in der Seitenleiste) enthalten die Pflege-Funktionen: „Ordner vorschlagen\" gruppiert ähnliche Bilder, „Duplikate finden\" fasst nahezu identische Bilder zur Prüfung zusammen, mit einer Behalten-oder-Papierkorb-Wahl pro Bild, dazu Thumbnails neu erzeugen, Nach Muster umbenennen, Defekte Dateien finden und Metadaten erzeugen."
+msgstr "Die Mediathek-Werkzeuge (unten in der Seitenleiste) enthalten die Pflege-Funktionen: „Ordner vorschlagen“ gruppiert ähnliche Bilder, „Duplikate finden“ fasst nahezu identische Bilder zur Prüfung zusammen, mit einer Behalten-oder-Papierkorb-Wahl pro Bild, dazu Thumbnails neu erzeugen, Nach Muster umbenennen, Defekte Dateien finden und Metadaten erzeugen."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:1030
@@ -7867,7 +7867,7 @@ msgstr "Hilfe → Systemstatus zeigt die gesamte Installation auf einen Blick: a
 #: src/help/content.js:1183
 #: build-standalone/144.ba1c6490.js:6444
 msgid "The debug log below records errors, failed requests and model events of the current session. Export log downloads one JSON file to attach to a support request - it contains the status counts, device and graphics facts and the log, never document content, images or API keys."
-msgstr "Das Debug-Log darunter zeichnet Fehler, fehlgeschlagene Anfragen und Modell-Ereignisse der aktuellen Sitzung auf. „Log exportieren\" lädt eine einzelne JSON-Datei für Support-Anfragen herunter - sie enthält die Status-Zähler, Geräte- und Grafik-Fakten und dieses Log, niemals Dokumentinhalte, Bilder oder API-Keys."
+msgstr "Das Debug-Log darunter zeichnet Fehler, fehlgeschlagene Anfragen und Modell-Ereignisse der aktuellen Sitzung auf. „Log exportieren“ lädt eine einzelne JSON-Datei für Support-Anfragen herunter - sie enthält die Status-Zähler, Geräte- und Grafik-Fakten und dieses Log, niemals Dokumentinhalte, Bilder oder API-Keys."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:1190
@@ -11830,7 +11830,7 @@ msgstr "„%s“ hatte keinen darstellbaren Inhalt und wurde übersprungen."
 #: build-standalone/144.ba1c6490.js:42742
 #, js-format
 msgid "“%s”: gradient/pattern text fill became a solid color in the type layer (the pixel preview keeps the fill)."
-msgstr "„%s\": Verlaufs-/Muster-Füllung des Texts wurde in der Textebene zu einer Vollfarbe (die Pixel-Vorschau behält die Füllung)."
+msgstr "„%s“: Verlaufs-/Muster-Füllung des Texts wurde in der Textebene zu einer Vollfarbe (die Pixel-Vorschau behält die Füllung)."
 
 #. translators: %s: layer name.
 #: build-standalone/144.ba1c6490.js:18
@@ -19785,7 +19785,7 @@ msgstr "Entfernt! Nichts geht verloren: Rechtsklick auf die Ebene und „Maske l
 #: src/screens/canvas/smart-refine-bar.jsx:30
 #: build-standalone/144.ba1c6490.js:79357
 msgid "Cut out! Nothing is lost: right-click the layer and choose Delete Mask to bring everything back."
-msgstr "Freigestellt! Nichts geht verloren: Rechtsklick auf die Ebene und „Maske löschen\" holt alles zurück."
+msgstr "Freigestellt! Nichts geht verloren: Rechtsklick auf die Ebene und „Maske löschen“ holt alles zurück."
 
 #: build-standalone/144.ba1c6490.js:40
 #: dist/public-export-preview/src/screens/canvas/smart-refine-bar.jsx:45
@@ -22750,7 +22750,7 @@ msgstr "Farbfelder-Set hinzufügen"
 #: build-standalone/144.ba1c6490.js:90118
 #, js-format
 msgid "Colors applied to the Brand Kit \"%s\"."
-msgstr "Farben auf das Marken-Kit „%s\" angewendet."
+msgstr "Farben auf das Marken-Kit „%s“ angewendet."
 
 #: build-standalone/144.ba1c6490.js:65
 #: dist/public-export-preview/src/screens/color-schemer-dialog.jsx:313
@@ -23519,7 +23519,7 @@ msgstr "Vorlagen werden geladen…"
 #: src/screens/create-dialog.jsx:944
 #: build-standalone/144.ba1c6490.js:92080
 msgid "No templates yet. In the editor, use File → “Save as Dynamic Template” to add one."
-msgstr "Noch keine Templates. Nutze im Editor Datei → „Als dynamisches Template speichern\"."
+msgstr "Noch keine Templates. Nutze im Editor Datei → „Als dynamisches Template speichern“."
 
 #: build-standalone/144.ba1c6490.js:71
 #: build-standalone/144.ba1c6490.js:99
@@ -28490,7 +28490,7 @@ msgstr "Alt-Klick zum Entfernen"
 #: src/screens/library-tray.jsx:488
 #: build-standalone/144.ba1c6490.js:108015
 msgid "Nothing here yet. Select layers and use File → \"Save as Asset\"."
-msgstr "Noch nichts da. Waehle Ebenen und nutze Datei → \"Als Asset speichern\"."
+msgstr "Noch nichts da. Waehle Ebenen und nutze Datei → „Als Asset speichern“."
 
 #. translators: 1: category name, 2: number of assets.
 #: build-standalone/144.ba1c6490.js:93
@@ -28654,7 +28654,7 @@ msgstr "Noch nichts eingefügt, alles, was du einfügst, landet hier."
 #: src/screens/library-tray.jsx:1168
 #: build-standalone/144.ba1c6490.js:108695
 msgid "No dynamic templates yet. Use File → “Save as Dynamic Template”."
-msgstr "Noch keine dynamischen Templates. Nutze Datei → „Als dynamisches Template speichern\"."
+msgstr "Noch keine dynamischen Templates. Nutze Datei → „Als dynamisches Template speichern“."
 
 #: build-standalone/144.ba1c6490.js:94
 #: build-standalone/144.ba1c6490.js:100
@@ -29335,7 +29335,7 @@ msgstr "Lege das Asset auf einer Kategorie ab, um es zu verschieben."
 #: src/screens/library/user-sections.jsx:639
 #: build-standalone/144.ba1c6490.js:111978
 msgid "Nothing here yet. Select layers on the canvas and use File → \"Save as Asset\" to build your own asset collection."
-msgstr "Noch nichts da. Waehle Ebenen auf der Leinwand und nutze Datei → \"Als Asset speichern\", um deine eigene Sammlung aufzubauen."
+msgstr "Noch nichts da. Waehle Ebenen auf der Leinwand und nutze Datei → „Als Asset speichern“, um deine eigene Sammlung aufzubauen."
 
 #: build-standalone/144.ba1c6490.js:102
 #: dist/public-export-preview/src/screens/library/user-sections.jsx:476
@@ -31245,7 +31245,7 @@ msgstr "In hoher Auflösung mit transparentem Hintergrund gerendert, passt damit
 #: src/screens/mockup-dialog.jsx:687
 #: build-standalone/144.ba1c6490.js:118185
 msgid "Lands as an image layer, editable any time via Edit Mockup."
-msgstr "Landet als Bildebene, jederzeit über „Mockup bearbeiten\" anpassbar."
+msgstr "Landet als Bildebene, jederzeit über „Mockup bearbeiten“ anpassbar."
 
 #: build-standalone/144.ba1c6490.js:116
 #: dist/public-export-preview/src/screens/mockup-dialog.jsx:239
@@ -31275,7 +31275,7 @@ msgstr "Mockup einfügen"
 #: src/screens/mockup-dialog.jsx:298
 #: build-standalone/144.ba1c6490.js:117796
 msgid "Mockup ready, editable any time via Edit Mockup."
-msgstr "Mockup fertig, jederzeit über „Mockup bearbeiten\" anpassbar."
+msgstr "Mockup fertig, jederzeit über „Mockup bearbeiten“ anpassbar."
 
 #: build-standalone/144.ba1c6490.js:116
 #: dist/public-export-preview/src/screens/mockup-dialog.jsx:306
@@ -31840,7 +31840,7 @@ msgstr "Erkennt das Hauptmotiv des aktiven Bilds und macht daraus eine Auswahl."
 #: src/screens/panels/ai-panel.jsx:299
 #: build-standalone/144.ba1c6490.js:119741
 msgid "Erases the selected area and fills it from the surrounding pixels. ① Select the object (Smart Select “K” / Select Subject). ② Click this. (For tricky fills, the AI-cloud version is stronger.)"
-msgstr "Löscht den ausgewählten Bereich und füllt ihn aus den umliegenden Pixeln. ① Objekt auswählen (Smart Select „K\" / Motiv auswählen). ② Hier klicken. (Bei kniffligen Füllungen ist die AI-Cloud-Variante stärker.)"
+msgstr "Löscht den ausgewählten Bereich und füllt ihn aus den umliegenden Pixeln. ① Objekt auswählen (Smart Select „K“ / Motiv auswählen). ② Hier klicken. (Bei kniffligen Füllungen ist die AI-Cloud-Variante stärker.)"
 
 #: build-standalone/144.ba1c6490.js:122
 #: dist/public-export-preview/src/screens/panels/ai-panel.jsx:308

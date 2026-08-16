@@ -6693,7 +6693,7 @@ msgstr "Con una clave API (Ajustes → Proveedores de IA) obtienes además gener
 #: src/help/content.js:595
 #: build-standalone/144.ba1c6490.js:5856
 msgid "Four newer cloud helpers: the 360° format chip generates seamless panoramas for the panorama tool, \"Turn into editable vector\" turns a prompt into real shape layers via the local tracer, Design Review has an art director judge your design in your editor language, and Improve Text offers five stronger alternatives for the selected text layer."
-msgstr "Cuatro ayudantes de nube más recientes: el chip de formato 360° genera panoramas sin costuras para la herramienta de panorama, \"Convertir en vector editable\" convierte un prompt en capas de formas reales mediante el trazador local, Design Review hace que un director de arte juzgue tu diseño en el idioma de tu editor, e Improve Text ofrece cinco alternativas más fuertes para la capa de texto seleccionada."
+msgstr "Cuatro ayudantes de nube más recientes: el chip de formato 360° genera panoramas sin costuras para la herramienta de panorama, «Convertir en vector editable» convierte un prompt en capas de formas reales mediante el trazador local, Design Review hace que un director de arte juzgue tu diseño en el idioma de tu editor, e Improve Text ofrece cinco alternativas más fuertes para la capa de texto seleccionada."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:599
@@ -7421,7 +7421,7 @@ msgstr "Abre cualquier imagen en el Gestor de la biblioteca y la pestaña Uso en
 #: src/help/content.js:949
 #: build-standalone/144.ba1c6490.js:6210
 msgid "Media Library Tools → \"Clean up the library\" applies the same check to the whole library at once and sorts the result into four groups: in use, unused, uploaded recently, and not checked. Only the \"unused\" group can be cleaned up. Images from the last two weeks are held back on purpose, because an image uploaded on Tuesday has probably just not been placed yet."
-msgstr "Herramientas de la biblioteca → \"Limpiar la biblioteca\" aplica la misma comprobación a toda la biblioteca de una vez y ordena el resultado en cuatro grupos: en uso, sin usar, subidas recientemente y sin comprobar. Solo el grupo \"sin usar\" se puede limpiar. Las imágenes de las últimas dos semanas se retienen a propósito, porque una imagen subida el martes probablemente solo no se ha colocado todavía."
+msgstr "Herramientas de la biblioteca → «Limpiar la biblioteca» aplica la misma comprobación a toda la biblioteca de una vez y ordena el resultado en cuatro grupos: en uso, sin usar, subidas recientemente y sin comprobar. Solo el grupo «sin usar» se puede limpiar. Las imágenes de las últimas dos semanas se retienen a propósito, porque una imagen subida el martes probablemente solo no se ha colocado todavía."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:953
@@ -7429,7 +7429,7 @@ msgstr "Herramientas de la biblioteca → \"Limpiar la biblioteca\" aplica la mi
 #: src/help/content.js:953
 #: build-standalone/144.ba1c6490.js:6214
 msgid "Nothing is deleted at the moment you ask for it. Images move to the WordPress trash with their file left in place, so every address on your site keeps working even if the check was wrong about one of them. After the retention period a scheduled job looks at each entry a second time, and anything that turns out to be in use by then restores itself. Until that point you can put any of it back from the \"Waiting to be deleted\" tab."
-msgstr "No se borra nada en el momento en que lo pides. Las imágenes van a la papelera de WordPress con su archivo intacto, así que todas las direcciones de tu sitio siguen funcionando aunque la comprobación se equivocara con alguna. Pasado el periodo de retención, una tarea programada revisa cada elemento una segunda vez, y lo que resulte estar en uso se restaura por sí solo. Hasta entonces puedes recuperar cualquier cosa desde la pestaña \"Pendientes de borrado\"."
+msgstr "No se borra nada en el momento en que lo pides. Las imágenes van a la papelera de WordPress con su archivo intacto, así que todas las direcciones de tu sitio siguen funcionando aunque la comprobación se equivocara con alguna. Pasado el periodo de retención, una tarea programada revisa cada elemento una segunda vez, y lo que resulte estar en uso se restaura por sí solo. Hasta entonces puedes recuperar cualquier cosa desde la pestaña «Pendientes de borrado»."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:957
@@ -7445,7 +7445,7 @@ msgstr "Junto a ella hay dos listas más. Los archivos huérfanos son archivos d
 #: src/help/content.js:963
 #: build-standalone/144.ba1c6490.js:6224
 msgid "Open Media Library Tools → \"Clean up the library\" and press \"Check the library\". The scan works through your content in slices and can be stopped at any time."
-msgstr "Abre Herramientas de la biblioteca → \"Limpiar la biblioteca\" y pulsa \"Comprobar la biblioteca\". El análisis recorre tu contenido por tramos y se puede detener en cualquier momento."
+msgstr "Abre Herramientas de la biblioteca → «Limpiar la biblioteca» y pulsa «Comprobar la biblioteca». El análisis recorre tu contenido por tramos y se puede detener en cualquier momento."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:967
@@ -7453,7 +7453,7 @@ msgstr "Abre Herramientas de la biblioteca → \"Limpiar la biblioteca\" y pulsa
 #: src/help/content.js:967
 #: build-standalone/144.ba1c6490.js:6228
 msgid "Read the four numbers before you touch anything. If most of your library is \"uploaded recently\" or \"not checked\", there is nothing to clean up yet."
-msgstr "Lee los cuatro números antes de tocar nada. Si la mayor parte de tu biblioteca está en \"subidas recientemente\" o \"sin comprobar\", todavía no hay nada que limpiar."
+msgstr "Lee los cuatro números antes de tocar nada. Si la mayor parte de tu biblioteca está en «subidas recientemente» o «sin comprobar», todavía no hay nada que limpiar."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:971
@@ -7477,7 +7477,7 @@ msgstr "Selecciona lo que quieres quitar y muévelo a la zona de espera. Cada im
 #: src/help/content.js:979
 #: build-standalone/144.ba1c6490.js:6240
 msgid "Check the \"Waiting to be deleted\" tab before the period runs out if you want anything back."
-msgstr "Mira la pestaña \"Pendientes de borrado\" antes de que acabe el plazo si quieres recuperar algo."
+msgstr "Mira la pestaña «Pendientes de borrado» antes de que acabe el plazo si quieres recuperar algo."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:985
@@ -28490,7 +28490,7 @@ msgstr "Alt+clic para quitar"
 #: src/screens/library-tray.jsx:488
 #: build-standalone/144.ba1c6490.js:108015
 msgid "Nothing here yet. Select layers and use File → \"Save as Asset\"."
-msgstr "Aquí no hay nada todavía. Selecciona capas y usa Archivo → \"Guardar como recurso\"."
+msgstr "Aquí no hay nada todavía. Selecciona capas y usa Archivo → «Guardar como recurso»."
 
 #. translators: 1: category name, 2: number of assets.
 #: build-standalone/144.ba1c6490.js:93
@@ -29335,7 +29335,7 @@ msgstr "Suelta el recurso sobre una categoría para moverlo."
 #: src/screens/library/user-sections.jsx:639
 #: build-standalone/144.ba1c6490.js:111978
 msgid "Nothing here yet. Select layers on the canvas and use File → \"Save as Asset\" to build your own asset collection."
-msgstr "Aquí no hay nada todavía. Selecciona capas en el lienzo y usa Archivo → \"Guardar como recurso\" para crear tu propia colección."
+msgstr "Aquí no hay nada todavía. Selecciona capas en el lienzo y usa Archivo → «Guardar como recurso» para crear tu propia colección."
 
 #: build-standalone/144.ba1c6490.js:102
 #: dist/public-export-preview/src/screens/library/user-sections.jsx:476

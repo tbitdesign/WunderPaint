@@ -42,7 +42,14 @@ class Media_Metadata {
 	 * REST routes.
 	 */
 	public function register_routes() {
-		$perm = array( REST_Controller::class, 'can_use_editor' );
+		// Both reading and stripping act on ONE attachment's file, so both
+		// must require edit rights on THAT attachment, not merely the editor
+		// capability. The strip path always checked edit_post internally; the
+		// read path did not, which let any upload_files user pull the full
+		// EXIF/XMP - GPS coordinates, camera serial numbers - of any
+		// attachment on the site, including other users' private uploads.
+		// can_edit_attachment enforces the per-object check for both.
+		$perm = array( REST_Controller::class, 'can_edit_attachment' );
 
 		register_rest_route(
 			WPIE_REST_NS,

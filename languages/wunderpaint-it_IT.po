@@ -6693,7 +6693,7 @@ msgstr "Con una chiave API (Impostazioni → Provider IA) ottieni anche generazi
 #: src/help/content.js:595
 #: build-standalone/144.ba1c6490.js:5856
 msgid "Four newer cloud helpers: the 360° format chip generates seamless panoramas for the panorama tool, \"Turn into editable vector\" turns a prompt into real shape layers via the local tracer, Design Review has an art director judge your design in your editor language, and Improve Text offers five stronger alternatives for the selected text layer."
-msgstr "Quattro assistenti cloud più recenti: il chip di formato 360° genera panorami senza giunture per lo strumento panorama, \"Converti in vettore modificabile\" trasforma un prompt in veri livelli forma tramite il tracciatore locale, Design Review fa giudicare il tuo design a un art director nella lingua del tuo editor, e Improve Text offre cinque alternative più forti per il livello di testo selezionato."
+msgstr "Quattro assistenti cloud più recenti: il chip di formato 360° genera panorami senza giunture per lo strumento panorama, «Converti in vettore modificabile» trasforma un prompt in veri livelli forma tramite il tracciatore locale, Design Review fa giudicare il tuo design a un art director nella lingua del tuo editor, e Improve Text offre cinque alternative più forti per il livello di testo selezionato."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:599
@@ -6815,7 +6815,7 @@ msgstr "Rifinisci come qualsiasi altro documento - o rigenera con un brief più 
 #: src/help/content.js:653
 #: build-standalone/144.ba1c6490.js:5914
 msgid "Tick \"Make it a dynamic template\" to bind the result to post fields right away - ready for the Featured Images automation."
-msgstr "Spunta \"Rendi modello dinamico\" per collegare subito il risultato ai campi dell'articolo - pronto per l'automazione Immagini in evidenza."
+msgstr "Spunta «Rendi modello dinamico» per collegare subito il risultato ai campi dell'articolo - pronto per l'automazione Immagini in evidenza."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:660
@@ -7336,7 +7336,7 @@ msgstr "Un design non deve restare un'immagine statica. Vista → Shortcode dei 
 #: src/help/content.js:901
 #: build-standalone/144.ba1c6490.js:6162
 msgid "The same features exist as Gutenberg blocks and - with Elementor active - as native Elementor widgets (Dynamic Image, Live Badge, Personalized Image); search for \"wpie\" in the widget panel. The plugin settings page has a \"Widgets & Blocks\" tab to switch both integrations on or off."
-msgstr "Le stesse funzioni esistono come blocchi Gutenberg e - con Elementor attivo - come widget Elementor nativi (Dynamic Image, Live Badge, Personalized Image); cerca \"wpie\" nel pannello dei widget. La pagina impostazioni del plugin ha una scheda \"Widgets & Blocks\" per attivare o disattivare entrambe le integrazioni."
+msgstr "Le stesse funzioni esistono come blocchi Gutenberg e - con Elementor attivo - come widget Elementor nativi (Dynamic Image, Live Badge, Personalized Image); cerca «wpie» nel pannello dei widget. La pagina impostazioni del plugin ha una scheda «Widgets & Blocks» per attivare o disattivare entrambe le integrazioni."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:905
@@ -7421,7 +7421,7 @@ msgstr "Apri una qualsiasi immagine nel gestore della libreria e la scheda Utili
 #: src/help/content.js:949
 #: build-standalone/144.ba1c6490.js:6210
 msgid "Media Library Tools → \"Clean up the library\" applies the same check to the whole library at once and sorts the result into four groups: in use, unused, uploaded recently, and not checked. Only the \"unused\" group can be cleaned up. Images from the last two weeks are held back on purpose, because an image uploaded on Tuesday has probably just not been placed yet."
-msgstr "Strumenti della libreria → \"Pulisci la libreria\" applica lo stesso controllo a tutta la libreria in una volta e ordina il risultato in quattro gruppi: in uso, non utilizzate, caricate di recente e non verificate. Solo il gruppo \"non utilizzate\" può essere ripulito. Le immagini delle ultime due settimane vengono trattenute di proposito, perché un’immagine caricata martedì probabilmente non è ancora stata collocata."
+msgstr "Strumenti della libreria → «Pulisci la libreria» applica lo stesso controllo a tutta la libreria in una volta e ordina il risultato in quattro gruppi: in uso, non utilizzate, caricate di recente e non verificate. Solo il gruppo «non utilizzate» può essere ripulito. Le immagini delle ultime due settimane vengono trattenute di proposito, perché un’immagine caricata martedì probabilmente non è ancora stata collocata."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:953
@@ -7429,7 +7429,7 @@ msgstr "Strumenti della libreria → \"Pulisci la libreria\" applica lo stesso c
 #: src/help/content.js:953
 #: build-standalone/144.ba1c6490.js:6214
 msgid "Nothing is deleted at the moment you ask for it. Images move to the WordPress trash with their file left in place, so every address on your site keeps working even if the check was wrong about one of them. After the retention period a scheduled job looks at each entry a second time, and anything that turns out to be in use by then restores itself. Until that point you can put any of it back from the \"Waiting to be deleted\" tab."
-msgstr "Non viene eliminato nulla nel momento in cui lo chiedi. Le immagini vanno nel cestino di WordPress con il file al suo posto, così ogni indirizzo del sito continua a funzionare anche se il controllo si è sbagliato su qualcuna. Passato il periodo di conservazione un processo pianificato guarda ogni voce una seconda volta, e ciò che a quel punto risulta in uso si ripristina da sé. Fino ad allora puoi recuperare tutto dalla scheda \"In attesa di eliminazione\"."
+msgstr "Non viene eliminato nulla nel momento in cui lo chiedi. Le immagini vanno nel cestino di WordPress con il file al suo posto, così ogni indirizzo del sito continua a funzionare anche se il controllo si è sbagliato su qualcuna. Passato il periodo di conservazione un processo pianificato guarda ogni voce una seconda volta, e ciò che a quel punto risulta in uso si ripristina da sé. Fino ad allora puoi recuperare tutto dalla scheda «In attesa di eliminazione»."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:957
@@ -7445,7 +7445,7 @@ msgstr "Accanto ci sono altre due liste. I file orfani sono file nella cartella 
 #: src/help/content.js:963
 #: build-standalone/144.ba1c6490.js:6224
 msgid "Open Media Library Tools → \"Clean up the library\" and press \"Check the library\". The scan works through your content in slices and can be stopped at any time."
-msgstr "Apri Strumenti della libreria → \"Pulisci la libreria\" e premi \"Controlla la libreria\". La scansione attraversa i contenuti a tratti e può essere interrotta in qualsiasi momento."
+msgstr "Apri Strumenti della libreria → «Pulisci la libreria» e premi «Controlla la libreria». La scansione attraversa i contenuti a tratti e può essere interrotta in qualsiasi momento."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:967
@@ -7453,7 +7453,7 @@ msgstr "Apri Strumenti della libreria → \"Pulisci la libreria\" e premi \"Cont
 #: src/help/content.js:967
 #: build-standalone/144.ba1c6490.js:6228
 msgid "Read the four numbers before you touch anything. If most of your library is \"uploaded recently\" or \"not checked\", there is nothing to clean up yet."
-msgstr "Leggi i quattro numeri prima di toccare qualcosa. Se la maggior parte della libreria è \"caricate di recente\" o \"non verificate\", non c’è ancora nulla da ripulire."
+msgstr "Leggi i quattro numeri prima di toccare qualcosa. Se la maggior parte della libreria è «caricate di recente» o «non verificate», non c’è ancora nulla da ripulire."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:971
@@ -7477,7 +7477,7 @@ msgstr "Seleziona ciò che vuoi eliminare e spostalo nell’area di attesa. Ogni
 #: src/help/content.js:979
 #: build-standalone/144.ba1c6490.js:6240
 msgid "Check the \"Waiting to be deleted\" tab before the period runs out if you want anything back."
-msgstr "Guarda la scheda \"In attesa di eliminazione\" prima che scada il periodo se vuoi recuperare qualcosa."
+msgstr "Guarda la scheda «In attesa di eliminazione» prima che scada il periodo se vuoi recuperare qualcosa."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:985
@@ -28490,7 +28490,7 @@ msgstr "Alt+clic per rimuovere"
 #: src/screens/library-tray.jsx:488
 #: build-standalone/144.ba1c6490.js:108015
 msgid "Nothing here yet. Select layers and use File → \"Save as Asset\"."
-msgstr "Qui non c'è ancora niente. Seleziona dei livelli e usa File → \"Salva come risorsa\"."
+msgstr "Qui non c'è ancora niente. Seleziona dei livelli e usa File → «Salva come risorsa»."
 
 #. translators: 1: category name, 2: number of assets.
 #: build-standalone/144.ba1c6490.js:93
@@ -29335,7 +29335,7 @@ msgstr "Trascina la risorsa su una categoria per spostarla."
 #: src/screens/library/user-sections.jsx:639
 #: build-standalone/144.ba1c6490.js:111978
 msgid "Nothing here yet. Select layers on the canvas and use File → \"Save as Asset\" to build your own asset collection."
-msgstr "Qui non c'è ancora niente. Seleziona dei livelli sulla tela e usa File → \"Salva come risorsa\" per costruire la tua raccolta."
+msgstr "Qui non c'è ancora niente. Seleziona dei livelli sulla tela e usa File → «Salva come risorsa» per costruire la tua raccolta."
 
 #: build-standalone/144.ba1c6490.js:102
 #: dist/public-export-preview/src/screens/library/user-sections.jsx:476
@@ -31387,7 +31387,7 @@ msgstr "«Salva nella libreria media» versiona l'originale (ripristinabile nell
 #: src/screens/onboarding.jsx:88
 #: build-standalone/144.ba1c6490.js:118300
 msgid "The Handbook explains every part of the editor with step-by-step articles, and the \"?\" in any dialog jumps straight to the right one. Replay this tour anytime via Help → Show Tour."
-msgstr "Il manuale spiega ogni parte dell'editor con articoli passo dopo passo, e il \"?\" di ogni finestra porta dritto all'articolo giusto. Rivedi questo tour quando vuoi da Aiuto → Mostra il tour."
+msgstr "Il manuale spiega ogni parte dell'editor con articoli passo dopo passo, e il «?» di ogni finestra porta dritto all'articolo giusto. Rivedi questo tour quando vuoi da Aiuto → Mostra il tour."
 
 #: build-standalone/144.ba1c6490.js:116
 #: dist/public-export-preview/src/screens/onboarding.jsx:143

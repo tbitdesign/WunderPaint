@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.424.0
+Stable tag: 1.424.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -253,6 +253,9 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+= 1.424.1 =
+* Security: media maintenance and image metadata now enforce the same per-object permission the rest of the editor uses. Cleaning up unreferenced upload files is restricted to administrators and will never move a file that still belongs to an attachment, and reading an image's embedded EXIF/XMP details requires edit rights on that specific image. Thanks to a security review for both.
+
 = 1.424.0 =
 * New bundled studio: Chaos Art. A society of autonomous painters makes one-of-a-kind abstract art in deep 3D space - gestures with attack and release, art movements from Impressionism to Minimalism, painterly media from watercolor to ink sketch, a self-directed mode where the society picks everything itself, a snapshot ring so no moment is lost, a process film, and live embeds that paint a new original for every visitor. There is no seed: no piece can ever be painted twice.
 

@@ -5575,7 +5575,7 @@ msgstr "Pinte. O traço vai para a camada selecionada, ou para uma só dele se v
 #: src/help/content.js:123
 #: build-standalone/144.ba1c6490.js:5384
 msgid "Draw a brush tip builds your own tip out of shapes, holes included. It is kept as a recipe, so it stays sharp at any size and travels inside the document."
-msgstr "\"Desenhar uma ponta de pincel\" constrói sua própria ponta a partir de formas, buracos inclusive. Ela é guardada como receita, então continua nítida em qualquer tamanho e viaja dentro do documento."
+msgstr "“Desenhar uma ponta de pincel” constrói sua própria ponta a partir de formas, buracos inclusive. Ela é guardada como receita, então continua nítida em qualquer tamanho e viaja dentro do documento."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:127
@@ -6693,7 +6693,7 @@ msgstr "Com uma chave de API (Configurações → Provedores de IA) você ganha 
 #: src/help/content.js:595
 #: build-standalone/144.ba1c6490.js:5856
 msgid "Four newer cloud helpers: the 360° format chip generates seamless panoramas for the panorama tool, \"Turn into editable vector\" turns a prompt into real shape layers via the local tracer, Design Review has an art director judge your design in your editor language, and Improve Text offers five stronger alternatives for the selected text layer."
-msgstr "Quatro ajudantes de nuvem mais recentes: o chip de formato 360° gera panoramas sem emendas para a ferramenta de panorama, \"Converter em vetor editável\" transforma um prompt em camadas de formas reais pelo traçador local, o Design Review faz um diretor de arte julgar seu design no idioma do seu editor, e o Improve Text oferece cinco alternativas mais fortes para a camada de texto selecionada."
+msgstr "Quatro ajudantes de nuvem mais recentes: o chip de formato 360° gera panoramas sem emendas para a ferramenta de panorama, “Converter em vetor editável” transforma um prompt em camadas de formas reais pelo traçador local, o Design Review faz um diretor de arte julgar seu design no idioma do seu editor, e o Improve Text oferece cinco alternativas mais fortes para a camada de texto selecionada."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:599
@@ -6815,7 +6815,7 @@ msgstr "Refine como qualquer outro documento - ou gere de novo com um briefing m
 #: src/help/content.js:653
 #: build-standalone/144.ba1c6490.js:5914
 msgid "Tick \"Make it a dynamic template\" to bind the result to post fields right away - ready for the Featured Images automation."
-msgstr "Marque \"Tornar modelo dinâmico\" para vincular o resultado a campos de post desde já - pronto para a automação de Imagens destacadas."
+msgstr "Marque “Tornar modelo dinâmico” para vincular o resultado a campos de post desde já - pronto para a automação de Imagens destacadas."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:660
@@ -7336,7 +7336,7 @@ msgstr "Um design não precisa ficar como imagem estática. Ver → Shortcodes d
 #: src/help/content.js:901
 #: build-standalone/144.ba1c6490.js:6162
 msgid "The same features exist as Gutenberg blocks and - with Elementor active - as native Elementor widgets (Dynamic Image, Live Badge, Personalized Image); search for \"wpie\" in the widget panel. The plugin settings page has a \"Widgets & Blocks\" tab to switch both integrations on or off."
-msgstr "Os mesmos recursos existem como blocos do Gutenberg e - com o Elementor ativo - como widgets nativos do Elementor (Dynamic Image, Live Badge, Personalized Image); procure \"wpie\" no painel de widgets. A página de configurações do plugin tem uma aba \"Widgets & Blocks\" para ligar ou desligar as duas integrações."
+msgstr "Os mesmos recursos existem como blocos do Gutenberg e - com o Elementor ativo - como widgets nativos do Elementor (Dynamic Image, Live Badge, Personalized Image); procure “wpie” no painel de widgets. A página de configurações do plugin tem uma aba “Widgets & Blocks” para ligar ou desligar as duas integrações."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:905
@@ -7421,7 +7421,7 @@ msgstr "Abra qualquer imagem no gerenciador da biblioteca e a aba Uso lista todo
 #: src/help/content.js:949
 #: build-standalone/144.ba1c6490.js:6210
 msgid "Media Library Tools → \"Clean up the library\" applies the same check to the whole library at once and sorts the result into four groups: in use, unused, uploaded recently, and not checked. Only the \"unused\" group can be cleaned up. Images from the last two weeks are held back on purpose, because an image uploaded on Tuesday has probably just not been placed yet."
-msgstr "Ferramentas da biblioteca → \"Limpar a biblioteca\" aplica a mesma verificação a toda a biblioteca de uma vez e separa o resultado em quatro grupos: em uso, sem uso, enviadas recentemente e não verificadas. Só o grupo \"sem uso\" pode ser limpo. As imagens das últimas duas semanas ficam retidas de propósito, porque uma imagem enviada na terça provavelmente só ainda não foi colocada."
+msgstr "Ferramentas da biblioteca → “Limpar a biblioteca” aplica a mesma verificação a toda a biblioteca de uma vez e separa o resultado em quatro grupos: em uso, sem uso, enviadas recentemente e não verificadas. Só o grupo “sem uso” pode ser limpo. As imagens das últimas duas semanas ficam retidas de propósito, porque uma imagem enviada na terça provavelmente só ainda não foi colocada."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:953
@@ -7429,7 +7429,7 @@ msgstr "Ferramentas da biblioteca → \"Limpar a biblioteca\" aplica a mesma ver
 #: src/help/content.js:953
 #: build-standalone/144.ba1c6490.js:6214
 msgid "Nothing is deleted at the moment you ask for it. Images move to the WordPress trash with their file left in place, so every address on your site keeps working even if the check was wrong about one of them. After the retention period a scheduled job looks at each entry a second time, and anything that turns out to be in use by then restores itself. Until that point you can put any of it back from the \"Waiting to be deleted\" tab."
-msgstr "Nada é excluído no momento em que você pede. As imagens vão para a lixeira do WordPress com o arquivo no lugar, então todos os endereços do site continuam funcionando mesmo que a verificação tenha errado em alguma. Passado o prazo, uma tarefa agendada olha cada item uma segunda vez, e o que estiver em uso se restaura sozinho. Até lá você pode trazer tudo de volta pela aba \"Aguardando exclusão\"."
+msgstr "Nada é excluído no momento em que você pede. As imagens vão para a lixeira do WordPress com o arquivo no lugar, então todos os endereços do site continuam funcionando mesmo que a verificação tenha errado em alguma. Passado o prazo, uma tarefa agendada olha cada item uma segunda vez, e o que estiver em uso se restaura sozinho. Até lá você pode trazer tudo de volta pela aba “Aguardando exclusão”."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:957
@@ -7445,7 +7445,7 @@ msgstr "Ao lado existem duas outras listas. Arquivos órfãos são arquivos na p
 #: src/help/content.js:963
 #: build-standalone/144.ba1c6490.js:6224
 msgid "Open Media Library Tools → \"Clean up the library\" and press \"Check the library\". The scan works through your content in slices and can be stopped at any time."
-msgstr "Abra Ferramentas da biblioteca → \"Limpar a biblioteca\" e clique em \"Verificar a biblioteca\". A verificação percorre seu conteúdo em trechos e pode ser interrompida a qualquer momento."
+msgstr "Abra Ferramentas da biblioteca → “Limpar a biblioteca” e clique em “Verificar a biblioteca”. A verificação percorre seu conteúdo em trechos e pode ser interrompida a qualquer momento."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:967
@@ -7453,7 +7453,7 @@ msgstr "Abra Ferramentas da biblioteca → \"Limpar a biblioteca\" e clique em \
 #: src/help/content.js:967
 #: build-standalone/144.ba1c6490.js:6228
 msgid "Read the four numbers before you touch anything. If most of your library is \"uploaded recently\" or \"not checked\", there is nothing to clean up yet."
-msgstr "Leia os quatro números antes de mexer em nada. Se a maior parte da biblioteca está em \"enviadas recentemente\" ou \"não verificadas\", ainda não há o que limpar."
+msgstr "Leia os quatro números antes de mexer em nada. Se a maior parte da biblioteca está em “enviadas recentemente” ou “não verificadas”, ainda não há o que limpar."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:971
@@ -7477,7 +7477,7 @@ msgstr "Selecione o que deve sair e mova para a área de espera. Cada imagem é 
 #: src/help/content.js:979
 #: build-standalone/144.ba1c6490.js:6240
 msgid "Check the \"Waiting to be deleted\" tab before the period runs out if you want anything back."
-msgstr "Veja a aba \"Aguardando exclusão\" antes do prazo acabar se quiser algo de volta."
+msgstr "Veja a aba “Aguardando exclusão” antes do prazo acabar se quiser algo de volta."
 
 #: build-standalone/144.ba1c6490.js:5
 #: dist/public-export-preview/src/help/content.js:985
@@ -28490,7 +28490,7 @@ msgstr "Alt+clique para remover"
 #: src/screens/library-tray.jsx:488
 #: build-standalone/144.ba1c6490.js:108015
 msgid "Nothing here yet. Select layers and use File → \"Save as Asset\"."
-msgstr "Ainda não há nada aqui. Selecione camadas e use Arquivo → \"Salvar como recurso\"."
+msgstr "Ainda não há nada aqui. Selecione camadas e use Arquivo → “Salvar como recurso”."
 
 #. translators: 1: category name, 2: number of assets.
 #: build-standalone/144.ba1c6490.js:93
@@ -29335,7 +29335,7 @@ msgstr "Solte o recurso sobre uma categoria para movê-lo."
 #: src/screens/library/user-sections.jsx:639
 #: build-standalone/144.ba1c6490.js:111978
 msgid "Nothing here yet. Select layers on the canvas and use File → \"Save as Asset\" to build your own asset collection."
-msgstr "Ainda não há nada aqui. Selecione camadas na tela e use Arquivo → \"Salvar como recurso\" para montar sua própria coleção."
+msgstr "Ainda não há nada aqui. Selecione camadas na tela e use Arquivo → “Salvar como recurso” para montar sua própria coleção."
 
 #: build-standalone/144.ba1c6490.js:102
 #: dist/public-export-preview/src/screens/library/user-sections.jsx:476
@@ -31387,7 +31387,7 @@ msgstr "“Salvar na biblioteca de mídia” guarda versões do original (restau
 #: src/screens/onboarding.jsx:88
 #: build-standalone/144.ba1c6490.js:118300
 msgid "The Handbook explains every part of the editor with step-by-step articles, and the \"?\" in any dialog jumps straight to the right one. Replay this tour anytime via Help → Show Tour."
-msgstr "O manual explica cada parte do editor com artigos passo a passo, e o \"?\" de qualquer diálogo leva direto ao artigo certo. Repita este tour quando quiser em Ajuda → Mostrar tour."
+msgstr "O manual explica cada parte do editor com artigos passo a passo, e o “?” de qualquer diálogo leva direto ao artigo certo. Repita este tour quando quiser em Ajuda → Mostrar tour."
 
 #: build-standalone/144.ba1c6490.js:116
 #: dist/public-export-preview/src/screens/onboarding.jsx:143
