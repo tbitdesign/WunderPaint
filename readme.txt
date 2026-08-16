@@ -14,7 +14,7 @@ Design once, and your posts, products and prices fill the image in. A full image
 
 WunderPaint puts a complete, layer-based editor into your media library - and then removes the border between your designs and your content. Text and image layers don't have to hold fixed values: point them at your posts, products, prices or custom fields, and the same design renders itself for any piece of content you preview it with. A blog header, a price badge, a product card - designed once, filled by your website. Around the editor, a full media manager keeps your growing library organized, and everything you make stays fully editable, with versions and rollback.
 
-https://www.youtube.com/watch?v=qGz4buxKaaI
+https://www.youtube.com/watch?v=r4BchMdmrDs
 
 **See it live:** [Try the demo](https://demo.wp-image-editor.com) | [Docs & FAQs](https://help.wp-image-editor.com) | [Website](https://wp-image-editor.com)
 
