@@ -6,7 +6,7 @@
 
 const RECENT_KEY = 'wpie-recent-colors';
 const CUSTOM_KEY = 'wpie-custom-swatches';
-export const RECENT_CAP = 10;
+export const RECENT_CAP = 18;
 export const CUSTOM_CAP = 20;
 
 let storage = null;

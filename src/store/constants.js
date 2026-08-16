@@ -392,8 +392,15 @@ export const DEFAULT_TOOL_OPTS = {
 		opacity: 100,
 		flow: 80,
 		hardness: 85,
+		// The pulled string (stroke smoothing), 0-100. 20 rounds hand
+		// jitter without feeling laggy; 0 is raw input.
+		smoothing: 20,
 		mirror: 'off',
 		tip: 'round',
+		// Per-style dials of the wet island, keyed by style id; the
+		// meanings differ per medium (oil has open time, charcoal has
+		// tooth). Defaults live in the controller's WET_TUNING_DEFS.
+		wetTuning: {},
 		// Where a finished stroke goes (Pinsel-Neubau Stufe 1).
 		// 'single'    - into the ACTIVE layer's pixels, the way every other
 		//               editor does it. A portrait used to end up with one
@@ -430,7 +437,10 @@ export const DEFAULT_TOOL_OPTS = {
 		// Overrides of the chosen tip's own numbers. `null` means "whatever
 		// the tip says" - the 37 tips carry sensible values and most people
 		// never touch these, but until now nobody COULD.
-		spacing: null,
+		// Spacing starts at 0 (= densest; both stroke renderers floor the
+		// step at 2% of the size, so 0 is a smooth continuous stroke, not
+		// a runaway). The tip's own 0.18 stays one Reset away.
+		spacing: 0,
 		scatter: null,
 		alphaJitter: null,
 		sizeJitter: null,
@@ -440,6 +450,7 @@ export const DEFAULT_TOOL_OPTS = {
 	pencil: {
 		size: 2,
 		opacity: 100,
+		smoothing: 20,
 		mirror: 'off',
 		layerMode: 'single',
 		paintStyle: 'normal',
@@ -447,6 +458,7 @@ export const DEFAULT_TOOL_OPTS = {
 	eraser: {
 		size: 32,
 		opacity: 100,
+		smoothing: 10,
 		flow: 100,
 		hardness: 100,
 		mirror: 'off',

@@ -13,6 +13,7 @@ import { I } from '../icons';
 import { WpieLogo } from '../components/logo';
 import { attachBlasterTrigger } from '../lib/blaster';
 import { getPsdExporter } from '../lib/psd-registry';
+import { runWetFlush } from '../lib/wet-hooks';
 import {
 	isEmbedded,
 	isLibraryEmbed,
@@ -120,6 +121,10 @@ export function EditorTitleBar( { onExport, nested, extras } ) {
 						'wunderpaint'
 					) }
 					onClick={ async () => {
+						// A living wash exists only above the layers; the
+						// dialog export flushes it and quick export must
+						// too, or wet strokes silently miss the file.
+						runWetFlush();
 						let settings = { format: 'png', quality: 92, scale: 1 };
 						try {
 							settings = {

@@ -22,6 +22,7 @@ import { measureTextHeight } from '../lib/raster';
 import * as History from './history';
 import * as SharedClipboard from './shared-clipboard';
 import { setDrawnTips } from '../lib/brush-tips';
+import { runWetFlush } from '../lib/wet-hooks';
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -283,7 +284,10 @@ export function initialState( { doc, layers, WPIE } ) {
 		toolOpts: JSON.parse( JSON.stringify( DEFAULT_TOOL_OPTS ) ),
 		zoom: 1,
 		pan: { x: 0, y: 0 },
-		fgColor: '#1a1d21',
+		// A visible starting colour. The near-black ink default read as
+		// "almost black" in the brush panel and first strokes vanished on
+		// dark documents (Thomas, v1.408.2).
+		fgColor: '#ff0000',
 		bgColor: '#ffffff',
 		selection: null,
 		savedSelections: [],
@@ -815,8 +819,17 @@ export function EditorProvider( { doc, layers, WPIE, children } ) {
 			dispatch: ( action ) => flushSync( () => dispatch( action ) ),
 			commit: ( label ) =>
 				flushSync( () => dispatch( { type: 'COMMIT', label } ) ),
-			undo: () => flushSync( () => dispatch( { type: 'UNDO' } ) ),
-			redo: () => flushSync( () => dispatch( { type: 'REDO' } ) ),
+			// Wet watercolour dries into its layer BEFORE history moves, so
+			// undo takes back the whole wash instead of leaving a half-wet
+			// overlay pointing at a layer state that no longer exists.
+			undo: () => {
+				runWetFlush();
+				flushSync( () => dispatch( { type: 'UNDO' } ) );
+			},
+			redo: () => {
+				runWetFlush();
+				flushSync( () => dispatch( { type: 'REDO' } ) );
+			},
 			WPIE,
 		} ),
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -829,9 +842,18 @@ export function EditorProvider( { doc, layers, WPIE, children } ) {
 			dispatch,
 			commit,
 			live,
-			undo: () => dispatch( { type: 'UNDO' } ),
-			redo: () => dispatch( { type: 'REDO' } ),
-			timeTravel: ( index ) => dispatch( { type: 'TIME_TRAVEL', index } ),
+			undo: () => {
+				runWetFlush();
+				dispatch( { type: 'UNDO' } );
+			},
+			redo: () => {
+				runWetFlush();
+				dispatch( { type: 'REDO' } );
+			},
+			timeTravel: ( index ) => {
+				runWetFlush();
+				dispatch( { type: 'TIME_TRAVEL', index } );
+			},
 			canUndo: History.canUndo( state.history ),
 			canRedo: History.canRedo( state.history ),
 			dirty: History.isDirty( state.history ),

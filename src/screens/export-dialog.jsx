@@ -67,6 +67,7 @@ import {
 	gifFrameLayers,
 } from '../lib/gif-export';
 import { listExtensionExportFormats } from '../lib/extensions';
+import { runWetFlush } from '../lib/wet-hooks';
 import { SwatchButton } from '../components/color-popover';
 import {
 	listExportPresets,
@@ -81,6 +82,12 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	const editor = useEditor();
 	const { state, dispatch, WPIE } = editor;
 	const { doc } = state;
+
+	// Saving and exporting both come through this dialog: a wet watercolour
+	// wash dries into its layer NOW, or the file would silently miss it.
+	useEffect( () => {
+		runWetFlush();
+	}, [] );
 
 	// Dynamic templates (v1.79.2): with a post preview active, export and
 	// save render what the canvas shows — the resolved bindings — instead

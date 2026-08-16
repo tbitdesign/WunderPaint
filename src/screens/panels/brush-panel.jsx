@@ -20,14 +20,16 @@
  *           colour should be one drag and not a dialog.
  */
 
-import { __, _x } from '@wordpress/i18n';
+import { __, _x, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from '@wordpress/element';
 
 import { groupedTips, getTip } from '../../lib/brush-tips';
+import { STYLE_BRUSHES } from '../../lib/media-tips';
+import { ScrubLabel } from '../../components/scrub-label';
 import { tipPreview, TIP_TILE } from '../../lib/brush-preview';
 import { PAINT_STYLES } from '../../lib/paint-engine';
+import { WET_TUNING_DEFS } from '../canvas/wet-controller';
 import { ColorWheel } from '../../components/color-wheel';
-import { recentColors } from '../../lib/user-swatches';
 import { GradientBar } from '../../components/gradient-bar';
 import {
 	editDrawnTip,
@@ -63,11 +65,57 @@ const SHAPE_ROWS = [
 	[ 'sizeJitter', () => __( 'Size jitter', 'wunderpaint' ), 0, 100 ],
 ];
 
-/** One labelled slider, the shape the whole panel repeats. */
+/**
+ * The wet dials' labels, one vocabulary across the styles. Kept here so
+ * i18n stays in the UI layer; the controller only knows the ids.
+ */
+function wetDialLabel( id ) {
+	switch ( id ) {
+		case 'dry':
+			return __( 'Drying speed', 'wunderpaint' );
+		case 'grain':
+			return __( 'Grain', 'wunderpaint' );
+		case 'edge':
+			return __( 'Edge darkening', 'wunderpaint' );
+		case 'wet':
+			return __( 'Wetness', 'wunderpaint' );
+		case 'bleed':
+			return __( 'Bleed', 'wunderpaint' );
+		case 'cover':
+			return __( 'Coverage', 'wunderpaint' );
+		case 'smear':
+			return __( 'Smearing', 'wunderpaint' );
+		case 'open':
+			return __( 'Open time', 'wunderpaint' );
+		case 'tooth':
+			return __( 'Tooth', 'wunderpaint' );
+		case 'press':
+			return _x( 'Pressure', 'charcoal dial', 'wunderpaint' );
+		case 'pickup':
+			return __( 'Pickup', 'wunderpaint' );
+	}
+	return id;
+}
+
+/**
+ * One labelled slider, the shape the whole panel repeats. Label and value
+ * are SCRUBBABLE (drag = 1 unit per pixel, Shift = 10x): the narrow track
+ * cannot land on exact numbers - 500 units across ~110px jumps in fours -
+ * and painting needs point-exact sizes (Thomas).
+ */
 function Row( { label, value, min, max, onChange, suffix } ) {
 	return (
 		<label className="bp-row">
-			<span className="bp-row-label">{ label }</span>
+			<ScrubLabel
+				as="span"
+				className="bp-row-label"
+				value={ value }
+				min={ min }
+				max={ max }
+				onScrub={ onChange }
+			>
+				{ label }
+			</ScrubLabel>
 			<input
 				type="range"
 				min={ min }
@@ -75,10 +123,17 @@ function Row( { label, value, min, max, onChange, suffix } ) {
 				value={ value }
 				onChange={ ( e ) => onChange( +e.target.value ) }
 			/>
-			<b className="bp-row-val">
+			<ScrubLabel
+				as="b"
+				className="bp-row-val"
+				value={ value }
+				min={ min }
+				max={ max }
+				onScrub={ onChange }
+			>
 				{ value }
 				{ suffix || '' }
-			</b>
+			</ScrubLabel>
 		</label>
 	);
 }
@@ -144,17 +199,44 @@ export function BrushPanel( { editor } ) {
 		<div className={ 'bp' + ( hasTips ? ' has-tips' : '' ) }>
 			{ hasTips && (
 				<div className="bp-tips">
-					<button
-						type="button"
-						className="bp-newtip"
-						onClick={ () =>
-							editDrawnTip( editor, '', ( id ) =>
-								set( { tip: id } )
-							)
-						}
-					>
-						{ __( 'Draw a brush tip', 'wunderpaint' ) }
-					</button>
+					{ STYLE_BRUSHES[ opts.paintStyle ] && (
+						<div className="bp-tipgroup bp-stylebrushes">
+							<span className="bp-sect-head">
+								{ sprintf(
+									/* translators: %s: paint style name. */
+									__( '%s brushes', 'wunderpaint' ),
+									PAINT_STYLES.find(
+										( st ) => st.id === opts.paintStyle
+									)?.name || ''
+								) }
+							</span>
+							<div className="bp-tipgrid">
+								{ STYLE_BRUSHES[ opts.paintStyle ].map(
+									( id ) => (
+										<button
+											key={ id }
+											type="button"
+											aria-pressed={ id === tipId }
+											className={
+												'bp-tip' +
+												( id === tipId ? ' is-on' : '' )
+											}
+											title={ getTip( id ).label }
+											onClick={ () => set( { tip: id } ) }
+										>
+											<img
+												src={ tipPreview(
+													id,
+													TIP_TILE
+												) }
+												alt=""
+											/>
+										</button>
+									)
+								) }
+							</div>
+						</div>
+					) }
 					{ !! shelf.length && (
 						<div className="bp-tipgroup">
 							<span className="bp-sect-head">
@@ -214,6 +296,19 @@ export function BrushPanel( { editor } ) {
 							</div>
 						</div>
 					) ) }
+					{ /* Pinned at the BOTTOM of the strip, ONCE - not inside
+					     each group, where it rendered per section. */ }
+					<button
+						type="button"
+						className="bp-newtip"
+						onClick={ () =>
+							editDrawnTip( editor, '', ( id ) =>
+								set( { tip: id } )
+							)
+						}
+					>
+						{ __( 'Draw a brush tip', 'wunderpaint' ) }
+					</button>
 				</div>
 			) }
 
@@ -235,9 +330,17 @@ export function BrushPanel( { editor } ) {
 											? ' is-on'
 											: '' )
 									}
-									onClick={ () =>
-										set( { paintStyle: st.id } )
-									}
+									onClick={ () => {
+										const bs = STYLE_BRUSHES[ st.id ];
+										set(
+											bs && ! bs.includes( opts.tip )
+												? {
+														paintStyle: st.id,
+														tip: bs[ 0 ],
+												  }
+												: { paintStyle: st.id }
+										);
+									} }
 								>
 									{ st.name }
 								</button>
@@ -268,6 +371,15 @@ export function BrushPanel( { editor } ) {
 							onChange={ ( v ) => set( { hardness: v } ) }
 						/>
 					) }
+					{ Number.isFinite( opts.smoothing ) && (
+						<Row
+							label={ __( 'Smoothing', 'wunderpaint' ) }
+							value={ opts.smoothing }
+							min={ 0 }
+							max={ 100 }
+							onChange={ ( v ) => set( { smoothing: v } ) }
+						/>
+					) }
 					{ Number.isFinite( opts.opacity ) && (
 						<Row
 							label={ __( 'Opacity', 'wunderpaint' ) }
@@ -287,6 +399,49 @@ export function BrushPanel( { editor } ) {
 						/>
 					) }
 				</div>
+
+				{ /* The wet island's own dials, per STYLE and with the
+				     medium's own vocabulary: watercolour dries and rims,
+				     oil has open time and smearing, charcoal has tooth.
+				     Flow and Opacity above stay water/medium and pigment
+				     amount for all of them. */ }
+				{ WET_TUNING_DEFS[ opts.paintStyle ] && (
+					<div className="bp-sect">
+						<span className="bp-sect-head">
+							{ PAINT_STYLES.find(
+								( st ) => st.id === opts.paintStyle
+							)?.name || '' }
+						</span>
+						{ WET_TUNING_DEFS[ opts.paintStyle ].map(
+							( [ dialId, dialDef ] ) => (
+								<Row
+									key={ dialId }
+									label={ wetDialLabel( dialId ) }
+									value={
+										opts.wetTuning?.[ opts.paintStyle ]?.[
+											dialId
+										] ?? dialDef
+									}
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) =>
+										set( {
+											wetTuning: {
+												...( opts.wetTuning || {} ),
+												[ opts.paintStyle ]: {
+													...( opts.wetTuning?.[
+														opts.paintStyle
+													] || {} ),
+													[ dialId ]: v,
+												},
+											},
+										} )
+									}
+								/>
+							)
+						) }
+					</div>
+				) }
 
 				{ /* NOT gated on a stamped tip. The round family lays dabs
 				     too, so it answers to these four exactly as a textured
@@ -361,7 +516,6 @@ export function BrushPanel( { editor } ) {
 						<div className="bp-colour">
 							<ColorWheel
 								color={ state.fgColor }
-								size={ 176 }
 								onChange={ ( c ) =>
 									dispatch( { type: 'SET_FG', color: c } )
 								}
@@ -434,30 +588,11 @@ export function BrushPanel( { editor } ) {
 									) }
 								</>
 							) }
-							<div className="bp-recent">
-								{ recentColors()
-									.slice( 0, 10 )
-									.map( ( c ) => (
-										<button
-											key={ c }
-											type="button"
-											style={ { background: c } }
-											aria-label={ c }
-											title={ c }
-											onClick={ () =>
-												dispatch( {
-													type: 'SET_FG',
-													color: c,
-												} )
-											}
-										/>
-									) ) }
-							</div>
 						</div>
 					</div>
 				) }
 
-				{ undefined !== opts.layerMode && (
+				{ undefined !== opts.layerMode && plainStyle && (
 					<label className="bp-check">
 						<input
 							type="checkbox"

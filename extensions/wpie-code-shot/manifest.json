@@ -1,7 +1,7 @@
 {
 	"name": "Code Shot",
 	"slug": "wpie-code-shot",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"author": "TBIT DESIGN - Thomas Breher",
 	"description": "Turn code into a gorgeous, share-ready image. Paste a snippet or import a file, pick a language and a theme, add a window frame, line numbers and a background, and drop it in as a re-editable layer. Emphasise lines with a focus mode, show additions and removals with diff tinting, choose from nine editor themes, frame it to a social-ready ratio, or copy it straight to your clipboard. Syntax highlighting runs locally in your browser - nothing is uploaded. Supports dynamic content: the code and the title can be bound to WordPress fields with {{...}} tokens, so a design re-renders per post for dynamic featured images.",
 	"main": "extension.js",

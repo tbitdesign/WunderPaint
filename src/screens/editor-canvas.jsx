@@ -11,13 +11,11 @@ import {
 	useEffect,
 	useLayoutEffect,
 	useCallback,
-	useId,
 } from '@wordpress/element';
-import { __, _x, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 
 import { useEditor, activeLayerOf } from '../store/editor-context';
 import { makeText } from '../store/document';
-import { SwatchButton } from '../components/color-popover';
 import { isEasyMode } from '../lib/easy-mode';
 import { recentColors } from '../lib/user-swatches';
 import { FloatPanel } from './panels/float-panel';
@@ -32,8 +30,6 @@ const PAINT_TOOLS = [ 'brush', 'pencil', 'eraser' ];
 import { getExtensionGenerator } from '../lib/extensions';
 import { prefixVersions } from '../lib/prefix-cache';
 import { I } from '../icons';
-import { PAINT_STYLES } from '../lib/paint-engine';
-import { BRUSH_TIPS, getTip, isStampTip } from '../lib/brush-tips';
 import {
 	renderSync,
 	sharedImageCache,
@@ -101,6 +97,14 @@ import { TextEditOverlay } from './canvas/text-edit-overlay';
 import { ImagePanOverlay } from './canvas/image-pan-overlay';
 import { PathEditOverlay } from './canvas/path-edit-overlay';
 import { Navigator } from './canvas/navigator';
+import {
+	bindWet,
+	wetOverlayLayer,
+	wetActive,
+	wetFlushNow,
+} from './canvas/wet-controller';
+import { ScrubLabel } from '../components/scrub-label';
+import { ColorWheel } from '../components/color-wheel';
 import { ContextBar } from './canvas/context-bar';
 import { SmartRefineBar } from './canvas/smart-refine-bar';
 import { TextFxPopover } from './canvas/text-fx-popover';
@@ -147,8 +151,6 @@ const CURSORS = {
  * change without a trip to the options bar. Esc/Enter/outside closes.
  */
 function BrushHud( { hud, editor, onClose } ) {
-	// Unique per mount, so two of these can never share an id.
-	const fieldId = useId();
 	const { state, dispatch } = editor;
 	const ref = useRef( null );
 	const opts = state.toolOpts[ hud.tool ] || {};
@@ -205,8 +207,6 @@ function BrushHud( { hud, editor, onClose } ) {
 		} );
 	}, [ hud.x, hud.y, hud.tool ] );
 
-	const dot = Math.min( 44, Math.max( 4, ( opts.size || 1 ) * 0.3 ) );
-	const soft = Number.isFinite( opts.hardness ) ? 100 - opts.hardness : 0;
 	return (
 		<div
 			ref={ ref }
@@ -215,19 +215,86 @@ function BrushHud( { hud, editor, onClose } ) {
 			onPointerDown={ ( e ) => e.stopPropagation() }
 			onContextMenu={ ( e ) => e.preventDefault() }
 		>
-			<span className="brush-hud-preview">
-				<span
-					className="brush-hud-dot"
-					style={ {
-						width: dot,
-						height: dot,
-						filter: soft ? `blur(${ soft * 0.05 }px)` : undefined,
-					} }
-				/>
-			</span>
 			<div className="brush-hud-rows">
+				{ /* The painter's palette (v1.420.0): the style brushes, the
+				     colours - including the one under the cursor - size and
+				     opacity, and for wet media the missing Dry-now. The old
+				     rows were the brush panel in miniature; everything the
+				     palette drops lives there. */ }
+				{ [ 'brush', 'pencil' ].includes( hud.tool ) && (
+					<>
+						<span className="bp-sect-head brush-hud-colorhead">
+							{ __( 'Color', 'wunderpaint' ) }
+							{ hud.pick && hud.pick !== state.fgColor && (
+								<button
+									type="button"
+									className="brush-hud-eyedrop"
+									title={ __(
+										'Pick the color under the cursor',
+										'wunderpaint'
+									) }
+									aria-label={ __(
+										'Pick the color under the cursor',
+										'wunderpaint'
+									) }
+									onClick={ () =>
+										dispatch( {
+											type: 'SET_FG',
+											color: hud.pick,
+										} )
+									}
+								>
+									{ I.eyedropper( { size: 12 } ) }
+									<span
+										className="brush-hud-pickchip"
+										style={ { background: hud.pick } }
+									/>
+								</button>
+							) }
+						</span>
+						<ColorWheel
+							color={ state.fgColor }
+							onChange={ ( c ) =>
+								dispatch( { type: 'SET_FG', color: c } )
+							}
+						/>
+					</>
+				) }
+				{ [ 'brush', 'pencil' ].includes( hud.tool ) && (
+					<div className="brush-hud-swatches">
+						{ recentColors()
+							.slice( 0, 18 )
+							.map( ( c ) => (
+								<button
+									key={ c }
+									type="button"
+									className="brush-hud-recent"
+									style={ { background: c } }
+									aria-label={ c }
+									title={ c }
+									onClick={ () =>
+										dispatch( {
+											type: 'SET_FG',
+											color: c,
+										} )
+									}
+								/>
+							) ) }
+					</div>
+				) }
+				<span className="bp-sect-head">
+					{ __( 'Brush', 'wunderpaint' ) }
+				</span>
 				<label>
-					{ __( 'Size', 'wunderpaint' ) }
+					<ScrubLabel
+						as="span"
+						value={ opts.size || 1 }
+						min={ 1 }
+						max={ 500 }
+						onScrub={ ( v ) => set( { size: v } ) }
+					>
+						{ __( 'Size', 'wunderpaint' ) }
+					</ScrubLabel>
 					<input
 						type="range"
 						min="1"
@@ -235,163 +302,58 @@ function BrushHud( { hud, editor, onClose } ) {
 						value={ opts.size || 1 }
 						onChange={ ( e ) => set( { size: +e.target.value } ) }
 					/>
-					<b>{ opts.size }px</b>
+					<ScrubLabel
+						as="b"
+						value={ opts.size || 1 }
+						min={ 1 }
+						max={ 500 }
+						onScrub={ ( v ) => set( { size: v } ) }
+					>
+						{ opts.size }px
+					</ScrubLabel>
 				</label>
-				{ 'pencil' !== hud.tool && Number.isFinite( opts.hardness ) && (
+				{ Number.isFinite( opts.opacity ) && (
 					<label>
-						{ __( 'Hardness', 'wunderpaint' ) }
+						<ScrubLabel
+							as="span"
+							value={ opts.opacity }
+							min={ 0 }
+							max={ 100 }
+							onScrub={ ( v ) => set( { opacity: v } ) }
+						>
+							{ __( 'Opacity', 'wunderpaint' ) }
+						</ScrubLabel>
 						<input
 							type="range"
 							min="0"
 							max="100"
-							value={ opts.hardness }
+							value={ opts.opacity }
 							onChange={ ( e ) =>
-								set( { hardness: +e.target.value } )
+								set( { opacity: +e.target.value } )
 							}
 						/>
-						<b>{ opts.hardness }%</b>
-					</label>
-				) }
-				{ /* Quick color right at the cursor (v1.128.2) - paints
-				     with the shared foreground color. The last used colors
-				     sit right next to the picker (v1.128.3). */ }
-				{ [ 'brush', 'pencil' ].includes( hud.tool ) && (
-					<label htmlFor={ fieldId + '-fg' }>
-						{ __( 'Color', 'wunderpaint' ) }
-						<span className="brush-hud-colors">
-							<SwatchButton
-								id={ fieldId + '-fg' }
-								size={ 22 }
-								color={ state.fgColor }
-								onChange={ ( c ) =>
-									dispatch( { type: 'SET_FG', color: c } )
-								}
-							/>
-							{ recentColors()
-								.slice( 0, 5 )
-								.map( ( c ) => (
-									<button
-										key={ c }
-										type="button"
-										className="brush-hud-recent"
-										style={ { background: c } }
-										aria-label={ c }
-										title={ c }
-										onClick={ () =>
-											dispatch( {
-												type: 'SET_FG',
-												color: c,
-											} )
-										}
-									/>
-								) ) }
-						</span>
-					</label>
-				) }
-				{ undefined !== opts.tip && (
-					<label className="brush-hud-style">
-						{ __( 'Tip', 'wunderpaint' ) }
-						<select
-							value={ opts.tip || 'round' }
-							onChange={ ( e ) => set( { tip: e.target.value } ) }
+						<ScrubLabel
+							as="b"
+							value={ opts.opacity }
+							min={ 0 }
+							max={ 100 }
+							onScrub={ ( v ) => set( { opacity: v } ) }
 						>
-							{ BRUSH_TIPS.map( ( t ) => (
-								<option key={ t.id } value={ t.id }>
-									{ t.label }
-								</option>
-							) ) }
-						</select>
+							{ opts.opacity }%
+						</ScrubLabel>
 					</label>
 				) }
-				{ undefined !== opts.scatter && isStampTip( opts.tip ) && (
-					<>
-						{ [
-							[
-								'scatter',
-								_x( 'Scatter', 'brush tip', 'wunderpaint' ),
-								0,
-								150,
-							],
-							[
-								'spacing',
-								__( 'Spacing', 'wunderpaint' ),
-								0,
-								200,
-							],
-							[
-								'alphaJitter',
-								__( 'Opacity jitter', 'wunderpaint' ),
-								0,
-								100,
-							],
-							[
-								'sizeJitter',
-								__( 'Size jitter', 'wunderpaint' ),
-								0,
-								100,
-							],
-						].map( ( [ key, label, min, max ] ) => {
-							const tip = getTip( opts.tip || 'round' );
-							const auto = Math.round(
-								( tip[ key ] || 0 ) * 100
-							);
-							const val =
-								null === opts[ key ] ||
-								undefined === opts[ key ]
-									? auto
-									: Math.round( opts[ key ] * 100 );
-							return (
-								<label key={ key }>
-									{ label }
-									<input
-										type="range"
-										min={ min }
-										max={ max }
-										value={ val }
-										onChange={ ( e ) =>
-											set( {
-												[ key ]: +e.target.value / 100,
-											} )
-										}
-									/>
-									<b>{ val }</b>
-								</label>
-							);
-						} ) }
-					</>
-				) }
-				{ undefined !== opts.paintStyle && (
-					<label className="brush-hud-style">
-						{ __( 'Style', 'wunderpaint' ) }
-						<select
-							value={ opts.paintStyle || 'normal' }
-							onChange={ ( e ) =>
-								set( { paintStyle: e.target.value } )
-							}
-						>
-							{ PAINT_STYLES.map( ( st ) => (
-								<option key={ st.id } value={ st.id }>
-									{ st.name }
-								</option>
-							) ) }
-						</select>
-					</label>
-				) }
-				{ undefined !== opts.layerMode && (
-					<label className="brush-hud-check">
-						<input
-							type="checkbox"
-							checked={ 'perStroke' === opts.layerMode }
-							onChange={ ( e ) =>
-								set( {
-									layerMode: e.target.checked
-										? 'perStroke'
-										: 'single',
-								} )
-							}
-						/>
-						{ __( 'Each stroke on its own layer', 'wunderpaint' ) }
-					</label>
+				{ 'brush' === hud.tool && wetActive() && (
+					<button
+						type="button"
+						className="brush-hud-dry"
+						onClick={ () => {
+							wetFlushNow();
+							onClose();
+						} }
+					>
+						{ __( 'Dry now', 'wunderpaint' ) }
+					</button>
 				) }
 			</div>
 		</div>
@@ -692,6 +654,20 @@ export function EditorCanvas( { viewApi, extras } ) {
 				current.previewPost.ctx
 			);
 		}
+		// Wet watercolour: while a wash is wet it lives in an overlay that
+		// sits DIRECTLY ABOVE its target layer (same parent, so it stays
+		// inside that group) - layers stacked higher stay higher.
+		const wet = wetOverlayLayer();
+		if ( wet ) {
+			const at = paintedLayers.findIndex( ( l ) => l.id === wet.afterId );
+			if ( at >= 0 ) {
+				paintedLayers = [
+					...paintedLayers.slice( 0, at + 1 ),
+					{ ...wet.layer, parent: paintedLayers[ at ].parent },
+					...paintedLayers.slice( at + 1 ),
+				];
+			}
+		}
 
 		const view = {
 			x: -current.pan.x / current.zoom,
@@ -714,8 +690,25 @@ export function EditorCanvas( { viewApi, extras } ) {
 		const activeIdx = rootId
 			? topLevel.findIndex( ( l ) => l.id === rootId )
 			: -1;
+		// Prefix caching stays ON while a wash is wet - switching it off
+		// made every water tick recomposite the whole stack, which was
+		// half the CPU bill of the first integration. The one case that
+		// must NOT cache: the wash dries on a layer BELOW the active one,
+		// then its overlay sits inside the prefix and a cached prefix
+		// would never see the water move.
+		let wetInPrefix = false;
+		if ( wet && activeIdx > 0 ) {
+			let wr = paintedLayers.find( ( l ) => l.id === wet.afterId );
+			while ( wr?.parent ) {
+				wr = paintedLayers.find( ( l ) => l.id === wr.parent );
+			}
+			const wIdx = wr
+				? topLevel.findIndex( ( l ) => l.id === wr.id )
+				: -1;
+			wetInPrefix = wIdx >= 0 && wIdx < activeIdx;
+		}
 		const sig =
-			activeIdx > 0
+			! wetInPrefix && activeIdx > 0
 				? ( current.revealPasteboard ? 'pb|' : '' ) +
 				  topLevel
 						.slice( 0, activeIdx )
@@ -838,6 +831,14 @@ export function EditorCanvas( { viewApi, extras } ) {
 	// Fresh refs for the rAF closure.
 	const editorRef = useRef( editor );
 	editorRef.current = editor;
+	// The wet watercolour controller needs a live editor and a way to ask
+	// for a repaint while its wash dries.
+	useEffect( () => {
+		bindWet( {
+			getEditor: () => editorRef.current,
+			requestRender,
+		} );
+	}, [ requestRender ] );
 	const draftRef = useRef( draft );
 	draftRef.current = draft;
 	const editingRef = useRef( editingTextId );
@@ -1589,13 +1590,42 @@ export function EditorCanvas( { viewApi, extras } ) {
 					return;
 				}
 				const st = editorRef.current.state;
-				// Paint tools: right-click opens the quick size HUD
-				// (v1.64) instead of the layer menu.
+				// Paint tools: right-click opens the painter's palette
+				// (v1.420.0, was the quick size HUD) instead of the layer
+				// menu. The colour under the cursor is sampled NOW, from
+				// the composited view - wet paint included - so the
+				// palette can offer it as a one-click pick.
 				if ( Number.isFinite( st.toolOpts[ st.tool ]?.size ) ) {
+					let pick = null;
+					try {
+						const c = canvasRef.current;
+						const r = c.getBoundingClientRect();
+						const dpr = window.devicePixelRatio || 1;
+						const d = c
+							.getContext( '2d' )
+							.getImageData(
+								Math.round( ( e.clientX - r.left ) * dpr ),
+								Math.round( ( e.clientY - r.top ) * dpr ),
+								1,
+								1
+							).data;
+						if ( d[ 3 ] > 8 ) {
+							const hx = ( v ) =>
+								v.toString( 16 ).padStart( 2, '0' );
+							pick =
+								'#' +
+								hx( d[ 0 ] ) +
+								hx( d[ 1 ] ) +
+								hx( d[ 2 ] );
+						}
+					} catch ( err ) {
+						pick = null;
+					}
 					setBrushHud( {
 						x: e.clientX,
 						y: e.clientY,
 						tool: st.tool,
+						pick,
 					} );
 					return;
 				}
@@ -2773,9 +2803,13 @@ export function EditorCanvas( { viewApi, extras } ) {
 					// Two columns for the tools that have tips, one for the
 					// rest. 300 rather than less because that is the
 					// floating panel's own min-width; going under it just
-					// gets ignored.
+					// gets ignored. The strip and this number move together,
+					// or the right side gets clipped - and the TOTAL stays
+					// compact: the panel has to stay usable on small
+					// monitors. 350 is the measured no-horizontal-scroll
+					// minimum with the 134px strip (Thomas, v1.411.5).
 					width={
-						undefined === state.toolOpts[ tool ]?.tip ? 300 : 344
+						undefined === state.toolOpts[ tool ]?.tip ? 300 : 350
 					}
 					pos={ brushPos }
 					onMove={ setBrushPos }

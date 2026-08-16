@@ -2018,19 +2018,8 @@ function ToolOptions( { extras, compact } ) {
 						{ opts.opacity }%
 					</span>
 				</div>
-				{ /* Photoshop parity (v1.129.0): the pencil IS the hard tip,
-				     it has neither flow nor hardness; the clone stamp has no
-				     flow either. */ }
-				{ [ 'brush', 'eraser' ].includes( tool ) && (
-					<NumberOpt
-						label={ __( 'Flow', 'wunderpaint' ) }
-						value={ opts.flow }
-						suffix="%"
-						min={ 1 }
-						max={ 100 }
-						onChange={ ( v ) => set( 'flow', v ) }
-					/>
-				) }
+				{ /* Flow lives in the brush panel now (Thomas): the bar
+				     keeps colour, size, opacity, symmetry - and the paper. */ }
 				{ 'pencil' !== tool &&
 					! (
 						'brush' === tool && isStampTip( opts.tip || 'round' )
@@ -2051,7 +2040,7 @@ function ToolOptions( { extras, compact } ) {
 						</span>
 						<select
 							value={ opts.mirror || 'off' }
-							style={ { width: 70 } }
+							style={ { width: 92 } }
 							onChange={ ( e ) =>
 								set( 'mirror', e.target.value )
 							}
@@ -2059,9 +2048,68 @@ function ToolOptions( { extras, compact } ) {
 							<option value="off">
 								{ __( 'Off', 'wunderpaint' ) }
 							</option>
-							<option value="x">↔</option>
-							<option value="y">↕</option>
-							<option value="xy">↔↕</option>
+							<option value="x">
+								{ __( 'Vertical', 'wunderpaint' ) }
+							</option>
+							<option value="y">
+								{ __( 'Horizontal', 'wunderpaint' ) }
+							</option>
+							<option value="xy">
+								{ __( 'Fourfold', 'wunderpaint' ) }
+							</option>
+							<option value="r3">
+								{ __( 'Star 3', 'wunderpaint' ) }
+							</option>
+							<option value="r5">
+								{ __( 'Star 5', 'wunderpaint' ) }
+							</option>
+							<option value="r6">
+								{ __( 'Star 6', 'wunderpaint' ) }
+							</option>
+							<option value="r8">
+								{ __( 'Star 8', 'wunderpaint' ) }
+							</option>
+							<option value="r12">
+								{ __( 'Star 12', 'wunderpaint' ) }
+							</option>
+						</select>
+					</div>
+				) }
+				{ /* The document's paper, one sheet for every wet medium -
+				     lives here rather than in the brush panel (Thomas). */ }
+				{ 'brush' === tool && (
+					<div className="group">
+						<span className="label">
+							{ __( 'Paper', 'wunderpaint' ) }
+						</span>
+						<select
+							value={ state.doc?.paper || 'auto' }
+							style={ { width: 92 } }
+							onChange={ ( e ) =>
+								dispatch( {
+									type: 'SET_DOC',
+									doc: { paper: e.target.value },
+								} )
+							}
+						>
+							<option value="auto">
+								{ __( 'Auto', 'wunderpaint' ) }
+							</option>
+							<option value="hot-press">
+								{ __( 'Hot press', 'wunderpaint' ) }
+							</option>
+							<option value="cold-press">
+								{ __( 'Cold press', 'wunderpaint' ) }
+							</option>
+							<option value="rough">
+								{ __( 'Rough', 'wunderpaint' ) }
+							</option>
+							<option value="canvas">
+								{ __( 'Canvas', 'wunderpaint' ) }
+							</option>
+							<option value="laid">
+								{ __( 'Laid paper', 'wunderpaint' ) }
+							</option>
 						</select>
 					</div>
 				) }

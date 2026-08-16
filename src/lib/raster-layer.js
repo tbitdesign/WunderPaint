@@ -616,7 +616,34 @@ export function effectStamp( layer, at, opts = {} ) {
  * @param {string} mode 'x' | 'y' | 'xy'.
  * @return {string[]} Mirrored variants (original not included).
  */
+/** Rotational symmetry modes: N copies spinning around the canvas centre. */
+export const STAR_SYMMETRY = { r3: 3, r5: 5, r6: 6, r8: 8, r12: 12 };
+
 export function mirrorPathD( d, w, h, mode ) {
+	const star = STAR_SYMMETRY[ mode ];
+	if ( star ) {
+		// Rotation is affine, so transforming every coordinate PAIR keeps
+		// the smoothed path's Q control points valid, same as the flips.
+		const out = [];
+		for ( let k = 1; k < star; k++ ) {
+			const ang = ( 2 * Math.PI * k ) / star;
+			const cos = Math.cos( ang );
+			const sin = Math.sin( ang );
+			out.push(
+				d.replace(
+					/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g,
+					( m, x, y ) => {
+						const dx = parseFloat( x ) - w / 2;
+						const dy = parseFloat( y ) - h / 2;
+						return `${ w / 2 + cos * dx - sin * dy } ${
+							h / 2 + sin * dx + cos * dy
+						}`;
+					}
+				)
+			);
+		}
+		return out;
+	}
 	const flip = ( fx, fy ) =>
 		d.replace(
 			/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g,

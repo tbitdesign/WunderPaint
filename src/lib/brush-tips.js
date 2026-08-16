@@ -10,6 +10,7 @@ import { __ } from '@wordpress/i18n';
 
 import { tipMask, clearTipMasks } from './tip-mask';
 import { markColour } from './mark-colour';
+import { MEDIA_TIPS, mediaMask } from './media-tips';
 
 export const BRUSH_TIPS = [
 	// Round family (continuous stroke, soft = feather amount).
@@ -396,6 +397,10 @@ export const BRUSH_TIPS = [
 		rotJitter: true,
 		alphaJitter: 0.3,
 	},
+
+	// MEDIA BRUSHES: three tuned tips per paint style - organic masks,
+	// direction-following, tight spacing. Built in lib/media-tips.js.
+	...MEDIA_TIPS,
 ];
 
 export const BRUSH_TIP_MAP = BRUSH_TIPS.reduce( ( map, tip ) => {
@@ -538,21 +543,46 @@ function drawStar( ctx, x, y, r, points ) {
 	ctx.fill();
 }
 
-function drawMark( ctx, x, y, size, tip, rnd ) {
+function drawMark( ctx, x, y, size, tip, rnd, dir ) {
 	const jitter = tip.sizeJitter ? 1 - tip.sizeJitter * rnd() : 1;
 	const s = Math.max( 0.5, size * ( tip.markSize || 1 ) * jitter );
 	const shape = tip.shape || 'circle';
 	// Random per-mark rotation (v1.123): true = free spin, number = the
-	// fraction of a half turn each mark may deviate.
+	// fraction of a half turn each mark may deviate. A tip that FOLLOWS
+	// the stroke adds the sampled path direction on top - that turn into
+	// the hand's motion is most of the distance between a stamped shape
+	// and a brush (the media brushes, v1.411.0).
 	const rot =
 		( ( tip.angle || 0 ) * Math.PI ) / 180 +
+		( tip.followDir ? dir || 0 : 0 ) +
 		( tip.rotJitter
 			? ( rnd() - 0.5 ) *
 			  2 *
 			  Math.PI *
 			  ( true === tip.rotJitter ? 1 : tip.rotJitter )
 			: 0 );
-	if ( 'mask' === shape ) {
+	if ( 'media' === shape ) {
+		// Torn variants: at 3-5% spacing overlapping stamps bridge any
+		// break INSIDE one mask, so break-up along the stroke has to come
+		// from the mask CHANGING stamp to stamp.
+		const variant =
+			tip.variants > 1 ? Math.floor( rnd() * tip.variants ) : 0;
+		const m = mediaMask( tip.id, s, String( ctx.fillStyle ), variant );
+		if ( m ) {
+			ctx.save();
+			ctx.translate( x, y );
+			if ( rot ) {
+				ctx.rotate( rot );
+			}
+			ctx.drawImage( m, -s / 2, -s / 2, s, s );
+			ctx.restore();
+		} else {
+			// Off-DOM (a test run): a round mark keeps the brush working.
+			ctx.beginPath();
+			ctx.arc( x, y, s / 2, 0, 2 * Math.PI );
+			ctx.fill();
+		}
+	} else if ( 'mask' === shape ) {
 		// The stroke's colour is already on the context; the mask is baked
 		// in that colour, so one drawImage is the whole mark.
 		const m = tipMask(
@@ -677,6 +707,7 @@ function drawMark( ctx, x, y, size, tip, rnd ) {
 const MARK_SHAPE_REACH = {
 	circle: 0.5, // ctx.arc radius s/2
 	mask: Math.hypot( 0.5, 0.5 ), // corner of the square the recipe fills
+	media: Math.hypot( 0.5, 0.5 ), // same square, procedurally filled
 	square: Math.hypot( 0.5, 0.5 ), // corner of the side-s square
 	star: 0.5, // outer points sit at radius s/2
 	diamond: Math.hypot( 0.36, 0.36 ), // corner of the rotated 0.72s square
@@ -887,6 +918,14 @@ export function stampTipStroke( ctx, path ) {
 	const vary = markColour( { ...path, ...tip }, samples.length );
 	for ( let si = 0; si < samples.length; si++ ) {
 		const p = samples[ si ];
+		// The stroke direction at this sample, for tips that follow it.
+		// Central difference; a single-sample stroke has no direction.
+		let dir = 0;
+		if ( tip.followDir && samples.length > 1 ) {
+			const q = samples[ Math.min( si + 1, samples.length - 1 ) ];
+			const o = samples[ Math.max( si - 1, 0 ) ];
+			dir = Math.atan2( q.y - o.y, q.x - o.x );
+		}
 		for ( let i = 0; i < count; i++ ) {
 			rnd.seed( si, i );
 			let x = p.x;
@@ -906,7 +945,7 @@ export function stampTipStroke( ctx, path ) {
 					ctx.globalAlpha *= shade.alpha;
 				}
 			}
-			drawMark( ctx, x, y, size, tip, rnd );
+			drawMark( ctx, x, y, size, tip, rnd, dir );
 		}
 	}
 	ctx.restore();
@@ -926,6 +965,11 @@ export function stampTipStroke( ctx, path ) {
  * BRUSH_TIPS can never make it vanish from the panel.
  */
 export const TIP_GROUPS = [
+	{
+		id: 'media',
+		name: __( 'Media brushes', 'wunderpaint' ),
+		tips: MEDIA_TIPS.map( ( t ) => t.id ),
+	},
 	{
 		id: 'paint',
 		name: __( 'Paint', 'wunderpaint' ),

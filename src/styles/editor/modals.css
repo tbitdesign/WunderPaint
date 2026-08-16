@@ -1962,35 +1962,87 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 #wpie-root .brush-hud {
 	position: fixed;
 	z-index: 60;
-	display: flex;
-	gap: 10px;
-	align-items: center;
-	padding: 10px 12px;
+
+	/* One column, fixed width: the wheel fills it, the small tiles flow.
+	   The old 48px stroke-dot preview is gone - it only ever showed a
+	   white dot (Thomas). */
+	width: 224px;
+	padding: 8px 10px 10px;
 	background: var(--ed-panel);
 	border: 1px solid var(--ed-border);
 	border-radius: 6px;
 	box-shadow: 0 6px 24px rgb(0 0 0 / 35%);
 }
 
-#wpie-root .brush-hud-preview {
-	display: grid;
-	flex: none;
-	place-items: center;
-	width: 48px;
-	height: 48px;
-	background: var(--ed-panel-alt);
-	border: 1px solid var(--ed-border);
-	border-radius: 5px;
-}
-
-#wpie-root .brush-hud-dot {
-	background: var(--ed-text);
-	border-radius: 50%;
+#wpie-root .brush-hud .bp-sect-head {
+	display: block;
+	margin: 6px 0 3px;
 }
 
 /* The popover grew from three rows to eleven, so it scrolls rather than
    running off the bottom of the screen. The measured clamp keeps it in
    view; this keeps it usable once it hits that ceiling. */
+#wpie-root .brush-hud-swatches {
+	display: grid;
+	grid-template-columns: repeat( auto-fill, 18px );
+	justify-content: space-between;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 6px;
+}
+
+/* The cursor pipette lives IN the Color heading line: eyedropper icon
+   plus the sampled colour, tooltip explains, one click picks. A row of
+   its own read as misplaced; a bare swatch read as a bug (Thomas). */
+#wpie-root .brush-hud .bp-sect-head.brush-hud-colorhead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+#wpie-root .brush-hud-eyedrop {
+	display: flex;
+	flex: none;
+	gap: 4px;
+	align-items: center;
+	height: 18px;
+	padding: 1px 4px;
+	color: var( --ed-text-muted, #9aa3ad );
+	cursor: pointer;
+	background: var( --surface-input, #232830 );
+	border: 1px solid var( --ed-border, #3a414d );
+	border-radius: 5px;
+}
+
+#wpie-root .brush-hud-eyedrop:hover {
+	color: var( --ed-text, #e8ecf1 );
+	border-color: var( --accent, #3b66ff );
+}
+
+#wpie-root .brush-hud-pickchip {
+	flex: none;
+	width: 12px;
+	height: 12px;
+	border: 1px solid rgb( 255 255 255 / 25% );
+	border-radius: 3px;
+}
+
+#wpie-root .brush-hud-dry {
+	width: 100%;
+	margin-top: 4px;
+	padding: 4px;
+	font-size: 11px;
+	color: var( --ed-text, #e8ecf1 );
+	cursor: pointer;
+	background: var( --surface-input, #232830 );
+	border: 1px solid var( --ed-border, #3a414d );
+	border-radius: 6px;
+}
+
+#wpie-root .brush-hud-dry:hover {
+	border-color: var( --accent, #3b66ff );
+}
+
 #wpie-root .brush-hud-rows {
 	display: flex;
 	flex-direction: column;
@@ -2003,11 +2055,21 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 
 #wpie-root .brush-hud-rows label {
 	display: grid;
-	grid-template-columns: 58px 120px 44px;
+
+	/* Fits INSIDE the 224px palette - and minmax(0,1fr), NOT 1fr: a
+	   range input's ~130px intrinsic min-width otherwise blows the grid
+	   open and pushes the value column past overflow-x (Thomas found
+	   both halves of this). */
+	grid-template-columns: 44px minmax( 0, 1fr ) 40px;
 	gap: 8px;
 	align-items: center;
 	font-size: 11px;
 	color: var(--ed-text-muted);
+}
+
+#wpie-root .brush-hud-rows label input[type='range'] {
+	width: 100%;
+	min-width: 0;
 }
 
 #wpie-root .brush-hud-rows b {
@@ -2103,7 +2165,7 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 
 #wpie-root .bp-tips {
 	flex: 0 0 auto;
-	width: 120px;
+	width: 134px;
 	max-height: 76vh;
 	overflow-y: auto;
 	overflow-x: hidden;
@@ -2147,7 +2209,10 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	min-width: 200px;
+
+	/* 180, nicht 200: mit der 134er-Leiste plus Innenabstaenden ist 200
+	   breiter als das 350er-Fenster - der horizontale Scrollbalken. */
+	min-width: 180px;
 
 	/* The same ceiling as the tip strip: two columns of one panel
 	   should not start scrolling at different screen heights. */
@@ -2194,7 +2259,7 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 }
 
 #wpie-root .bp-style {
-	padding: 5px 4px;
+	padding: 2px 4px;
 	font-size: 11px;
 	border-radius: 6px;
 	border: 1px solid var( --ed-border, #2a2f36 );
@@ -2208,6 +2273,10 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	border-color: var( --accent, #3b66ff );
 	color: #fff;
 }
+
+/* The active style's three tuned brushes, pinned at the top of the tip
+   strip - they are tips, so they live with the tips, in exactly the
+   catalogue's tile size (Thomas: bigger tiles waste the column). */
 
 #wpie-root .bp-row {
 	display: grid;
@@ -2275,21 +2344,6 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 
 /* Ten colours across a narrow column are small squares whatever you do, so
    the gap has to do the separating. At 3px they read as one striped band. */
-#wpie-root .bp-recent {
-	display: grid;
-	grid-template-columns: repeat(10, 1fr);
-	gap: 5px;
-	margin-top: 14px;
-}
-
-#wpie-root .bp-recent button {
-	height: 18px;
-	padding: 0;
-	border: 1px solid rgb(255 255 255 / 18%);
-	border-radius: 4px;
-	cursor: pointer;
-}
-
 /* The option belongs to the panel, not to Colour: pinned to the foot so
    the space the tall tip strip leaves over is used on purpose.
 
@@ -2322,10 +2376,14 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	touch-action: none;
 	user-select: none;
 	margin: 0 auto;
+	width: 100%;
+	aspect-ratio: 1 / 1;
 }
 
 #wpie-root .cw canvas {
 	display: block;
+	width: 100%;
+	height: 100%;
 }
 
 #wpie-root .cw-sq {
@@ -2353,6 +2411,10 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 /* The way in to the maker. First thing in the strip, because a tip you
    drew yourself belongs above the gallery you were given. */
 #wpie-root .bp-newtip {
+	/* Pinned to the strip's bottom edge; the strip scrolls behind it. */
+	position: sticky;
+	bottom: 0;
+	margin-top: auto;
 	width: 100%;
 	margin-bottom: 6px;
 	padding: 5px 4px;
@@ -2399,10 +2461,12 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 
 #wpie-root .bp-tipgrid {
 	display: grid;
-	grid-template-columns: repeat( 3, 1fr );
+	grid-template-columns: repeat( 5, 1fr );
 	gap: 3px;
 	margin-top: 3px;
 }
+
+
 
 /* The canvas area hides the system cursor while a paint tool is active
    (it draws its own brush ring instead). A floating panel lives inside

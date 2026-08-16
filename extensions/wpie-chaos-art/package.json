@@ -1,0 +1,17 @@
+{
+	"name": "wpie-chaos-art",
+	"version": "0.11.3",
+	"private": true,
+	"type": "module",
+	"description": "WPIE extension: Chaos Art - autonomous actors paint unrepeatable abstract art in 3D space",
+	"scripts": {
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js && esbuild src/runtime.js --bundle --format=iife --minify --outfile=runtime.js",
+		"test": "node --test tests/*.test.js",
+		"qa": "node tools/qa-dialog.mjs",
+		"qa:embed": "node tools/probe-embed-scroll.mjs"
+	},
+	"devDependencies": {
+		"esbuild": "^0.28.1",
+		"three": "^0.185.1"
+	}
+}

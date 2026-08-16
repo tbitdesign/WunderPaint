@@ -61,6 +61,7 @@ import {
 	cloneStamp,
 	effectStamp,
 	mirrorPathD,
+	STAR_SYMMETRY,
 } from '../../lib/raster-layer';
 import {
 	samplePixel,
@@ -74,6 +75,8 @@ import { rgbToHex, colorLuminance } from '../../lib/color';
 import { parsePathAnchors, nearestOnPath } from '../../lib/path-edit';
 import { shapeToPathD } from '../../lib/shape-path';
 import { mirrorPts, stampMaxReach } from '../../lib/brush-tips';
+import { pulledString } from '../../lib/stroke-smoothing';
+import { penTilt } from '../../lib/pen-dynamics';
 import { collectTargets, snapRect } from '../../lib/snap';
 import { cropDoc, cloneLayerTree } from '../../store/doc-ops';
 import { expandGroupIds } from '../../store/editor-context';
@@ -97,6 +100,12 @@ import {
 	styleIsPlain,
 	styleMaxSpread,
 } from '../../lib/paint-engine';
+import {
+	wetStrokeDown,
+	wetStrokeMove,
+	wetStrokeUp,
+	WET_STYLE_IDS,
+} from './wet-controller';
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -435,6 +444,29 @@ export function mirrorStrokeTwins( path, docW, docH, mirror ) {
 		return [];
 	}
 	const ds = mirrorPathD( path.d, docW, docH, mirror );
+	const star = STAR_SYMMETRY[ mirror ];
+	if ( star ) {
+		// N rotated twins around the canvas centre (Star 3..12).
+		return ds.map( ( d2, i ) => {
+			const ang = ( 2 * Math.PI * ( i + 1 ) ) / star;
+			const cos = Math.cos( ang );
+			const sin = Math.sin( ang );
+			return {
+				...path,
+				d: d2,
+				pts: ( path.pts || [] ).map( ( pt ) => ( {
+					x:
+						docW / 2 +
+						cos * ( pt.x - docW / 2 ) -
+						sin * ( pt.y - docH / 2 ),
+					y:
+						docH / 2 +
+						sin * ( pt.x - docW / 2 ) +
+						cos * ( pt.y - docH / 2 ),
+				} ) ),
+			};
+		} );
+	}
 	const axes = 'xy' === mirror ? [ 'x', 'y', 'xy' ] : [ mirror ];
 	return ds.map( ( d2, i ) => ( {
 		...path,
@@ -1790,12 +1822,29 @@ function maskStrokeMove( tc, p ) {
 
 /* ---------------------------- Brush / Pencil ---------------------------- */
 
+/*
+ * The pulled string (stroke smoothing): module state, deliberately NOT in
+ * the React draft - a stale draft point under load was the sun-ray bug.
+ * One stroke at a time; reset on every down and up.
+ */
+let seilPen = null;
+let seilRaw = null;
+
 function makePaintTool( toolId ) {
 	return {
 		onDown( tc, e, p ) {
 			// Pen pressure scales the stroke (F16).
 			tc.pressure =
 				e.pressure > 0 && e.pressure < 1 ? 0.35 + e.pressure * 0.65 : 1;
+			// The wet styles read the RAW pen pressure; a mouse reports a
+			// constant 0.5 while its button is down, so anything that is
+			// not a pen counts as full pressure or mouse strokes would
+			// paint thinner than before.
+			tc.penPressure =
+				'pen' === e.pointerType && e.pressure > 0 ? e.pressure : 1;
+			tc.penTilt = penTilt( e );
+			seilPen = { x: p.x, y: p.y };
+			seilRaw = { x: p.x, y: p.y };
 			const maskLayer = maskPaintTarget( tc );
 			if ( maskLayer ) {
 				maskStrokeStart( tc, maskLayer, p, tc.fg );
@@ -1803,6 +1852,22 @@ function makePaintTool( toolId ) {
 			}
 			const opts = tc.opts;
 			const isPencil = 'pencil' === toolId;
+			// The wet styles (spec 2026-08-14): the stroke goes into the
+			// living paint simulation instead of the static style pass. The
+			// overlay above the target layer is the preview, so no draft
+			// layer is added. wetStrokeDown says no for everything it
+			// cannot serve (stroke-layer mode, unpaintable targets, no
+			// WebGL2), and a live selection keeps the classic pass too -
+			// the wash would ignore the marching ants.
+			if (
+				! isPencil &&
+				WET_STYLE_IDS.includes( opts.paintStyle ) &&
+				! tc.selection &&
+				wetStrokeDown( tc, p )
+			) {
+				tc.setDraft( { kind: 'wetpaint', lastPt: p } );
+				return;
+			}
 			const layer = makeStroke( {
 				name:
 					'pencil' === toolId
@@ -1878,9 +1943,42 @@ function makePaintTool( toolId ) {
 		onMove( tc, e, p ) {
 			tc.pressure =
 				e.pressure > 0 && e.pressure < 1 ? 0.35 + e.pressure * 0.65 : 1;
+			tc.penPressure =
+				'pen' === e.pointerType && e.pressure > 0 ? e.pressure : 1;
+			tc.penTilt = penTilt( e );
 			const draft = tc.draft;
+			// The pulled string: the brush point trails the cursor on a
+			// string, so hand jitter and hard corners round off BEFORE any
+			// paint is laid - the wet media deposit live and cannot be
+			// smoothed after the fact. Length in screen px, so the feel
+			// does not change with zoom.
+			if (
+				draft &&
+				[ 'paint', 'wetpaint', 'maskpaint' ].includes( draft.kind )
+			) {
+				const len =
+					( ( tc.opts.smoothing ?? 0 ) * 0.5 ) / ( tc.zoom || 1 );
+				if ( len > 0 ) {
+					seilRaw = { x: p.x, y: p.y };
+					const zug = pulledString( seilPen, p, len );
+					if ( ! zug ) {
+						return; // string still slack: the pen stays put
+					}
+					seilPen = zug;
+					p = zug;
+				}
+			}
 			if ( draft && 'maskpaint' === draft.kind ) {
 				maskStrokeMove( tc, p );
+				return;
+			}
+			if ( draft && 'wetpaint' === draft.kind ) {
+				const from = draft.lastPt;
+				if ( Math.hypot( p.x - from.x, p.y - from.y ) < 2 / tc.zoom ) {
+					return;
+				}
+				wetStrokeMove( tc, from, p );
+				tc.setDraft( { ...draft, lastPt: p } );
 				return;
 			}
 			if ( ! draft || 'paint' !== draft.kind ) {
@@ -1919,6 +2017,19 @@ function makePaintTool( toolId ) {
 		onUp( tc ) {
 			const draft = tc.draft;
 			if ( draft && 'maskpaint' === draft.kind ) {
+				// Catch-up, same as the other kinds: the string leaves the
+				// stroke short of the hand's endpoint.
+				if (
+					seilRaw &&
+					seilPen &&
+					( tc.opts.smoothing ?? 0 ) > 0 &&
+					Math.hypot( seilRaw.x - seilPen.x, seilRaw.y - seilPen.y ) >
+						0.5
+				) {
+					maskStrokeMove( tc, seilRaw );
+				}
+				seilPen = null;
+				seilRaw = null;
 				tc.setDraft( null );
 				tc.editor.dispatch( {
 					type: 'UPDATE_LAYER',
@@ -1926,6 +2037,28 @@ function makePaintTool( toolId ) {
 					patch: {},
 				} );
 				tc.editor.commit( __( 'Edit mask', 'wunderpaint' ) );
+				return;
+			}
+			if ( draft && 'wetpaint' === draft.kind ) {
+				// Catch-up: the string leaves the pen short of the hand's
+				// endpoint; one final segment closes the gap.
+				if (
+					seilRaw &&
+					( tc.opts.smoothing ?? 0 ) > 0 &&
+					Math.hypot(
+						seilRaw.x - ( seilPen?.x ?? seilRaw.x ),
+						seilRaw.y - ( seilPen?.y ?? seilRaw.y )
+					) > 0.5
+				) {
+					wetStrokeMove( tc, seilPen || seilRaw, seilRaw );
+				}
+				seilPen = null;
+				seilRaw = null;
+				// Nothing commits here: the wash keeps living in the wet
+				// layer and bakes into its target as ONE history entry when
+				// it has dried (or when undo/save/export flush it).
+				tc.setDraft( null );
+				wetStrokeUp();
 				return;
 			}
 			if ( ! draft || 'paint' !== draft.kind ) {
@@ -1940,13 +2073,26 @@ function makePaintTool( toolId ) {
 			// closed themselves: a mirrored twin ends at a mirrored point,
 			// so closing it against the raw pointer position would draw a
 			// line from the twin clear across the canvas to the original.
+			// With the string active the pen ends short of the hand; the
+			// close-out runs to the RAW endpoint, and the stamped tips'
+			// point list gets it too.
+			const zugEnde =
+				seilRaw && ( tc.opts.smoothing ?? 0 ) > 0
+					? seilRaw
+					: draft.lastPt;
+			seilPen = null;
+			seilRaw = null;
 			const mainPath = {
 				...draft.layer.paths[ 0 ],
 				d: closeStroke(
 					draft.layer.paths[ 0 ].d,
-					draft.lastPt,
+					zugEnde,
 					draft.smooth
 				),
+				pts:
+					zugEnde === draft.lastPt
+						? draft.layer.paths[ 0 ].pts
+						: [ ...( draft.layer.paths[ 0 ].pts || [] ), zugEnde ],
 			};
 			draft.layer = {
 				...draft.layer,
@@ -1984,18 +2130,29 @@ function makePaintTool( toolId ) {
 			// Symmetry twins live outside the pointer-path bounds, union
 			// their mirrored extents or they get cropped away on commit
 			// (v1.12 fix).
+			// The catch-up runs the path up to a whole string length past
+			// the last SMOOTHED point, and the bounds only ever saw the
+			// smoothed ones - without this the commit window sliced the
+			// tail off flat at its edge. When zugEnde IS the last point
+			// the min/max change nothing.
+			const bnd = {
+				minX: Math.min( draft.bounds.minX, zugEnde.x ),
+				minY: Math.min( draft.bounds.minY, zugEnde.y ),
+				maxX: Math.max( draft.bounds.maxX, zugEnde.x ),
+				maxY: Math.max( draft.bounds.maxY, zugEnde.y ),
+			};
 			const mirror = tc.opts.mirror;
-			let { minX, minY, maxX, maxY } = draft.bounds;
+			let { minX, minY, maxX, maxY } = bnd;
 			if ( mirror && 'off' !== mirror ) {
 				if ( 'x' === mirror || 'xy' === mirror ) {
-					const fx1 = tc.doc.w - draft.bounds.maxX;
-					const fx2 = tc.doc.w - draft.bounds.minX;
+					const fx1 = tc.doc.w - bnd.maxX;
+					const fx2 = tc.doc.w - bnd.minX;
 					minX = Math.min( minX, fx1 );
 					maxX = Math.max( maxX, fx2 );
 				}
 				if ( 'y' === mirror || 'xy' === mirror ) {
-					const fy1 = tc.doc.h - draft.bounds.maxY;
-					const fy2 = tc.doc.h - draft.bounds.minY;
+					const fy1 = tc.doc.h - bnd.maxY;
+					const fy2 = tc.doc.h - bnd.minY;
 					minY = Math.min( minY, fy1 );
 					maxY = Math.max( maxY, fy2 );
 				}

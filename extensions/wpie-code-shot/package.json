@@ -1,6 +1,6 @@
 {
 	"name": "wpie-code-shot",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"private": true,
 	"description": "Code Shot extension for WunderPaint.",
 	"scripts": {

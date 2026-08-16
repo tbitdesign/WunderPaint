@@ -83,6 +83,13 @@ upng-js — APNG encoding
   MIT License. Copyright (c) 2017 Photopea.
   Source: https://github.com/photopea/UPNG.js  Ships as build/upng.<hash>.js
 
+Spectral.js — Kubelka-Munk pigment mixing (the paint media of the brush tool)
+  MIT License. Copyright (c) Ronald van Wijnen.
+  Reimplemented in plain JavaScript after the original; the spectral tables
+  (src/lib/spectral-tables.js) are derived from its GLSL data.
+  Source: https://github.com/rvanwijnen/spectral.js  Ships inside the editor
+  bundle (build/index.js); readable source at src/lib/spectral.js.
+
 
 Bundled build-time assets (embedded into the plugin build)
 ----------------------------------------------------------

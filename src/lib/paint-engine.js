@@ -71,6 +71,23 @@ export const PAINT_STYLES = [
 		gloss: 0,
 	},
 	{
+		id: 'water',
+		name: __( 'Water', 'wunderpaint' ),
+		// The water brush: no pigment of its own - it wets, spreads and
+		// redissolves what lies there. Its real life is the wet island
+		// (WET_STYLES.water); WITHOUT WebGL these static values make it
+		// degrade to a barely-there wash instead of crashing or doing
+		// nothing silently.
+		mixing: true,
+		load: 0.3,
+		pickup: 0.5,
+		edge: 0.25,
+		grain: 0.2,
+		bleed: 0.7,
+		body: 0,
+		gloss: 0,
+	},
+	{
 		id: 'gouache',
 		name: __( 'Gouache', 'wunderpaint' ),
 		// Watercolour's opaque cousin: still mixes, barely creeps.
@@ -111,6 +128,48 @@ export const PAINT_STYLES = [
 		bleed: 0,
 		body: 0.62,
 		gloss: 0.3,
+	},
+	{
+		id: 'ink',
+		name: __( 'Ink', 'wunderpaint' ),
+		// The staining cousin: dense, fixes fast, feathers little. These
+		// numbers are the STATIC fallback - with WebGL2 the wet island
+		// serves this style with real water.
+		mixing: true,
+		load: 0.35,
+		pickup: 0.05,
+		edge: 0.55,
+		grain: 0.12,
+		bleed: 0.25,
+		body: 0,
+		gloss: 0,
+	},
+	{
+		id: 'charcoal',
+		name: __( 'Charcoal', 'wunderpaint' ),
+		// Dry medium: everything is tooth. Static fallback, see ink.
+		mixing: true,
+		load: 0.25,
+		pickup: 0.15,
+		edge: 0,
+		grain: 0.8,
+		bleed: 0,
+		body: 0.12,
+		gloss: 0,
+	},
+	{
+		id: 'pastel',
+		name: __( 'Pastel', 'wunderpaint' ),
+		// Charcoal's coloured, softer sibling: velvety, lays more dust,
+		// bites the tooth less. Static fallback, see ink.
+		mixing: true,
+		load: 0.35,
+		pickup: 0.2,
+		edge: 0,
+		grain: 0.65,
+		bleed: 0,
+		body: 0.08,
+		gloss: 0,
 	},
 	{
 		id: 'smudge',

@@ -164,10 +164,16 @@ export function ColorWheel( { color, onChange, size = 176 } ) {
 		handle( p, which );
 	};
 
+	// Percent positions, not pixels: the wheel fills whatever column it
+	// sits in (capped at its own render resolution so the canvas never
+	// upscales blurry), and the hit math already divides by the measured
+	// bounding box, so scaling costs nothing.
+	const pc = ( v ) => ( v / size ) * 100 + '%';
+
 	return (
 		<div
 			className="cw"
-			style={ { width: size, height: size } }
+			style={ { maxWidth: size } }
 			onPointerDown={ onDown }
 			onPointerMove={ ( e ) => {
 				if ( drag.current ) {
@@ -179,14 +185,14 @@ export function ColorWheel( { color, onChange, size = 176 } ) {
 			role="application"
 			aria-label={ __( 'Color wheel', 'wunderpaint' ) }
 		>
-			<canvas ref={ ref } style={ { width: size, height: size } } />
+			<canvas ref={ ref } />
 			<div
 				className="cw-sq"
 				style={ {
-					left: sqLeft,
-					top: sqTop,
-					width: sq,
-					height: sq,
+					left: pc( sqLeft ),
+					top: pc( sqTop ),
+					width: pc( sq ),
+					height: pc( sq ),
 					background:
 						'linear-gradient(to top, #000, transparent),' +
 						'linear-gradient(to right, #fff, ' +
@@ -197,22 +203,24 @@ export function ColorWheel( { color, onChange, size = 176 } ) {
 			<span
 				className="cw-ringdot"
 				style={ {
-					left:
+					left: pc(
 						c +
-						Math.cos( hsv.h * Math.PI * 2 ) *
-							( ( outer + inner ) / 2 ),
-					top:
+							Math.cos( hsv.h * Math.PI * 2 ) *
+								( ( outer + inner ) / 2 )
+					),
+					top: pc(
 						c +
-						Math.sin( hsv.h * Math.PI * 2 ) *
-							( ( outer + inner ) / 2 ),
+							Math.sin( hsv.h * Math.PI * 2 ) *
+								( ( outer + inner ) / 2 )
+					),
 					background: hueHex,
 				} }
 			/>
 			<span
 				className="cw-dot"
 				style={ {
-					left: sqLeft + hsv.s * sq,
-					top: sqTop + ( 1 - hsv.v ) * sq,
+					left: pc( sqLeft + hsv.s * sq ),
+					top: pc( sqTop + ( 1 - hsv.v ) * sq ),
 					background: dotHex,
 				} }
 			/>

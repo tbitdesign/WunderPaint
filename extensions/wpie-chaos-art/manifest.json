@@ -1,0 +1,15 @@
+{
+	"name": "Chaos Art",
+	"slug": "wpie-chaos-art",
+	"version": "0.11.3",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Art that paints itself, once, and never the same way again. Press start and a small society of independent painters goes to work inside a deep three-dimensional space: some lay down ribbons of ink, some grow coral, some weave glowing threads, some breathe clouds of soft color. Nobody conducts them. A camera drifts through the work while it grows, time itself stretches and snaps, colors wander, strokes swell and thin - each of these is its own stubborn character, and none of them waits for another. The only thing they share is the artwork. There is no seed and no undo into the past: the same settings will never produce the same picture twice, because before you start, YOU charge the piece with entropy by moving your pointer over a field, and while it paints, your pointer keeps stirring the space. When something beautiful happens, stop: a quiet strip of snapshots has been keeping the last minutes for you, so the moment you loved is never lost. Put the chosen moment on your canvas as a picture in your document's own proportions, save it to the Media Library, or download the whole painting session as a process film that shows the artwork coming into being. A big order-to-chaos dial, energy, density and tempo set the temperament; palettes and Brand Kits set the colors; bloom, depth blur, grain and vignette set the mood, from quiet paper to burning nebula. Everything is computed in your browser - no server, no upload, no account.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.10.0",
+	"provides": [
+		"generator"
+	],
+	"category": "art",
+	"tier": "free"
+}

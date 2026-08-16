@@ -153,6 +153,36 @@ export function setDocTransform( ctx, layer, size ) {
 }
 
 /**
+ * The exact inverse of `setDocTransform`: set a context up so drawing the
+ * layer's canvas at (0,0) lands where the renderer would put it, in
+ * DOCUMENT coordinates shifted by (-offX, -offY). Used by the wet island
+ * to slice the target layer's pixels into its ground texture.
+ *
+ * @param {Object} ctx   The destination canvas 2D context.
+ * @param {Object} layer The raster layer being read.
+ * @param {number} offX  Document x that maps to the context's 0.
+ * @param {number} offY  Document y that maps to the context's 0.
+ */
+export function setLayerToDocTransform( ctx, layer, offX, offY ) {
+	const cw = layer.canvas.width;
+	const ch = layer.canvas.height;
+	const w = Math.max( 1, layer.w );
+	const h = Math.max( 1, layer.h );
+	ctx.setTransform( 1, 0, 0, 1, 0, 0 );
+	ctx.translate( -offX, -offY );
+	// Inverse chain, applied in reverse order of setDocTransform.
+	ctx.translate( layer.x + w / 2, layer.y + h / 2 );
+	if ( layer.rot ) {
+		ctx.rotate( ( layer.rot * Math.PI ) / 180 );
+	}
+	if ( layer.flipX || layer.flipY ) {
+		ctx.scale( layer.flipX ? -1 : 1, layer.flipY ? -1 : 1 );
+	}
+	ctx.translate( -w / 2, -h / 2 );
+	ctx.scale( w / cw, h / ch );
+}
+
+/**
  * Canvas-pixel bounds a document-space rectangle covers once mapped
  * through `setDocTransform`, clamped to the layer's own canvas.
  *

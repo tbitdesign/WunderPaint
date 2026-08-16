@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.404.0
+Stable tag: 1.424.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -86,7 +86,7 @@ Everything runs on your own server: no telemetry, no tracking, self-hosted fonts
 
 = Grows with extensions =
 
-Studios that go beyond everyday editing come with the plugin and are simply there after installing: Map Posters, Star Map Posters, Route Visualizer (a GPX track becomes a poster), Soundwave Art, Photo Mosaic, Text Art, Puzzle Sheets, Party Printables, Stitch Patterns, Drawing Templates, Origami, Day Ring, Papercut Art, Marble Bath, Mystic Studio, Seamless Patterns, Handwriting Fonts, Code Shot and Reformat (social formats with safe zones, in one pass). Each is a self-contained studio inside the editor, and new ones arrive with the next update.
+Studios that go beyond everyday editing come with the plugin and are simply there after installing: Chaos Art (a society of autonomous painters makes one-of-a-kind abstract art that can never be painted twice), Map Posters, Star Map Posters, Route Visualizer (a GPX track becomes a poster), Soundwave Art, Photo Mosaic, Text Art, Puzzle Sheets, Party Printables, Stitch Patterns, Drawing Templates, Origami, Day Ring, Papercut Art, Marble Bath, Mystic Studio, Seamless Patterns, Handwriting Fonts, Code Shot and Reformat (social formats with safe zones, in one pass). Each is a self-contained studio inside the editor, and new ones arrive with the next update.
 
 WunderPaint Pro adds the extension manager - browse, install and update in one click - and the premium studios: 3D Mockup Studio with its library of product models, 3D Text, Motion Graphics, 3D Particle Studio, Cinematic Effects, Smart Diagrams, Calendars, Step Guides, Dynamic Showcases, Living Photos, Generative Art, AI Ad Banners and more. Extension packages are client-side only and can never ship server code.
 
@@ -184,6 +184,7 @@ Each library below is bundled into its own file under build/, named after the li
 * upng-js — MIT License (APNG encoding). Source: https://github.com/photopea/UPNG.js — build/upng.<hash>.js
 * unicode-emoji-json — MIT License (emoji metadata). Source: https://github.com/muan/unicode-emoji-json — build/emoji-lib.<hash>.js
 * onnxruntime-web — MIT License (local inference runtime; its WebAssembly build includes Apache-2.0 and BSD-3-Clause components; the CPU build is bundled with the plugin, never loaded from a CDN). Source: https://github.com/microsoft/onnxruntime — build/ort.<hash>.js, build/ort.wasm.min.<hash>.mjs and assets/ort/
+* Spectral.js — MIT License (Kubelka-Munk pigment mixing, the physics behind the paint media: blue over yellow gives green, the way paint does. Reimplemented in plain JavaScript after the original by Ronald van Wijnen; the spectral tables are derived from its GLSL). Source: https://github.com/rvanwijnen/spectral.js — part of the editor bundle, src/lib/spectral.js in the public repository
 * @huggingface/transformers (transformers.js) — Apache License 2.0 (in-browser runtime for the local AI features, bundled from npm; formerly published as @xenova/transformers). Source: https://github.com/huggingface/transformers.js — build/transformers.<hash>.js
 * EU AI labelling emblems — published by the European Commission for labelling AI-generated content, bundled byte-identical and free to use without attribution. Source: https://digital-strategy.ec.europa.eu/en/policies/eu-icons-labelling-ai-generated-content — assets/eu-ai-labels/
 * U²-Netp model — Apache License 2.0 (Xuebin Qin et al.), the background-removal model; licence text and notice travel with it in assets/models/. Source: https://github.com/xuebinqin/U-2-Net — assets/models/u2netp.onnx (ONNX is an open, documented format; the weights are read by the runtime, never executed)
@@ -224,13 +225,14 @@ The local AI runtime (ONNX WebAssembly and transformers.js) belongs to the plugi
 1. The editor: a full layer-based design and automation studio inside the WordPress Media Library.
 2. Hundreds of starter templates - open one, swap the words, done.
 3. The Media Library Manager: folders, tags, semantic search and bulk tools.
-4. Semantic search finds images by what they show - locally, no cloud.
+4. Built-in extension studios like Star Map Posters, Calendars and Stitch Patterns - each one a complete studio inside the editor.
 5. AI Studio: a rough sketch becomes a finished graphic with one style click.
 6. Dynamic templates: layers bound to post title, prices and fields, previewed against real content.
 7. Charts and tables built from your data, editable as layers.
 8. Per-letter typography, curved text and WordArt lockups.
 9. Easy Mode: the same document, reduced to the essentials.
 10. Image optimization in the browser: WebP conversion with no external service.
+11. The brush tool: watercolor, oil, charcoal and pastel that mix, bleed and dry like real media.
 
 == External Services ==
 This plugin can talk to a number of external services, each only when you use the feature it belongs to, and a service that needs an API key stays silent until you enter that key. There is no analytics, no tracking and no telemetry of its own, and it never sends your content anywhere by itself.
@@ -251,6 +253,77 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+= 1.424.0 =
+* New bundled studio: Chaos Art. A society of autonomous painters makes one-of-a-kind abstract art in deep 3D space - gestures with attack and release, art movements from Impressionism to Minimalism, painterly media from watercolor to ink sketch, a self-directed mode where the society picks everything itself, a snapshot ring so no moment is lost, a process film, and live embeds that paint a new original for every visitor. There is no seed: no piece can ever be painted twice.
+
+= 1.423.0 =
+* White chalk. The dry media gained a scattering body: light pigment now covers the ground the way real chalk does - white pastel highlights on black paper, grainy on the tooth, building up layer by layer. Dark charcoal absorbs exactly as before. The transparent media stay true to themselves: watercolor and ink have no white because the real ones do not either - their white is the paper, and covering white is what gouache and acrylic are for.
+
+= 1.422.0 =
+* Pen tilt. Leaning the stylus answers per medium, with no dial to set: charcoal and pastel on their side lay a broad, light, soft-edged mark that lets the paper's tooth show - the classic shading grip. A flatter brush paints wider and wetter with its belly, a flat knife spreads its load thinner. A mouse has no tilt to report and keeps painting upright, exactly as before.
+* Quick export commits wet paint first, the way the export dialog always did. A wash still drying on the canvas used to be missing from the quickly exported file.
+
+= 1.421.1 =
+* Under stroke smoothing, a plain-style stroke could end in a hard, flat cut: the finishing segment ran past the window the stroke was committed through and was clipped at its edge. Stroke ends are round brush caps again, and mask painting now finishes to the release point the way paint strokes always did.
+
+= 1.421.0 =
+* Stroke smoothing. The brush point trails the pointer on a pulled string: hand wobble shorter than the string never reaches the paint, and hard corners round into clean curves before any color is laid down. The Smoothing dial in the brush panel sets the string's length, measured on screen so it feels the same at every zoom, and lifting the pointer finishes the stroke to the exact point you released. It works for the brush, the pencil, the eraser, mask painting and every wet style alike, because it happens at the input, before the paint.
+
+= 1.420.0 =
+* Right-click became the painter's palette. While a paint tool is active, the right mouse button opens a compact palette under the cursor: a color wheel, the eighteen colors you used last, an eyedropper that picks up the color under the pointer, and Size and Opacity, both adjustable by dragging their labels or their numbers. While wet paint sits on the canvas it also offers Dry now.
+
+= 1.419.0 =
+* Pastel, the tenth painting style. Dry, soft pigment that catches on the paper's tooth and builds up in grainy layers - charcoal's gentler sibling.
+* The Draw a brush tip button sits once at the foot of the tip list, within reach from every group.
+
+= 1.418.0 =
+* Star symmetry: strokes repeat around the center of the canvas with three, five, six, eight or twelve arms, next to the vertical, horizontal and fourfold mirrors. Mandalas, rosettes and snowflakes paint themselves.
+* The tool options bar carries what a stroke needs: Paper moved in next to Symmetry, and Flow lives in the brush panel with its siblings.
+* The smudge tool settles down sooner after the stroke ends.
+
+= 1.417.0 =
+* Paper is a property of the document. Hot press, cold press, rough, canvas or laid: washes granulate into the chosen surface, the paste media show its weave in their relief, the dry media catch on its tooth. An open wash finishes drying before the sheet changes under it.
+
+= 1.416.0 =
+* Oil smears in the direction you pull. Paint already on the canvas is dragged along the stroke into streaks, the way a loaded bristle brush pulls through wet paint. The smear conserves the paint - color moves, it is never created or lost by it - and a dial sets how strong the pull is.
+
+= 1.415.0 =
+* The smudge style runs inside the wet simulation. It brings almost no paint of its own: it lifts the colors it crosses, blends them like a wet fingertip and sets them back down, with real pigment mixing on the way - dragging blue through yellow leaves green.
+
+= 1.414.0 =
+* A Pickup dial for every wet style sets how strongly fresh paint lifts and carries the color already dried on the layer, from a faint tint with acrylic to heavy dragging with oil. Each style comes tuned; each can be set your way.
+
+= 1.413.0 =
+* The water brush: water without pigment. Run it over dried color and the color loosens, bleeds and can be pushed around again; run it over a fresh wash and it thins and spreads it. The oldest watercolor technique there is, and the whole reason the paint here stays rewettable.
+
+= 1.412.0 =
+* Pen pressure drives the wet media. With a stylus, pressure sets the width of the stroke and how much water and pigment it carries, on a curve tuned per medium: a light touch scumbles dry, a full press lays a loaded brush. Mouse strokes keep painting at full strength, because a mouse has no pressure to give.
+
+= 1.411.0 =
+* Media brushes: three matched brushes for every painting style - bristle rounds and flats, torn chalk and crayons, knife edges, scratchy nibs - built as real, irregular tips that rotate to follow the stroke. They stand at the head of the tip list and change with the style.
+* The brush panel fits small screens now: the style's brushes live in the tip list, nothing scrolls sideways, and every dial can be scrubbed on its label or its number for an exact value.
+* Fast zigzag strokes render clean; under load, the stamping could fan a sharp turn into straight spokes.
+
+= 1.410.0 =
+* Wet strokes wake the paint beneath them. Water loosens dried color back into the wash and floats it along; the paste media pick up what they cross and carry it into the stroke. Blue over dried yellow makes green - between strokes, not only within one.
+
+= 1.409.0 =
+* A wash lies over the artwork like a glaze. The layer underneath shines through and mixes with the wash like pigment: yellow under blue reads green, and thin color over white stays luminous instead of graying out.
+
+= 1.408.0 =
+* The wet styles split into three engines, each simulating its own physics on the graphics card: liquid for watercolor and ink, paste for gouache, acrylic and oil, dry for charcoal. A wash flows, pools and blooms; paste holds relief, sheen and knife marks; charcoal breaks on the paper's tooth.
+* Fast strokes stopped leaving rectangular ghosts of earlier stamps behind, and the painted surface renders its grain at full resolution instead of as a coarse diagonal pattern.
+* A fresh editor starts with a red brush and continuous spacing, so the first stroke is a line, not a row of dots.
+
+= 1.407.0 =
+* Colors mix like paint, not like light: yellow and blue make green, red and green make brown, across every painting style. Each medium carries its own character and its own dials - water and pigment for the washes, load and body for the paste media, pressure and grain for the dry ones.
+
+= 1.406.0 =
+* The wet simulation runs on the graphics card, so large washes stay fluid on large canvases, and what you see while the paint is wet is exactly what dries into the layer.
+
+= 1.405.0 =
+* Wet watercolor moves in. A stroke stays liquid on the canvas: pigment drifts with the water, gathers toward the edges, dries darker at the rim and settles into the paper's grain - live, while you paint. When it has dried, the whole wash lands in the layer as one undo step.
+
 = 1.404.0 =
 * Creating a shared media folder or tag now asks for the same right as renaming or deleting one. Both of those already did; creating did not, so anyone who could open the editor could add rows to a taxonomy the whole site shares. Filing pictures into folders that already exist is untouched, and the buttons for creating are simply not shown to people who may not use them.
 * Every bundled component now names its source next to its license, down to the European Commission's AI labelling emblems and the background-removal model.
@@ -305,103 +378,4 @@ files?" is the short version.
 = 1.395.0 =
 * The extension category "3D & Mockups" is now "3D & Scenes". It was named after one of its three members when there were three; there are ten, and all of them build a scene you can turn and light. The menu and the extension list also said different things, and now say the same.
 
-= 1.394.1 =
-* Fixes measured building heights not reaching the editor. The map data carried them, and the step that reads them only understood text, so every number in it was discarded. Buildings now arrive with the heights OpenStreetMap has for them, and a height the map data merely guessed is left out instead of being passed off as measured.
-
-= 1.394.0 =
-* Place search now answers from the editor itself. The index of 34,079 cities moved out of Map Posters and into the plugin, so every map extension searches offline instead of waiting on a network lookup, and there is one index for all of them instead of one copy each. A house number, a lake or a mountain pass still goes to OpenStreetMap, as before.
-
-= 1.393.0 =
-* Map data now carries the third dimension. Building heights, minimum heights, roof shapes, the setback sections of towers, individual trees and which roads are bridges all travel to the editor instead of being read from OpenStreetMap and thrown away. Buildings also travel at a finer coordinate precision, which is what a wall seen from close up needs. Nothing an existing map consumer reads has changed shape.
-
-= 1.392.0 =
-* The studios that used to be installed one by one now come with the plugin. Map Posters, Star Map Posters, Route Visualizer, Soundwave Art, Photo Mosaic, Text Art, Puzzle Sheets, Party Printables, Stitch Patterns, Drawing Templates, Origami, Day Ring, Papercut Art, Marble Bath, Mystic Studio, Seamless Patterns, Handwriting Fonts, Code Shot and Reformat are simply there after installing, and a new one arrives with the next update instead of with a download.
-* The Extensions screen is now a library: what you have, and a switch per entry. Browsing, installing, updating and removing packages moved to the Pro add-on, which is where the one-click install already lived.
-* With no API key of your own, text features and plain image generation now run through the AI provider you set up in WordPress 7.0 itself, if you set one up. A key you entered here always takes precedence, because it also carries the model choice per feature and the spend counter.
-* Extension API 2.14: the editor's confirmation dialog and its API-version gate are available to add-ons, so nobody has to reimplement either.
-* Map Posters carries its place index uncompressed, which is what a plugin package may contain.
-* Translations now come from translate.wordpress.org as language packs instead of travelling inside the download.
-* A shared design was shown with an inline stylesheet; it is a proper stylesheet now. The AI execution limit is only raised for the one request that can legitimately run for minutes, instead of for every request.
-
-= 1.391.0 =
-* Extension API 2.13: studios can reach the local subject cutout (`bridge.raster.subjectCutout`). The same on-device model the free tools use, nothing uploaded anywhere. Built for the new Papercut Art extension, which lifts a photo's subject onto the front paper layer.
-
-= 1.390.0 =
-* The editor announces a `wpie:file-saved` event whenever an export leaves the app. Nothing in the plugin listens to it and nothing is sent anywhere; it is a hook for anyone who wants to count or log their own exports.
-
-= 1.389.1 =
-* Background Studio is wider, and its style picker wraps onto a second line. With eight kinds of background the row no longer fitted, so the last entries were cut off mid-word.
-
-= 1.389.0 =
-* Background Studio has four new kinds of background. Topographic draws nested contour lines like a map, halftone a dot raster that grows along one direction the way print does, rings concentric circles from a point, and confetti a scatter of small shapes. Each brings its own handful of sliders and works with the palette, the grain and the variation button exactly like the four that were already there.
-* Three of them can be saved as a seamless pattern: the topographic field is built from whole numbers of periods so it meets itself at the edge, halftone swings its ramp back on itself, and confetti draws every piece at the neighbouring offsets as well. Rings radiate from one centre and cannot repeat, so they stay out of that.
-* Stock photos now credit the photographer and the source together, "Photo by someone on Pexels", with the name leading to their profile and the source to the provider. Choosing a photo also tells the provider it was used, which is how photographers get counted.
-
-= 1.388.5 =
-* Stock searches are remembered. Opening the Asset Library tray asks a provider once per category, and there are twenty-five of them, and every visitor asks for the same twenty-five. Those answers are now kept for six hours and shared, so browsing the categories costs a provider quota almost nothing and the pictures are there at once instead of one slow row at a time.
-* An answer that comes from that memory no longer counts against the search limit. The limit exists to protect the provider quota, and an answer that never reaches the provider spends none of it. Where the limit was set low, that inversion could stop the tray from ever finishing: it refused the visitor while protecting nothing.
-
-= 1.388.4 =
-* The classic editor can open images in WunderPaint. Clicking an image that already sits in a post opens WordPress' Image Details dialog, and that dialog is the one place the button could never appear: WordPress renders it without the container that plugin fields are printed into, so it only ever offered Edit Original and Replace. It now offers WunderPaint next to them, and applying an edit hands the result back exactly the way the Replace button does.
-* That button is labelled Edit Image, the same as everywhere else, and it says so in the browser console if a future WordPress release ever moves the dialog it attaches to, so it cannot quietly stop existing.
-
-= 1.387.0 =
-* The editor speaks Dutch. Every string of the editor, its dialogs and all its studios, next to English, German, Spanish, French, Italian and Portuguese.
-* Code Shot, Day Ring, Molecule Studio and Solar System Studio are translated for the first time. They shipped with a translation helper that never had a catalogue behind it, so they stayed English in every language; they now carry the same six as the rest.
-* Four studios kept language-dependent data outside their dictionaries, which a new language does not reach on its own: Star Map now knows that Dutch compass points read N/O/Z/W, Puzzle Sheets has Dutch starter word lists, Handwriting Fonts a Dutch sample sentence, and Calendar the Dutch public holidays, Koningsdag included with its move to the 26th whenever the 27th falls on a Sunday.
-
-= 1.386.1 =
-* The quarantine folder now carries the same deny rule as every other folder the plugin creates in uploads, so nothing in it can ever be executed as code.
-* Deleting an image now removes its stored versions and project file with it, instead of leaving them behind in the uploads folder forever.
-
-= 1.386.0 =
-* The Updates view has an Update all button, so several pending extension updates no longer have to be clicked one at a time. Available with the Pro add-on, which is what installs extensions in one click.
-* About WunderPaint lists the external services the plugin can contact, next to the licence texts. The list is the same one the readme carries, so the two cannot drift apart.
-
-= 1.385.0 =
-* With the Pro add-on active, the Extension Manager now installs and updates free extensions in one click as well, instead of only the Pro ones. Without Pro nothing changes: the manager shows a download link and you install the ZIP yourself, exactly as before.
-
-= 1.384.6 =
-* Wording that assumed the local AI runtime is always present: the readme now describes it as bundled rather than fetched from a CDN, which is the point, and the Local AI Models panel says what the build in front of you actually has instead of the opposite.
-
-= 1.384.5 =
-* The last three hand-written script tags are gone: the settings screen's cost chart and its local AI models table now live in the settings script file where a linter can see them and the browser can cache them, and the editor's boot watchdog rides on the editor handle. Nothing changes on screen.
-
-= 1.384.4 =
-* The External Services section now describes every outside connection one service at a time: which host is contacted, what triggers it, exactly which data leaves your site, whether it leaves from your server or from a browser, and a link to that service's privacy policy and terms. Google Gemini, OpenAI and Anthropic each have their own entry instead of sharing one line, and two connections that were missing are documented: feeds or JSON sources you point a dynamic layer at, and media that lives on external storage.
-
-= 1.384.3 =
-* Housekeeping: the extension catalogue no longer carries preview images the Extension Manager never showed.
-
-= 1.384.2 =
-* Brand kits: a licensed site can now keep as many as an agency actually needs, instead of stopping at eight.
-
-= 1.384.1 =
-* Media library items in the Asset Library now carry their title under the preview, in the tray and in the modal, like every other card.
-* The AI Studio checkbox for vector output reads "Turn into editable vector" and looks like the other option rows instead of standing out.
-* The Reveal Off-Canvas button in the status bar keeps the normal grey of its neighbours when it is on, instead of turning blue.
-
-= 1.384.0 =
-* Housekeeping before release: trimmed an experiment that was not ready to ship.
-
-= 1.380.2 =
-* Reveal Off-Canvas: the eye next to the zoom control (or View → Reveal Off-Canvas) makes everything parked outside the document frame visible - an instant scratch space around your canvas. Export still crops to the frame, so nothing parked ever ships.
-
-= 1.379.0 =
-* The 360° panorama went premium. Both viewers: eased camera flights, auto-rotate with an on/off control that pauses while you interact, a compass that flies back to the start view, fullscreen, pinch and double-tap zoom. The embed now opens as a light blurred poster with a 360° badge and boots WebGL only when visible or clicked - and on phones a gyro button lets visitors look around by moving the device.
-* Hotspots leveled up: icon markers (pin, info, arrow, play) with hover labels, optional info cards that open in the view, and everything still carries into the embed. Plus a Horizon slider for tilted AI horizons and "Logo on the floor", which covers the distorted nadir zone with your Brand Kit logo.
-
-= 1.378.4 =
-* The panorama side panel is tidy now: clear sections for Create with AI, Source, Seam, Hotspots and Embed instead of a pile of buttons, and the library button reads "From Media Library".
-
-= 1.378.3 =
-* The panorama footer is the proper house footer now (hint left, actions right, real padding). Provider choice and the style picker in Create with AI look exactly like the AI panel, and Show seam turns the view straight to the wrap edge - Fix seam then faces its own result.
-
-= 1.378.2 =
-* The 360° Panorama tool wears the standard footer: status hints on the left (look-around, placing, generating), Cancel and Copy embed HTML on the right - and the sphere no longer renders upside down.
-* Hotspots grew formatting: each one has its own color, size and a Move mode to re-place it with a click; all of it carries into the embed. The AI provider for panorama creation is pickable right in the tool.
-
-= 1.378.1 =
-* The 360° Panorama tool now creates panoramas itself: describe a scene and generate a fresh sphere, or rebuild the current source photo as a full panorama of the same place - that was the point of the whole thing.
-* Design Review reads like a review now: a clear verdict up front, then tidy area cards with issue and suggestion, no raw formatting leaking through.
-* The Design Review and Improve Text dialogs wear the standard modal header (brand badge, title, description) like every other dialog.
+The complete history back to the first release is at https://wp-image-editor.com/changelog/
