@@ -480,16 +480,19 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	border-radius: var(--r-md);
 }
 
-/* Automate Posts (DS redesign v1.76): two-column layout + queue. */
 #wpie-root .automate-dialog {
-	width: 940px;
-	height: min(720px, 90vh);
+
+	/* Three columns since the 2026-08-23 redesign: posts rail, config
+	   sections, queue. 96vw keeps it usable on small screens, .dsm caps
+	   it at the viewport anyway. */
+	width: min(1360px, 96vw);
+	height: min(780px, 92vh);
 }
 
 #wpie-root .automate-grid {
 	display: grid;
 	flex: 1;
-	grid-template-columns: 1fr 320px;
+	grid-template-columns: 300px minmax(0, 1fr) 340px;
 	min-height: 0;
 	overflow: hidden;
 }
@@ -591,6 +594,613 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	transform: translateX(13px);
 }
 
+/* Structured Fields builder (Content Templates, Pro v0.61): the third
+   panel. Small controls get FIXED sizes, the key input takes the rest. */
+#wpie-root .ctpl-fields-rail {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	width: 340px;
+	min-height: 0;
+	border-left: 1px solid var(--border-hairline);
+}
+
+#wpie-root .ctpl-rail-head {
+	display: flex;
+	flex: none;
+	gap: 8px;
+	align-items: center;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .ctpl-rail-icon {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	color: var(--accent);
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: 8px;
+}
+
+#wpie-root .ctpl-rail-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 12px;
+	min-height: 0;
+	padding: 12px 14px;
+	overflow-y: auto;
+}
+
+#wpie-root .ctpl-rail-foot {
+	flex: none;
+	padding: 10px 14px;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .ctpl-label {
+	display: block;
+	margin-bottom: 6px;
+}
+
+#wpie-root .ctpl-empty {
+	padding: 12px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-muted);
+	background: var(--surface-raised);
+	border: 1px dashed var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .ctpl-field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px;
+	cursor: grab;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .ctpl-field-head {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .ctpl-field-head .dsm-select {
+	flex: none;
+	width: 96px;
+}
+
+/* One type size for the whole panel: the compact selects default to 11px
+   (--fs-xs) and gen-prompt to 13px, which made three sizes side by side.
+   Everything here reads at 12px like the target-post-type select. */
+#wpie-root .ctpl-field-head .dsm-select,
+#wpie-root .ctpl-field-grid .dsm-select {
+	font-size: var(--fs-sm);
+}
+
+/* Field list extras (Pro v0.62): group separators, drag state, the
+   prefix rename tool and the unsaved marker. */
+#wpie-root .ctpl-group {
+	margin-top: 4px;
+	font-family: var(--font-mono, monospace);
+	font-size: 10px;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+#wpie-root .ctpl-field:active {
+	cursor: grabbing;
+}
+
+#wpie-root .ctpl-field input,
+#wpie-root .ctpl-field select,
+#wpie-root .ctpl-field textarea {
+	cursor: auto;
+}
+
+#wpie-root .ctpl-field-drag {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent);
+}
+
+#wpie-root .ctpl-rename {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+#wpie-root .ctpl-rename-row {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .ctpl-rename-row input {
+	flex: 1;
+	min-width: 0;
+	font-family: var(--font-mono, monospace);
+	font-size: 12px;
+}
+
+#wpie-root .ctpl-rename-row span {
+	flex: none;
+	color: var(--text-muted);
+}
+
+#wpie-root .ctpl-rename-foot {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .ctpl-rename-foot small {
+	flex: 1;
+	min-width: 0;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+#wpie-root .ctpl-dirty {
+	color: var(--status-warning, #f5a524);
+}
+
+/* Dry-run preview (Pro v0.62): the article as text, before anything is
+   generated or saved. */
+#wpie-root .cprev-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 14px;
+	min-height: 0;
+	padding: 20px 24px;
+	overflow-y: auto;
+}
+
+#wpie-root .cprev-facts {
+	margin: 0;
+}
+
+#wpie-root .cprev-title {
+	margin: 0;
+	font-size: 22px;
+	font-weight: var(--fw-semibold);
+	line-height: 1.3;
+	color: var(--text-primary);
+}
+
+#wpie-root .cprev-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .cprev-meta > div {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+}
+
+#wpie-root .cprev-meta strong {
+	flex: none;
+	width: 128px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+#wpie-root .cprev-meta span {
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .cprev-lead {
+	margin: 0;
+	font-size: 15px;
+	line-height: 1.6;
+	color: var(--text-primary);
+}
+
+#wpie-root .cprev-quick {
+	margin: 0;
+	padding: 12px 12px 12px 30px;
+	background: var(--surface-raised);
+	border-left: 3px solid var(--accent);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .cprev-quick li,
+#wpie-root .cprev-article li {
+	margin-bottom: 4px;
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--text-secondary);
+}
+
+#wpie-root .cprev-article h3 {
+	margin: 18px 0 6px;
+	font-size: 17px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+}
+
+#wpie-root .cprev-article h4 {
+	margin: 14px 0 4px;
+	font-size: 14px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+}
+
+#wpie-root .cprev-article p {
+	margin: 0 0 10px;
+	font-size: 13.5px;
+	line-height: 1.7;
+	color: var(--text-secondary);
+}
+
+#wpie-root .cprev-article blockquote {
+	margin: 12px 0;
+	padding-left: 12px;
+	font-style: italic;
+	color: var(--text-secondary);
+	border-left: 2px solid var(--border-hairline);
+}
+
+#wpie-root .cprev-article blockquote cite {
+	display: block;
+	margin-top: 4px;
+	font-size: 11px;
+	font-style: normal;
+	color: var(--text-muted);
+}
+
+#wpie-root .cprev-image {
+	display: flex;
+	gap: 10px;
+	align-items: baseline;
+	margin: 12px 0;
+	padding: 10px 12px;
+	background: var(--surface-raised);
+	border: 1px dashed var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .cprev-image span {
+	flex: none;
+	font-size: 11px;
+	font-weight: var(--fw-semibold);
+	color: var(--accent);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+#wpie-root .cprev-image small,
+#wpie-root .cprev-fields small {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+#wpie-root .cprev-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#wpie-root .cprev-fields > div {
+	display: flex;
+	gap: 10px;
+	align-items: baseline;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .cprev-fields code {
+	flex: none;
+	width: 150px;
+	font-family: var(--font-mono, monospace);
+	font-size: 11px;
+	color: var(--accent);
+	word-break: break-all;
+}
+
+#wpie-root .cprev-fields span {
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--text-secondary);
+}
+
+#wpie-root .cprev-faq h3,
+#wpie-root .cprev-sources h3 {
+	margin: 0 0 8px;
+	font-size: 15px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+}
+
+#wpie-root .cprev-faq > div {
+	margin-bottom: 10px;
+}
+
+#wpie-root .cprev-faq strong {
+	display: block;
+	font-size: 13px;
+	color: var(--text-primary);
+}
+
+#wpie-root .cprev-faq p {
+	margin: 2px 0 0;
+	font-size: 12.5px;
+	line-height: 1.6;
+	color: var(--text-secondary);
+}
+
+#wpie-root .cprev-sources li {
+	margin-bottom: 6px;
+	font-size: 12.5px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .cprev-sources small {
+	display: block;
+	font-size: 11px;
+	color: var(--text-muted);
+	word-break: break-all;
+}
+
+/* Template assistant (Pro v0.62): brief on top, settings below, and
+   after the run the draft with its rationale. */
+#wpie-root .ctpl-asst-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 14px;
+	min-height: 0;
+	padding: 16px;
+	overflow-y: auto;
+}
+
+#wpie-root .ctpl-asst-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+	gap: 12px;
+}
+
+#wpie-root .ctpl-asst-examples {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+#wpie-root .ctpl-asst-examples button {
+	max-width: 100%;
+	padding: 4px 9px;
+	overflow: hidden;
+	font-size: 11px;
+	color: var(--text-muted);
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+	background: var(--surface-input);
+	border: 1px dashed var(--border-hairline);
+	border-radius: var(--r-pill);
+}
+
+#wpie-root .ctpl-asst-examples button:hover {
+	color: var(--text-primary);
+	border-style: solid;
+}
+
+#wpie-root .ctpl-asst-refine {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .ctpl-asst-refine input {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .ctpl-asst-result {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-height: 0;
+}
+
+#wpie-root .ctpl-asst-card {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 12px;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .ctpl-asst-card strong {
+	font-size: 14px;
+	color: var(--text-primary);
+}
+
+#wpie-root .ctpl-asst-card small {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+#wpie-root .ctpl-asst-preview {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 340px;
+	padding: 12px;
+	overflow-y: auto;
+	background: var(--surface-raised);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .ctpl-asst-preview > div {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+}
+
+#wpie-root .ctpl-asst-preview code {
+	flex: none;
+	min-width: 128px;
+	font-family: var(--font-mono, monospace);
+	font-size: 11px;
+	color: var(--accent);
+}
+
+#wpie-root .ctpl-asst-preview span {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+#wpie-root .ctpl-asst-preview pre {
+	margin: 0;
+	font-family: var(--font-mono, monospace);
+	font-size: 11px;
+	line-height: 1.6;
+	color: var(--text-secondary);
+	white-space: pre-wrap;
+}
+
+/* The kind switch sits above the list it filters. Both halves share the
+   width so the two kinds read as equals, and each carries its count. */
+#wpie-root .ctpl-kinds {
+	flex: none;
+	padding: 10px;
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .ctpl-kinds .dsm-seg {
+	display: flex;
+	width: 100%;
+}
+
+#wpie-root .ctpl-kinds .dsm-seg button {
+	display: inline-flex;
+	flex: 1;
+	gap: 5px;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	padding: 0 6px;
+	font-size: var(--fs-xs);
+}
+
+#wpie-root .ctpl-kinds .dsm-seg button em {
+	padding: 0 5px;
+	font-size: 10px;
+	font-style: normal;
+	line-height: 15px;
+	color: var(--text-muted);
+	background: var(--surface-input);
+	border-radius: var(--r-pill);
+}
+
+#wpie-root .ctpl-kinds .dsm-seg button.active em {
+	color: var(--text-primary);
+}
+
+/* Template rows carry their facts: language, size, what they produce. */
+#wpie-root .ctpl-row-desc {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
+#wpie-root .ctpl-row-facts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 5px;
+}
+
+#wpie-root .ctpl-row-facts em {
+	padding: 1px 6px;
+	font-size: 10px;
+	font-style: normal;
+	color: var(--text-muted);
+	white-space: nowrap;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-pill);
+}
+
+#wpie-root .ctpl-rail-hint {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+#wpie-root .ctpl-field-head .ctpl-key {
+	flex: 1;
+	min-width: 0;
+	font-family: var(--font-mono, monospace);
+	font-size: 12px;
+}
+
+#wpie-root .ctpl-icon-btn {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+}
+
+#wpie-root .ctpl-key-err {
+	border-color: var(--status-error, #e5484d);
+}
+
+#wpie-root .ctpl-key-hint {
+	font-size: 11px;
+	color: var(--status-error, #e5484d);
+}
+
+#wpie-root .ctpl-desc {
+	min-height: 44px;
+	font-size: var(--fs-sm);
+	resize: vertical;
+}
+
+#wpie-root .ctpl-field-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+@media (max-width: 1100px) {
+
+	#wpie-root .ctpl-fields-rail {
+		width: 280px;
+	}
+}
+
 #wpie-root .automate-selectall {
 	font-size: 11.5px;
 	font-weight: var(--fw-medium);
@@ -598,6 +1208,114 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	cursor: pointer;
 	background: transparent;
 	border: 0;
+}
+
+/* Featured Images three-column redesign (2026-08-23). The posts rail is
+   the pick-what-to-process column: search and filters on top, the list
+   takes the rest, the skip switch is pinned to the bottom because it
+   belongs to the selection, not to the output options. */
+#wpie-root .automate-posts {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-height: 0;
+	padding: 16px 12px;
+
+	/* Scroll, not clip: the skip toggle is pinned to the bottom via
+	   margin-top auto on .automate-skip, and when this rail is height-
+	   constrained (the sub-1080px strip below caps it at 240px) hidden
+	   overflow cut the toggle away with no way to reach it. */
+	overflow-y: auto;
+	overflow-x: hidden;
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .automate-post-list {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 6px;
+	min-height: 120px;
+	overflow-y: auto;
+}
+
+#wpie-root .automate-posts .dsm-toggle-row.automate-skip {
+	flex: none;
+	margin-top: auto;
+	padding-top: 10px;
+	border-top: 1px solid var(--border-hairline);
+	border-bottom: 0;
+}
+
+/* Section headline: the ext-side-head language, one step stronger
+   because it carries real sections, not navigation. */
+#wpie-root .dsm-sect-head {
+	display: flex;
+	gap: 7px;
+	align-items: center;
+	font-size: 11px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
+}
+
+#wpie-root .dsm-sect-head .h {
+	margin-left: auto;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-regular);
+	color: var(--text-disabled);
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+/* A collapsed section keeps its headline and says why it is empty. */
+#wpie-root .dsm-sect-reason {
+	padding: 8px 10px;
+	font-size: var(--fs-xs);
+	color: var(--text-muted);
+	background: var(--surface-raised);
+	border-radius: var(--r-md);
+}
+
+/* One line: Format label, the two radios, the transparent checkbox. */
+#wpie-root .automate-format {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	font-size: 12px;
+	color: var(--text-primary);
+}
+
+#wpie-root .automate-format > .automate-format-label {
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semibold);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
+}
+
+#wpie-root .automate-format label {
+	display: inline-flex;
+	gap: 5px;
+	align-items: center;
+	cursor: pointer;
+}
+
+/* Below 1080px the posts rail becomes a full-width strip on top with
+   its own capped scroll; config and queue share the second row. */
+@media (max-width: 1080px) {
+
+	#wpie-root .automate-grid {
+		grid-template-columns: minmax(0, 1fr) 340px;
+		grid-template-rows: minmax(0, 240px) minmax(0, 1fr);
+	}
+
+	#wpie-root .automate-posts {
+		grid-column: 1 / -1;
+		border-right: 0;
+		border-bottom: 1px solid var(--border-hairline);
+	}
 }
 
 #wpie-root .dsm-postrow {
@@ -759,6 +1477,47 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	justify-content: space-between;
 	padding: 11px 14px;
 	border-top: 1px solid var(--border-hairline);
+}
+
+/* Batch progress (v0.44): a thin bar under the queue while a run is going,
+   fed by the run counter in the dialog footer. */
+#wpie-root .automate-progress {
+	flex: none;
+	height: 3px;
+	background: var(--border-hairline);
+}
+
+#wpie-root .automate-progress span {
+	display: block;
+	height: 100%;
+	background: var(--accent, #3b66ff);
+	transition: width 0.3s;
+}
+
+/* Collapsed template list (v0.44): one row by default, the toggle link sits
+   under the grid and reads like a link, not like a button. */
+#wpie-root .automate-tpl-toggle {
+	align-self: flex-start;
+	padding: 0;
+	margin-top: 2px;
+	font-size: 11.5px;
+	color: var(--text-muted);
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+#wpie-root .automate-tpl-toggle:hover {
+	color: var(--text-primary);
+}
+
+/* Post status chip (v0.44): drafts and scheduled posts are pickable now, so
+   the row says what it is; published stays unmarked. */
+#wpie-root .automate-chips .chip-status {
+	color: var(--text-muted);
+	border-style: dashed;
 }
 
 /* AI panel inline checkbox + kit picker (brand details, v1.77). */
@@ -2344,6 +3103,7 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 
 /* Ten colours across a narrow column are small squares whatever you do, so
    the gap has to do the separating. At 3px they read as one striped band. */
+
 /* The option belongs to the panel, not to Colour: pinned to the foot so
    the space the tall tip strip leaves over is used on purpose.
 
@@ -2411,6 +3171,7 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 /* The way in to the maker. First thing in the strip, because a tip you
    drew yourself belongs above the gallery you were given. */
 #wpie-root .bp-newtip {
+
 	/* Pinned to the strip's bottom edge; the strip scrolls behind it. */
 	position: sticky;
 	bottom: 0;

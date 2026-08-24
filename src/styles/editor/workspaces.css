@@ -668,6 +668,7 @@
    offset from the preview box, which is exactly as wide as whatever image is
    showing. Every step moved them, so nobody could click through a folder
    without re-aiming, and a full-width image pushed them past the edge. */
+
 /* absolute, not fixed: the overlay is already `fixed; inset: 0`, so this is
    the window edge either way - and it stays correct if any ancestor ever gets
    a transform, which would silently re-anchor a fixed child. */

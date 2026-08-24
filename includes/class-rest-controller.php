@@ -344,7 +344,17 @@ class REST_Controller {
 			return;
 		}
 
-		$response = wp_remote_get( $src, array( 'timeout' => 30 ) );
+		// The URL is already pinned to an attachment of this site, so an SSRF
+		// pivot is not reachable here, but use the safe variant anyway (it
+		// rejects private/reserved hosts) and cap the response so a huge or
+		// hostile remote cannot exhaust memory. (2026-08-16 hardening)
+		$response = wp_safe_remote_get(
+			$src,
+			array(
+				'timeout'             => 30,
+				'limit_response_size' => (int) apply_filters( 'wpie_proxy_max_bytes', 64 * MB_IN_BYTES ),
+			)
+		);
 		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
 			return new \WP_Error( 'wpie_fetch_failed', __( 'Could not fetch the image.', 'wunderpaint' ), array( 'status' => 502 ) );
 		}

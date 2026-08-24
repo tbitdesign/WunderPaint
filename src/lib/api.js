@@ -8,6 +8,9 @@
 
 import apiFetch from '@wordpress/api-fetch';
 import { logEvent } from './debug-log';
+// P07: main-thread timers are throttled in background tabs (down to one
+// tick a minute); the worker-backed sleep keeps long polls on pace.
+import { sleep } from './worker-timer';
 import { __, sprintf } from '@wordpress/i18n';
 
 let restRoot = '';
@@ -679,6 +682,10 @@ export const posts = {
 		page = 1,
 		type = 'post',
 		orderby = '',
+		// '' = published only (the long-standing default); a named status or
+		// 'any' opens the picker to drafts, scheduled and private posts, the
+		// ones that usually still need their image.
+		status = '',
 	} = {} ) =>
 		request( {
 			path: pathWithArgs( '/posts', {
@@ -687,6 +694,7 @@ export const posts = {
 				page,
 				type,
 				orderby,
+				status,
 			} ),
 			method: 'GET',
 		} ),
@@ -697,6 +705,16 @@ export const posts = {
 						meta: metaKeys.join( ',' ),
 				  } )
 				: `/posts/${ id }/context`,
+			method: 'GET',
+		} ),
+	// P04: up to fifty contexts in one request; unreadable posts are left
+	// out of the answer instead of failing the block.
+	contextBatch: ( ids = [], metaKeys = [] ) =>
+		request( {
+			path: pathWithArgs( '/posts/context-batch', {
+				ids: ids.join( ',' ),
+				...( metaKeys.length ? { meta: metaKeys.join( ',' ) } : {} ),
+			} ),
 			method: 'GET',
 		} ),
 	types: () => request( { path: '/posts/types', method: 'GET' } ),
@@ -746,10 +764,13 @@ const AI_ASYNC_ACTIONS = [
 	// Schema completions can think for minutes (v1.273.0).
 	'complete',
 ];
-const JOB_POLL_MS = 2500;
+// P05: back off instead of a fixed beat. A fixed interval wastes half of
+// it on average, and the early polls are the ones that usually hit - a
+// fast model answers in a few seconds.
+const JOB_POLL_FIRST_MS = 1000;
+const JOB_POLL_MAX_MS = 5000;
+const JOB_POLL_GROWTH = 1.6;
 const JOB_DEADLINE_MS = 5 * 60 * 1000;
-
-const sleep = ( ms ) => new Promise( ( resolve ) => setTimeout( resolve, ms ) );
 
 const mapGatewayError = ( err ) => {
 	if ( 'invalid_json' === err?.code ) {
@@ -782,8 +803,10 @@ const aiPost = async ( action, data ) => {
 		return first; // no FPM early-flush available → ran synchronously
 	}
 	const deadline = Date.now() + JOB_DEADLINE_MS;
+	let wait = JOB_POLL_FIRST_MS;
 	for (;;) {
-		await sleep( JOB_POLL_MS );
+		await sleep( wait );
+		wait = Math.min( JOB_POLL_MAX_MS, wait * JOB_POLL_GROWTH );
 		const job = await request( {
 			path: `/ai/job/${ first.jobId }`,
 			method: 'GET',
@@ -815,6 +838,11 @@ export const ai = {
 		n,
 		aspect,
 		refImage,
+		// P09: jpeg|png, transparency (GPT image models only; forces
+		// png server-side) and a jpeg compression override.
+		format,
+		transparent,
+		compression,
 	} ) =>
 		aiPost( 'generate', {
 			prompt,
@@ -825,6 +853,9 @@ export const ai = {
 			n,
 			aspect,
 			refImage,
+			format,
+			transparent,
+			compression,
 		} ),
 	edit: ( {
 		prompt,
@@ -835,6 +866,9 @@ export const ai = {
 		size,
 		aspect,
 		refImage,
+		format,
+		transparent,
+		compression,
 	} ) =>
 		aiPost( 'edit', {
 			prompt,
@@ -843,6 +877,9 @@ export const ai = {
 			image,
 			strength,
 			size,
+			format,
+			transparent,
+			compression,
 			aspect,
 			refImage,
 		} ),

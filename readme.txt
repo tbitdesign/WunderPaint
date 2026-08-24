@@ -2,9 +2,9 @@
 Contributors: tbitdesign
 Tags: photo editor, image editor, image generator, media library, image optimization
 Requires at least: 6.4
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.424.1
+Stable tag: 1.425.9
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -253,6 +253,36 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+
+= 1.425.9 =
+* Tested with WordPress 7.1.
+
+= 1.425.8 =
+* Translations: nine strings that had arrived with the last releases were still English in all six languages and are now translated. Locale typography is fixed at the source as well, so a rebuild can no longer revert it: curly quotes per locale, and French keeps its non-breaking spaces inside guillemets and before its double punctuation.
+
+= 1.425.7 =
+* The in-editor handbook and the help assistant now know the Pro content generator's newer parts: the two kinds of content template, structured fields that fill your own meta keys, the template assistant and the dry run.
+
+= 1.425.6 =
+* Editor styling for the assistant's refine row.
+
+= 1.425.5 =
+* Editor styling for the Pro template assistant and the dry-run preview: the brief form with its examples, the readable article preview, field group separators, the drag state of field cards and the prefix rename tool.
+
+= 1.425.4 =
+* Content Templates dialog: styling for the kind switch above the template list and for the fact chips in the template rows.
+
+= 1.425.3 =
+* Content Templates dialog: styling for the kind label above the template list.
+
+= 1.425.2 =
+* Structured Fields panel: one consistent 12px type size for selects and the description box, and styling for the new in-place explainer.
+
+= 1.425.1 =
+* Editor styling groundwork for the Structured Fields builder in the Pro Content Templates dialog: a third panel with field cards, key inputs and fixed-size controls.
+
+= 1.425.0 =
+* Editor styling groundwork for the redesigned Featured Images dialog in Pro: section headlines with icons, a three-column layout that scrolls per column instead of clipping, and a clearer format row. The German translation source dictionary now carries the August glossary corrections, so rebuilds can no longer revert them.
 = 1.424.1 =
 * Security: media maintenance and image metadata now enforce the same per-object permission the rest of the editor uses. Cleaning up unreferenced upload files is restricted to administrators and will never move a file that still belongs to an attachment, and reading an image's embedded EXIF/XMP details requires edit rights on that specific image. Thanks to a security review for both.
 

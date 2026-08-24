@@ -100,6 +100,15 @@ class Post_Data {
 		);
 		register_rest_route(
 			WPIE_REST_NS,
+			'/posts/context-batch',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'context_batch' ),
+				'permission_callback' => array( REST_Controller::class, 'can_use_editor' ),
+			)
+		);
+		register_rest_route(
+			WPIE_REST_NS,
 			'/posts/(?P<id>\d+)/context',
 			array(
 				'methods'             => 'GET',
@@ -292,9 +301,21 @@ class Post_Data {
 		if ( ! isset( $types[ $type ] ) ) {
 			$type = 'post';
 		}
+		// Status filter (Featured Images dialog): drafts and scheduled posts
+		// are exactly the ones that do not have their image yet, so the picker
+		// may ask for them. Restricted statuses go through WP_Query's 'perm'
+		// check, so an author still only sees what they may edit.
+		$allowed_status = array( 'publish', 'draft', 'pending', 'future', 'private' );
+		$status         = (string) $request->get_param( 'status' );
+		if ( 'any' === $status ) {
+			$status = $allowed_status;
+		} elseif ( ! in_array( $status, $allowed_status, true ) ) {
+			$status = 'publish';
+		}
 		$args = array(
 			'post_type'      => $type,
-			'post_status'    => 'publish',
+			'post_status'    => $status,
+			'perm'           => 'editable',
 			's'              => sanitize_text_field( (string) $request->get_param( 'search' ) ),
 			'paged'          => $page,
 			'posts_per_page' => 20,
@@ -314,6 +335,7 @@ class Post_Data {
 			$items[]                     = array(
 				'id'        => $post->ID,
 				'title'     => html_entity_decode( get_the_title( $post ), ENT_QUOTES ),
+				'status'    => $post->post_status,
 				'date'      => date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) ),
 				'thumb'     => $thumb,
 				'url'       => get_permalink( $post ), // Internal-link suggestions (v1.81.1).
@@ -1289,7 +1311,62 @@ class Post_Data {
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function context( $request ) {
-		$post = get_post( (int) $request['id'] );
+		$meta_keys = array_filter( array_map( 'trim', explode( ',', (string) $request->get_param( 'meta' ) ) ) );
+		$payload   = self::context_payload( (int) $request['id'], $meta_keys );
+		if ( null === $payload ) {
+			return new \WP_Error( 'wpie_no_post', __( 'Post not found.', 'wunderpaint' ), array( 'status' => 404 ) );
+		}
+		return rest_ensure_response( $payload );
+	}
+
+	/**
+	 * GET /posts/context-batch?ids=1,2,3&meta=key1,key2 : the same context
+	 * as the single route, for up to fifty posts in ONE request (P04). On
+	 * the shared hosting our customers run, every request costs a full
+	 * WordPress boot; a Featured Images batch used to pay that once per
+	 * post just to read titles and excerpts.
+	 *
+	 * Posts the caller may not read are left out of the answer rather than
+	 * failing the whole block - the same capability rules as the single
+	 * route (F-M02) decide, per post.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function context_batch( $request ) {
+		$ids = array_filter(
+			array_map( 'absint', explode( ',', (string) $request->get_param( 'ids' ) ) )
+		);
+		$ids = array_slice( array_unique( $ids ), 0, 50 );
+
+		$meta_keys = array_filter( array_map( 'trim', explode( ',', (string) $request->get_param( 'meta' ) ) ) );
+
+		// One warm cache for the block instead of one query per post field.
+		if ( function_exists( '_prime_post_caches' ) && $ids ) {
+			_prime_post_caches( $ids, true, true );
+		}
+
+		$items = array();
+		foreach ( $ids as $id ) {
+			$payload = self::context_payload( $id, $meta_keys );
+			if ( null !== $payload ) {
+				$items[ $id ] = $payload;
+			}
+		}
+		return rest_ensure_response( array( 'items' => $items ) );
+	}
+
+	/**
+	 * The context payload for one post, or null when the caller may not
+	 * read it. Shared by the single and the batch route, so the capability
+	 * rules cannot drift apart.
+	 *
+	 * @param int   $post_id   Post id.
+	 * @param array $meta_keys Meta keys to resolve into fields.
+	 * @return array|null
+	 */
+	private static function context_payload( $post_id, $meta_keys ) {
+		$post = get_post( $post_id );
 		$type = $post ? get_post_type_object( $post->post_type ) : null;
 		// `publish` is not a read permission. Password protected posts are
 		// published too, and so are non public post types such as WooCommerce
@@ -1300,14 +1377,12 @@ class Post_Data {
 			|| empty( $type->public )
 			|| ! current_user_can( 'read_post', $post->ID )
 			|| ( post_password_required( $post ) && ! current_user_can( 'edit_post', $post->ID ) ) ) {
-			return new \WP_Error( 'wpie_no_post', __( 'Post not found.', 'wunderpaint' ), array( 'status' => 404 ) );
+			return null;
 		}
 		list( $cat_names ) = self::post_terms( $post );
-		$meta_keys = array_filter( array_map( 'trim', explode( ',', (string) $request->get_param( 'meta' ) ) ) );
-		$fields    = self::fields_for( $post, $meta_keys );
+		$fields = self::fields_for( $post, $meta_keys );
 
-		return rest_ensure_response(
-			array(
+		return array(
 				'id'          => $post->ID,
 				// Legacy top-level keys (pre-1.60 bindings + prompts).
 				'title'       => $fields['post.title'],
@@ -1329,7 +1404,6 @@ class Post_Data {
 					'content'  => self::content_images( $post ),
 					'gallery'  => self::product_gallery_images( $post ),
 				),
-			)
 		);
 	}
 }

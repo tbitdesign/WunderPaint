@@ -69,6 +69,13 @@ export function AIPanel( { extras } ) {
 	);
 	const [ aspect, setAspect ] = useState( 'auto' ); // generation format (v1.5)
 	const [ vecOut, setVecOut ] = useState( false ); // paths, not pixels (v1.378)
+	// P10: output format and transparency live at the action, not in a
+	// settings page. PNG stays the default (lossless, exactly the old
+	// behaviour); JPEG is the small-and-fast choice for photographic
+	// results. Transparency is a GPT-image capability - Gemini has none,
+	// so the checkbox greys out there instead of hiding.
+	const [ outFormat, setOutFormat ] = useState( 'png' );
+	const [ outTransparent, setOutTransparent ] = useState( false );
 	// 'auto' and '360°' are UI modes, never provider aspect strings.
 	const aspectParam =
 		'auto' === aspect || '360°' === aspect ? undefined : aspect;
@@ -113,6 +120,17 @@ export function AIPanel( { extras } ) {
 	const currentProvider = providers.includes( provider )
 		? provider
 		: providers[ 0 ];
+	// What the two buttons hand to the actions; transparency only ever
+	// rides when it can work (PNG on an OpenAI image model).
+	const outputParams = {
+		format: outFormat,
+		transparent:
+			'png' === outFormat &&
+			'openai' === currentProvider &&
+			outTransparent
+				? true
+				: undefined,
+	};
 
 	// "Include brand details" (v1.77): appends the selected brand kit's
 	// colors/fonts to Generate, Edit Layer, From Document and From Post.
@@ -766,6 +784,53 @@ export function AIPanel( { extras } ) {
 						</label>
 					</div>
 				) }
+				<div className="ai-inline-check">
+					<label
+						{ ...tipFor(
+							__(
+								'PNG is lossless; JPEG is a fraction of the size and fine for photographic results.',
+								'wunderpaint'
+							)
+						) }
+					>
+						{ __( 'Format', 'wunderpaint' ) }{ ' ' }
+						<select
+							value={ outFormat }
+							onChange={ ( e ) => setOutFormat( e.target.value ) }
+						>
+							<option value="png">PNG</option>
+							<option value="jpeg">JPEG</option>
+						</select>
+					</label>
+					{ 'png' === outFormat && (
+						<label
+							{ ...tipFor(
+								'openai' === currentProvider
+									? __(
+											'The model leaves the background out - a real alpha channel, not a checkerboard.',
+											'wunderpaint'
+									  )
+									: __(
+											'Only the OpenAI image models can return real transparency.',
+											'wunderpaint'
+									  )
+							) }
+						>
+							<input
+								type="checkbox"
+								disabled={ 'openai' !== currentProvider }
+								checked={
+									'openai' === currentProvider &&
+									outTransparent
+								}
+								onChange={ ( e ) =>
+									setOutTransparent( e.target.checked )
+								}
+							/>
+							{ __( 'Transparent background', 'wunderpaint' ) }
+						</label>
+					) }
+				</div>
 			</div>
 
 			<div className="ai-actions">
@@ -821,6 +886,7 @@ export function AIPanel( { extras } ) {
 									provider: currentProvider,
 									aspect: aspectParam,
 									refImage: await brandRef(),
+									...outputParams,
 								} );
 							},
 							{ needsPrompt: true }
@@ -845,6 +911,7 @@ export function AIPanel( { extras } ) {
 									prompt: withBrand( prompt ),
 									provider: currentProvider,
 									refImage: await brandRef(),
+									...outputParams,
 								} ),
 							{ needsPrompt: true }
 						)

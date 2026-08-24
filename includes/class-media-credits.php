@@ -220,6 +220,15 @@ class Media_Credits {
 	public function register_routes() {
 		$perm = array( REST_Controller::class, 'can_use_editor' );
 
+		// Reading or writing one attachment's credit meta (source, author,
+		// licence, expiry) must require edit rights on THAT attachment, not
+		// merely the editor capability. The write path checked edit_post
+		// internally; the read path did not, which let any upload_files user
+		// pull the credit/licence data of any attachment, including other
+		// users' private uploads. can_edit_attachment enforces the per-object
+		// check for both. (2026-08-16 audit)
+		$perm_attachment = array( REST_Controller::class, 'can_edit_attachment' );
+
 		register_rest_route(
 			WPIE_REST_NS,
 			'/media-credits/(?P<id>\d+)',
@@ -227,12 +236,12 @@ class Media_Credits {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'rest_get' ),
-					'permission_callback' => $perm,
+					'permission_callback' => $perm_attachment,
 				),
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'rest_set' ),
-					'permission_callback' => $perm,
+					'permission_callback' => $perm_attachment,
 				),
 			)
 		);

@@ -790,7 +790,19 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'Content Templates are the recipes behind it: system prompt, image style, output rules, language, thinking budget and web search. The starter templates cover formats from SEO/GEO articles over how-to guides, comparisons and local SEO to news announcements; starters are read-only, saving one creates your editable copy.',
+				'Content Templates are the recipes behind it: system prompt, image style, output rules, language, thinking budget and web search. The built-in templates cover formats from SEO/GEO articles over how-to guides, comparisons and local SEO to news announcements; they are read-only, saving one creates your editable copy.',
+				'wunderpaint'
+			),
+			__(
+				'A template is one of two kinds, chosen with the switch above the template list. A classic article template produces a normal post. A custom fields template fills the meta keys of a post type instead (movies, recipes, podcast episodes), so a page builder can lay the parts out freely: you define the fields, each with its own description, and that description is the prompt for that field. Image fields generate their own picture and store it as an attachment ID, a URL or the ID-plus-URL array a Jet Engine media field expects.',
+				'wunderpaint'
+			),
+			__(
+				'You do not have to write a template by hand. "Draft a template" turns a plain-language brief ("podcast scripts with the script, show notes and chapter marks in separate fields") into a complete draft, and "Revise with assistant" improves the template you have open, keeping what already works. Drafts land in the form for you to check; nothing is saved until you save it.',
+				'wunderpaint'
+			),
+			__(
+				'"Dry run" in Generate Content writes the article text alone, without generating a single image or creating a draft. Read it, then discard it, have it written again, or generate the real thing from exactly that text. That is how you try a template out without paying for a full run each time.',
 				'wunderpaint'
 			),
 			__(

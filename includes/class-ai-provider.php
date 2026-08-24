@@ -414,17 +414,95 @@ class AI_Provider {
 				HOUR_IN_SECONDS
 			);
 		} else {
+			$payload = $result instanceof \WP_REST_Response ? $result->get_data() : $result;
 			set_transient(
 				$job,
 				array(
 					'status' => 'done',
 					'user'   => get_current_user_id(),
-					'result' => $result instanceof \WP_REST_Response ? $result->get_data() : $result,
+					'result' => self::externalize_images( $job, $payload ),
 				),
 				HOUR_IN_SECONDS
 			);
 		}
 		exit;
+	}
+
+	/**
+	 * Move big inline images out of a job result and into files (P05).
+	 *
+	 * A generated image used to ride through the pipeline as a base64
+	 * data URL: ~1.6 MB in the transient (an options-table row on hosts
+	 * without an object cache) and the same 1.6 MB through PHP again on
+	 * the final poll. Written to uploads/wpie-ai-tmp/ instead, the poll
+	 * answer carries a URL and the browser fetches the bytes straight
+	 * from the web server. File names inherit the job id, which is 24
+	 * random characters - as unguessable as the job route itself.
+	 *
+	 * Small images stay inline: a file plus a second request only pays
+	 * off past a threshold. Every failure keeps the inline data URL, so
+	 * this can degrade but never break a result.
+	 *
+	 * @param string $job     Job id (also the file-name stem).
+	 * @param mixed  $payload Job result.
+	 * @return mixed Same payload, big images replaced by URLs.
+	 */
+	private static function externalize_images( $job, $payload ) {
+		if ( ! is_array( $payload ) || empty( $payload['images'] ) || ! is_array( $payload['images'] ) ) {
+			return $payload;
+		}
+		$upload = wp_upload_dir();
+		if ( ! empty( $upload['error'] ) ) {
+			return $payload;
+		}
+		$dir = trailingslashit( $upload['basedir'] ) . 'wpie-ai-tmp';
+		$url = trailingslashit( $upload['baseurl'] ) . 'wpie-ai-tmp';
+		if ( ! wp_mkdir_p( $dir ) ) {
+			return $payload;
+		}
+		if ( ! file_exists( $dir . '/index.html' ) ) {
+			// Empty index, the usual guard against directory listings.
+			file_put_contents( $dir . '/index.html', '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- own uploads subdirectory.
+		}
+		self::sweep_tmp_images( $dir );
+		foreach ( $payload['images'] as $i => $img ) {
+			if ( ! is_string( $img ) || strlen( $img ) < 200 * 1024 ) {
+				continue;
+			}
+			if ( ! preg_match( '#^data:image/(png|jpeg|webp);base64,#', $img, $m ) ) {
+				continue;
+			}
+			$bytes = base64_decode( substr( $img, strpos( $img, ',' ) + 1 ), true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- decoding our own provider payload.
+			if ( false === $bytes || '' === $bytes ) {
+				continue;
+			}
+			$ext  = 'jpeg' === $m[1] ? 'jpg' : $m[1];
+			$name = sanitize_file_name( $job . '-' . (int) $i . '.' . $ext );
+			if ( false === file_put_contents( $dir . '/' . $name, $bytes ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- own uploads subdirectory.
+				continue;
+			}
+			$payload['images'][ $i ] = $url . '/' . $name;
+		}
+		return $payload;
+	}
+
+	/**
+	 * Drop temp images older than a day. Runs once per detached job, so
+	 * the directory cleans itself without a cron hook; the job transient
+	 * that references a file expires after an hour anyway.
+	 *
+	 * @param string $dir Absolute temp directory.
+	 */
+	private static function sweep_tmp_images( $dir ) {
+		foreach ( glob( $dir . '/*' ) ?: array() as $file ) {
+			if ( 'index.html' === basename( $file ) ) {
+				continue;
+			}
+			$age = time() - (int) @filemtime( $file ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a raced file is simply skipped.
+			if ( $age > DAY_IN_SECONDS ) {
+				wp_delete_file( $file );
+			}
+		}
 	}
 
 	/**
@@ -818,16 +896,31 @@ class AI_Provider {
 		$aspect            = (string) $request->get_param( 'aspect' );
 		$allowed_aspects   = array( '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9' );
 		$generation_config = array( 'responseModalities' => array( 'IMAGE' ) );
+		$image_config      = array();
 		if ( in_array( $aspect, $allowed_aspects, true ) ) {
-			$generation_config['imageConfig'] = array( 'aspectRatio' => $aspect );
+			$image_config['aspectRatio'] = $aspect;
+		}
+		// P09: resolution and output format are parameters, not prose. The
+		// size used to be appended to the prompt as an English sentence -
+		// a wish, not a setting - while imageConfig.imageSize existed all
+		// along. Lite models know only 1K, so they get no size field at
+		// all rather than a risky one.
+		$image_size = self::gemini_image_size( (string) $request->get_param( 'size' ), $model );
+		if ( '' !== $image_size ) {
+			$image_config['imageSize'] = $image_size;
+		}
+		// No output format here, deliberately. generateContent knows only
+		// aspectRatio and imageSize; an outputMimeType field answers
+		// "Unknown name ... Cannot find field" as a 400 (seen live,
+		// 23.08.2026 - the field was lifted from an SDK type definition,
+		// not from the API). Gemini returns whatever it returns and the
+		// callers re-encode anyway; the format parameter is OpenAI-only.
+		if ( $image_config ) {
+			$generation_config['imageConfig'] = $image_config;
 		}
 
 		$parts = array();
 		if ( 'generate' === $action ) {
-			$size = (string) $request->get_param( 'size' );
-			if ( $size ) {
-				$prompt .= ' (Target image size: ' . $size . '.)';
-			}
 			$parts[] = array( 'text' => $prompt );
 		} else {
 			$image = self::split_data_url( $request->get_param( 'image' ) );
@@ -910,6 +1003,117 @@ class AI_Provider {
 	 * ------------------------------------------------------------------- */
 
 	/**
+	 * Gemini imageSize step covering a requested "WxH" (P09/P11).
+	 *
+	 * '' when the model is a Lite variant (they only ever answer 1K, and
+	 * an explicit field would risk a 400 for nothing) or when the size
+	 * does not parse - the field is then simply not sent and the model
+	 * uses its default.
+	 *
+	 * @param string $size  Requested size ("WxH").
+	 * @param string $model Model id.
+	 * @return string '1K' | '2K' | '4K' | ''.
+	 */
+	private static function gemini_image_size( $size, $model ) {
+		if ( false !== strpos( (string) $model, '-lite' ) ) {
+			return '';
+		}
+		if ( ! preg_match( '/^(\d+)x(\d+)$/', (string) $size, $m ) ) {
+			return '';
+		}
+		$long = max( (int) $m[1], (int) $m[2] );
+		if ( $long <= 1024 ) {
+			return '1K';
+		}
+		if ( $long <= 2048 ) {
+			return '2K';
+		}
+		return '4K';
+	}
+
+	/**
+	 * A free "WxH" size for gpt-image-2 (P11): both edges divisible by
+	 * 16, aspect clamped to 1:3..3:1, capped at the documented
+	 * 3840x2160 pixel budget. '' when the size does not parse or ends
+	 * up implausibly small - the caller then falls back to the classic
+	 * three sizes.
+	 *
+	 * The exact size matters twice: the model stops generating pixels
+	 * nobody ordered (billing is by pixels), and the client stops
+	 * cropping away what never matched the template.
+	 *
+	 * @param string $size Requested size ("WxH").
+	 * @return string "WxH" or ''.
+	 */
+	private static function openai_free_size( $size ) {
+		if ( ! preg_match( '/^(\d+)x(\d+)$/', (string) $size, $m ) ) {
+			return '';
+		}
+		$w = (float) $m[1];
+		$h = (float) $m[2];
+		if ( $w < 1 || $h < 1 ) {
+			return '';
+		}
+		if ( $w > 3 * $h ) {
+			$w = 3 * $h;
+		}
+		if ( $h > 3 * $w ) {
+			$h = 3 * $w;
+		}
+		// The documented pixel budget runs BOTH ways: at most 8,294,400
+		// (3840x2160) and at least 655,360 (1024x640). A small template
+		// layer scales UP to the floor - the client cover-crops down
+		// again, so nothing is lost - and rounding also goes up there,
+		// because flooring back under the minimum answers 400.
+		$max_scale = min( 1, 3840 / max( $w, $h ), sqrt( ( 3840 * 2160 ) / ( $w * $h ) ) );
+		$min_scale = sqrt( 655360 / ( $w * $h ) );
+		if ( $min_scale > 1 ) {
+			$w = (int) ( ceil( $w * $min_scale / 16 ) * 16 );
+			$h = (int) ( ceil( $h * $min_scale / 16 ) * 16 );
+		} else {
+			$w = (int) ( floor( $w * $max_scale / 16 ) * 16 );
+			$h = (int) ( floor( $h * $max_scale / 16 ) * 16 );
+		}
+		if ( $w < 16 || $h < 16 || max( $w, $h ) > 3840 ) {
+			return '';
+		}
+		return $w . 'x' . $h;
+	}
+
+	/**
+	 * Output options for the GPT image models (P09): format, compression
+	 * and transparency. DALL-E models know none of these and get nothing.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @param string           $model   Model id.
+	 * @return array Extra body fields.
+	 */
+	private static function openai_output_options( \WP_REST_Request $request, $model ) {
+		$extra = array();
+		if ( 0 !== strpos( (string) $model, 'gpt-image' ) ) {
+			return $extra;
+		}
+		$format      = strtolower( (string) $request->get_param( 'format' ) );
+		$transparent = rest_sanitize_boolean( $request->get_param( 'transparent' ) );
+		if ( $transparent ) {
+			// Transparency needs an alpha-capable format; requesting it
+			// with JPEG answers 400, so PNG is forced alongside.
+			$extra['background']    = 'transparent';
+			$extra['output_format'] = 'png';
+			return $extra;
+		}
+		if ( in_array( $format, array( 'jpeg', 'png' ), true ) ) {
+			$extra['output_format'] = $format;
+			if ( 'jpeg' === $format ) {
+				$compression = (int) $request->get_param( 'compression' );
+				$extra['output_compression'] =
+					$compression >= 10 && $compression <= 100 ? $compression : 92;
+			}
+		}
+		return $extra;
+	}
+
+	/**
 	 * Nearest OpenAI-supported size for a requested "WxH".
 	 *
 	 * @param string $size Requested size.
@@ -935,7 +1139,16 @@ class AI_Provider {
 	 * @param \WP_REST_Request $request Request.
 	 * @return string
 	 */
-	private static function openai_request_size( \WP_REST_Request $request ) {
+	private static function openai_request_size( \WP_REST_Request $request, $model = '' ) {
+		// P11: gpt-image-2 takes arbitrary sizes; an explicit "WxH" is
+		// honoured instead of being collapsed onto three presets, so the
+		// model renders exactly the pixels the template needs.
+		if ( 0 === strpos( (string) $model, 'gpt-image-2' ) ) {
+			$free = self::openai_free_size( $request->get_param( 'size' ) );
+			if ( '' !== $free ) {
+				return $free;
+			}
+		}
 		$aspect = (string) $request->get_param( 'aspect' );
 		if ( preg_match( '/^(\d+):(\d+)$/', $aspect, $m ) ) {
 			return self::openai_size( ( (int) $m[1] * 100 ) . 'x' . ( (int) $m[2] * 100 ) );
@@ -958,14 +1171,18 @@ class AI_Provider {
 		$ref = (string) $request->get_param( 'refImage' );
 
 		if ( 'generate' === $action && ! $ref ) {
-			$json = self::post_json(
+			$model = $models['openai']['generate'];
+			$json  = self::post_json(
 				'https://api.openai.com/v1/images/generations',
 				array( 'Authorization' => 'Bearer ' . $key ),
-				array(
-					'model'  => $models['openai']['generate'],
-					'prompt' => (string) $request->get_param( 'prompt' ),
-					'size'   => self::openai_request_size( $request ),
-					'n'      => $n,
+				array_merge(
+					array(
+						'model'  => $model,
+						'prompt' => (string) $request->get_param( 'prompt' ),
+						'size'   => self::openai_request_size( $request, $model ),
+						'n'      => $n,
+					),
+					self::openai_output_options( $request, $model )
 				)
 			);
 			return self::openai_images( $json );
@@ -1059,10 +1276,15 @@ class AI_Provider {
 		if ( $ref_is_main && 'generate' === $action ) {
 			$fields['model'] = $models['openai']['generate'];
 		}
-		$fields['n']      = (string) $n;
+		$fields['n'] = (string) $n;
 		// Match the request's aspect so the client-side reprojection
-		// barely has to crop (v1.5).
-		$fields['size'] = self::openai_request_size( $request );
+		// barely has to crop (v1.5). Since P11 an explicit size passes
+		// through verbatim for gpt-image-2, so there is little left to
+		// crop at all; P09 adds format/compression/transparency.
+		$fields['size'] = self::openai_request_size( $request, $fields['model'] );
+		foreach ( self::openai_output_options( $request, $fields['model'] ) as $opt_key => $opt_value ) {
+			$fields[ $opt_key ] = (string) $opt_value;
+		}
 		$mask           = $request->get_param( 'mask' );
 		if ( $mask ) {
 			$mask_parts = self::split_data_url( $mask );

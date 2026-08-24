@@ -30,6 +30,7 @@ import {
 	renderTemplateResolved,
 } from './generator-resolve';
 import { nearestAspect } from './aspect';
+import { sleep } from './worker-timer';
 import {
 	renderToBlob,
 	renderToCanvas,
@@ -153,6 +154,9 @@ export const proBridge = Object.freeze( {
 		bindingGroups,
 	},
 	aspect: { nearestAspect },
+	// timing (additive, P07): a background-tab-proof sleep; Pro's own
+	// pollers use it so long batches keep their pace in hidden tabs.
+	timing: { sleep },
 	// buildPdf (additive, v1.234): wraps JPEG bytes into a one-page PDF;
 	// the Pro automation uses it for "Also save as PDF".
 	raster: {

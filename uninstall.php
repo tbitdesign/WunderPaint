@@ -32,9 +32,12 @@ function wpie_uninstall_site() {
 	}
 
 	// "Remove all plugin data" means all of it: the content stores behind
-	// the editor (mirrors WPImageEditor\Backup::OPTIONS, minus the two Pro
-	// options that wunderpaint-pro/uninstall.php owns).
-	foreach ( array( 'wpie_templates', 'wpie_designs', 'wpie_user_library', 'wpie_palettes', 'wpie_3d_models', 'wpie_ai_usage_log', 'wpie_extensions_disabled', 'wpie_content_cache_ver', 'wpie_upload_guard_version' ) as $option ) {
+	// the editor (mirrors WPImageEditor\Backup::OPTIONS). The two Pro options
+	// (wpie_content_templates, wpie_automation_settings) are cleaned here too:
+	// Pro ships no uninstall.php of its own, so without this they survived
+	// every uninstall. This only runs on an explicit "remove all data", and
+	// Pro cannot run without the free plugin anyway. (2026-08-16 hygiene)
+	foreach ( array( 'wpie_templates', 'wpie_designs', 'wpie_user_library', 'wpie_palettes', 'wpie_3d_models', 'wpie_ai_usage_log', 'wpie_extensions_disabled', 'wpie_content_cache_ver', 'wpie_upload_guard_version', 'wpie_content_templates', 'wpie_automation_settings' ) as $option ) {
 		delete_option( $option );
 	}
 
@@ -56,7 +59,7 @@ function wpie_uninstall_site() {
 	// Mirrors WPImageEditor\Helpers::upload_dirs(); nested entries ride
 	// along with their parent.
 	$uploads = trailingslashit( wp_upload_dir( null, false )['basedir'] );
-	foreach ( array( 'wpie-versions', 'wpie-fonts', 'wpie-extensions', 'wpie-3d-models', 'wpie-models', 'wpie-runtime', 'wpie-live', 'wpie-content' ) as $name ) {
+	foreach ( array( 'wpie-versions', 'wpie-quarantine', 'wpie-fonts', 'wpie-extensions', 'wpie-3d-models', 'wpie-models', 'wpie-runtime', 'wpie-live', 'wpie-content' ) as $name ) {
 		wpie_uninstall_rrmdir( $uploads . $name );
 	}
 }

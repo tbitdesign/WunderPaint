@@ -129,8 +129,21 @@ class Helpers {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Upload dirs that must never answer a direct HTTP request: their files
+	 * only ever leave through the plugin's own capability-gated routes. All
+	 * other upload dirs (fonts, models, runtime, extensions, live, content)
+	 * are fetched directly by the browser and stay readable.
+	 *
+	 * @return string[]
+	 */
+	public static function deny_all_dirs() {
+		return array( 'wpie-versions', 'wpie-quarantine' );
+	}
+
 	public static function protect_upload_dirs() {
-		$base = trailingslashit( wp_upload_dir( null, false )['basedir'] );
+		$base      = trailingslashit( wp_upload_dir( null, false )['basedir'] );
+		$deny_all  = self::deny_all_dirs();
 		foreach ( self::upload_dirs() as $name ) {
 			// The extension directory gets the same extra rule Pro's
 			// Ext_Install::dir() applies. Without this the two callers would
@@ -139,7 +152,7 @@ class Helpers {
 			// at all, but it keeps protecting it: sites that installed
 			// packages before this release still have one, and it must stay
 			// covered whether or not Pro is present.
-			self::protect_dir( $base . $name, self::extra_deny( $name ) );
+			self::protect_dir( $base . $name, self::extra_deny( $name ), in_array( $name, $deny_all, true ) );
 		}
 	}
 
@@ -176,20 +189,42 @@ class Helpers {
 	 *                       package, slug and generator prefixes included.
 	 * @return void
 	 */
-	public static function protect_dir( $dir, $deny = array() ) {
+	public static function protect_dir( $dir, $deny = array(), $deny_all = false ) {
 		$file = trailingslashit( (string) $dir ) . '.htaccess';
 		if ( ! is_dir( $dir ) ) {
 			return;
 		}
+		$block = static function () {
+			return "\t<IfModule mod_authz_core.c>\n\t\tRequire all denied\n\t</IfModule>\n"
+				. "\t<IfModule !mod_authz_core.c>\n\t\tOrder allow,deny\n\t\tDeny from all\n\t</IfModule>\n";
+		};
+		if ( $deny_all ) {
+			// Version and quarantine files are served only through the
+			// capability-gated REST routes (readfile from disk bypasses this),
+			// never fetched directly by the browser. Blocking all direct HTTP
+			// closes the download path a random-but-guessable name still left
+			// open, on Apache. (nginx has no .htaccess: block these dirs in the
+			// server config too.) (2026-08-16 hardening)
+			$rules  = "# WunderPaint: served only through the plugin, never over HTTP.\n";
+			$rules .= "<IfModule mod_authz_core.c>\n\tRequire all denied\n</IfModule>\n";
+			$rules .= "<IfModule !mod_authz_core.c>\n\tOrder allow,deny\n\tDeny from all\n</IfModule>\n";
+			if ( file_exists( $file ) ) {
+				$now  = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+				$ours = 0 === strpos( $now, '# WunderPaint: ' ) || 0 === strpos( $now, '# WP Image Editor: ' ); // wpie-keeps-old-name: pre-rename .htaccess.
+				if ( ! $ours || $now === $rules ) {
+					return;
+				}
+			}
+			file_put_contents( $file, $rules ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			return;
+		}
 		$rules  = "# WunderPaint: these files are static assets, never code.\n";
 		$rules .= '<FilesMatch "\.(?i:php|phtml|phtm|php[0-9]|phps|pht|phar|cgi|pl|py|sh|shtml)(\.|$)">' . "\n";
-		$rules .= "\t<IfModule mod_authz_core.c>\n\t\tRequire all denied\n\t</IfModule>\n";
-		$rules .= "\t<IfModule !mod_authz_core.c>\n\t\tOrder allow,deny\n\t\tDeny from all\n\t</IfModule>\n";
+		$rules .= $block();
 		$rules .= "</FilesMatch>\n";
 		foreach ( (array) $deny as $name ) {
 			$rules .= '<Files "' . $name . '">' . "\n";
-			$rules .= "\t<IfModule mod_authz_core.c>\n\t\tRequire all denied\n\t</IfModule>\n";
-			$rules .= "\t<IfModule !mod_authz_core.c>\n\t\tOrder allow,deny\n\t\tDeny from all\n\t</IfModule>\n";
+			$rules .= $block();
 			$rules .= "</Files>\n";
 		}
 		if ( file_exists( $file ) ) {

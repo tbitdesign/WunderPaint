@@ -14,6 +14,7 @@ import {
 import { defaultCache } from './cache';
 import { layerDeviceBounds, stylesPadding } from './bounds';
 import { drawContent } from './content';
+import { encodeCanvasBlob } from './encode-worker';
 import {
 	applyLayerStyles,
 	blurCanvas,
@@ -668,16 +669,18 @@ export async function renderToBlob(
 			: 'avif' === format
 			? 'image/avif'
 			: 'image/png';
-	return new Promise( ( resolve, reject ) =>
-		canvas.toBlob(
-			( blob ) =>
-				blob
-					? resolve( blob )
-					: reject( new Error( 'Rendering failed' ) ),
-			mime,
-			Math.min( 1, Math.max( 0.1, quality / 100 ) )
-		)
+	// P07: encode in a worker where the browser offers one; the fallback
+	// inside encodeCanvasBlob is exactly the canvas.toBlob call that
+	// stood here, semantics included.
+	const blob = await encodeCanvasBlob(
+		canvas,
+		mime,
+		Math.min( 1, Math.max( 0.1, quality / 100 ) )
 	);
+	if ( ! blob ) {
+		throw new Error( 'Rendering failed' );
+	}
+	return blob;
 }
 
 export async function renderToDataURL(

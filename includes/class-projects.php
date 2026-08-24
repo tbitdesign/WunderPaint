@@ -178,6 +178,13 @@ class Projects {
 	private static function write_files( $id, \WP_REST_Request $request ) {
 		$project = (string) $request->get_param( 'projectJson' );
 		if ( '' !== $project ) {
+			// Cap the stored project so one editor cannot fill the disk with a
+			// single huge design. Generous by default (embedded image data can
+			// be large), filterable for sites that need more. (2026-08-16)
+			$max = (int) apply_filters( 'wpie_max_project_bytes', 32 * MB_IN_BYTES );
+			if ( $max > 0 && strlen( $project ) > $max ) {
+				return new \WP_Error( 'wpie_design_too_large', __( 'This design is too large to store.', 'wunderpaint' ), array( 'status' => 413 ) );
+			}
 			$decoded = json_decode( $project, true );
 			if ( ! is_array( $decoded ) || empty( $decoded['doc'] ) || ! isset( $decoded['layers'] ) ) {
 				return new \WP_Error( 'wpie_bad_design', __( 'Malformed project data.', 'wunderpaint' ), array( 'status' => 400 ) );
@@ -194,6 +201,34 @@ class Projects {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Whether the current user has hit the per-user design ceiling. Keeps a
+	 * single compromised editor from filling the table with entries; admins
+	 * are exempt and the cap is filterable. (2026-08-16 hardening)
+	 *
+	 * @return \WP_Error|null Error when at the limit, null otherwise.
+	 */
+	private static function design_limit_error() {
+		if ( current_user_can( 'manage_options' ) ) {
+			return null;
+		}
+		$cap = (int) apply_filters( 'wpie_max_designs_per_user', 1000 );
+		if ( $cap <= 0 ) {
+			return null;
+		}
+		$me  = get_current_user_id();
+		$own = 0;
+		foreach ( self::index() as $record ) {
+			if ( (int) ( $record['owner'] ?? 0 ) === $me ) {
+				++$own;
+			}
+		}
+		if ( $own >= $cap ) {
+			return new \WP_Error( 'wpie_design_limit', __( 'You have reached the maximum number of saved designs.', 'wunderpaint' ), array( 'status' => 403 ) );
+		}
+		return null;
 	}
 
 	/**
@@ -231,6 +266,10 @@ class Projects {
 		$name = sanitize_text_field( (string) $request->get_param( 'name' ) );
 		if ( '' === $name || '' === (string) $request->get_param( 'projectJson' ) ) {
 			return new \WP_Error( 'wpie_bad_design', __( 'A design needs a name and project data.', 'wunderpaint' ), array( 'status' => 400 ) );
+		}
+		$limit = self::design_limit_error();
+		if ( is_wp_error( $limit ) ) {
+			return $limit;
 		}
 		$id     = strtolower( wp_generate_password( 12, false, false ) );
 		$result = self::write_files( $id, $request );
@@ -329,6 +368,10 @@ class Projects {
 		$json = self::dir() . '/' . $id . '.json';
 		if ( ! $source || ! self::can_access( $source ) || ! file_exists( $json ) ) {
 			return new \WP_Error( 'wpie_not_found', __( 'Design not found.', 'wunderpaint' ), array( 'status' => 404 ) );
+		}
+		$limit = self::design_limit_error();
+		if ( is_wp_error( $limit ) ) {
+			return $limit;
 		}
 		$copy_id = strtolower( wp_generate_password( 12, false, false ) );
 		copy( $json, self::dir() . '/' . $copy_id . '.json' );

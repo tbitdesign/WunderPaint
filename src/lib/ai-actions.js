@@ -211,18 +211,48 @@ export const requireActive = ( editor ) => {
 
 /* -------------------------------- actions ------------------------------- */
 
+/**
+ * The size to request when the user picked an aspect chip (P11 fix).
+ *
+ * The provider request carries BOTH the document size and the chip.
+ * Since P11 an explicit size passes through to gpt-image-2 verbatim -
+ * which silently overruled the chip: a 1080x1080 canvas with 9:16
+ * picked came back square. The caller therefore states exactly what it
+ * wants: the canvas AREA reshaped to the chip's ratio. Without a chip
+ * (or an unparsable one) the document size stays as it was.
+ *
+ * @param {number} w      Document width.
+ * @param {number} h      Document height.
+ * @param {string} aspect Chip value like '9:16', or undefined.
+ * @return {string} "WxH" to request.
+ */
+export function sizeForAspect( w, h, aspect ) {
+	const m = /^(\d+):(\d+)$/.exec( aspect || '' );
+	const a = m ? Number( m[ 1 ] ) : 0;
+	const b = m ? Number( m[ 2 ] ) : 0;
+	if ( a > 0 && b > 0 ) {
+		const height = Math.round( Math.sqrt( ( w * h * b ) / a ) );
+		return `${ Math.round( ( height * a ) / b ) }x${ height }`;
+	}
+	return `${ w }x${ h }`;
+}
+
 export async function aiGenerate(
 	editor,
-	{ prompt, provider, aspect, refImage }
+	{ prompt, provider, aspect, refImage, format, transparent }
 ) {
 	const { state } = editor;
 	const result = await ai.generate( {
 		prompt,
 		provider,
 		refImage,
-		size: `${ state.doc.w }x${ state.doc.h }`,
+		size: sizeForAspect( state.doc.w, state.doc.h, aspect ),
 		// Explicit aspect (v1.5 panel chips); defaults to the doc's ratio.
 		aspect: aspect || nearestAspect( state.doc.w, state.doc.h ),
+		// P10: jpeg|png and transparency ride through when the panel set
+		// them; the server ignores what a provider cannot do.
+		format,
+		transparent,
 	} );
 	if ( ! result.images?.length ) {
 		throw new Error(
@@ -236,7 +266,10 @@ export async function aiGenerate(
 	);
 }
 
-export async function aiEditLayer( editor, { prompt, provider, refImage } ) {
+export async function aiEditLayer(
+	editor,
+	{ prompt, provider, refImage, format, transparent }
+) {
 	const layer = requireActive( editor );
 	const image = await layerDataUrl( editor.state, layer );
 	const result = await ai.edit( {
@@ -246,6 +279,8 @@ export async function aiEditLayer( editor, { prompt, provider, refImage } ) {
 		refImage,
 		size: `${ Math.round( layer.w ) }x${ Math.round( layer.h ) }`,
 		aspect: nearestAspect( layer.w, layer.h ),
+		format,
+		transparent,
 	} );
 	if ( ! result.images?.length ) {
 		throw new Error(
@@ -610,7 +645,7 @@ export async function aiGenerateVector( editor, { prompt, provider, aspect } ) {
 			prompt +
 			'. Flat vector illustration style, bold simple shapes, solid colors, no gradients, no texture, no photo detail, clean edges, plain white background.',
 		provider,
-		size: `${ editor.state.doc.w }x${ editor.state.doc.h }`,
+		size: sizeForAspect( editor.state.doc.w, editor.state.doc.h, aspect ),
 		aspect: aspect || '1:1',
 	} );
 	if ( ! result.images?.length ) {
