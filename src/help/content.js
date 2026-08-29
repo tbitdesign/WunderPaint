@@ -375,6 +375,39 @@ export const HELP_ARTICLES = [
 		],
 	},
 	{
+		id: 'shape-studio',
+		cat: 'design',
+		title: __( 'Shape Studio', 'wunderpaint' ),
+		body: [
+			__(
+				'Every shape in the editor is parametric: it keeps its numbers instead of being flattened into pixels. The Shape Studio is where you set those numbers, and it sits in a panel over the canvas: hold the shape tool and it is there, the way the brush panel is there while you paint. Double-click a shape on the canvas to dial that one (the right-click menu offers Edit Shape too), View hides the panel again, and the button in its head opens the same studio as a full window when a column is too narrow for what you are dialing.',
+				'wunderpaint'
+			),
+			__(
+				'With nothing selected the dials belong to the tool, so the next shape you drag is the one in the preview; select a shape and they belong to that shape instead and change it as you turn. Pick a shape on the left, dial it in on the right. Which dials appear depends on the shape: a crown has a point count and a depth, a pine tree has tiers and a trunk, a ring has thickness and a slice, a speech bubble has a tail you can move and lean. Corner radius and smoothing appear wherever corners exist, and fill and stroke sit in the same column.',
+				'wunderpaint'
+			),
+			__(
+				'Below the shapes come the generators: shapes that exist only as maths. Curves like the superformula, guilloche rosettes, Lissajous knots and the harmonograph. Fractals like the Koch edge, Sierpinski and the dragon curve. Patterns like Truchet tiles, mazes, honeycombs, halftone ramps and herringbone. Organic families like blobs, metaballs, Voronoi cells, flow lines, brush strokes and ink splats.',
+				'wunderpaint'
+			),
+			__(
+				'Generators with a seed have a Shuffle button. The seed is a stored number, so a design renders the same way tomorrow and in every export: shuffling writes a new number instead of rolling dice while drawing. The chips above the dials are style presets, setting several dials at once so you can aim a formula without knowing what its exponents mean.',
+				'wunderpaint'
+			),
+			__(
+				'Whatever you insert stays an ordinary shape layer. It takes gradients and patterns, holds an image clipped into it, carries text inside it, exports as real vector in SVG, and opens in the studio again whenever you want. Convert to Path freezes it if you would rather push single points around by hand.',
+				'wunderpaint'
+			),
+		],
+		actions: [
+			{
+				label: __( 'Open Shape Studio', 'wunderpaint' ),
+				run: ( extras ) => extras.openShapeStudio(),
+			},
+		],
+	},
+	{
 		id: 'collage',
 		cat: 'design',
 		title: __( 'Collage & Photo Grid', 'wunderpaint' ),

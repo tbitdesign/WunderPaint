@@ -20,6 +20,7 @@ import {
 } from './corner-geometry';
 import { normalizePathD } from './path.js';
 import { extraShapePath } from './shape-library';
+import { dynamicShapeCommands, roundedPathCommands } from './shape-dynamics';
 
 const n = ( v ) => {
 	const r = Math.round( v * 1000 ) / 1000;
@@ -67,13 +68,28 @@ export function shapeToPathD( layer ) {
 		return null;
 	}
 	if ( layer.pathD ) {
-		return layer.pathD;
+		// A rounded polygon path exports what the canvas paints.
+		const rounded = layer.radius
+			? roundedPathCommands(
+					layer.pathD,
+					layer.radius,
+					layer.cornerSmoothing
+			  )
+			: null;
+		return rounded
+			? normalizePathD( commandsToPathD( rounded, n ) )
+			: layer.pathD;
 	}
 	const w = Math.max( 1, layer.w || 0 );
 	const h = Math.max( 1, layer.h || 0 );
 	const rx = w / 2;
 	const ry = h / 2;
 	const cy = h / 2;
+	// Dynamic shapes export the very command list the canvas traces.
+	const dyn = dynamicShapeCommands( layer );
+	if ( dyn ) {
+		return normalizePathD( commandsToPathD( dyn, n ) );
+	}
 	// Shapes that are DEFINED as path data need no second reading here.
 	const fromLibrary = extraShapePath( layer.shape, w, h );
 	if ( fromLibrary ) {
@@ -115,40 +131,7 @@ export function shapeToPathD( layer ) {
 		case 'badge':
 			d = ringPath( 'star', 24, w, h, 0.86, 0, 0 );
 			break;
-		case 'arrow':
-			d =
-				`M 0 ${ n( h * 0.32 ) } L ${ n( w * 0.62 ) } ${ n(
-					h * 0.32
-				) } ` +
-				`L ${ n( w * 0.62 ) } ${ n( h * 0.08 ) } L ${ n( w ) } ${ n(
-					h / 2
-				) } ` +
-				`L ${ n( w * 0.62 ) } ${ n( h * 0.92 ) } L ${ n(
-					w * 0.62
-				) } ${ n( h * 0.68 ) } ` +
-				`L 0 ${ n( h * 0.68 ) } Z`;
-			break;
-		case 'speech': {
-			const r = Math.min( w, h ) * 0.12;
-			const bh = h * 0.74;
-			// Rounded body (corner radius r) with the tail notch on the
-			// bottom edge, matching drawShape's arcTo corners + lineTo tail.
-			d =
-				`M ${ n( r ) } 0 L ${ n( w - r ) } 0 ` +
-				`A ${ n( r ) } ${ n( r ) } 0 0 1 ${ n( w ) } ${ n( r ) } ` +
-				`L ${ n( w ) } ${ n( bh - r ) } ` +
-				`A ${ n( r ) } ${ n( r ) } 0 0 1 ${ n( w - r ) } ${ n(
-					bh
-				) } ` +
-				`L ${ n( w * 0.34 ) } ${ n( bh ) } L ${ n( w * 0.2 ) } ${ n(
-					h
-				) } L ${ n( w * 0.22 ) } ${ n( bh ) } ` +
-				`L ${ n( r ) } ${ n( bh ) } ` +
-				`A ${ n( r ) } ${ n( r ) } 0 0 1 0 ${ n( bh - r ) } ` +
-				`L 0 ${ n( r ) } ` +
-				`A ${ n( r ) } ${ n( r ) } 0 0 1 ${ n( r ) } 0 Z`;
-			break;
-		}
+		// 'arrow' and 'speech' are dynamic shapes now and returned above.
 		default: {
 			// Rectangle, optionally rounded and smoothed. Four independent
 			// corners since v1.367, and since v1.368 the same geometry

@@ -160,8 +160,8 @@ const wheelScroll = ( e ) => {
 const comboPreviewDoc = { id: 'tray-combo', w: 480, h: 360, bg: '#f6f4ef' };
 const elementPreviewDoc = { id: 'tray-el', w: 64, h: 64, bg: 'transparent' };
 
-const elementPreviewLayers = ( item ) => [
-	makeShape( {
+const elementPreviewLayers = ( item ) => {
+	const layer = makeShape( {
 		x: 4,
 		y: 4,
 		w: 56,
@@ -169,11 +169,19 @@ const elementPreviewLayers = ( item ) => [
 		fill: '#8a93a6',
 		shape: item.shape || 'rect',
 		sides: item.sides,
+		// Dynamic-shape dials (v1.427): without these, Burst 8/12/16 all
+		// collapsed to the default burst and the half-ring lost its slice.
+		shapeParams: item.shapeParams || null,
+		radius: item.radius ? item.radius * 0.56 : 0,
 		...( item.pathD
 			? { pathD: scaleElementPath( item.pathD, 0.56, 0.56 ) }
 			: {} ),
-	} ),
-];
+	} );
+	if ( item.innerRatio ) {
+		layer.innerRatio = item.innerRatio;
+	}
+	return [ layer ];
+};
 
 /* ------------------------------- strips --------------------------------- */
 

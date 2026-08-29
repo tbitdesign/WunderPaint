@@ -385,6 +385,12 @@ export async function insertAsset( editor, extras, asset, point = null ) {
 				fill: state.fgColor || '#3b66ff',
 				shape: item.shape || 'rect',
 				sides: item.sides,
+				// Dynamic-shape dials (shape-dynamics.js): a catalog burst
+				// carries its point count, a frame its thickness - and the
+				// inserted layer stays fully editable in the Shape Studio.
+				shapeParams: item.shapeParams || null,
+				// Catalog radii are authored in the 100-unit element box.
+				radius: item.radius ? ( item.radius * size ) / 100 : 0,
 				...( item.pathD
 					? {
 							pathD: scaleElementPath(
@@ -395,6 +401,9 @@ export async function insertAsset( editor, extras, asset, point = null ) {
 					  }
 					: {} ),
 			} );
+			if ( item.innerRatio ) {
+				layer.innerRatio = item.innerRatio;
+			}
 			if ( item.flipX ) {
 				layer.flipX = true;
 			}

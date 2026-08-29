@@ -867,6 +867,13 @@ function buildMenus( editor, extras ) {
 						editor.dispatch( { type: 'TOGGLE_BRUSH_PANEL' } ),
 				},
 				{
+					label: state.showShapePanel
+						? __( 'Hide Shape Panel', 'wunderpaint' )
+						: __( 'Show Shape Panel', 'wunderpaint' ),
+					run: () =>
+						editor.dispatch( { type: 'TOGGLE_SHAPE_PANEL' } ),
+				},
+				{
 					label: state.showNavigator
 						? __( 'Hide Navigator', 'wunderpaint' )
 						: __( 'Show Navigator', 'wunderpaint' ),
@@ -2461,6 +2468,16 @@ function ToolOptions( { extras, compact } ) {
 						value={ opts.shape }
 						onChange={ ( id ) => set( 'shape', id ) }
 					/>
+					<div className="seg">
+						<button
+							type="button"
+							title={ __( 'Shape Studio', 'wunderpaint' ) }
+							aria-label={ __( 'Shape Studio', 'wunderpaint' ) }
+							onClick={ () => extras?.openShapeStudio?.() }
+						>
+							{ I.sliders( { size: 13 } ) }
+						</button>
+					</div>
 					<span className="label">
 						{ __( 'Fill', 'wunderpaint' ) }
 					</span>

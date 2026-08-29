@@ -2924,7 +2924,12 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 
 #wpie-root .bp-tips {
 	flex: 0 0 auto;
-	width: 134px;
+
+	/* 150, not 134, and the number is arithmetic rather than taste: the
+	   strip keeps 8px of padding and a 1px rule, and the scrollbar takes
+	   10 more, so 134 left 115px of usable width. Four 30px tips with 3px
+	   between them need 129. 150 gives 131. Panel width moved with it. */
+	width: 150px;
 	max-height: 76vh;
 	overflow-y: auto;
 	overflow-x: hidden;
@@ -2969,8 +2974,10 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	flex: 1 1 auto;
 	flex-direction: column;
 
-	/* 180, nicht 200: mit der 134er-Leiste plus Innenabstaenden ist 200
-	   breiter als das 350er-Fenster - der horizontale Scrollbalken. */
+	/* 180, nicht 200: mit der Spitzenleiste plus Innenabstaenden ist 200
+	   breiter als das Fenster - der horizontale Scrollbalken. Die Leiste
+	   ist am 29.08. von 134 auf 150 gewachsen und das Fenster von 350 auf
+	   356 mit ihr, damit hier weiterhin 182 uebrig bleiben. */
 	min-width: 180px;
 
 	/* The same ceiling as the tip strip: two columns of one panel
@@ -3220,9 +3227,15 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	margin-bottom: 7px;
 }
 
+/* Same rule as the shape grid: FIXED tiles, as many as fit, leftover into
+   the gaps. Five stretched 1fr columns worked out to ~23px a tip, which is
+   too small to tell two textures apart (Thomas, 29.08.); 30px fixed is the
+   size the shape tiles settled on too, and the strip was widened so four
+   of them fit in a row. */
 #wpie-root .bp-tipgrid {
 	display: grid;
-	grid-template-columns: repeat( 5, 1fr );
+	grid-template-columns: repeat( auto-fill, 30px );
+	justify-content: space-between;
 	gap: 3px;
 	margin-top: 3px;
 }
@@ -3744,4 +3757,290 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	color: #fff;
 	background: var(--accent, #3b66ff);
 	border-color: var(--accent, #3b66ff);
+}
+
+/* --------------------- Shape Studio: modal and panel ---------------------
+   One catalog, two surfaces. The modal (shape-studio-dialog.jsx) has room
+   for all twelve groups at once; the floating panel (panels/shape-panel)
+   shows one group at a time in half of 350px. Everything the two SHARE is
+   an .ssd- class, so a dial can never end up looking like two dials. */
+
+/* The dialog's own size, and it has to live HERE: .stock-dialog is 780px
+   wide with its rows the other way round, and this studio is neither. */
+#wpie-root .shape-studio-dialog {
+	grid-template-rows: auto 1fr auto;
+	width: min(1060px, 96vw);
+
+	/* FIXED. The shape column scrolls anyway, and a modal that grows with
+	   the catalog is a nuisance. */
+	height: min(640px, 88vh);
+}
+
+#wpie-root .ssd-body {
+	display: flex;
+	gap: 14px;
+	min-height: 0;
+	padding: 14px;
+	overflow: hidden;
+}
+
+#wpie-root .ssd-catalog {
+	display: grid;
+	grid-template-rows: auto 1fr;
+	gap: 8px;
+	width: 240px;
+	min-height: 0;
+}
+
+#wpie-root .ssd-stage {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	background: repeating-conic-gradient(#c9cdd3 0% 25%, #f2f3f5 0% 50%) 0 0 /
+		16px 16px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+}
+
+#wpie-root .ssd-dials {
+	display: grid;
+	gap: 12px;
+	align-content: start;
+	width: 240px;
+	padding-right: 4px;
+	overflow-y: auto;
+}
+
+#wpie-root .ssd-foot-actions {
+	display: flex;
+	gap: 8px;
+}
+
+/* ---- the shared pieces ---- */
+
+#wpie-root .ssd-search {
+	width: 100%;
+	padding: 5px 8px;
+	font-size: 12px;
+	color: var(--ed-text);
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+}
+
+#wpie-root .ssd-grid {
+	display: grid;
+
+	/* FIXED 30px tiles, as many per row as fit, leftover width into the
+	   GAPS. Not minmax(x, 1fr): 1fr is minmax(auto, 1fr) and stretches the
+	   tiles with the column, which is the one thing this editor's tile
+	   grids must never do. */
+	grid-template-columns: repeat(auto-fill, 30px);
+	justify-content: space-between;
+	gap: 4px;
+	align-content: start;
+	padding-right: 4px;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+/* Sticky, because the roll is long: twelve groups over a hundred shapes,
+   and a heading that scrolls away leaves you guessing which one you are
+   in. Needs the opaque panel colour or the tiles show through it. */
+#wpie-root .ssd-grid-head {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	grid-column: 1 / -1;
+	margin-top: 6px;
+	padding: 3px 0 4px;
+	background: var(--ed-panel);
+}
+
+#wpie-root .ssd-tile {
+	display: grid;
+	place-items: center;
+	padding: 1px;
+	color: var(--ed-text);
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--ed-border-strong, #3a3f47);
+	border-radius: 6px;
+}
+
+/* The drawing FILLS its tile, so the tile is exactly as square as its
+   track. With the size baked into the svg attributes instead, the width
+   came from the 30px column and the height from the attribute, and every
+   tile was 30 by 38. Same construction as .bp-tip img. */
+#wpie-root .ssd-tile svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+#wpie-root .ssd-tile:hover {
+	border-color: var(--ed-text-dim, #8b929c);
+}
+
+#wpie-root .ssd-tile.is-on {
+	background: rgb(59 102 255 / 16%);
+	border-color: var(--accent, #3b66ff);
+}
+
+#wpie-root .ssd-dial {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 2px;
+	font-size: 12px;
+}
+
+#wpie-root .ssd-dial input[type='range'] {
+	grid-column: 1 / -1;
+	width: 100%;
+}
+
+#wpie-root .ssd-dial-val {
+	justify-self: end;
+	font-size: 11px;
+	color: var(--ed-text-dim, #a7adb7);
+}
+
+#wpie-root .ssd-name {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+#wpie-root .ssd-presets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+#wpie-root .ssd-presets .ai-btn {
+	padding: 2px 8px;
+	font-size: 11px;
+}
+
+#wpie-root .ssd-shuffle {
+	justify-self: start;
+	padding: 3px 10px;
+	font-size: 12px;
+}
+
+#wpie-root .ssd-paint {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 14px;
+	align-items: center;
+}
+
+#wpie-root .ssd-paint label {
+	display: grid;
+	gap: 4px;
+	font-size: 12px;
+}
+
+#wpie-root .ssd-paint input[type='number'] {
+	width: 52px;
+}
+
+/* ------------------------------ shape panel ------------------------------
+   The brush panel's build, one column over. TWO RULES carry the layout,
+   and both are about standing still:
+
+   The right-hand side is a FIXED 160px. Widening the panel has to buy you
+   more SHAPES, never wider sliders - 160 is all the preview and the dials
+   ever need.
+
+   And nothing in here resizes itself. The preview is a fixed square (sized
+   to each shape's own aspect it changed height on every pick and threw the
+   column below it up and down), and the panel has a fixed height, so
+   picking a shape with six dials after one with two does not make the
+   window jump. Both are still resizable by hand. */
+#wpie-root .sp {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+
+	/* The float body has no padding of its own. */
+	padding: 6px 6px 8px;
+}
+
+#wpie-root .sp-search {
+	flex: none;
+}
+
+#wpie-root .sp-cols {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 160px;
+	flex: 1;
+	gap: 10px;
+	min-height: 0;
+}
+
+#wpie-root .sp-grid {
+	min-height: 0;
+	max-height: none;
+}
+
+#wpie-root .sp-side {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-height: 0;
+}
+
+#wpie-root .sp-stage {
+	display: flex;
+	flex: none;
+	align-self: center;
+	align-items: center;
+	justify-content: center;
+	width: 150px;
+	height: 150px;
+	padding: 6px;
+	background: repeating-conic-gradient(#c9cdd3 0% 25%, #f2f3f5 0% 50%) 0 0 /
+		12px 12px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+}
+
+/* The dials are the only thing that scrolls on this side, so the preview
+   stays put while you turn the dial you came for. */
+#wpie-root .sp-dials {
+	display: grid;
+	flex: 1;
+	gap: 10px;
+	align-content: start;
+	min-height: 0;
+	padding-right: 2px;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+/* 160px does not hold three swatch columns side by side. */
+#wpie-root .sp-dials .ssd-paint {
+	gap: 10px;
+}
+
+#wpie-root .sp-foot {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	min-height: 26px;
+}
+
+#wpie-root .sp-foot .ai-btn {
+	width: 100%;
+}
+
+#wpie-root .sp-live {
+	font-size: 11px;
+	color: var(--ed-text-dim, #8b929c);
+	text-align: center;
 }

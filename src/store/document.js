@@ -59,6 +59,8 @@ export const makeShape = ( opts = {} ) => ( {
 	...( opts.arrowEnd ? { arrowEnd: opts.arrowEnd } : {} ),
 	radius: opts.radius || 0,
 	sides: opts.sides || 6,
+	// Dials of a dynamic shape (shape-dynamics.js); absent = defaults.
+	...( opts.shapeParams ? { shapeParams: opts.shapeParams } : {} ),
 	pattern: opts.pattern || 'none',
 	patternData: opts.patternData || null,
 	// Fill type (solid | gradient | pattern), gradient fills mirror text.

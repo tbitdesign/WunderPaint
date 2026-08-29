@@ -322,6 +322,15 @@ export function initialState( { doc, layers, WPIE } ) {
 			( window.localStorage?.getItem( 'wpie-brush-panel' ) ?? null )
 				? true
 				: '1' === window.localStorage?.getItem( 'wpie-brush-panel' ),
+		// The shape panel follows it, for the same reason: shapes are held
+		// and tuned like a brush, not configured once in a dialog. It only
+		// SHOWS in shape context - the shape tool, or a shape layer picked
+		// up with move/select - so it costs nothing elsewhere.
+		showShapePanel:
+			null ===
+			( window.localStorage?.getItem( 'wpie-shape-panel' ) ?? null )
+				? true
+				: '1' === window.localStorage?.getItem( 'wpie-shape-panel' ),
 		compare: false,
 		revealPasteboard: false, // v1.379.1: paint off-canvas content
 		proof: null, // CVD proofing mode (view-only, v1.1)
@@ -408,6 +417,21 @@ export function reducer( state, action ) {
 				);
 			} catch ( e ) {}
 			return { ...state, showBrushPanel };
+		}
+		case 'TOGGLE_SHAPE_PANEL': {
+			// `show` makes it an ENSURE rather than a toggle: every entry
+			// point into the shape studio (double-click, the context menu,
+			// the options bar, the help article) has to end with the panel
+			// up, and a plain toggle would close it for whoever already
+			// had it open.
+			const showShapePanel = action.show ?? ! state.showShapePanel;
+			try {
+				window.localStorage?.setItem(
+					'wpie-shape-panel',
+					showShapePanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showShapePanel };
 		}
 		case 'TOGGLE_NAVIGATOR': {
 			const showNavigator = ! state.showNavigator;

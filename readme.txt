@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.425.9
+Stable tag: 1.427.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,7 +25,7 @@ Open any image, or start on a blank canvas, and work the way you would in a prof
 * **Layers, groups and masks** with blend modes, non-destructive layer styles (drop shadow, glows, bevel, overlays, stroke and more), adjustment layers, clipping masks and Smart Objects.
 * **Selections that understand your image**: marquee, lasso and magic wand, plus subject selection and click-to-select powered by local models. Refine, feather, invert, save and reuse selections.
 * **Painting and retouching**: brush, pencil and eraser with opacity, flow and hardness, custom brush tips, clone stamp, blur/sharpen brush, symmetry painting and content-aware object removal.
-* **Vectors**: pen tool with full path editing, shape library, gradients with on-canvas handles, dashed strokes, rounded and soft corners.
+* **Vectors**: pen tool with full path editing, a shape studio where every shape has dials (a crown's points, a ring's slice, a speech bubble's tail) plus fifty generator families that are pure maths - superformula, guilloche, Lissajous, harmonograph, Chladni, Sierpinski, Truchet, mazes, Voronoi, metaballs, flow lines, brush strokes - gradients with on-canvas handles, dashed strokes, rounded and soft corners.
 * **Filters and effects** from Gaussian Blur, Curves and Levels to Duotone, Halftone, Glitch, Glow and Tilt-Shift, plus color LUTs (.cube), filter presets, smart filters and one-click enhance.
 * **Precision tools**: free transform with distortion, align and distribute, magnetic guides, radial repeat, guide templates, Magic Resize, and a recorder that captures your steps as replayable actions.
 * **Multi-page documents, tabs and safety nets**: work on several documents at once, autosave to the browser every 30 seconds with session restore, and per-image version history with one-click rollback.
@@ -253,6 +253,24 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+
+= 1.427.2 =
+* Four brush tips to a row again. They grew last release and the strip could only hold three of them, so the strip itself is wider now and the panel with it.
+
+= 1.427.1 =
+* The shape panel holds still. The preview is a fixed square and the panel a fixed height, so picking a shape with six dials after one with two no longer makes the window jump, and the whole catalog is one scroll with headings instead of a group menu you have to click through. Widening the panel now buys you more shapes per row rather than wider sliders.
+* Brush tips and shape tiles are bigger and no longer stretch with the column they sit in, so two textures are told apart at a glance.
+
+= 1.427.0 =
+* The Shape Studio moved into a panel. Hold the shape tool and it is right beside your work, the way the brush panel is while you paint: pick a shape, turn its dials, and the next one you drag is the one in the preview. Select a shape that is already on the canvas and the same dials change that shape as you turn them.
+* The panel shows one group of shapes at a time, at a size where a pattern looks like itself instead of a grey smudge. The full studio is one click away in the panel's head for the moments when a generator wants a bigger picture.
+
+= 1.426.0 =
+* New Shape Studio. Shapes are parametric objects now instead of fixed outlines: corner radius, smoothing, slices and every setting a shape brings of its own stay editable long after you drew it, on the canvas or in the studio dialog. The element catalog moved into the same dialog, so choosing a shape and shaping it happen in one place.
+* The Shape Studio also draws artwork. Fifty families of generative patterns are built in, among them Voronoi cells, flow lines, mazes, space-filling curves, fractals, mandalas, metaballs, honeycombs, halftone ramps, moire and star tilings. Each family has its own dials, a set of presets and a stored seed, so a result you like can be refined and reproduced instead of rolled again.
+* QR codes can carry your artwork. Your logo can be woven into the code as a halftone, or the data modules themselves can form the motif, with the artwork's own dominant tone coloring the rest of the code. A scan check rates each design the way a phone sees it: sharp, out of focus, and shrunk to small print.
+* QR codes export as SVG, take their logo from the Media Library, and show the three placements as preview tiles rendered with your actual logo.
+* The in-editor handbook and the help assistant cover the Shape Studio, and all new interface text ships translated in six languages.
 
 = 1.425.9 =
 * Tested with WordPress 7.1.

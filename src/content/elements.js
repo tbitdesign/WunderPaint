@@ -58,12 +58,8 @@ const BUILTIN_ELEMENT_SETS = [
 					'M 54 4 C 78 8 98 28 92 52 C 86 76 64 98 40 92 C 16 86 2 64 8 40 C 14 16 30 0 54 4 Z'
 				),
 			},
-			{
-				name: 'Squircle',
-				...blob(
-					'M 50 4 C 88 4 96 12 96 50 C 96 88 88 96 50 96 C 12 96 4 88 4 50 C 4 12 12 4 50 4 Z'
-				),
-			},
+			// Dynamic since v1.427: a curvature dial instead of a path.
+			{ name: 'Squircle', shape: 'squircle' },
 		],
 	},
 	{
@@ -75,10 +71,7 @@ const BUILTIN_ELEMENT_SETS = [
 			{ name: 'Seal', shape: 'star', sides: 24 },
 			{ name: 'Hexagon', shape: 'polygon', sides: 6 },
 			{ name: 'Octagon', shape: 'polygon', sides: 8 },
-			{
-				name: 'Ribbon',
-				...blob( 'M 8 30 L 92 30 L 82 50 L 92 70 L 8 70 L 18 50 Z' ),
-			},
+			{ name: 'Ribbon', shape: 'ribbon', shapeParams: { notch: 0.1 } },
 		],
 	},
 	{
@@ -129,16 +122,8 @@ const BUILTIN_ELEMENT_SETS = [
 					'M 20 8 L 50 38 L 80 8 L 92 20 L 62 50 L 92 80 L 80 92 L 50 62 L 20 92 L 8 80 L 38 50 L 8 20 Z'
 				),
 			},
-			{
-				name: 'Plus',
-				...blob(
-					'M 38 8 L 62 8 L 62 38 L 92 38 L 92 62 L 62 62 L 62 92 L 38 92 L 38 62 L 8 62 L 8 38 L 38 38 Z'
-				),
-			},
-			{
-				name: 'Bolt',
-				...blob( 'M 55 2 L 15 58 L 42 58 L 35 98 L 85 38 L 55 38 Z' ),
-			},
+			{ name: 'Plus', shape: 'cross', shapeParams: { arm: 0.24 } },
+			{ name: 'Bolt', shape: 'bolt' },
 			{
 				name: 'Pin',
 				...blob(
@@ -149,12 +134,9 @@ const BUILTIN_ELEMENT_SETS = [
 				name: 'Tag',
 				...blob( 'M 8 25 L 62 25 L 92 50 L 62 75 L 8 75 Z' ),
 			},
-			{
-				name: 'Shield',
-				...blob(
-					'M 50 4 L 88 18 L 88 50 C 88 74 72 90 50 98 C 28 90 12 74 12 50 L 12 18 Z'
-				),
-			},
+			// The dialable price tag with the punched eyelet (v1.427).
+			{ name: 'Price tag', shape: 'tag' },
+			{ name: 'Shield', shape: 'shield' },
 			{
 				name: 'Crown',
 				...blob(
@@ -179,10 +161,7 @@ const BUILTIN_ELEMENT_SETS = [
 		id: 'banners',
 		label: __( 'Banners', 'wunderpaint' ),
 		items: [
-			{
-				name: 'Ribbon',
-				...blob( 'M 5 30 L 95 30 L 84 50 L 95 70 L 5 70 L 16 50 Z' ),
-			},
+			{ name: 'Ribbon', shape: 'ribbon', shapeParams: { notch: 0.11 } },
 			{
 				name: 'Banner',
 				...blob(
@@ -207,18 +186,8 @@ const BUILTIN_ELEMENT_SETS = [
 		id: 'nature',
 		label: __( 'Nature', 'wunderpaint' ),
 		items: [
-			{
-				name: 'Moon',
-				...blob(
-					'M 62 4 C 38 10 22 30 22 52 C 22 76 40 94 64 96 C 44 84 34 68 34 50 C 34 32 44 14 62 4 Z'
-				),
-			},
-			{
-				name: 'Cloud',
-				...blob(
-					'M 28 78 C 14 78 6 68 6 58 C 6 47 14 40 24 39 C 26 25 38 16 52 16 C 66 16 76 24 80 36 C 90 37 96 45 96 56 C 96 68 87 78 74 78 Z'
-				),
-			},
+			{ name: 'Moon', shape: 'crescent' },
+			{ name: 'Cloud', shape: 'cloud' },
 			{
 				name: 'Leaf',
 				...blob(

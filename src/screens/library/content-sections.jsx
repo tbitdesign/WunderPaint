@@ -63,10 +63,15 @@ export function ElementTile( { item, onInsert } ) {
 			fill: '#8a93a6',
 			shape: item.shape || 'rect',
 			sides: item.sides,
+			shapeParams: item.shapeParams || null,
+			radius: item.radius ? item.radius * 0.56 : 0,
 			...( item.pathD
 				? { pathD: scaleElementPath( item.pathD, 0.56, 0.56 ) }
 				: {} ),
 		} );
+		if ( item.innerRatio ) {
+			layer.innerRatio = item.innerRatio;
+		}
 		renderToCanvas(
 			{ id: 'el', w: 64, h: 64, bg: 'transparent' },
 			[ layer ],

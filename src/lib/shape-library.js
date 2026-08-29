@@ -98,20 +98,10 @@ function fitted( raw ) {
 /** `M x y` and friends without the string noise at every call site. */
 const pt = ( x, y ) => n( x ) + ' ' + n( y );
 
+// 'triangle', 'diamond' and 'cross' used to live here and moved to
+// shape-dynamics.js (v1.427): same default outlines, but they round
+// their corners and carry dials now.
 export const EXTRA_SHAPES = [
-	{
-		id: 'triangle',
-		name: () => __( 'Triangle', 'wunderpaint' ),
-		d: ( w, h ) =>
-			`M ${ pt( w / 2, 0 ) } L ${ pt( w, h ) } L ${ pt( 0, h ) } Z`,
-	},
-	{
-		id: 'diamond',
-		name: () => __( 'Diamond', 'wunderpaint' ),
-		d: ( w, h ) =>
-			`M ${ pt( w / 2, 0 ) } L ${ pt( w, h / 2 ) } ` +
-			`L ${ pt( w / 2, h ) } L ${ pt( 0, h / 2 ) } Z`,
-	},
 	{
 		// The button shape: a capsule, so the round ends belong on the
 		// SHORT sides and the radius is half the short side.
@@ -144,87 +134,8 @@ export const EXTRA_SHAPES = [
 			);
 		},
 	},
-	{
-		// Flat bottom, half-round top: the window shape every second
-		// portfolio uses to hold a photo.
-		id: 'arch',
-		name: () => __( 'Arch', 'wunderpaint' ),
-		d: ( w, h ) => {
-			const r = Math.min( w / 2, h );
-			return (
-				`M 0 ${ n( h ) } L 0 ${ n( r ) } ` +
-				`A ${ n( w / 2 ) } ${ n( r ) } 0 0 1 ${ pt( w, r ) } ` +
-				`L ${ pt( w, h ) } Z`
-			);
-		},
-	},
-	{
-		id: 'shield',
-		name: () => __( 'Shield', 'wunderpaint' ),
-		d: ( w, h ) =>
-			`M 0 0 L ${ pt( w, 0 ) } L ${ pt( w, h * 0.55 ) } ` +
-			`C ${ pt( w, h * 0.82 ) } ${ pt( w * 0.72, h * 0.95 ) } ` +
-			`${ pt( w / 2, h ) } ` +
-			`C ${ pt( w * 0.28, h * 0.95 ) } ${ pt( 0, h * 0.82 ) } ` +
-			`${ pt( 0, h * 0.55 ) } Z`,
-	},
-	{
-		// Price tag: a notched left edge and the eyelet punched out of it.
-		id: 'tag',
-		name: () => __( 'Tag', 'wunderpaint' ),
-		d: ( w, h ) => {
-			const cut = Math.min( w * 0.22, h / 2 );
-			const hole = Math.min( w, h ) * 0.09;
-			const hx = cut * 0.75;
-			const hy = h / 2;
-			return (
-				`M ${ pt( cut, 0 ) } L ${ pt( w, 0 ) } L ${ pt( w, h ) } ` +
-				`L ${ pt( cut, h ) } L ${ pt( 0, h / 2 ) } Z ` +
-				// Second subpath, wound the other way, so the even-odd of a
-				// fill turns it into a real hole.
-				`M ${ pt( hx + hole, hy ) } ` +
-				`A ${ n( hole ) } ${ n( hole ) } 0 1 0 ${ pt(
-					hx - hole,
-					hy
-				) } ` +
-				`A ${ n( hole ) } ${ n( hole ) } 0 1 0 ${ pt(
-					hx + hole,
-					hy
-				) } Z`
-			);
-		},
-	},
-	{
-		// Banner with the swallow-tail ends, for headings.
-		id: 'ribbon',
-		name: () => __( 'Ribbon', 'wunderpaint' ),
-		d: ( w, h ) => {
-			// Shallow. A deep notch on a wide banner stops reading as a
-			// swallow tail and starts reading as an hourglass.
-			const cut = Math.min( w * 0.09, h * 0.35 );
-			return (
-				`M 0 0 L ${ pt( w, 0 ) } L ${ pt( w - cut, h / 2 ) } ` +
-				`L ${ pt( w, h ) } L ${ pt( 0, h ) } ` +
-				`L ${ pt( cut, h / 2 ) } Z`
-			);
-		},
-	},
-	{
-		id: 'cross',
-		name: () => __( 'Cross', 'wunderpaint' ),
-		d: ( w, h ) => {
-			const ax = w * 0.32;
-			const ay = h * 0.32;
-			return (
-				`M ${ pt( ax, 0 ) } L ${ pt( w - ax, 0 ) } ` +
-				`L ${ pt( w - ax, ay ) } L ${ pt( w, ay ) } ` +
-				`L ${ pt( w, h - ay ) } L ${ pt( w - ax, h - ay ) } ` +
-				`L ${ pt( w - ax, h ) } L ${ pt( ax, h ) } ` +
-				`L ${ pt( ax, h - ay ) } L ${ pt( 0, h - ay ) } ` +
-				`L ${ pt( 0, ay ) } L ${ pt( ax, ay ) } Z`
-			);
-		},
-	},
+	// 'arch', 'shield', 'tag', 'ribbon' and 'bolt' moved to
+	// shape-dynamics.js with their exact old default geometry and dials.
 	{
 		// The heart moves in here from the two hand-written copies it used
 		// to have (maths in drawShape, SVG in shapeToPathD). One reading
@@ -237,14 +148,6 @@ export const EXTRA_SHAPES = [
 				'-2.343-2.3-6.157-2.3-8.5 0l-0.75 0.8-0.75-0.8c-1.172-1.2' +
 				'-2.7145-1.7-4.25-1.7z'
 		),
-	},
-	{
-		id: 'bolt',
-		name: () => __( 'Bolt', 'wunderpaint' ),
-		d: ( w, h ) =>
-			`M ${ pt( w * 0.58, 0 ) } L ${ pt( w * 0.16, h * 0.56 ) } ` +
-			`L ${ pt( w * 0.45, h * 0.56 ) } L ${ pt( w * 0.36, h ) } ` +
-			`L ${ pt( w * 0.86, h * 0.4 ) } L ${ pt( w * 0.55, h * 0.4 ) } Z`,
 	},
 	{
 		// ONE closed outline, not a head plus a neck. Two subpaths fill
@@ -261,20 +164,28 @@ export const EXTRA_SHAPES = [
 			const cy = h * 0.84;
 			const stem = w * 0.09;
 			const top = h * 0.04;
+			const xs1 = cx + rx - stem; // stem left edge
+			const xs2 = cx + rx; // stem right edge
+			// The flag FUSES along the stem's right edge from the top down
+			// to 0.3 h - the same way the beamed double note attaches its
+			// beam. Meeting the stem in a single point (both earlier
+			// versions) always read as "the flag is not attached".
 			return (
-				`M ${ pt( cx + rx, cy ) } L ${ pt( cx + rx, top ) } ` +
-				`C ${ pt( w * 0.72, h * 0.1 ) } ${ pt(
-					w * 0.94,
-					h * 0.18
+				`M ${ pt( xs2, top ) } ` +
+				`C ${ pt( w * 0.72, h * 0.05 ) } ${ pt(
+					w * 0.9,
+					h * 0.13
+				) } ${ pt( w * 0.9, h * 0.36 ) } ` +
+				`C ${ pt( w * 0.86, h * 0.28 ) } ${ pt(
+					w * 0.7,
+					h * 0.24
+				) } ${ pt( xs2, h * 0.3 ) } ` +
+				`L ${ pt( xs2, cy ) } ` +
+				`A ${ n( rx ) } ${ n( ry ) } 0 1 1 ${ pt(
+					xs1,
+					cy - ry * 0.88
 				) } ` +
-				`${ pt( w * 0.92, h * 0.44 ) } ` +
-				`C ${ pt( w * 0.88, h * 0.25 ) } ${ pt(
-					w * 0.76,
-					h * 0.21
-				) } ` +
-				`${ pt( cx + rx - stem, h * 0.34 ) } ` +
-				`L ${ pt( cx + rx - stem, cy - ry * 0.88 ) } ` +
-				`A ${ n( rx ) } ${ n( ry ) } 0 1 0 ${ pt( cx + rx, cy ) } Z`
+				`L ${ pt( xs1, top ) } Z`
 			);
 		},
 	},

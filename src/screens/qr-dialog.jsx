@@ -22,6 +22,7 @@ import {
 	qrLayerName,
 	qrPayload,
 	qrPayloadReady,
+	qrSvg,
 	qrWarnings,
 	renderQr,
 } from '../lib/qr';
@@ -50,6 +51,8 @@ const DEFAULT_STYLE = {
 	ecl: 'M',
 	logoUrl: '',
 	logoScale: 0.2,
+	logoMode: 'center',
+	artScale: 0.65,
 };
 
 const lum = ( c ) => {
@@ -136,7 +139,11 @@ function Seg( { options, value, onChange } ) {
 }
 
 export function QrDialog( { onClose, extras, layerId = null } ) {
-	useEscape( onClose );
+	// While the shared image picker is open ON TOP of this dialog, its
+	// Escape must not fall through and close the QR dialog too (both
+	// escape hooks listen on the document).
+	const [ logoPicking, setLogoPicking ] = useState( false );
+	useEscape( () => ! logoPicking && onClose() );
 	const editor = useEditor();
 	const { state, dispatch, commit } = editor;
 	const editLayer = layerId
@@ -155,6 +162,42 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 	const [ scan, setScan ] = useState( null );
 	const [ renderError, setRenderError ] = useState( '' );
 	const [ busy, setBusy ] = useState( false );
+	// Tiny per-mode previews rendered with the ACTUAL logo, so the
+	// placement choice explains itself at a glance.
+	const [ modePreviews, setModePreviews ] = useState( null );
+	useEffect( () => {
+		if ( ! style.logoUrl ) {
+			setModePreviews( null );
+			return undefined;
+		}
+		let live = true;
+		const t = setTimeout( async () => {
+			const out = {};
+			for ( const mode of [ 'center', 'halftone', 'qart' ] ) {
+				try {
+					const { canvas } = await renderQr( 'https://example.com', {
+						size: 160,
+						margin: 1,
+						logoUrl: style.logoUrl,
+						logoMode: mode,
+						logoScale: 0.22,
+						artScale: 'qart' === mode ? 0.85 : 0.65,
+					} );
+					out[ mode ] = canvas.toDataURL( 'image/png' );
+				} catch ( e ) {
+					out[ mode ] = '';
+				}
+			}
+			if ( live ) {
+				setModePreviews( out );
+			}
+		}, 200 );
+		return () => {
+			live = false;
+			clearTimeout( t );
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ style.logoUrl ] );
 
 	// Re-read window.WPIE.brandKits when the kit dialog saves (v1.89.0).
 	const [ , bumpKits ] = useReducer( ( x ) => x + 1, 0 );
@@ -179,6 +222,28 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 	const patchContent = ( patch ) =>
 		setContent( ( c ) => ( { ...c, ...patch } ) );
 	const patchStyle = ( patch ) => setStyle( ( s ) => ( { ...s, ...patch } ) );
+
+	// The shared image picker (Media Library Manager or classic wp.media,
+	// same as everywhere else images are inserted) instead of an inline
+	// grid squeezed into this dialog.
+	const chooseLogo = async () => {
+		if ( ! window.WPIE?.pickMedia ) {
+			return;
+		}
+		setLogoPicking( true );
+		try {
+			const items = await window.WPIE.pickMedia( {
+				multiple: false,
+				types: 'image',
+			} );
+			const m = items && items[ 0 ];
+			if ( m ) {
+				patchStyle( { logoUrl: m.fullUrl || m.url } );
+			}
+		} finally {
+			setLogoPicking( false );
+		}
+	};
 	const textRef = useRef( null );
 	const tokensUsed = Object.values( content ).some(
 		( v ) => 'string' === typeof v && hasTokens( v )
@@ -239,22 +304,37 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 					const { default: jsQR } = await import(
 						/* webpackChunkName: "jsqr" */ 'jsqr'
 					);
-					const flat = document.createElement( 'canvas' );
-					flat.width = canvas.width;
-					flat.height = canvas.height;
-					const fctx = flat.getContext( '2d' );
-					fctx.fillStyle = '#ffffff';
-					fctx.fillRect( 0, 0, flat.width, flat.height );
-					fctx.drawImage( canvas, 0, 0 );
-					const img = fctx.getImageData(
-						0,
-						0,
-						flat.width,
-						flat.height
-					);
-					const hit = jsQR( img.data, img.width, img.height );
+					// Three rungs, like the real world: a sharp screen
+					// scan, a slightly defocused phone camera, and a
+					// small print (business-card sized in the viewfinder).
+					const decodes = ( target, blur ) => {
+						const flat = document.createElement( 'canvas' );
+						flat.width = target;
+						flat.height = target;
+						const fctx = flat.getContext( '2d' );
+						fctx.fillStyle = '#ffffff';
+						fctx.fillRect( 0, 0, target, target );
+						if ( blur ) {
+							fctx.filter = 'blur(' + blur + 'px)';
+						}
+						const pad = Math.round( target * 0.04 );
+						fctx.drawImage(
+							canvas,
+							pad,
+							pad,
+							target - 2 * pad,
+							target - 2 * pad
+						);
+						const img = fctx.getImageData( 0, 0, target, target );
+						const hit = jsQR( img.data, target, target );
+						return !! ( hit && hit.data === payload );
+					};
 					if ( live ) {
-						setScan( hit && hit.data === payload ? 'ok' : 'fail' );
+						setScan( {
+							sharp: decodes( 480, 0 ),
+							blurred: decodes( 480, 2.5 ),
+							small: decodes( 240, 0 ),
+						} );
 					}
 				} catch ( e ) {
 					if ( live ) {
@@ -279,16 +359,6 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ contentKey, styleKey, ready ] );
-
-	const pickLogoFile = ( file ) => {
-		if ( ! file ) {
-			return;
-		}
-		const reader = new FileReader();
-		reader.onload = () =>
-			patchStyle( { logoUrl: String( reader.result ) } );
-		reader.readAsDataURL( file );
-	};
 
 	const submit = async () => {
 		setBusy( true );
@@ -367,7 +437,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 			<div
 				className="stock-dialog"
 				style={ {
-					width: 'min(700px, 94vw)',
+					width: 'min(980px, 94vw)',
 					height: 'auto',
 					maxHeight: '88vh',
 					gridTemplateRows: 'auto 1fr auto',
@@ -929,7 +999,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 								display: 'flex',
 								gap: 16,
 								flexWrap: 'wrap',
-								alignItems: 'end',
+								alignItems: 'start',
 							} }
 						>
 							<Field label={ __( 'Code color', 'wunderpaint' ) }>
@@ -974,7 +1044,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 									gap: 8,
 									alignItems: 'center',
 									fontSize: 12,
-									paddingBottom: 6,
+									paddingTop: 21,
 								} }
 							>
 								<input
@@ -1015,7 +1085,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 								display: 'flex',
 								gap: 16,
 								flexWrap: 'wrap',
-								alignItems: 'end',
+								alignItems: 'start',
 							} }
 						>
 							<Field label={ __( 'Eye style', 'wunderpaint' ) }>
@@ -1079,7 +1149,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 							</Field>
 						</div>
 
-						<Field label={ __( 'Center logo', 'wunderpaint' ) }>
+						<Field label={ __( 'Logo', 'wunderpaint' ) }>
 							<div style={ { display: 'grid', gap: 8 } }>
 								<div
 									style={ {
@@ -1108,26 +1178,17 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 											) }
 										</button>
 									) }
-									<label
+									<button
+										type="button"
 										className="ai-btn secondary"
 										style={ {
 											padding: '4px 10px',
 											fontSize: 12,
-											cursor: 'pointer',
 										} }
+										onClick={ chooseLogo }
 									>
-										{ __( 'Choose image…', 'wunderpaint' ) }
-										<input
-											type="file"
-											accept="image/*"
-											style={ { display: 'none' } }
-											onChange={ ( e ) =>
-												pickLogoFile(
-													e.target.files?.[ 0 ]
-												)
-											}
-										/>
-									</label>
+										{ __( 'Choose image', 'wunderpaint' ) }
+									</button>
 									{ !! style.logoUrl && (
 										<button
 											type="button"
@@ -1148,7 +1209,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 									) }
 								</div>
 								{ !! style.logoUrl && (
-									<label
+									<div
 										style={ {
 											display: 'grid',
 											gap: 4,
@@ -1156,28 +1217,190 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 										} }
 									>
 										<span className="dsm-label">
-											{ __( 'Logo size', 'wunderpaint' ) }{ ' ' }
-											{ Math.round(
-												( style.logoScale || 0.2 ) * 100
-											) }
-											%
+											{ __( 'Placement', 'wunderpaint' ) }
 										</span>
-										<input
-											type="range"
-											min={ 12 }
-											max={ 30 }
-											value={ Math.round(
-												( style.logoScale || 0.2 ) * 100
-											) }
-											onChange={ ( e ) =>
-												patchStyle( {
-													logoScale:
-														e.target.value / 100,
-												} )
-											}
-										/>
-									</label>
+										<div
+											style={ {
+												display: 'flex',
+												gap: 6,
+											} }
+										>
+											{ [
+												[
+													'center',
+													__(
+														'Badge in the middle',
+														'wunderpaint'
+													),
+												],
+												[
+													'halftone',
+													__(
+														'Woven into the code',
+														'wunderpaint'
+													),
+												],
+												[
+													'qart',
+													__(
+														'Formed by the dots',
+														'wunderpaint'
+													),
+												],
+											].map( ( [ v, label ] ) => {
+												const on =
+													( style.logoMode ||
+														'center' ) === v;
+												return (
+													<button
+														key={ v }
+														type="button"
+														onClick={ () =>
+															patchStyle( {
+																logoMode: v,
+															} )
+														}
+														aria-pressed={ on }
+														style={ {
+															display: 'grid',
+															gap: 4,
+															justifyItems:
+																'center',
+															width: 86,
+															padding: 6,
+															cursor: 'pointer',
+															background: on
+																? 'rgba(59,102,255,0.12)'
+																: 'transparent',
+															border:
+																'1px solid ' +
+																( on
+																	? 'var(--accent, #3b66ff)'
+																	: 'var(--ed-border-strong, #3a3f47)' ),
+															borderRadius: 8,
+														} }
+													>
+														{ modePreviews?.[
+															v
+														] ? (
+															<img
+																src={
+																	modePreviews[
+																		v
+																	]
+																}
+																alt=""
+																style={ {
+																	width: 64,
+																	height: 64,
+																	borderRadius: 4,
+																	background:
+																		'#fff',
+																} }
+															/>
+														) : (
+															<span
+																style={ {
+																	width: 64,
+																	height: 64,
+																	borderRadius: 4,
+																	background:
+																		'rgba(127,127,127,0.12)',
+																} }
+															/>
+														) }
+														<span
+															style={ {
+																fontSize: 9.5,
+																lineHeight: 1.25,
+																textAlign:
+																	'center',
+																color: 'var(--ed-text-dim, #a7adb7)',
+															} }
+														>
+															{ label }
+														</span>
+													</button>
+												);
+											} ) }
+										</div>
+									</div>
 								) }
+								{ !! style.logoUrl &&
+									( 'halftone' === style.logoMode ||
+									'qart' === style.logoMode ? (
+										<label
+											style={ {
+												display: 'grid',
+												gap: 4,
+												fontSize: 12,
+											} }
+										>
+											<span className="dsm-label">
+												{ __(
+													'Artwork size',
+													'wunderpaint'
+												) }{ ' ' }
+												{ Math.round(
+													( style.artScale || 0.65 ) *
+														100
+												) }
+												%
+											</span>
+											<input
+												type="range"
+												min={ 30 }
+												max={ 100 }
+												value={ Math.round(
+													( style.artScale || 0.65 ) *
+														100
+												) }
+												onChange={ ( e ) =>
+													patchStyle( {
+														artScale:
+															e.target.value /
+															100,
+													} )
+												}
+											/>
+										</label>
+									) : (
+										<label
+											style={ {
+												display: 'grid',
+												gap: 4,
+												fontSize: 12,
+											} }
+										>
+											<span className="dsm-label">
+												{ __(
+													'Logo size',
+													'wunderpaint'
+												) }{ ' ' }
+												{ Math.round(
+													( style.logoScale || 0.2 ) *
+														100
+												) }
+												%
+											</span>
+											<input
+												type="range"
+												min={ 12 }
+												max={ 30 }
+												value={ Math.round(
+													( style.logoScale || 0.2 ) *
+														100
+												) }
+												onChange={ ( e ) =>
+													patchStyle( {
+														logoScale:
+															e.target.value /
+															100,
+													} )
+												}
+											/>
+										</label>
+									) ) }
 							</div>
 						</Field>
 
@@ -1186,7 +1409,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 								display: 'flex',
 								gap: 16,
 								flexWrap: 'wrap',
-								alignItems: 'end',
+								alignItems: 'start',
 							} }
 						>
 							<Field
@@ -1331,7 +1554,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 					{ /* ------------------------- preview ------------------------- */ }
 					<div
 						style={ {
-							width: 216,
+							width: 280,
 							display: 'grid',
 							gap: 10,
 							alignContent: 'start',
@@ -1339,8 +1562,8 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 					>
 						<div
 							style={ {
-								width: 216,
-								height: 216,
+								width: 280,
+								height: 280,
 								borderRadius: 6,
 								border: '1px solid var(--ed-border-strong)',
 								display: 'flex',
@@ -1358,8 +1581,8 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 										'wunderpaint'
 									) }
 									style={ {
-										width: 200,
-										height: 200,
+										width: 264,
+										height: 264,
 										imageRendering: 'pixelated',
 									} }
 								/>
@@ -1380,6 +1603,45 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 								</span>
 							) }
 						</div>
+						{ !! preview && ! renderError && (
+							<button
+								type="button"
+								className="ai-btn secondary"
+								style={ {
+									padding: '4px 10px',
+									fontSize: 12,
+									alignSelf: 'start',
+								} }
+								onClick={ async () => {
+									try {
+										const svg = await qrSvg(
+											qrPayload( content ),
+											{ ...style, size: 1024 }
+										);
+										const blob = new Blob( [ svg ], {
+											type: 'image/svg+xml',
+										} );
+										const a = document.createElement( 'a' );
+										a.href = URL.createObjectURL( blob );
+										a.download = 'qr-code.svg';
+										a.click();
+										setTimeout(
+											() => URL.revokeObjectURL( a.href ),
+											5000
+										);
+									} catch ( e ) {
+										extras?.toasts?.error?.(
+											__(
+												'Could not build the SVG.',
+												'wunderpaint'
+											)
+										);
+									}
+								} }
+							>
+								{ __( 'Download SVG', 'wunderpaint' ) }
+							</button>
+						) }
 						{ ( renderError ? [ renderError ] : warnings ).map(
 							( w, i ) => (
 								<div
@@ -1401,46 +1663,94 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 								</div>
 							)
 						) }
-						{ ! renderError && !! preview && 'ok' === scan && (
+						{ ! renderError && !! preview && !! scan && (
 							<div
 								style={ {
+									display: 'grid',
+									gap: 5,
 									fontSize: 11,
 									lineHeight: 1.45,
-									color: 'var(--ed-ok, #3fb27f)',
-									display: 'flex',
-									gap: 6,
 								} }
 							>
-								<span style={ { flexShrink: 0 } }>
-									{ I.check ? I.check( { size: 13 } ) : '✓' }
-								</span>
-								<span>
-									{ __(
-										'Scan check: a reader decodes this code.',
-										'wunderpaint'
+								<div
+									style={ {
+										display: 'flex',
+										gap: 6,
+										flexWrap: 'wrap',
+									} }
+								>
+									{ [
+										[
+											__( 'Sharp', 'wunderpaint' ),
+											scan.sharp,
+										],
+										[
+											__( 'Camera blur', 'wunderpaint' ),
+											scan.blurred,
+										],
+										[
+											__( 'Small print', 'wunderpaint' ),
+											scan.small,
+										],
+									].map( ( [ label, ok ] ) => (
+										<span
+											key={ label }
+											style={ {
+												display: 'inline-flex',
+												gap: 4,
+												alignItems: 'center',
+												padding: '2px 8px',
+												borderRadius: 10,
+												whiteSpace: 'nowrap',
+												background: ok
+													? 'rgba(63,178,127,0.14)'
+													: 'rgba(229,83,75,0.14)',
+												color: ok
+													? 'var(--ed-ok, #3fb27f)'
+													: 'var(--ed-danger, #e5534b)',
+											} }
+										>
+											{ ok ? '✓' : '✕' } { label }
+										</span>
+									) ) }
+								</div>
+								{ scan.sharp && scan.blurred && scan.small && (
+									<span
+										style={ {
+											color: 'var(--ed-ok, #3fb27f)',
+										} }
+									>
+										{ __(
+											'Scan check: a reader decodes this sharp, defocused and at small size.',
+											'wunderpaint'
+										) }
+									</span>
+								) }
+								{ ! scan.sharp && (
+									<span
+										style={ {
+											color: 'var(--ed-danger, #e5534b)',
+										} }
+									>
+										{ __(
+											'Scan check failed: a reader could not decode this. Adjust colors, logo or frame.',
+											'wunderpaint'
+										) }
+									</span>
+								) }
+								{ scan.sharp &&
+									! ( scan.blurred && scan.small ) && (
+										<span
+											style={ {
+												color: 'var(--ed-warn, #d9a13c)',
+											} }
+										>
+											{ __(
+												'Decodes sharp, but struggles defocused or small. Larger print or stronger contrast helps.',
+												'wunderpaint'
+											) }
+										</span>
 									) }
-								</span>
-							</div>
-						) }
-						{ ! renderError && !! preview && 'fail' === scan && (
-							<div
-								style={ {
-									fontSize: 11,
-									lineHeight: 1.45,
-									color: 'var(--ed-danger, #e5534b)',
-									display: 'flex',
-									gap: 6,
-								} }
-							>
-								<span style={ { flexShrink: 0 } }>
-									{ I.alert ? I.alert( { size: 13 } ) : '!' }
-								</span>
-								<span>
-									{ __(
-										'Scan check failed: a reader could not decode this. Adjust colors, logo or frame.',
-										'wunderpaint'
-									) }
-								</span>
 							</div>
 						) }
 						{ ! renderError &&

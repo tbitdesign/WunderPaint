@@ -13,11 +13,17 @@ export function FloatPanel( {
 	title,
 	icon,
 	width,
+	height,
 	pos,
 	onMove,
 	onDock,
 	onClose,
 	onFront,
+	// One optional extra button in the head, left of the exit:
+	// { icon, label, onClick }. The shape panel uses it to hand you over
+	// to the full studio when a column is too narrow for what you are
+	// dialing.
+	action,
 	children,
 } ) {
 	// A detached TAB docks back; a tool panel like the brush has no tab to
@@ -60,6 +66,11 @@ export function FloatPanel( {
 				// the brush panel carries three columns of tips beside a
 				// column of controls and needs to say so. Still resizable.
 				...( width ? { width } : {} ),
+				// A panel whose contents change size under you - the shape
+				// panel, where every shape brings its own dials - has to
+				// stand still, or it hops on every click. Fixed here,
+				// resizable by hand like the width.
+				...( height ? { height } : {} ),
 			} }
 			role="dialog"
 			aria-label={ title }
@@ -88,6 +99,16 @@ export function FloatPanel( {
 					<span className="ed-float-icon">{ icon }</span>
 				) : null }
 				<span className="ed-float-title">{ title }</span>
+				{ action ? (
+					<button
+						className="ed-float-dock"
+						title={ action.label }
+						aria-label={ action.label }
+						onClick={ action.onClick }
+					>
+						{ action.icon }
+					</button>
+				) : null }
 				<button
 					className="ed-float-dock"
 					title={ exitLabel }

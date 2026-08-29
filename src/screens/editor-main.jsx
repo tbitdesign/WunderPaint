@@ -73,6 +73,7 @@ import { EffectDialog } from '../components/effect-dialog';
 import { GuidesDialog } from './guides-dialog';
 import { ChartStudio } from './chart-studio';
 import { QrDialog } from './qr-dialog';
+import { ShapeStudioDialog } from './shape-studio-dialog';
 import { ColorSchemerDialog } from './color-schemer-dialog';
 import { BackgroundStudioDialog } from './background-studio-dialog';
 import { BeautifyDialog } from './beautify-dialog';
@@ -224,6 +225,7 @@ export function EditorScreen( {
 	const [ generateKind, setGenerateKind ] = useState( null ); // v1.31
 	const [ chartTarget, setChartTarget ] = useState( null ); // true=new | groupId (v1.114)
 	const [ qrTarget, setQrTarget ] = useState( null ); // true=new | layerId (v1.102)
+	const [ shapeStudioTarget, setShapeStudioTarget ] = useState( null ); // true=new | layerId
 	const [ showColorSchemer, setShowColorSchemer ] = useState( false ); // v1.103
 	const [ bgTarget, setBgTarget ] = useState( null ); // true=new | layerId (v1.105)
 	const [ showBeautify, setShowBeautify ] = useState( false ); // v1.106
@@ -367,6 +369,35 @@ export function EditorScreen( {
 			openChart: ( chartLayerId ) =>
 				setChartTarget( chartLayerId || true ),
 			openQr: ( layerId ) => setQrTarget( layerId || true ),
+			// The studio's front door is the PANEL now, not the modal:
+			// pick the layer, hold the shape tool, make sure the panel is
+			// up. Every caller (double-click, the canvas context menu, the
+			// options bar, the help article) means "let me dial this
+			// shape", and that is what the panel is for.
+			openShapeStudio: ( shapeLayerId ) => {
+				const live = editorLiveRef.current;
+				if ( shapeLayerId ) {
+					// Naming a layer means "dial THIS one", so the tool is
+					// left alone: the shape tool draws instead of selecting,
+					// and it hides the very handles and grips that belong to
+					// the shape you just asked to edit.
+					live.dispatch( {
+						type: 'SET_ACTIVE',
+						id: shapeLayerId,
+					} );
+				} else {
+					live.dispatch( { type: 'SET_TOOL', tool: 'shape' } );
+				}
+				live.dispatch( {
+					type: 'TOGGLE_SHAPE_PANEL',
+					show: true,
+				} );
+			},
+			// The same studio with room to breathe, from the panel's own
+			// head. All twelve groups at once and a preview four times the
+			// size, for the generator families a 150px column cannot show.
+			openShapeStudioModal: ( shapeLayerId ) =>
+				setShapeStudioTarget( shapeLayerId || true ),
 			openColorSchemer: () => setShowColorSchemer( true ),
 			openBackgroundStudio: ( layerId ) => setBgTarget( layerId || true ),
 			openBeautify: () => setShowBeautify( true ),
@@ -1344,6 +1375,15 @@ export function EditorScreen( {
 				<QrDialog
 					layerId={ true === qrTarget ? null : qrTarget }
 					onClose={ () => setQrTarget( null ) }
+					extras={ extras }
+				/>
+			) }
+			{ shapeStudioTarget && (
+				<ShapeStudioDialog
+					layerId={
+						true === shapeStudioTarget ? null : shapeStudioTarget
+					}
+					onClose={ () => setShapeStudioTarget( null ) }
 					extras={ extras }
 				/>
 			) }

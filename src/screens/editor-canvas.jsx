@@ -20,6 +20,7 @@ import { isEasyMode } from '../lib/easy-mode';
 import { recentColors } from '../lib/user-swatches';
 import { FloatPanel } from './panels/float-panel';
 import { BrushPanel } from './panels/brush-panel';
+import { ShapePanel } from './panels/shape-panel';
 import { clampFloat, loadFloats, saveFloats } from '../lib/panel-floats';
 
 /**
@@ -571,6 +572,17 @@ export function EditorCanvas( { viewApi, extras } ) {
 		const at = clampFloat( p );
 		setBrushPosRaw( at );
 		saveFloats( { ...loadFloats(), brush: at } );
+	}, [] );
+	// The shape panel opens where the brush panel opens. The two can never
+	// be up at once - one belongs to the paint tools, the other to the
+	// shape tool - so the same corner is the right corner for both.
+	const [ shapePos, setShapePosRaw ] = useState( () =>
+		clampFloat( loadFloats().shape || { x: 96, y: 120 } )
+	);
+	const setShapePos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setShapePosRaw( at );
+		saveFloats( { ...loadFloats(), shape: at } );
 	}, [] ); // v1.64 right-click size HUD
 	const [ rulerCursor, setRulerCursor ] = useState( null );
 	const [ areaSize, setAreaSize ] = useState( { w: 0, h: 0 } );
@@ -2465,6 +2477,22 @@ export function EditorCanvas( { viewApi, extras } ) {
 									() => setPathEditId( target.id )
 								);
 							}
+							if (
+								isParametricShape( target ) ||
+								( 'shape' === target.type &&
+									target.pathD &&
+									! target.quad )
+							) {
+								// The Shape Studio with this layer's dials -
+								// the same door the double-click opens.
+								// Polygon paths round their corners there;
+								// free-form paths still get fill and stroke.
+								add(
+									'sliders',
+									__( 'Edit Shape', 'wunderpaint' ),
+									() => extras?.openShapeStudio?.( target.id )
+								);
+							}
 							if ( isParametricShape( target ) ) {
 								// Expand a primitive (ellipse/star/...) into an
 								// editable path, then drop straight into anchor
@@ -2806,10 +2834,11 @@ export function EditorCanvas( { viewApi, extras } ) {
 					// gets ignored. The strip and this number move together,
 					// or the right side gets clipped - and the TOTAL stays
 					// compact: the panel has to stay usable on small
-					// monitors. 350 is the measured no-horizontal-scroll
-					// minimum with the 134px strip (Thomas, v1.411.5).
+					// monitors. It was 350 against a 134px strip; the strip
+					// went to 150 on 29.08. so four 30px tips fit in a row,
+					// and this followed it by the same six pixels.
 					width={
-						undefined === state.toolOpts[ tool ]?.tip ? 300 : 350
+						undefined === state.toolOpts[ tool ]?.tip ? 300 : 356
 					}
 					pos={ brushPos }
 					onMove={ setBrushPos }
@@ -2821,6 +2850,50 @@ export function EditorCanvas( { viewApi, extras } ) {
 					<BrushPanel editor={ editor } />
 				</FloatPanel>
 			) }
+			{ /* Up when the shape tool is held, and up when a shape layer
+			     is selected under move/select - which is EXACTLY when its
+			     handles and on-canvas grips are drawn (SelectionBox, a few
+			     hundred lines up). Both edit the same stored values, and
+			     the panel re-reads them every render, so a grip drag moves
+			     its slider and the other way round. Not on the paint tools:
+			     there the brush panel owns this corner. */ }
+			{ state.showShapePanel &&
+				( 'shape' === tool ||
+					( 'shape' === activeLayer?.type &&
+						[ 'move', 'select' ].includes( tool ) ) ) && (
+					<FloatPanel
+						// The head says WHICH shape you are turning: the layer
+						// you picked, or the one the next drag will make.
+						title={
+							'shape' === activeLayer?.type
+								? activeLayer.name ||
+								  __( 'Shape', 'wunderpaint' )
+								: __( 'Shape', 'wunderpaint' )
+						}
+						icon={ I.brand( { size: 15 } ) }
+						// Two columns, and 350 is the measured no-horizontal-
+						// scroll minimum for them - the same number the brush
+						// panel landed on, and for the same reason. The
+						// HEIGHT is fixed too: every shape brings its own
+						// number of dials, and a panel that resized to each
+						// of them hopped on every single pick.
+						width={ 350 }
+						height={ 650 }
+						pos={ shapePos }
+						onMove={ setShapePos }
+						onFront={ () => {} }
+						action={ {
+							icon: I.popout( { size: 14 } ),
+							label: __( 'Larger view', 'wunderpaint' ),
+							onClick: () => extras?.openShapeStudioModal?.(),
+						} }
+						onClose={ () =>
+							editor.dispatch( { type: 'TOGGLE_SHAPE_PANEL' } )
+						}
+					>
+						<ShapePanel editor={ editor } />
+					</FloatPanel>
+				) }
 			{ state.showNavigator && (
 				<Navigator
 					editor={ editor }

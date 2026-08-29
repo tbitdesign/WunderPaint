@@ -17,11 +17,12 @@ import { __ } from '@wordpress/i18n';
 
 import { shapeToPathD } from '../lib/shape-path';
 import { EXTRA_SHAPES } from '../lib/shape-library';
+import { DYNAMIC_SHAPE_MAP } from '../lib/shape-dynamics';
 
 /**
  * The ones still defined as maths in `drawShape`. The heart used to be
- * here and has moved into the path library, so it comes in with the rest
- * below rather than twice.
+ * here and has moved into the path library; arrow and speech live in
+ * shape-dynamics now and are listed via the dynamic registry below.
  */
 const BUILT_IN = [
 	[ 'rect', () => __( 'Rectangle', 'wunderpaint' ) ],
@@ -29,18 +30,138 @@ const BUILT_IN = [
 	[ 'line', () => __( 'Line', 'wunderpaint' ) ],
 	[ 'polygon', () => __( 'Polygon', 'wunderpaint' ) ],
 	[ 'star', () => __( 'Star', 'wunderpaint' ) ],
-	[ 'arrow', () => __( 'Arrow', 'wunderpaint' ) ],
-	[ 'speech', () => __( 'Speech Bubble', 'wunderpaint' ) ],
 	[ 'badge', () => __( 'Badge', 'wunderpaint' ) ],
 ];
 
+/** A dynamic shape as a picker row, name straight from the registry. */
+const dyn = ( id ) => ( { id, name: DYNAMIC_SHAPE_MAP[ id ].name } );
+
 export const SHAPE_CHOICES = [
 	...BUILT_IN.map( ( [ id, name ] ) => ( { id, name } ) ),
+	dyn( 'squircle' ),
+	dyn( 'arrow' ),
+	dyn( 'speech' ),
+	dyn( 'triangle' ),
+	dyn( 'diamond' ),
+	dyn( 'cross' ),
+	dyn( 'arch' ),
+	dyn( 'shield' ),
+	dyn( 'tag' ),
+	dyn( 'ribbon' ),
+	dyn( 'bolt' ),
+	// pill, heart, note and blob still render from the path library
+	// (heart and blob switch to shape-dynamics once a dial is touched).
 	...EXTRA_SHAPES.map( ( s ) => ( { id: s.id, name: s.name } ) ),
+	dyn( 'ring' ),
+	dyn( 'frame' ),
+	dyn( 'ticket' ),
+	dyn( 'chevron' ),
+	dyn( 'burst' ),
+	dyn( 'gear' ),
+	dyn( 'grid' ),
+	dyn( 'flower' ),
+	dyn( 'shooting' ),
+	dyn( 'wave' ),
+	dyn( 'cloud' ),
+	dyn( 'crescent' ),
+	// The v1.428 batch: the element catalog's archetypes as REAL
+	// dynamic shapes (crown prongs, pine tiers, seal bumps, ...).
+	dyn( 'crown' ),
+	dyn( 'seal' ),
+	dyn( 'arcarrow' ),
+	dyn( 'chevrons' ),
+	dyn( 'parallelogram' ),
+	dyn( 'trapezoid' ),
+	dyn( 'stairs' ),
+	dyn( 'lshape' ),
+	dyn( 'bookmark' ),
+	dyn( 'label' ),
+	dyn( 'flag' ),
+	dyn( 'mountain' ),
+	dyn( 'clover' ),
+	dyn( 'leaf' ),
+	dyn( 'drop' ),
+	dyn( 'check' ),
+	dyn( 'xmark' ),
+	dyn( 'thought' ),
+	dyn( 'pine' ),
+	dyn( 'sun' ),
+	dyn( 'shout' ),
+	dyn( 'medal' ),
+	dyn( 'moon' ),
+	dyn( 'spiral' ),
+	dyn( 'layers' ),
+	dyn( 'cube' ),
+	dyn( 'target' ),
+	dyn( 'gearpair' ),
+	dyn( 'gem' ),
+	dyn( 'rhombus' ),
+	dyn( 'kite' ),
+	dyn( 'polyframe' ),
+	dyn( 'funnel' ),
+	dyn( 'bars' ),
+	dyn( 'compass' ),
+	dyn( 'hourglass' ),
+	dyn( 'cornerband' ),
+	dyn( 'stamp' ),
+	// Generators (v1.429): shapes that exist only as maths plus a seed.
+	dyn( 'superform' ),
+	dyn( 'blobgen' ),
+	dyn( 'rose' ),
+	dyn( 'guilloche' ),
+	dyn( 'truchet' ),
+	dyn( 'fractal' ),
+	dyn( 'stroke' ),
+	dyn( 'splat' ),
+	dyn( 'shard' ),
+	dyn( 'scatter' ),
+	dyn( 'divider' ),
+	dyn( 'rays' ),
+	// Second generator batch (v1.430).
+	dyn( 'lissajous' ),
+	dyn( 'starpoly' ),
+	dyn( 'phyllotaxis' ),
+	dyn( 'mandala' ),
+	dyn( 'galaxy' ),
+	dyn( 'honeycomb' ),
+	dyn( 'branch' ),
+	dyn( 'metaball' ),
+	dyn( 'skyline' ),
+	dyn( 'moire' ),
+	dyn( 'packing' ),
+	dyn( 'stripes' ),
+	// Third generator batch (v1.431): generative art families.
+	dyn( 'voronoi' ),
+	dyn( 'flowfield' ),
+	dyn( 'hilbert' ),
+	dyn( 'maze' ),
+	dyn( 'halftone' ),
+	dyn( 'scales' ),
+	dyn( 'treerings' ),
+	dyn( 'gridwarp' ),
+	dyn( 'heartcurve' ),
+	dyn( 'constellation' ),
+	dyn( 'argyle' ),
+	dyn( 'interference' ),
+	// Fourth generator batch (v1.432).
+	dyn( 'harmonograph' ),
+	dyn( 'chladni' ),
+	dyn( 'epitrochoid' ),
+	dyn( 'butterfly' ),
+	dyn( 'sierpinski' ),
+	dyn( 'dragon' ),
+	dyn( 'delaunay' ),
+	dyn( 'startile' ),
+	dyn( 'herringbone' ),
+	dyn( 'isoblocks' ),
+	dyn( 'datablocks' ),
+	dyn( 'filmstrip' ),
+	dyn( 'tornstrip' ),
+	dyn( 'hatching' ),
 ];
 
 const BOX = 34;
-const COLS = 5;
+const COLS = 7;
 /** The bar is 24px tall, so the preview inside the button has to be small. */
 const BTN_BOX = 18;
 

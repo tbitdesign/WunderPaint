@@ -15,6 +15,7 @@ import {
 	userTile,
 } from './patterns';
 import { extraShapePath } from '../shape-library';
+import { dynamicShapeCommands, roundedPathCommands } from '../shape-dynamics';
 
 /**
  * Default dash/gap for a stroke style, derived from the stroke width so the
@@ -213,10 +214,62 @@ function drawArrowHead( ctx, tip, angle, kind, lw, color ) {
 export function drawShape( ctx, layer ) {
 	const { w, h } = layer;
 	ctx.beginPath();
+	// Dynamic (parametric) shapes trace the same command list the vector
+	// export reads, so canvas and export cannot drift. A null means the
+	// shape defers to its legacy path below (unsliced ellipse).
+	const dyn = layer.pathD ? null : dynamicShapeCommands( layer );
+	if ( dyn ) {
+		traceCommands( ctx, dyn );
+		if ( layer.fill && 'transparent' !== layer.fill ) {
+			ctx.fillStyle = shapeFillStyle( ctx, layer );
+			ctx.fill();
+		}
+		if ( layer.stroke && layer.strokeW ) {
+			ctx.strokeStyle = layer.stroke;
+			ctx.lineWidth = layer.strokeW;
+			ctx.lineJoin = 'round';
+			ctx.lineCap = 'round';
+			const dashed = applyStrokeDash( ctx, layer );
+			ctx.stroke();
+			if ( dashed ) {
+				ctx.setLineDash( [] );
+			}
+		}
+		return;
+	}
 	// A shape from the path library draws itself: the same string the
 	// exporter hands out is what lands on the canvas, so the two cannot
-	// drift the way the nine hand-written ones can.
+	// drift the way the nine hand-written ones can. A PURE-POLYGON path
+	// with a radius runs through the corner engine first (v1.427) - that
+	// is what makes the element catalog's arrows and banners dialable.
 	const libD = layer.pathD ? null : extraShapePath( layer.shape, w, h );
+	const roundedPath =
+		layer.pathD && layer.radius
+			? roundedPathCommands(
+					layer.pathD,
+					layer.radius,
+					layer.cornerSmoothing
+			  )
+			: null;
+	if ( roundedPath ) {
+		traceCommands( ctx, roundedPath );
+		if ( layer.fill && 'transparent' !== layer.fill ) {
+			ctx.fillStyle = shapeFillStyle( ctx, layer );
+			ctx.fill();
+		}
+		if ( layer.stroke && layer.strokeW ) {
+			ctx.strokeStyle = layer.stroke;
+			ctx.lineWidth = layer.strokeW;
+			ctx.lineJoin = 'round';
+			ctx.lineCap = 'round';
+			const dashed = applyStrokeDash( ctx, layer );
+			ctx.stroke();
+			if ( dashed ) {
+				ctx.setLineDash( [] );
+			}
+		}
+		return;
+	}
 	if ( layer.pathD || libD ) {
 		tracePathD( ctx, layer.pathD || libD );
 		if ( layer.fill && 'transparent' !== layer.fill ) {
@@ -318,30 +371,8 @@ export function drawShape( ctx, layer ) {
 			);
 			break;
 		}
-		case 'arrow':
-			ctx.moveTo( 0, h * 0.32 );
-			ctx.lineTo( w * 0.62, h * 0.32 );
-			ctx.lineTo( w * 0.62, h * 0.08 );
-			ctx.lineTo( w, h / 2 );
-			ctx.lineTo( w * 0.62, h * 0.92 );
-			ctx.lineTo( w * 0.62, h * 0.68 );
-			ctx.lineTo( 0, h * 0.68 );
-			ctx.closePath();
-			break;
-		case 'speech': {
-			const r2 = Math.min( w, h ) * 0.12;
-			const bh = h * 0.74;
-			ctx.moveTo( r2, 0 );
-			ctx.arcTo( w, 0, w, bh, r2 );
-			ctx.arcTo( w, bh, 0, bh, r2 );
-			ctx.lineTo( w * 0.34, bh );
-			ctx.lineTo( w * 0.2, h );
-			ctx.lineTo( w * 0.22, bh );
-			ctx.arcTo( 0, bh, 0, 0, r2 );
-			ctx.arcTo( 0, 0, w, 0, r2 );
-			ctx.closePath();
-			break;
-		}
+		// 'arrow' and 'speech' moved to shape-dynamics (their defaults
+		// reproduce the geometry that used to be hard-wired here).
 		case 'badge': {
 			const teeth = 24;
 			for ( let i = 0; i < teeth * 2; i++ ) {

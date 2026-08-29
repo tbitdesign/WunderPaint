@@ -794,6 +794,13 @@ export const moveTool = {
 		} else if ( 'shape' === hit.type && hit.pathD && ! hit.quad ) {
 			// Anchor editing for pen shapes and icon paths (v1.118).
 			tc.beginPathEdit?.( hit.id );
+		} else if (
+			'shape' === hit.type &&
+			! hit.quad &&
+			'line' !== hit.shape
+		) {
+			// Parametric shapes open the Shape Studio with their dials.
+			tc.extras?.openShapeStudio?.( hit.id );
 		}
 	},
 };
@@ -3139,9 +3146,21 @@ export const shapeTool = {
 			strokeDash: opts.strokeDash || null,
 			radius: opts.radius || 0,
 			sides: opts.sides || 6,
+			shapeParams: opts.shapeParams || null,
 			pattern: opts.pattern || 'none',
 			patternData: opts.patternData || null,
 		} );
+		// makeShape has no slot for these two - the studio has always set
+		// them by hand afterwards, and only when they differ, so a plain
+		// rectangle keeps its historic serialized form. The DRAG has to do
+		// the same, or the shape panel shows a smoothed star and the drag
+		// draws a sharp one.
+		if ( opts.cornerSmoothing ) {
+			layer.cornerSmoothing = opts.cornerSmoothing;
+		}
+		if ( undefined !== opts.innerRatio && 0.45 !== opts.innerRatio ) {
+			layer.innerRatio = opts.innerRatio;
+		}
 		tc.setDraft( { kind: 'shape', layer, start: p } );
 	},
 	onMove( tc, e, p ) {

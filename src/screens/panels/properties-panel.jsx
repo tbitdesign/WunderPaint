@@ -5,6 +5,11 @@
 
 import { ROUNDABLE_SHAPES } from '../../lib/corner-geometry';
 import {
+	DYNAMIC_SHAPE_MAP,
+	pathPolygonRings,
+	resolvedParams,
+} from '../../lib/shape-dynamics';
+import {
 	Fragment,
 	useEffect,
 	useRef,
@@ -1355,7 +1360,10 @@ function AppearanceSection( { layer, extras } ) {
 				</Field>
 			</PanelGroup>
 			{ ( 'line' === layer.shape ||
-				ROUNDABLE_SHAPES.includes( layer.shape ) ) && (
+				( layer.pathD
+					? !! pathPolygonRings( layer.pathD )
+					: ROUNDABLE_SHAPES.includes( layer.shape ) ||
+					  !! DYNAMIC_SHAPE_MAP[ layer.shape ] ) ) && (
 				<PanelGroup title={ __( 'Shape', 'wunderpaint' ) }>
 					{ 'line' === layer.shape && (
 						<Field label={ __( 'Line ends', 'wunderpaint' ) }>
@@ -1412,7 +1420,10 @@ function AppearanceSection( { layer, extras } ) {
 							</div>
 						</Field>
 					) }
-					{ ROUNDABLE_SHAPES.includes( layer.shape ) && (
+					{ ( layer.pathD
+						? !! pathPolygonRings( layer.pathD )
+						: ROUNDABLE_SHAPES.includes( layer.shape ) ||
+						  !! DYNAMIC_SHAPE_MAP[ layer.shape ]?.corners ) && (
 						<Field
 							label={ __( 'Radius', 'wunderpaint' ) }
 							scrub={ {
@@ -1448,7 +1459,10 @@ function AppearanceSection( { layer, extras } ) {
 							/>
 						</Field>
 					) }
-					{ ROUNDABLE_SHAPES.includes( layer.shape ) &&
+					{ ( layer.pathD
+						? !! pathPolygonRings( layer.pathD )
+						: ROUNDABLE_SHAPES.includes( layer.shape ) ||
+						  !! DYNAMIC_SHAPE_MAP[ layer.shape ]?.corners ) &&
 						shapeRadiusNow > 0 && (
 							<SliderRow
 								label={ __( 'Smoothing', 'wunderpaint' ) }
@@ -1507,6 +1521,45 @@ function AppearanceSection( { layer, extras } ) {
 								}
 							/>
 						</Field>
+					) }
+					{ /* The dials of a dynamic shape, straight from the
+					     registry - the Shape Studio edits the same values. */ }
+					{ ( DYNAMIC_SHAPE_MAP[ layer.shape ]?.params || [] ).map(
+						( prm ) => {
+							const cur = resolvedParams(
+								layer.shape,
+								layer.shapeParams
+							)[ prm.key ];
+							const isPct = ! prm.deg && prm.step < 1;
+							const scale = isPct ? 100 : 1;
+							const suffix = isPct ? '%' : prm.deg ? '°' : '';
+							return (
+								<SliderRow
+									key={ prm.key }
+									label={ prm.label() }
+									min={ Math.round( prm.min * scale ) }
+									max={ Math.round( prm.max * scale ) }
+									def={ Math.round( prm.def * scale ) }
+									value={ Math.round( cur * scale ) }
+									display={
+										Math.round( cur * scale ) + suffix
+									}
+									onChange={ ( v ) =>
+										up( {
+											shapeParams: {
+												...layer.shapeParams,
+												[ prm.key ]: v / scale,
+											},
+										} )
+									}
+									onCommit={ () =>
+										commit(
+											__( 'Edit shape', 'wunderpaint' )
+										)
+									}
+								/>
+							);
+						}
 					) }
 				</PanelGroup>
 			) }
