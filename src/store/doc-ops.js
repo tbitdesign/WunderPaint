@@ -114,6 +114,19 @@ export function cropDoc(
 	if ( ! rect || rect.w < 1 || rect.h < 1 ) {
 		return false;
 	}
+	// A crop dragged on the canvas belongs in a recording like every other
+	// document op - it used to fall out silently while the recorder's step
+	// counter kept counting. The document it was drawn on travels with the
+	// rect so a replay on a differently sized image keeps the same framing
+	// instead of cutting at raw pixel coordinates (see MACRO_OPS.crop).
+	recordStep( 'crop', {
+		x: Math.round( rect.x ),
+		y: Math.round( rect.y ),
+		w: Math.round( rect.w ),
+		h: Math.round( rect.h ),
+		docW: state.doc.w,
+		docH: state.doc.h,
+	} );
 	dispatch( {
 		type: 'SET_LAYERS',
 		layers: state.layers.map( ( l ) => offsetLayer( l, -rect.x, -rect.y ) ),

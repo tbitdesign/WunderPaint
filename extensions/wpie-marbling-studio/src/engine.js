@@ -225,6 +225,167 @@ export function packOps( ops ) {
 	return data;
 }
 
+/* ------------------------------ the recorder ------------------------------ */
+
+/**
+ * The mime fallback chain, only for a core too old to hand one over.
+ *
+ * WebM first, because that is what this editor's films have always been
+ * and what Chrome, Edge and Firefox encode best - MP4 behind it for
+ * WebKit: Safari HAS a MediaRecorder but cannot encode WebM, so a
+ * WebM-only list (which is what stood here) offered Safari visitors a
+ * record button that could only ever fail. Do not tidy the MP4 entries
+ * away; the core's own chain in src/lib/canvas-record.js ends the same
+ * way, for the same reason.
+ */
+const MIMES = [
+	'video/webm;codecs=vp9',
+	'video/webm;codecs=vp8',
+	'video/webm',
+	'video/mp4;codecs=avc1.42E01E',
+	'video/mp4',
+];
+
+/** First mime this browser can encode, or '' when it can encode none. */
+function localMime() {
+	return (
+		MIMES.find( ( m ) => {
+			try {
+				return !! (
+					window.MediaRecorder &&
+					window.MediaRecorder.isTypeSupported &&
+					window.MediaRecorder.isTypeSupported( m )
+				);
+			} catch ( e ) {
+				return false;
+			}
+		} ) || ''
+	);
+}
+
+/** The mime we would record with here - the core's chain when there is one. */
+function chosenMime( video ) {
+	return video && video.pickRecorderMime
+		? video.pickRecorderMime() || ''
+		: localMime();
+}
+
+/**
+ * Recording errors carry a `code` so the studio can name the reason.
+ * A bare "Recording failed." is what Safari visitors used to get.
+ *
+ * @param {string} code    'webgl2' or 'unsupported'.
+ * @param {string} message Developer-facing detail.
+ * @return {Error} The error to reject with.
+ */
+function recordingError( code, message ) {
+	const err = new Error( message );
+	err.code = code;
+	return err;
+}
+
+/**
+ * Name the file after what the recorder actually made. On WebKit these
+ * bytes are MP4; a file called .webm would neither play nor upload.
+ *
+ * @param {Object} [video] bridge.video, when the core has one.
+ * @return {string} 'mp4' or 'webm'.
+ */
+export function recordingExtension( video ) {
+	const mime = chosenMime( video );
+	if ( video && video.recordingExtension ) {
+		return video.recordingExtension( mime );
+	}
+	return String( mime ).includes( 'mp4' ) ? 'mp4' : 'webm';
+}
+
+/**
+ * Can this browser record the bath at all? Ask BEFORE offering the
+ * button: a MediaRecorder existing is not the same as it encoding
+ * something we can download or upload.
+ *
+ * @param {Object} [video] bridge.video, when the core has one.
+ * @return {boolean} Whether recordVideo() can deliver here.
+ */
+export function canRecordVideo( video ) {
+	if ( video && video.canRecordCanvas ) {
+		return !! video.canRecordCanvas();
+	}
+	return !! (
+		'undefined' !== typeof window &&
+		window.MediaRecorder &&
+		window.HTMLCanvasElement &&
+		window.HTMLCanvasElement.prototype.captureStream &&
+		chosenMime( video )
+	);
+}
+
+/**
+ * Start recording a canvas. The core's bridge.video does this for the
+ * whole editor; the hand-rolled path below only runs when the bridge is
+ * missing, and follows the same rules.
+ *
+ * @param {HTMLCanvasElement} canvas               The canvas to capture.
+ * @param {Object}            opts                 Recorder options.
+ * @param {number}            opts.fps             Capture frame rate.
+ * @param {number}            opts.bitsPerSecond   Video bitrate.
+ * @param {Object}            [opts.video]         bridge.video, when there is one.
+ * @return {{ stop: Function, blob: Promise<Blob>, extension: string }} Recorder.
+ */
+function startRecorder( canvas, { fps, bitsPerSecond, video } ) {
+	if ( video && video.recordCanvas ) {
+		const bridged = video.recordCanvas( canvas, { fps, bitsPerSecond } );
+		return {
+			stop: () => bridged.stop(),
+			blob: bridged.blob,
+			extension:
+				bridged.extension ||
+				( String( bridged.mimeType ).includes( 'mp4' )
+					? 'mp4'
+					: 'webm' ),
+		};
+	}
+	const mime = localMime();
+	if ( ! mime || ! canvas.captureStream ) {
+		throw recordingError( 'unsupported', 'recording unsupported' );
+	}
+	const stream = canvas.captureStream( fps );
+	const rec = new window.MediaRecorder( stream, {
+		mimeType: mime,
+		videoBitsPerSecond: bitsPerSecond,
+	} );
+	const chunks = [];
+	rec.ondataavailable = ( e ) => {
+		if ( e.data && e.data.size ) {
+			chunks.push( e.data );
+		}
+	};
+	const done = () => stream.getTracks().forEach( ( trk ) => trk.stop() );
+	const blob = new Promise( ( resolve, reject ) => {
+		rec.onstop = () => {
+			done();
+			// Label the blob after the recorder, never after our wishes:
+			// video/webm bytes that are really MP4 get refused on upload.
+			resolve( new Blob( chunks, { type: mime.split( ';' )[ 0 ] } ) );
+		};
+		rec.onerror = ( e ) => {
+			done();
+			reject( ( e && e.error ) || new Error( 'recorder error' ) );
+		};
+	} );
+	// Timeslice so a long film does not buffer one giant chunk.
+	rec.start( 200 );
+	return {
+		stop: () => {
+			if ( 'inactive' !== rec.state ) {
+				rec.stop();
+			}
+		},
+		blob,
+		extension: String( mime ).includes( 'mp4' ) ? 'mp4' : 'webm',
+	};
+}
+
 export class MarblingEngine {
 	constructor( canvas ) {
 		this.canvas = canvas;
@@ -493,67 +654,53 @@ export class MarblingEngine {
 	 * strokes sweep through), or the finished bath on living water - one
 	 * seamless loop. Records the live canvas, the family's pattern.
 	 */
-	recordVideo( { width, height, fps = 30, mode, params } ) {
+	recordVideo( { width, height, fps = 30, mode, params, video } ) {
 		return new Promise( ( resolve, reject ) => {
 			if ( this.cpu ) {
-				reject( new Error( 'video needs WebGL2' ) );
+				reject( recordingError( 'webgl2', 'video needs WebGL2' ) );
 				return;
 			}
-			const mimes = [
-				'video/webm;codecs=vp9',
-				'video/webm;codecs=vp8',
-				'video/webm',
-			];
-			const mime = mimes.find(
-				( m ) =>
-					window.MediaRecorder &&
-					window.MediaRecorder.isTypeSupported &&
-					window.MediaRecorder.isTypeSupported( m )
-			);
-			if ( ! mime ) {
-				reject( new Error( 'recording unsupported' ) );
+			if ( ! canRecordVideo( video ) ) {
+				reject(
+					recordingError( 'unsupported', 'recording unsupported' )
+				);
 				return;
 			}
 			const ow = this.canvas.width;
 			const oh = this.canvas.height;
-			this.canvas.width = width;
-			this.canvas.height = height;
-			let stream;
-			try {
-				stream = this.canvas.captureStream( fps );
-			} catch ( e ) {
-				this.canvas.width = ow;
-				this.canvas.height = oh;
-				reject( e );
-				return;
-			}
-			const rec = new window.MediaRecorder( stream, {
-				mimeType: mime,
-				videoBitsPerSecond: 12000000,
-			} );
-			const chunks = [];
-			rec.ondataavailable = ( e ) => {
-				if ( e.data && e.data.size ) {
-					chunks.push( e.data );
-				}
-			};
-			const finish = ( err ) => {
+			const restore = () => {
 				this.canvas.width = ow;
 				this.canvas.height = oh;
 				this.setPartial( this.state.ops.length, 1 );
 				this.setLive( 0, 0 );
 				this.render();
-				if ( err ) {
-					reject( err );
-				} else {
-					resolve( {
-						blob: new Blob( chunks, { type: mime } ),
-						ext: 'webm',
-					} );
-				}
 			};
-			rec.onerror = () => finish( new Error( 'recorder error' ) );
-			rec.onstop = () => finish();
+			this.canvas.width = width;
+			this.canvas.height = height;
+			let rec;
+			try {
+				// Capture only after the resize: the stream carries the
+				// size the canvas had when it was taken.
+				rec = startRecorder( this.canvas, {
+					fps,
+					bitsPerSecond: 12000000,
+					video,
+				} );
+			} catch ( e ) {
+				restore();
+				reject( e );
+				return;
+			}
+			rec.blob.then(
+				( blob ) => {
+					restore();
+					resolve( { blob, ext: rec.extension } );
+				},
+				( err ) => {
+					restore();
+					reject( err );
+				}
+			);
 			const ops = this.state.ops;
 			const sched = replaySchedule( ops );
 			const total =
@@ -599,7 +746,6 @@ export class MarblingEngine {
 				}
 				window.requestAnimationFrame( step );
 			};
-			rec.start( 200 );
 			window.requestAnimationFrame( step );
 		} );
 	}

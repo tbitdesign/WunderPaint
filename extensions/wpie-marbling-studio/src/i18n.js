@@ -79,6 +79,9 @@ const DE = {
 	'Video export needs WebGL2, which this browser lacks.':
 		'Der Video-Export braucht WebGL2, das dieser Browser nicht hat.',
 	'Video (WebM)': 'Video (WebM)',
+	'Video (MP4)': 'Video (MP4)',
+	'This browser cannot record video. Chrome, Edge, Firefox and Safari 17 or newer can.':
+		'Dieser Browser kann kein Video aufnehmen. Chrome, Edge, Firefox und Safari 17 oder neuer können es.',
 	'To Media Library': 'In die Mediathek',
 	'Recording…': 'Nimmt auf…',
 	'Recording failed.': 'Aufnahme fehlgeschlagen.',
@@ -184,6 +187,9 @@ const ES = {
 	'Video export needs WebGL2, which this browser lacks.':
 		'La exportación de vídeo necesita WebGL2, que este navegador no tiene.',
 	'Video (WebM)': 'Vídeo (WebM)',
+	'Video (MP4)': 'Vídeo (MP4)',
+	'This browser cannot record video. Chrome, Edge, Firefox and Safari 17 or newer can.':
+		'Este navegador no puede grabar vídeo. Chrome, Edge, Firefox y Safari 17 o posterior sí pueden.',
 	'To Media Library': 'A la biblioteca de medios',
 	'Recording…': 'Grabando…',
 	'Recording failed.': 'La grabación falló.',
@@ -289,6 +295,9 @@ const FR = {
 	'Video export needs WebGL2, which this browser lacks.':
 		"L'export vidéo demande WebGL2, absent de ce navigateur.",
 	'Video (WebM)': 'Vidéo (WebM)',
+	'Video (MP4)': 'Vidéo (MP4)',
+	'This browser cannot record video. Chrome, Edge, Firefox and Safari 17 or newer can.':
+		'Ce navigateur ne peut pas enregistrer de vidéo. Chrome, Edge, Firefox et Safari 17 ou plus récent le peuvent.',
 	'To Media Library': 'Vers la médiathèque',
 	'Recording…': 'Enregistrement…',
 	'Recording failed.': "L'enregistrement a échoué.",
@@ -395,6 +404,9 @@ const PT = {
 	'Video export needs WebGL2, which this browser lacks.':
 		'A exportação de vídeo precisa de WebGL2, que este navegador não tem.',
 	'Video (WebM)': 'Vídeo (WebM)',
+	'Video (MP4)': 'Vídeo (MP4)',
+	'This browser cannot record video. Chrome, Edge, Firefox and Safari 17 or newer can.':
+		'Este navegador não consegue gravar vídeo. Chrome, Edge, Firefox e Safari 17 ou mais recente conseguem.',
 	'To Media Library': 'Para a biblioteca de mídia',
 	'Recording…': 'Gravando…',
 	'Recording failed.': 'A gravação falhou.',
@@ -500,6 +512,9 @@ const IT = {
 	'Video export needs WebGL2, which this browser lacks.':
 		"L'esportazione video richiede WebGL2, assente in questo browser.",
 	'Video (WebM)': 'Video (WebM)',
+	'Video (MP4)': 'Video (MP4)',
+	'This browser cannot record video. Chrome, Edge, Firefox and Safari 17 or newer can.':
+		'Questo browser non può registrare video. Chrome, Edge, Firefox e Safari 17 o successivi possono.',
 	'To Media Library': 'Nella libreria media',
 	'Recording…': 'Registrazione…',
 	'Recording failed.': 'Registrazione non riuscita.',
@@ -605,6 +620,9 @@ export const NL = {
 	'Video export needs WebGL2, which this browser lacks.':
 		'Video-export vereist WebGL2, dat deze browser niet heeft.',
 	'Video (WebM)': 'Video (WebM)',
+	'Video (MP4)': 'Video (MP4)',
+	'This browser cannot record video. Chrome, Edge, Firefox and Safari 17 or newer can.':
+		'Deze browser kan geen video opnemen. Chrome, Edge, Firefox en Safari 17 of nieuwer wel.',
 	'To Media Library': 'Naar mediabibliotheek',
 	'Recording…': 'Opnemen…',
 	'Recording failed.': 'Opname mislukt.',

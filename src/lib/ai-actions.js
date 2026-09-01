@@ -672,12 +672,71 @@ export async function aiGeneratePanorama( editor, { prompt, provider } ) {
 	await insertResultLayer(
 		editor,
 		url,
-		__( '360° Panorama', 'wunderpaint' )
+		__( '360° Panorama', 'wunderpaint' ),
+		panoramaLayerRect( editor.state.doc )
 	);
+}
+
+/**
+ * Where a 360° panorama goes on the document (v1.379.1).
+ *
+ * A panorama is the whole surroundings, not a picture pinned in the
+ * middle of a larger sheet, and it is only a panorama while its frame
+ * stays exactly 2:1. So it takes the largest 2:1 rectangle the document
+ * holds and is scaled UP as well as down - insertResultLayer()'s default
+ * caps the factor at 1, which left every generated panorama sitting at
+ * 2048x1024 with a border around it on any bigger document, and a border
+ * is precisely what makes an exported file stop being equirectangular.
+ * On a 2:1 document this covers the canvas edge to edge, so what the
+ * export writes is a valid 360° image again.
+ *
+ * @param {Object} doc Document ({ w, h }).
+ * @return {{x: number, y: number, w: number, h: number}} Layer rectangle.
+ */
+export function panoramaLayerRect( doc ) {
+	const w = Math.max( 2, Math.round( Math.min( doc.w, doc.h * 2 ) ) );
+	const h = Math.round( w / 2 );
+	return {
+		x: Math.round( ( doc.w - w ) / 2 ),
+		y: Math.round( ( doc.h - h ) / 2 ),
+		w,
+		h,
+	};
+}
+
+/**
+ * Whether this document can hold a panorama without a border - i.e.
+ * whether its export is still a usable equirectangular image. Anything
+ * else has to be said out loud rather than quietly letterboxed.
+ *
+ * @param {Object} doc Document ({ w, h }).
+ * @return {boolean} True when the 2:1 frame covers the whole document.
+ */
+export function panoramaFillsDoc( doc ) {
+	const rect = panoramaLayerRect( doc );
+	return rect.w === Math.round( doc.w ) && rect.h === Math.round( doc.h );
 }
 
 const PANO_WRAP =
 	'Seamless 360-degree equirectangular panorama, full spherical view, continuous horizon across the whole width, the left and right edges connect perfectly, nadir at the bottom and zenith at the top, no borders, no text, no watermark.';
+
+/**
+ * Width of the baked 2:1 frame for a delivered image of this width: at
+ * least the 2048 the tool has always produced, at most 4096 so a
+ * generous provider cannot hand us a data URL nobody can hold in memory.
+ * Always even, so half of it is a whole pixel and the frame stays 2:1 to
+ * the pixel.
+ *
+ * @param {number} deliveredWidth Width the provider returned.
+ * @return {number} Width to bake at.
+ */
+export function panoramaBakeWidth( deliveredWidth ) {
+	const width = Math.min(
+		4096,
+		Math.max( 2048, Math.round( deliveredWidth || 0 ) )
+	);
+	return 2 * Math.round( width / 2 );
+}
 
 /**
  * The shared panorama pipeline (v1.378.1): text-to-panorama, or - with a
@@ -688,7 +747,7 @@ const PANO_WRAP =
  * @param {string} opts.prompt   Scene prompt (may be empty with image).
  * @param {string} opts.provider Provider id.
  * @param {string} opts.image    Optional source photo data URL.
- * @return {Promise<string>} 2048x1024 JPEG data URL.
+ * @return {Promise<string>} Exactly-2:1 JPEG data URL.
  */
 export async function generatePanoramaDataUrl( { prompt, provider, image } ) {
 	const scene = String( prompt || '' ).trim();
@@ -715,11 +774,19 @@ export async function generatePanoramaDataUrl( { prompt, provider, image } ) {
 		);
 	}
 	const img = await loadImage( result.images[ 0 ] );
-	const canvas = createCanvas( 2048, 1024 );
+	// The frame is exactly 2:1 - that is what makes it a panorama - but
+	// its size follows the pixels the provider actually delivered instead
+	// of a hard 2048: resampling a 4096-wide render down and then scaling
+	// the layer back up on a large document is how a panorama turns soft
+	// for no reason. Never below the old 2048 baseline, and never
+	// upsampled beyond what came in.
+	const w = panoramaBakeWidth( img.naturalWidth );
+	const h = Math.round( w / 2 );
+	const canvas = createCanvas( w, h );
 	const c2d = canvas.getContext( '2d' );
 	c2d.imageSmoothingEnabled = true;
 	c2d.imageSmoothingQuality = 'high';
-	c2d.drawImage( img, 0, 0, 2048, 1024 );
+	c2d.drawImage( img, 0, 0, w, h );
 	return canvas.toDataURL( 'image/jpeg', 0.92 );
 }
 

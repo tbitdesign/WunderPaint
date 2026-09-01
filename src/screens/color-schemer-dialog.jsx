@@ -741,86 +741,94 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 						</div>
 					</div>
 
-					{ /* Save + kit */ }
-					<div
-						style={ {
-							display: 'flex',
-							gap: 8,
-							alignItems: 'center',
-							flexWrap: 'wrap',
-						} }
-					>
-						<input
-							type="text"
-							placeholder={ __(
-								'Swatch set name',
-								'wunderpaint'
-							) }
-							value={ name }
-							onChange={ ( e ) => setName( e.target.value ) }
+					{ /* Save + kit.
+					   Not in the standalone studio: saving a set POSTs to
+					   /palettes, a route its local host does not have, so the
+					   only possible outcome there was the error toast. What the
+					   studio cannot do it hides rather than offering it broken.
+					   The saved-sets list below needs no rule - window.WPIE
+					   .palettes stays empty there, so it never renders. */ }
+					{ ! window.WPIE?.standalone && (
+						<div
 							style={ {
-								flex: 1,
-								minWidth: 160,
-								padding: '6px 8px',
-								border: '1px solid var(--ed-border-strong)',
-								borderRadius: 4,
-								background: 'var(--ed-panel-alt)',
-								color: 'var(--ed-text)',
-								fontSize: 12,
+								display: 'flex',
+								gap: 8,
+								alignItems: 'center',
+								flexWrap: 'wrap',
 							} }
-						/>
-						<button
-							className="ai-btn primary"
-							disabled={ busy }
-							onClick={ addSet }
 						>
-							{ sets.some( ( s ) => s.name === name.trim() )
-								? __( 'Update swatch set', 'wunderpaint' )
-								: __( 'Add swatch set', 'wunderpaint' ) }
-						</button>
-						{ canKits && (
-							<div
+							<input
+								type="text"
+								placeholder={ __(
+									'Swatch set name',
+									'wunderpaint'
+								) }
+								value={ name }
+								onChange={ ( e ) => setName( e.target.value ) }
 								style={ {
-									display: 'flex',
-									gap: 6,
-									alignItems: 'center',
+									flex: 1,
+									minWidth: 160,
+									padding: '6px 8px',
+									border: '1px solid var(--ed-border-strong)',
+									borderRadius: 4,
+									background: 'var(--ed-panel-alt)',
+									color: 'var(--ed-text)',
+									fontSize: 12,
 								} }
+							/>
+							<button
+								className="ai-btn primary"
+								disabled={ busy }
+								onClick={ addSet }
 							>
-								<select
-									className="dsm-select"
-									value={ kitId || kits[ 0 ]?.id || '' }
-									onChange={ ( e ) => {
-										setKitId( e.target.value );
-										setConfirmKit( false );
+								{ sets.some( ( s ) => s.name === name.trim() )
+									? __( 'Update swatch set', 'wunderpaint' )
+									: __( 'Add swatch set', 'wunderpaint' ) }
+							</button>
+							{ canKits && (
+								<div
+									style={ {
+										display: 'flex',
+										gap: 6,
+										alignItems: 'center',
 									} }
 								>
-									{ kits.map( ( k ) => (
-										<option key={ k.id } value={ k.id }>
-											{ k.name }
-										</option>
-									) ) }
-								</select>
-								<button
-									className={
-										'ai-btn secondary' +
-										( confirmKit ? ' danger' : '' )
-									}
-									disabled={ busy }
-									onClick={ applyToKit }
-								>
-									{ confirmKit
-										? __(
-												'Really overwrite the kit colors?',
-												'wunderpaint'
-										  )
-										: __(
-												'Apply to Brand Kit',
-												'wunderpaint'
-										  ) }
-								</button>
-							</div>
-						) }
-					</div>
+									<select
+										className="dsm-select"
+										value={ kitId || kits[ 0 ]?.id || '' }
+										onChange={ ( e ) => {
+											setKitId( e.target.value );
+											setConfirmKit( false );
+										} }
+									>
+										{ kits.map( ( k ) => (
+											<option key={ k.id } value={ k.id }>
+												{ k.name }
+											</option>
+										) ) }
+									</select>
+									<button
+										className={
+											'ai-btn secondary' +
+											( confirmKit ? ' danger' : '' )
+										}
+										disabled={ busy }
+										onClick={ applyToKit }
+									>
+										{ confirmKit
+											? __(
+													'Really overwrite the kit colors?',
+													'wunderpaint'
+											  )
+											: __(
+													'Apply to Brand Kit',
+													'wunderpaint'
+											  ) }
+									</button>
+								</div>
+							) }
+						</div>
+					) }
 
 					{ /* Saved sets */ }
 					{ sets.length > 0 && (

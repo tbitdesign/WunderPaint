@@ -30,6 +30,7 @@ import {
 	renderDominoArt,
 	renderTileMosaic,
 } from './textart-engine.js';
+import { renderLineArt, lineArtPaths, fieldFrom } from './lineart.js';
 import {
 	renderElementWords,
 	renderLetterGrid,
@@ -134,6 +135,16 @@ const DEFAULTS = {
 	charset: 'classic',
 	customChars: '',
 	bold: true,
+	// drawn with lines
+	lineSpacing: 5,
+	lineAngle: -20,
+	lineWeight: 100,
+	lineFollow: false,
+	lineLevels: 16,
+	lineStroke: 1,
+	lineDots: 9000,
+	lineDotSize: 100,
+	lineVector: true,
 	// emoji
 	ecell: 17,
 	emojiSet: 'mixed',
@@ -281,6 +292,10 @@ const MODES = [
 	{ id: 'domino', label: 'Domino Art' },
 	{ id: 'tile', label: 'Your Tile' },
 	{ id: 'qr', label: 'QR Portrait' },
+	{ id: 'engrave', label: 'Engraving' },
+	{ id: 'contour', label: 'Contour Lines' },
+	{ id: 'stipple', label: 'Stipple' },
+	{ id: 'oneline', label: 'One Line' },
 	{ id: 'words', label: 'Word Portrait' },
 	{ id: 'lyrics', label: 'Lyrics Art' },
 	{ id: 'post', label: 'Post Art' },
@@ -315,6 +330,12 @@ const OBJ_MOSAIC = [
 	'qr',
 ];
 const FIXED_BOARD = [ 'brick', 'cube', 'dots', 'keycap', 'marquee', 'qr' ];
+
+// Drawn with ink instead of glyphs. They bring their own look (no
+// palettes, no color mode) but they are TONE drawings, so the contrast
+// dial and the ground both matter - and they are the only cards here
+// that can leave as vector paths instead of pixels.
+const LINE_ART = [ 'engrave', 'contour', 'stipple', 'oneline' ];
 
 // Grid-revealing modes and their cell size in baked pixels - the reveal
 // animation pops these cell by cell; everything else wipes like a
@@ -468,7 +489,32 @@ function openStudio( ctx ) {
 			colors: resolvedColors(),
 			background: params.background,
 		};
+		// The ink drawings are drawn small for a thumbnail: at working size
+		// a stipple of nine thousand dots would relax four times for a
+		// picture the size of a stamp.
+		const inkThumb = ( mode, extra ) => () =>
+			renderLineArt( like, src, {
+				mode,
+				background: params.background,
+				contrast: 1,
+				detail: 150,
+				scale: 300,
+				seed: params.seed,
+				...extra,
+			} );
 		const renders = {
+			engrave: inkThumb( 'engrave', {
+				spacing: 4,
+				weight: 110,
+				angle: -20,
+			} ),
+			contour: inkThumb( 'contour', { levels: 10, stroke: 1 } ),
+			stipple: inkThumb( 'stipple', { dots: 1400, dotSize: 110 } ),
+			oneline: inkThumb( 'oneline', {
+				dots: 900,
+				stroke: 1,
+				budgetMs: 120,
+			} ),
 			ascii: () => renderAscii( like, src, { ...base, cell: 6 } ),
 			emoji: () => {
 				const tiles = getEmojiTiles();
@@ -1482,6 +1528,82 @@ function openStudio( ctx ) {
 		() => params.diceMix,
 		( v ) => ( params.diceMix = v )
 	);
+	// drawn with lines
+	const lineSpacingRow = sliderRowIn(
+		setSec,
+		t( 'Line spacing' ),
+		3,
+		16,
+		() => params.lineSpacing,
+		( v ) => ( params.lineSpacing = v )
+	);
+	const lineAngleRow = sliderRowIn(
+		setSec,
+		t( 'Angle' ),
+		-90,
+		90,
+		() => params.lineAngle,
+		( v ) => ( params.lineAngle = v ),
+		'\u00b0'
+	);
+	const lineWeightRow = sliderRowIn(
+		setSec,
+		t( 'Line weight' ),
+		30,
+		200,
+		() => params.lineWeight,
+		( v ) => ( params.lineWeight = v ),
+		'%'
+	);
+	const lineFollowRow = checkRow(
+		setSec,
+		t( 'Follow the form' ),
+		() => params.lineFollow,
+		( v ) => {
+			params.lineFollow = v;
+			// A line that follows the form has no angle of its own.
+			syncUi();
+		}
+	);
+	const lineLevelsRow = sliderRowIn(
+		setSec,
+		t( 'Levels' ),
+		3,
+		40,
+		() => params.lineLevels,
+		( v ) => ( params.lineLevels = v )
+	);
+	const lineStrokeRow = sliderRowIn(
+		setSec,
+		t( 'Line width' ),
+		1,
+		6,
+		() => params.lineStroke,
+		( v ) => ( params.lineStroke = v )
+	);
+	const lineDotsRow = sliderRowIn(
+		setSec,
+		t( 'Dots' ),
+		1000,
+		20000,
+		() => params.lineDots,
+		( v ) => ( params.lineDots = v )
+	);
+	const lineDotSizeRow = sliderRowIn(
+		setSec,
+		t( 'Dot size' ),
+		40,
+		200,
+		() => params.lineDotSize,
+		( v ) => ( params.lineDotSize = v ),
+		'%'
+	);
+	const lineVectorRow = checkRow(
+		setSec,
+		t( 'Insert as vector paths' ),
+		() => params.lineVector,
+		( v ) => ( params.lineVector = v )
+	);
 	// cube
 	const cubeCellRow = sliderRowIn(
 		setSec,
@@ -2004,11 +2126,29 @@ function openStudio( ctx ) {
 				? ''
 				: 'none';
 		const objMosaic = OBJ_MOSAIC.includes( m );
-		cmRow.style.display = textOnly || objMosaic ? 'none' : '';
+		// Ink drawings bring their own look, so no color mode and no
+		// palettes - but the contrast dial IS their tone curve, and the
+		// ground decides whether the ink is black or white.
+		const lineArt = LINE_ART.includes( m );
+		cmRow.style.display = textOnly || objMosaic || lineArt ? 'none' : '';
 		contrastRow.style.display = textOnly || objMosaic ? 'none' : '';
 		bgRow.style.display = FIXED_BOARD.includes( m ) ? 'none' : '';
+		lineSpacingRow.style.display = 'engrave' === m ? '' : 'none';
+		lineAngleRow.style.display =
+			'engrave' === m && ! params.lineFollow ? '' : 'none';
+		lineWeightRow.style.display = 'engrave' === m ? '' : 'none';
+		lineFollowRow.style.display = 'engrave' === m ? '' : 'none';
+		lineLevelsRow.style.display = 'contour' === m ? '' : 'none';
+		lineStrokeRow.style.display =
+			'contour' === m || 'oneline' === m ? '' : 'none';
+		lineDotsRow.style.display =
+			'stipple' === m || 'oneline' === m ? '' : 'none';
+		lineDotSizeRow.style.display = 'stipple' === m ? '' : 'none';
+		lineVectorRow.style.display = lineArt ? '' : 'none';
 		const showPalettes =
-			! objMosaic && ( textOnly || 'image' !== params.colorMode );
+			! objMosaic &&
+			! lineArt &&
+			( textOnly || 'image' !== params.colorMode );
 		palWrap.style.display = showPalettes ? '' : 'none';
 		customRow.style.display = showPalettes ? '' : 'none';
 		cellRow.style.display = 'ascii' === m ? '' : 'none';
@@ -2499,6 +2639,22 @@ function openStudio( ctx ) {
 					} );
 			}
 		}
+		if ( LINE_ART.includes( params.mode ) ) {
+			return renderLineArt( like, srcFlat, {
+				mode: params.mode,
+				background: params.background,
+				contrast: params.contrast / 100,
+				spacing: params.lineSpacing,
+				angle: params.lineAngle,
+				weight: params.lineWeight,
+				follow: params.lineFollow,
+				levels: params.lineLevels,
+				stroke: params.lineStroke,
+				dots: params.lineDots,
+				dotSize: params.lineDotSize,
+				seed: params.seed,
+			} );
+		}
 		switch ( params.mode ) {
 			case 'ascii':
 				return renderAscii( like, srcFlat, {
@@ -2729,10 +2885,101 @@ function openStudio( ctx ) {
 
 	/* -------------------------------- insert ------------------------------ */
 
+	/**
+	 * The ink drawings can leave as PATHS. Everything else here bakes to
+	 * pixels, and so do these when the box is unticked or the editor is
+	 * too old to take a shape from an extension - the drawing is the same
+	 * either way, only the material differs.
+	 */
+	function insertVector() {
+		const doc = editor.state.doc;
+		const srcAR = ( srcFlat.width || 1 ) / ( srcFlat.height || 1 );
+		const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
+		// A drawing OF the canvas has the canvas' proportions and belongs on
+		// it edge to edge - the same rule the baked modes follow below. Only
+		// art with an aspect of its own is fit centred, because stretching it
+		// to the document would distort the drawing.
+		const fit = Math.abs( srcAR - docAR ) / docAR < 0.02 ? 1 : 0.92;
+		// A drawing that is being re-edited keeps the size the user gave it;
+		// the path lives in the layer's own coordinates, so it has to be
+		// scaled to THAT width or the redraw would move the artwork.
+		const kept = editing && 'shape' === layer.type && layer.w;
+		const w = kept
+			? Math.round( layer.w )
+			: Math.round( Math.min( doc.w * fit, doc.h * fit * srcAR ) );
+		const art = lineArtPaths( srcFlat, document.createElement( 'canvas' ), {
+			mode: params.mode,
+			contrast: params.contrast / 100,
+			spacing: params.lineSpacing,
+			angle: params.lineAngle,
+			weight: params.lineWeight,
+			follow: params.lineFollow,
+			levels: params.lineLevels,
+			stroke: params.lineStroke,
+			dots: params.lineDots,
+			dotSize: params.lineDotSize,
+			seed: params.seed,
+			scaleTo: w,
+		} );
+		if ( ! art.d ) {
+			return false;
+		}
+		const ink = 'dark' === params.background ? '#ffffff' : '#14161a';
+		const box = kept
+			? { x: layer.x, y: layer.y, w: art.w, h: art.h }
+			: {
+					x: Math.round( ( doc.w - art.w ) / 2 ),
+					y: Math.round( ( doc.h - art.h ) / 2 ),
+					w: art.w,
+					h: art.h,
+			  };
+		const stored = { ...params };
+		if ( editing && 'shape' === layer.type ) {
+			editor.dispatch( {
+				type: 'UPDATE_LAYER',
+				id: layer.id,
+				patch: {
+					...box,
+					pathD: art.d,
+					fill: ink,
+					generator: { id: GEN_ID, params: stored },
+				},
+			} );
+			editor.commit( t( 'Update artwork' ) );
+			setStatus( t( 'Artwork updated.' ) );
+			return true;
+		}
+		const shape = bridge.documents.makeShape( {
+			name: t( MODES.find( ( m ) => m.id === params.mode ).label ),
+			shape: 'path',
+			...box,
+			pathD: art.d,
+			fill: ink,
+			fillType: 'solid',
+		} );
+		shape.generator = { id: GEN_ID, params: stored };
+		editor.dispatch( { type: 'ADD_LAYER', layer: shape } );
+		editor.dispatch( { type: 'SET_ACTIVE', id: shape.id } );
+		editor.commit( t( 'Insert artwork' ) );
+		setStatus( t( 'Inserted.' ) );
+		return true;
+	}
+
 	apply.onclick = async () => {
 		apply.disabled = true;
 		setStatus( t( 'Rendering the artwork' ) );
 		try {
+			if (
+				LINE_ART.includes( params.mode ) &&
+				params.lineVector &&
+				srcFlat &&
+				bridge.documents &&
+				bridge.documents.makeShape &&
+				insertVector()
+			) {
+				close();
+				return;
+			}
 			const baked = bake();
 			if ( ! baked ) {
 				throw new Error( t( 'Could not insert the artwork.' ) );
@@ -2805,6 +3052,65 @@ function openStudio( ctx ) {
 			apply.disabled = false;
 		}
 	};
+
+	if ( window.__wpieQA ) {
+		window.__ta = {
+			params,
+			pick: ( mode ) => {
+				params.mode = mode;
+				syncUi();
+				schedule();
+			},
+			canvas,
+			srcSize: () =>
+				srcFlat ? { w: srcFlat.width, h: srcFlat.height } : null,
+			source: ( desc ) => {
+				params.source = desc;
+				return loadSource();
+			},
+			probe: ( mode ) => {
+				try {
+					const a = lineArtPaths(
+						srcFlat,
+						document.createElement( 'canvas' ),
+						{
+							mode,
+							contrast: params.contrast / 100,
+							levels: params.lineLevels,
+							stroke: params.lineStroke,
+							spacing: params.lineSpacing,
+							dots: params.lineDots,
+							scaleTo: 800,
+						}
+					);
+					const f = fieldFrom(
+						srcFlat,
+						document.createElement( 'canvas' ),
+						200
+					);
+					let lo = 9,
+						hi = -9,
+						sum = 0;
+					for ( const v of f.v ) {
+						lo = Math.min( lo, v );
+						hi = Math.max( hi, v );
+						sum += v;
+					}
+					return {
+						d: a.d ? a.d.length : 0,
+						w: a.w,
+						h: a.h,
+						src: !! srcFlat,
+						lo: +lo.toFixed( 3 ),
+						hi: +hi.toFixed( 3 ),
+						mean: +( sum / f.v.length ).toFixed( 3 ),
+					};
+				} catch ( e ) {
+					return 'ERR ' + e.message;
+				}
+			},
+		};
+	}
 
 	/* --------------------------------- boot ------------------------------- */
 

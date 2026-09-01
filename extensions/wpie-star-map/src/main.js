@@ -294,6 +294,11 @@ async function openStudio( { editor, extras, layer } ) {
 	themeSel.onchange = () => {
 		params.themeId = themeSel.value;
 		params.overrides = {};
+		// The foil is not an override, but it outranks them all, so it
+		// has to go with them: otherwise a gold foil rides out of
+		// Midnight into Paper and the new theme's line color never
+		// shows up (see dropFoil below).
+		dropFoil();
 		applyBrand();
 		syncColorInputs();
 		paint();
@@ -315,6 +320,11 @@ async function openStudio( { editor, extras, layer } ) {
 		const slot = el( 'span', 'wpiestar-swatch', row );
 		const onChange = ( c ) => {
 			params.overrides[ key ] = c;
+			// Picking a line color while a foil is up would change
+			// nothing on the chart - the picker has to win.
+			if ( 'line' === key ) {
+				dropFoil();
+			}
 			syncColorInputs();
 			paint();
 		};
@@ -340,6 +350,11 @@ async function openStudio( { editor, extras, layer } ) {
 		reset.onclick = ( e ) => {
 			e.preventDefault();
 			delete params.overrides[ key ];
+			// "Back to the theme color" means exactly that, and a foil
+			// standing on top of it would make this button a no-op.
+			if ( 'line' === key ) {
+				dropFoil();
+			}
 			syncColorInputs();
 			paint();
 		};
@@ -379,6 +394,20 @@ async function openStudio( { editor, extras, layer } ) {
 			b.classList.toggle( 'sel', id === ( params.lineGradientId || '' ) )
 		);
 	syncGrads();
+	// A foil is painted INSTEAD of pal.line (sky-engine, `linePaint`), so
+	// it outranks the theme and the overrides alike, and it lives outside
+	// `overrides` - clearing those does not touch it. Everything that
+	// hands the lines a fresh color therefore sends the foil back to
+	// "Auto"; without that the foil quietly survives and whatever the
+	// user just changed has no effect on the chart. The calls are not
+	// redundant, please leave them in.
+	const dropFoil = () => {
+		if ( ! params.lineGradientId ) {
+			return;
+		}
+		params.lineGradientId = '';
+		syncGrads();
+	};
 
 	const brandKits = ( bridge.brand
 		? bridge.brand.kits()

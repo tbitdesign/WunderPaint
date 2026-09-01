@@ -122,6 +122,81 @@ const accentOf = ( opts ) =>
 const INK = '#26292e';
 const SOLVE = '#2f9e44';
 
+const rgbOf = ( hex ) => {
+	const s = String( hex || '' ).replace( '#', '' );
+	if ( ! /^[0-9a-f]{6}$/i.test( s ) ) {
+		return null;
+	}
+	const n = parseInt( s, 16 );
+	return [ ( n >> 16 ) & 255, ( n >> 8 ) & 255, n & 255 ];
+};
+const hexOf = ( rgb ) =>
+	'#' +
+	rgb
+		.map( ( v ) =>
+			Math.max( 0, Math.min( 255, Math.round( v ) ) )
+				.toString( 16 )
+				.padStart( 2, '0' )
+		)
+		.join( '' );
+// WCAG relative luminance - the sheet is always white, so this alone
+// decides whether a mark still reads on paper.
+const lumOf = ( rgb ) => {
+	const lin = rgb.map( ( v ) => {
+		const c = v / 255;
+		return c <= 0.03928
+			? c / 12.92
+			: Math.pow( ( c + 0.055 ) / 1.055, 2.4 );
+	} );
+	return 0.2126 * lin[ 0 ] + 0.7152 * lin[ 1 ] + 0.0722 * lin[ 2 ];
+};
+// Luminance a color may have at most to keep 4.5:1 against white paper.
+const MAX_LUM = 1.05 / 4.5 - 0.05;
+
+/**
+ * Ink for marks the solver CANNOT do without: crossword cell numbers,
+ * the given letters of a criss-cross, the hint letters of a cryptogram.
+ * Those used to take the raw accent, and a pale palette lead - "Pastel"
+ * opens with #ffd6e0, a brand kit may be lighter still - left a sheet
+ * that is unreadable on screen and blank in black-and-white print, so
+ * no clue could be matched to a cell any more. This keeps the palette
+ * hue and only darkens it far enough to carry 4.5:1 on the white sheet;
+ * dark accents come back unchanged. Decoration (titles, frames,
+ * bullets) keeps using accentOf - do not "tidy" these two into one.
+ *
+ * @param {Object} opts Render options carrying the effective colors.
+ * @return {string} A hex color that is readable on the printed sheet.
+ */
+export const hintInk = ( opts ) => {
+	const rgb = rgbOf( accentOf( opts ) );
+	if ( ! rgb ) {
+		return INK;
+	}
+	if ( lumOf( rgb ) <= MAX_LUM ) {
+		return hexOf( rgb );
+	}
+	// Scaling all three channels keeps hue and saturation, only the
+	// brightness drops - a binary search lands on the lightest shade
+	// that still passes.
+	let lo = 0;
+	let hi = 1;
+	for ( let i = 0; i < 16; i++ ) {
+		const mid = ( lo + hi ) / 2;
+		if ( lumOf( rgb.map( ( v ) => v * mid ) ) <= MAX_LUM ) {
+			lo = mid;
+		} else {
+			hi = mid;
+		}
+	}
+	// Rounding to whole bytes can nudge the result back over the line,
+	// so step down until the color we actually emit passes.
+	let out = rgb.map( ( v ) => Math.round( v * lo ) );
+	for ( let i = 0; i < 8 && lumOf( out ) > MAX_LUM; i++ ) {
+		out = out.map( ( v ) => Math.floor( v * 0.94 ) );
+	}
+	return lumOf( out ) <= MAX_LUM ? hexOf( out ) : INK;
+};
+
 // Sheet title: up to two centered lines in the accent color. Returns
 // the vertical space it occupies.
 const titleBlock = ( opts ) => {
@@ -1239,6 +1314,8 @@ export function renderCrissCross( like, cc, opts = {} ) {
 	drawTitle( g, tb, opts, c.width / 2, M - 16 );
 	const ox = M + ( gw - w * CELL ) / 2;
 	const oy = M + tb.h;
+	// Given letters are part of the puzzle, not decoration: readable ink.
+	const given = hintInk( opts );
 	g.textAlign = 'center';
 	g.textBaseline = 'middle';
 	for ( let y = 0; y < h; y++ ) {
@@ -1256,7 +1333,7 @@ export function renderCrissCross( like, cc, opts = {} ) {
 			g.strokeRect( px + 1, py + 1, CELL - 2, CELL - 2 );
 			const pre = prefill.has( y * w + x );
 			if ( pre || opts.solution ) {
-				g.fillStyle = pre ? accentOf( opts ) : SOLVE;
+				g.fillStyle = pre ? given : SOLVE;
 				g.font = `700 ${ Math.round( CELL * 0.52 ) }px ${ famFor(
 					opts
 				) }`;
@@ -1374,7 +1451,9 @@ export function renderCryptogram( like, cg, opts = {} ) {
 	g.fillRect( 0, 0, c.width, c.height );
 	drawTitle( g, tb, opts, W / 2, M - 16 );
 	g.textAlign = 'center';
-	const accent = accentOf( opts );
+	// Hint letters are the way into the code, so they take readable ink
+	// rather than the accent.
+	const hint = hintInk( opts );
 	const cellFont = `700 ${ Math.round( BW * 0.58 ) }px ${ famFor( opts ) }`;
 	const numFont = `600 13px ${ famFor( opts ) }`;
 	const drawBox = ( x, y, ch ) => {
@@ -1391,7 +1470,7 @@ export function renderCryptogram( like, cg, opts = {} ) {
 		g.fillText( String( map[ ch ] ), x + BW / 2, y + BH - 2 );
 		const isHint = hints.has( ch );
 		if ( isHint || opts.solution ) {
-			g.fillStyle = isHint ? accent : SOLVE;
+			g.fillStyle = isHint ? hint : SOLVE;
 			g.font = cellFont;
 			g.fillText( ch, x + BW / 2, y + BH - 26 );
 		}
@@ -1433,7 +1512,7 @@ export function renderCryptogram( like, cg, opts = {} ) {
 		g.fillText( String( map[ ch ] ), x + BW / 2, yy + BH - 22 );
 		const isHint = hints.has( ch );
 		if ( isHint || opts.solution ) {
-			g.fillStyle = isHint ? accent : SOLVE;
+			g.fillStyle = isHint ? hint : SOLVE;
 			g.font = cellFont;
 			g.fillText( ch, x + BW / 2, yy + BH - 34 );
 		}
@@ -2076,6 +2155,9 @@ export function renderCrossword( like, cc, cw, opts = {} ) {
 	drawTitle( g, tb, opts, c.width / 2, M - 16 );
 	const ox = M + ( gw - w * CELL ) / 2;
 	const oy = M + tb.h;
+	// Cell numbers tie every clue to its cell - without them the sheet is
+	// not solvable at all, so they take readable ink, not the accent.
+	const numInk = hintInk( opts );
 	for ( let y = 0; y < h; y++ ) {
 		for ( let x = 0; x < w; x++ ) {
 			const ch = letters[ y * w + x ];
@@ -2091,7 +2173,7 @@ export function renderCrossword( like, cc, cw, opts = {} ) {
 			g.strokeRect( px + 1, py + 1, CELL - 2, CELL - 2 );
 			const num = numbers.get( `${ x },${ y }` );
 			if ( num ) {
-				g.fillStyle = accentOf( opts );
+				g.fillStyle = numInk;
 				g.font = `700 ${ Math.round( CELL * 0.24 ) }px ${ famFor(
 					opts
 				) }`;

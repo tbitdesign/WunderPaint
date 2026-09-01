@@ -302,6 +302,8 @@ function openStudio( ctx ) {
 							nails: 100,
 							factor: params.factor,
 							color: accentHex() || '#26292e',
+							// A 96px tile has no room for nail numbers.
+							labels: false,
 						}
 					);
 				} else {

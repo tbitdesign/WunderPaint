@@ -60,6 +60,28 @@ import { HelpLink } from '../help-dialog';
 import { StyleButton } from '../../components/style-picker';
 import { useTip } from '../../components/use-tip';
 
+/**
+ * Quick actions the standalone studio cannot perform.
+ *
+ * The studio talks to the visitor's own key through src/standalone/byok.js,
+ * and that only knows generate, edit and complete. Inpaint, Outpaint and
+ * Variations have no route there at all: pressing them answered "This AI
+ * feature is not wired up in the standalone studio yet". What the studio
+ * cannot do it hides rather than offering it broken, so they are dropped from
+ * the grid below.
+ *
+ * Hidden HERE and not in src/standalone/trim-ui.js, which is otherwise the
+ * place for this: that file matches the VISIBLE label, so each entry needs its
+ * translation shipped alongside, while this rule holds in all seven languages.
+ * The plugin is untouched by it - window.WPIE.standalone is only ever true in
+ * the studio build.
+ *
+ * The cloud "Remove Object" deliberately stays: it catches the missing
+ * provider and falls back to the local onion-peel fill (ai-actions.js), so in
+ * the studio it does its job without a key.
+ */
+const STANDALONE_DEAD_ACTIONS = [ 'inpaint', 'outpaint', 'variations' ];
+
 export function AIPanel( { extras } ) {
 	const editor = useEditor();
 	const { state, WPIE } = editor;
@@ -1025,7 +1047,14 @@ export function AIPanel( { extras } ) {
 				} }
 			>
 				{ ( () => {
-					const visible = quickActions.filter( ( a ) => ! a.hidden );
+					const visible = quickActions.filter(
+						( a ) =>
+							! a.hidden &&
+							! (
+								window.WPIE?.standalone &&
+								STANDALONE_DEAD_ACTIONS.includes( a.id )
+							)
+					);
 					const local = visible.filter(
 						( a ) => false === a.needsProvider
 					);

@@ -44,6 +44,39 @@ const PRESETS = () => [
 	[ __( 'Steep', 'wunderpaint' ), { yaw: 34, pitch: 12 } ],
 ];
 
+/**
+ * Where a baked mockup lands on the current document: centred, at 80% of the
+ * fitting size, but NEVER larger than the bake itself.
+ *
+ * The cap at 1 is the point. `renderMockup()` bakes a fixed OUT_SIZE edge, so
+ * on a print-size document the plain fit factor climbs above 1 and we would
+ * hand the canvas a blown-up, soft layer while the dialog is still promising
+ * "baked at high resolution". insertResultLayer() in lib/ai-actions.js caps
+ * its fit the same way; this is the same rule, not an oversight to tidy away.
+ *
+ * The 0.8 margin sits inside the cap, so the placement stays continuous: up to
+ * a fit of 1.25 the mockup covers 80% of the document, beyond that it keeps
+ * its native pixels and the air around it simply grows.
+ *
+ * @param {Object} doc   Document with w/h.
+ * @param {Object} baked Baked canvas with width/height.
+ * @return {{x:number,y:number,w:number,h:number}} Layer rectangle.
+ */
+export function mockupInsertRect( doc, baked ) {
+	const scale = Math.min(
+		1,
+		0.8 * Math.min( doc.w / baked.width, doc.h / baked.height )
+	);
+	const w = Math.round( baked.width * scale );
+	const h = Math.round( baked.height * scale );
+	return {
+		x: Math.round( ( doc.w - w ) / 2 ),
+		y: Math.round( ( doc.h - h ) / 2 ),
+		w,
+		h,
+	};
+}
+
 function Slider( { label, value, min, max, onChange } ) {
 	return (
 		<label style={ { display: 'grid', gap: 4, fontSize: 12 } }>
@@ -268,23 +301,13 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 					} );
 				}
 			} else {
-				const scale =
-					0.8 *
-					Math.min(
-						state.doc.w / baked.width,
-						state.doc.h / baked.height
-					);
-				const w = Math.round( baked.width * scale );
-				const h = Math.round( baked.height * scale );
+				const rect = mockupInsertRect( state.doc, baked );
 				dispatch( {
 					type: 'ADD_LAYER',
 					layer: {
 						...makeImage( {
 							name,
-							x: Math.round( ( state.doc.w - w ) / 2 ),
-							y: Math.round( ( state.doc.h - h ) / 2 ),
-							w,
-							h,
+							...rect,
 							src,
 							naturalW: baked.width,
 							naturalH: baked.height,

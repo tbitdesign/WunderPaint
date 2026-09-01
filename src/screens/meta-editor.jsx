@@ -24,6 +24,21 @@ import { MetadataPanel } from './metadata-panel';
 import { ReplaceDialog } from './replace-dialog';
 import { RecropDialog } from './recrop-dialog';
 
+/**
+ * Whether this host can store what the right-hand column edits.
+ *
+ * Title, alt text, caption and description live on the WordPress attachment
+ * and are written through the core route wp/v2/media/<id>. The standalone
+ * studio does not serve that route - its local host only answers /wpie/v1 -
+ * so every save silently reached nothing while the dialog closed as if it had
+ * worked. The studio therefore does not show the fields at all; the read-only
+ * side of this dialog is unaffected, and in WordPress nothing changes.
+ *
+ * The Media Library Manager already hides its way in here for the same reason;
+ * this second rule exists because the Metadata Assistant opens this dialog too.
+ */
+const canSaveMeta = () => ! window.WPIE?.standalone;
+
 /** Human-readable byte size. */
 function fmtSize( b ) {
 	if ( ! b ) {
@@ -450,87 +465,99 @@ export function MetaEditor( {
 						</div>
 
 						{ /* ---- right: editable fields + tags ---- */ }
-						<div className="wpie-me-right">
-							{ FIELD_DEFS.map( ( f ) => (
-								<label key={ f.key } className="wpie-alt-field">
-									<span>{ f.label }</span>
-									{ 'description' === f.key ? (
-										<textarea
-											rows={ 3 }
-											value={ vals[ f.key ] }
-											onChange={ ( e ) =>
-												setVals( ( v ) => ( {
-													...v,
-													[ f.key ]: e.target.value,
-												} ) )
-											}
-										/>
-									) : (
-										<input
-											value={ vals[ f.key ] }
-											onChange={ ( e ) =>
-												setVals( ( v ) => ( {
-													...v,
-													[ f.key ]: e.target.value,
-												} ) )
-											}
-										/>
-									) }
-								</label>
-							) ) }
+						{ canSaveMeta() && (
+							<div className="wpie-me-right">
+								{ FIELD_DEFS.map( ( f ) => (
+									<label
+										key={ f.key }
+										className="wpie-alt-field"
+									>
+										<span>{ f.label }</span>
+										{ 'description' === f.key ? (
+											<textarea
+												rows={ 3 }
+												value={ vals[ f.key ] }
+												onChange={ ( e ) =>
+													setVals( ( v ) => ( {
+														...v,
+														[ f.key ]:
+															e.target.value,
+													} ) )
+												}
+											/>
+										) : (
+											<input
+												value={ vals[ f.key ] }
+												onChange={ ( e ) =>
+													setVals( ( v ) => ( {
+														...v,
+														[ f.key ]:
+															e.target.value,
+													} ) )
+												}
+											/>
+										) }
+									</label>
+								) ) }
 
-							<div className="wpie-alt-field">
-								<span>{ __( 'Tags', 'wunderpaint' ) }</span>
-								{ tagList.length > 0 && (
-									<div className="wpie-me-tags">
-										{ tagList.map( ( t, i ) => (
-											<span
-												key={ t.id || 'n' + i }
-												className="wpie-mlm-chip"
-											>
-												<span className="lbl">
-													{ t.name }
-												</span>
-												<button
-													className="x"
-													onClick={ () =>
-														removeTag( i )
-													}
-													aria-label={ __(
-														'Remove',
-														'wunderpaint'
-													) }
+								<div className="wpie-alt-field">
+									<span>{ __( 'Tags', 'wunderpaint' ) }</span>
+									{ tagList.length > 0 && (
+										<div className="wpie-me-tags">
+											{ tagList.map( ( t, i ) => (
+												<span
+													key={ t.id || 'n' + i }
+													className="wpie-mlm-chip"
 												>
-													{ I.close( { size: 11 } ) }
-												</button>
-											</span>
-										) ) }
-									</div>
-								) }
-								<input
-									list="wpie-me-taglist"
-									value={ tagInput }
-									placeholder={ __(
-										'Add a tag and press Enter',
-										'wunderpaint'
+													<span className="lbl">
+														{ t.name }
+													</span>
+													<button
+														className="x"
+														onClick={ () =>
+															removeTag( i )
+														}
+														aria-label={ __(
+															'Remove',
+															'wunderpaint'
+														) }
+													>
+														{ I.close( {
+															size: 11,
+														} ) }
+													</button>
+												</span>
+											) ) }
+										</div>
 									) }
-									onChange={ ( e ) =>
-										setTagInput( e.target.value )
-									}
-									onKeyDown={ ( e ) => {
-										if ( 'Enter' === e.key ) {
-											e.preventDefault();
-											addTagFromInput();
+									<input
+										list="wpie-me-taglist"
+										value={ tagInput }
+										placeholder={ __(
+											'Add a tag and press Enter',
+											'wunderpaint'
+										) }
+										onChange={ ( e ) =>
+											setTagInput( e.target.value )
 										}
-									} }
-								/>
-								<datalist id="wpie-me-taglist">
-									{ allTags.map( ( t ) => (
-										<option key={ t.id } value={ t.name } />
-									) ) }
-								</datalist>
+										onKeyDown={ ( e ) => {
+											if ( 'Enter' === e.key ) {
+												e.preventDefault();
+												addTagFromInput();
+											}
+										} }
+									/>
+									<datalist id="wpie-me-taglist">
+										{ allTags.map( ( t ) => (
+											<option
+												key={ t.id }
+												value={ t.name }
+											/>
+										) ) }
+									</datalist>
+								</div>
 							</div>
-						</div>
+						) }
 					</div>
 				) }
 
@@ -540,7 +567,7 @@ export function MetaEditor( {
 							{ meta?.filename || '' }
 						</span>
 						<div className="dsm-actions">
-							{ engineOpts.length > 1 && (
+							{ canSaveMeta() && engineOpts.length > 1 && (
 								<select
 									className="dsm-select sm"
 									value={ chosenEngine }
@@ -559,23 +586,33 @@ export function MetaEditor( {
 									) ) }
 								</select>
 							) }
-							<button
-								className="ai-btn secondary"
-								onClick={ suggest }
-								disabled={
-									ai0 || busy || ! meta || ! engineOpts.length
-								}
-							>
-								{ ai0 && <span className="spin" /> }
-								{ __( 'Generate metadata', 'wunderpaint' ) }
-							</button>
-							<button
-								className="ai-btn primary"
-								onClick={ save }
-								disabled={ busy }
-							>
-								{ __( 'Save', 'wunderpaint' ) }
-							</button>
+							{ canSaveMeta() && (
+								<>
+									<button
+										className="ai-btn secondary"
+										onClick={ suggest }
+										disabled={
+											ai0 ||
+											busy ||
+											! meta ||
+											! engineOpts.length
+										}
+									>
+										{ ai0 && <span className="spin" /> }
+										{ __(
+											'Generate metadata',
+											'wunderpaint'
+										) }
+									</button>
+									<button
+										className="ai-btn primary"
+										onClick={ save }
+										disabled={ busy }
+									>
+										{ __( 'Save', 'wunderpaint' ) }
+									</button>
+								</>
+							) }
 						</div>
 					</div>
 				) }

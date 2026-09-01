@@ -25,6 +25,7 @@ import {
 	TREE_SPECIES,
 	PLANT_SPECIES,
 	ORBS,
+	canPunch,
 	lookById,
 } from './core/model.js';
 import {
@@ -152,6 +153,11 @@ function openStudio( ctx ) {
 	const engine = new PaperEngine( canvas );
 	const unmounts = [];
 	let selected = null;
+	// The id of the sheet new things join instead of getting one of
+	// their own. Held here rather than in `params`, because it is a way
+	// of working and not part of the picture: it must not travel into a
+	// saved document or come back out of an undo step.
+	let shareWith = null;
 	let closed = false;
 
 	/* ------------------------------ sizing ----------------------------- */
@@ -267,6 +273,18 @@ function openStudio( ctx ) {
 		return null;
 	};
 	const findLayer = ( id ) => params.layers.find( ( s ) => s.id === id );
+
+	/**
+	 * The sheet new things should join, if it is still there.
+	 *
+	 * A sheet can disappear under the switch - a scene replaces the
+	 * stack, the last thing on it is removed, an undo steps back - and a
+	 * stale id must mean "a sheet of its own" rather than nothing at all.
+	 *
+	 * @return {?string} A live layer id, or null.
+	 */
+	const shareTarget = () =>
+		shareWith && findLayer( shareWith ) ? shareWith : null;
 
 	/* ------------------------------- undo ------------------------------- */
 
@@ -537,9 +555,13 @@ function openStudio( ctx ) {
 	 * @param {Object}  obj       The object.
 	 * @param {Object}  opts      Placement.
 	 * @param {?string} opts.onto An existing layer id to share, or null
-	 *                            for a layer of its own.
+	 *                            for a layer of its own. Defaults to the
+	 *                            sheet the "add onto this sheet" switch
+	 *                            names, so every library tile can put a
+	 *                            thing on a shared sheet without knowing
+	 *                            that the switch exists.
 	 */
-	const addObject = ( obj, { onto = null } = {} ) => {
+	const addObject = ( obj, { onto = shareTarget() } = {} ) => {
 		mark();
 		// A picture has ONE passepartout. Picking a second window means
 		// "this one instead", not "two frames on top of each other".
@@ -1399,6 +1421,36 @@ function openStudio( ctx ) {
 	const sliderRow = ( parent, label, value, min, max, onInput, step = 1 ) =>
 		ui.slider( parent, { label, min, max, step, value, onInput } );
 
+	/**
+	 * The switch that puts the next things on THIS sheet.
+	 *
+	 * The stack list shows things, not sheets, on purpose - but sharing a
+	 * sheet is the whole point of the passepartout: its window is taken
+	 * out first, so words and birds dropped on the same sheet are cut
+	 * clean through the paper instead of being swallowed by the opening.
+	 * The renderer has been able to do that since v3; until this switch
+	 * there was no way to ask for it, and every insert point made a fresh
+	 * sheet. Things that share a sheet also share its paper colour and
+	 * its shadow, and they move in depth together.
+	 *
+	 * @param {Object} sheet The layer the selection sits on.
+	 */
+	const shareSwitch = ( sheet ) => {
+		if ( 'elements' !== sheet.source ) {
+			return;
+		}
+		const box = ui.check( selBody, {
+			label: t( 'Add new things onto this sheet' ),
+			checked: shareTarget() === sheet.id,
+			onChange: ( v ) => {
+				shareWith = v ? sheet.id : null;
+			},
+		} );
+		box.parentElement.title = t(
+			'New things join this sheet and share its paper, its color and its shadow.'
+		);
+	};
+
 	const syncSelection = () => {
 		if ( ! selBody ) {
 			return;
@@ -1730,6 +1782,9 @@ function openStudio( ctx ) {
 					rebuildLive();
 				} );
 			}
+			// Size and rotation only where they mean anything: a
+			// page-covering object has no corner to drag, and
+			// placedStamps() ignores its rotation.
 			if ( ! FULL_PAGE_KINDS.includes( o.kind ) ) {
 				sliderRow( selBody, t( 'Size' ), o.scale, 3, 140, ( v ) => {
 					o.scale = v;
@@ -1746,8 +1801,14 @@ function openStudio( ctx ) {
 						rebuildLive();
 					}
 				);
-				// Punching used to be decided by KIND, and a hole was only
-				// allowed on a backdrop. Any object, any layer.
+			}
+			// Punching used to be decided by KIND, and a hole was only
+			// allowed on a backdrop. Any object, any layer - which is why
+			// this stands OUTSIDE the page-covering guard above: a ridge
+			// and a frame edge are ordinary objects since v3, and a ridge
+			// punched out of the paper is a shape like any other. Only the
+			// two kinds canPunch() refuses have no hole to give.
+			if ( canPunch( o.kind ) ) {
 				ui.check( selBody, {
 					label: t( 'Punch out of the paper' ),
 					checked: !! o.cut,
@@ -1802,16 +1863,21 @@ function openStudio( ctx ) {
 					rebuildLive();
 				}
 			);
+			shareSwitch( objHit.layer );
 			return;
 		}
-		// A photo sheet is selected. It has no shape of its own to edit:
-		// its outline comes from the picture.
+		// A photo sheet, or an empty one straight from "Add empty sheet",
+		// is selected. It has no shape of its own to edit: a photo sheet
+		// takes its outline from the picture, an empty one has nothing on
+		// it yet - which is exactly when the sharing switch below earns
+		// its place.
 		const index = params.layers.indexOf( sheet );
 		ui.el( 'div', 'wpiepca-note', selBody, layerName( sheet, index ) );
 		sliderRow( selBody, t( 'Shadow' ), sheet.shadow, 0, 200, ( v ) => {
 			sheet.shadow = v;
 			rebuildLive();
 		} );
+		shareSwitch( sheet );
 	};
 
 	/* ------------------------------ photo ------------------------------- */

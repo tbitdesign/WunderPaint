@@ -19,6 +19,9 @@
 import * as ui from '@ed/lib/ext-ui.js';
 import * as stampDoc from '@ed/lib/stamp-doc.js';
 import { openStampMaker } from '@ed/lib/stamp-maker.js';
+// bridge.shapes (API 2.18) is the editor's own converter: mirror it, do not
+// approximate it - a studio that turns layers into paths must see real data.
+import { shapeToPathD, isParametricShape } from '@ed/lib/shape-path.js';
 
 /** Six coloured plates with real pixel dimensions, shared by both media mocks. */
 function mockMediaItems() {
@@ -242,6 +245,24 @@ window.__installWpieMock = ( opts = {} ) => {
 			// could not open the dialog at all - a mock has to follow the
 			// product on the same day the product moves.
 			stamps: { ...stampDoc, openStampMaker },
+			shapes: {
+				// A slice of the editor's real catalogue: the converter below is
+				// the real one, so these ids render exactly as they would.
+				list: () => [
+					{ id: 'rect', name: 'Rectangle' },
+					{ id: 'ellipse', name: 'Ellipse' },
+					{ id: 'triangle', name: 'Triangle' },
+					{ id: 'diamond', name: 'Diamond' },
+					{ id: 'star', name: 'Star' },
+					{ id: 'polygon', name: 'Polygon' },
+					{ id: 'heart', name: 'Heart' },
+					{ id: 'blob', name: 'Blob' },
+					{ id: 'shield', name: 'Shield' },
+				],
+				pathD: ( id, w, h, over ) => shapeToPathD( { type: 'shape', shape: id, w, h, ...( over || {} ) } ),
+				fromLayer: shapeToPathD,
+				isParametric: isParametricShape,
+			},
 			documents: {
 				// These mirror src/store/document.js on purpose, defaults
 				// and all. A mock that is kinder than the real factory
@@ -632,7 +653,15 @@ window.__installWpieMock = ( opts = {} ) => {
 			const chosen = [];
 			const finish = () => {
 				wrap.remove();
-				resolve( false === pickOpts.multiple ? chosen[ 0 ] || null : chosen );
+				// ALWAYS a list, exactly like the editor: WPIE.pickMedia
+				// resolves an array even for a single pick (see
+				// src/screens/editor-main.jsx and every caller in the core,
+				// e.g. qr-dialog's `items && items[ 0 ]`). Handing back a
+				// bare item for `multiple: false` made this mock disagree
+				// with the thing it stands in for, and an extension written
+				// against the real contract picked nothing under QA while
+				// working perfectly in the editor.
+				resolve( false === pickOpts.multiple ? chosen.slice( 0, 1 ) : chosen );
 			};
 			for ( const it of mockMediaItems() ) {
 				const b = document.createElement( 'button' );

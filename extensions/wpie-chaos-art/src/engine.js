@@ -761,6 +761,9 @@ export class ChaosEngine {
 		this._recorder = null;
 		this._recChunks = [];
 		this._recBlob = null;
+		this._recStopAt = 0;
+		this._recLeft = RECORD_CAP * 1000;
+		this._recArmedAt = 0;
 		this._painted = 0;
 	}
 
@@ -1075,6 +1078,11 @@ export class ChaosEngine {
 			try {
 				this._recorder.pause();
 			} catch ( e ) {}
+			// The cap measures FILM, not the sitting. A paused tape records
+			// nothing, so its alarm has to hold its breath too - otherwise a
+			// long browse through the moment strip ends a film that never got
+			// another frame. What is left of the cap waits for resume().
+			this.holdRecStop();
 		}
 	}
 
@@ -1087,9 +1095,15 @@ export class ChaosEngine {
 			try {
 				this._recorder.resume();
 			} catch ( e ) {}
+			// The tape rolls again, so the alarm is set anew - with the rest
+			// of the cap, never with the full one: pausing must not buy film.
+			this.armRecStop( this._recLeft );
 		} else if ( ! this._recorder ) {
 			this.startRecorder();
 		}
+		// A recorder that is already 'inactive' has spent the whole cap on
+		// real film; the painting goes on, the tape stays finished. Starting
+		// a new one here would throw the recorded piece away.
 	}
 
 	/**
@@ -1631,7 +1645,7 @@ export class ChaosEngine {
 
 	/** Throw the current tape away, silently. */
 	resetRecorder() {
-		window.clearTimeout( this._recStopAt );
+		this.clearRecStop();
 		const rec = this._recorder;
 		if ( rec ) {
 			rec.ondataavailable = null;
@@ -1675,15 +1689,53 @@ export class ChaosEngine {
 				}
 			};
 			this._recorder.start( 1000 );
-			this._recStopAt = window.setTimeout( () => {
-				// The tape has an end; the painting does not.
-				if ( this._recorder && 'inactive' !== this._recorder.state ) {
-					this._recorder.stop();
-				}
-			}, RECORD_CAP * 1000 );
+			this.armRecStop( RECORD_CAP * 1000 );
 		} catch ( e ) {
 			this._recorder = null;
 		}
+	}
+
+	/**
+	 * The tape's alarm. It is armed only while the tape actually rolls, and
+	 * it always carries the REST of the cap, so that the length it limits is
+	 * the length of the film - pauses cost nothing.
+	 *
+	 * @param {number} ms Milliseconds of film still allowed.
+	 */
+	armRecStop( ms ) {
+		this.clearRecStop();
+		this._recLeft = Math.max( 0, ms );
+		this._recArmedAt = Date.now();
+		this._recStopAt = window.setTimeout( () => {
+			this._recStopAt = 0;
+			this._recArmedAt = 0;
+			this._recLeft = 0;
+			// The tape has an end; the painting does not.
+			if ( this._recorder && 'inactive' !== this._recorder.state ) {
+				this._recorder.stop();
+			}
+		}, this._recLeft );
+	}
+
+	/** Stop the alarm and book the film that has run since it was armed. */
+	holdRecStop() {
+		const armedAt = this._recArmedAt;
+		this.clearRecStop();
+		if ( armedAt ) {
+			this._recLeft = Math.max(
+				0,
+				this._recLeft - ( Date.now() - armedAt )
+			);
+		}
+	}
+
+	/** Drop the alarm without touching the rest of the cap. */
+	clearRecStop() {
+		if ( this._recStopAt ) {
+			window.clearTimeout( this._recStopAt );
+		}
+		this._recStopAt = 0;
+		this._recArmedAt = 0;
 	}
 
 	/** Finalize and hand over the film. The next start records anew. */
@@ -1774,7 +1826,7 @@ export class ChaosEngine {
 	dispose() {
 		cancelAnimationFrame( this._raf );
 		this.running = false;
-		window.clearTimeout( this._recStopAt );
+		this.clearRecStop();
 		if ( this._recorder && 'inactive' !== this._recorder.state ) {
 			try {
 				this._recorder.stop();

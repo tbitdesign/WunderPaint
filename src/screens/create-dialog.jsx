@@ -18,6 +18,7 @@ import {
 	hydrateLayers,
 } from '../store/document';
 import { useEditor } from '../store/editor-context';
+import { psdToDocument } from '../lib/psd';
 import { ai, templates as templatesApi } from '../lib/api';
 import { PROVIDER_LABELS } from '../lib/providers';
 import { useTemplates } from '../content/use-content';
@@ -62,6 +63,13 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 	const editor = useEditor();
 	const { dispatch, WPIE } = editor;
 	const [ tab, setTab ] = useState( 'blank' );
+	/* A file the visitor brought with them, once it has been read: either a
+	 * picture or a whole Photoshop document. Held here rather than opened
+	 * straight away, so the dialog can show what it got and the visitor can
+	 * still change the name before anything is created. */
+	const [ openFile, setOpenFile ] = useState( null );
+	const [ reading, setReading ] = useState( false );
+	const fileInput = useRef( null );
 	const [ preset, setPreset ] = useState( 'ig-square' );
 	// Document name (v1.107.2): picking a preset suggests its label until
 	// the user types a name of their own.
@@ -117,6 +125,62 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 	const pvScale = Math.min( 220 / Math.max( 1, w ), 130 / Math.max( 1, h ) );
 	const pvW = Math.max( 24, Math.round( w * pvScale ) );
 	const pvH = Math.max( 16, Math.round( h * pvScale ) );
+	/* Opening a file from disk is offered in the studio only. Inside
+	 * WordPress the way in is the media library, and a second door next to it
+	 * would be a second answer to a question that already has one. The gate is
+	 * one line, so it can be opened for both if that ever changes. */
+	const canOpenFile = !! window.WPIE?.standalone;
+
+	/* Read what was handed over. A Photoshop file brings its own document with
+	 * its own layers, so it is parsed here and kept whole; a picture only
+	 * brings its size, which fills the fields below and stays editable. */
+	const takeFile = async ( f ) => {
+		if ( ! f ) {
+			return;
+		}
+		const stamm = f.name.replace( /\.[^.]+$/, '' ).slice( 0, 60 );
+		setReading( true );
+		try {
+			if ( /\.psd$/i.test( f.name ) ) {
+				const { doc: psdDoc, layers: psdLayers } = await psdToDocument(
+					await f.arrayBuffer(),
+					stamm
+				);
+				setOpenFile( {
+					kind: 'psd',
+					name: f.name,
+					doc: psdDoc,
+					layers: psdLayers,
+					w: psdDoc.w,
+					h: psdDoc.h,
+				} );
+				setW( psdDoc.w );
+				setH( psdDoc.h );
+			} else {
+				const src = URL.createObjectURL( f );
+				const img = await loadImage( src );
+				setOpenFile( {
+					kind: 'image',
+					name: f.name,
+					src,
+					w: img.naturalWidth,
+					h: img.naturalHeight,
+				} );
+				setW( img.naturalWidth );
+				setH( img.naturalHeight );
+			}
+			if ( ! nameTouched.current ) {
+				setDocName( stamm );
+			}
+		} catch ( err ) {
+			extras.toasts.error(
+				err.message ||
+					__( 'That file could not be read.', 'wunderpaint' )
+			);
+		}
+		setReading( false );
+	};
+
 	const effectiveBg = 'custom' === bg ? customBg : bg;
 	// Guardrails (v1.130.0): beyond ~16k px per side browser canvases
 	// fail silently (blank stage, broken exports); warn well before that.
@@ -141,6 +205,47 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 		// The background color lives on doc.bg alone (v1.153.2), no
 		// redundant "Background" shape layer anymore.
 		let layers = [];
+
+		/* A Photoshop file IS the document, so nothing here is built around
+		 * it: it goes in as it came out of the file, only the name follows
+		 * what the visitor typed. */
+		if ( 'open' === tab && openFile && 'psd' === openFile.kind ) {
+			const eigen = { ...openFile.doc, name, isNew: true };
+			if (
+				! welcome &&
+				extras?.openDocInNewTab?.( {
+					doc: eigen,
+					layers: openFile.layers,
+				} )
+			) {
+				onClose();
+				return;
+			}
+			dispatch( {
+				type: 'LOAD_DOCUMENT',
+				doc: eigen,
+				layers: openFile.layers,
+				label: __( 'Open File', 'wunderpaint' ),
+			} );
+			onClose();
+			return;
+		}
+
+		if ( 'open' === tab && openFile ) {
+			const img = await loadImage( openFile.src );
+			layers = [
+				makeImage( {
+					name: openFile.name,
+					x: 0,
+					y: 0,
+					w,
+					h,
+					src: openFile.src,
+					naturalW: img.naturalWidth,
+					naturalH: img.naturalHeight,
+				} ),
+			];
+		}
 
 		if ( 'ai' === tab ) {
 			if ( ! prompt.trim() ) {
@@ -339,6 +444,14 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 							>
 								{ __( 'Templates', 'wunderpaint' ) }
 							</button>
+							{ canOpenFile && (
+								<button
+									className={ 'open' === tab ? 'active' : '' }
+									onClick={ () => setTab( 'open' ) }
+								>
+									{ __( 'Open a File', 'wunderpaint' ) }
+								</button>
+							) }
 						</div>
 						{ 'templates' === tab ? (
 							<CreateTemplatesTab
@@ -347,6 +460,110 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 								onClose={ onClose }
 								welcome={ welcome }
 							/>
+						) : 'open' === tab ? (
+							<div
+								className="create-form create-open"
+								onDragOver={ ( e ) => e.preventDefault() }
+								onDrop={ ( e ) => {
+									e.preventDefault();
+									takeFile( e.dataTransfer.files?.[ 0 ] );
+								} }
+							>
+								{ /* The area IS the button. It was a dashed
+								     card with a separate "choose a file" link
+								     under it, which is two controls for one
+								     action and reads as an afterthought. Drop
+								     onto it or click it, same thing. */ }
+								<div
+									className="create-preview-wrap"
+									data-dim={
+										openFile ? `${ w } × ${ h } px` : ''
+									}
+								>
+									<button
+										type="button"
+										className={
+											'preview-card open-drop' +
+											( openFile ? ' has-file' : '' )
+										}
+										style={ { width: pvW, height: pvH } }
+										disabled={ reading }
+										onClick={ () =>
+											fileInput.current?.click()
+										}
+									>
+										{ openFile &&
+										'image' === openFile.kind ? (
+											<img src={ openFile.src } alt="" />
+										) : (
+											<span className="open-mark">
+												{ openFile
+													? I.layers?.( {
+															size: 26,
+													  } )
+													: I.image?.( {
+															size: 30,
+													  } ) }
+												{ openFile && (
+													<span>
+														{ sprintf(
+															/* translators: %d: number of layers in the opened Photoshop file. */
+															__(
+																'%d layers',
+																'wunderpaint'
+															),
+															openFile.layers
+																.length
+														) }
+													</span>
+												) }
+											</span>
+										) }
+									</button>
+								</div>
+								<p className="open-hint">
+									{ reading
+										? __(
+												'Reading the file…',
+												'wunderpaint'
+										  )
+										: openFile
+										? openFile.name
+										: __(
+												'Drop a picture or a Photoshop file here, or click to choose one.',
+												'wunderpaint'
+										  ) }
+								</p>
+								<input
+									ref={ fileInput }
+									type="file"
+									accept="image/*,.psd"
+									hidden
+									onChange={ ( e ) =>
+										takeFile( e.target.files?.[ 0 ] )
+									}
+								/>
+								{ openFile && (
+									<div className="row">
+										<label
+											htmlFor={ fieldId + '-openname' }
+										>
+											{ __( 'Name', 'wunderpaint' ) }
+										</label>
+										<input
+											id={ fieldId + '-openname' }
+											type="text"
+											value={ docName }
+											onChange={ ( e ) => {
+												nameTouched.current =
+													'' !==
+													e.target.value.trim();
+												setDocName( e.target.value );
+											} }
+										/>
+									</div>
+								) }
+							</div>
 						) : 'blank' === tab ? (
 							<div className="create-form">
 								<div
@@ -766,8 +983,10 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 							className="ai-btn primary"
 							disabled={
 								busy ||
+								reading ||
 								tooBig ||
 								( 'ai' === tab && ! aiAvailable ) ||
+								( 'open' === tab && ! openFile ) ||
 								( 'blank' === tab && ! docName.trim() )
 							}
 							onClick={ create }
@@ -775,6 +994,8 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 							{ busy && <span className="spin" /> }
 							{ 'ai' === tab
 								? __( 'Generate & Edit', 'wunderpaint' )
+								: 'open' === tab
+								? __( 'Open & Edit', 'wunderpaint' )
 								: __( 'Create & Edit', 'wunderpaint' ) }
 						</button>
 					</div>

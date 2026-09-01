@@ -20,20 +20,36 @@ import {
 	panoramaEmbedHtml,
 	HOTSPOT_DEFAULT_COLOR,
 } from '../lib/panorama-embed';
-import { generatePanoramaDataUrl, insertResultLayer } from '../lib/ai-actions';
+import {
+	generatePanoramaDataUrl,
+	insertResultLayer,
+	panoramaLayerRect,
+	panoramaFillsDoc,
+} from '../lib/ai-actions';
 import { SwatchButton } from '../components/color-popover';
 import { StyleButton } from '../components/style-picker';
 import { PROVIDER_LABELS } from '../lib/providers';
 import { PanoramaViewer } from './panorama-viewer';
 
+// Ceiling for the working canvas: 8192 is about what a 2D canvas plus a
+// full getImageData pass stays comfortable with. It is NOT the deciding
+// number - the GPU's own gl.MAX_TEXTURE_SIZE is, and the viewer is asked
+// for it every time a source is loaded. A device that caps textures at
+// 4096 used to get a black sphere here, silently.
 const MAX_DIM = 8192;
 
-/** Render a source URL onto a working canvas at (capped) natural size. */
-async function sourceCanvas( src ) {
+/**
+ * Render a source URL onto a working canvas at (capped) natural size.
+ *
+ * @param {string} src    Image URL or data URL.
+ * @param {number} maxDim Longest edge the working canvas may have.
+ * @return {Promise<HTMLCanvasElement>} The working canvas.
+ */
+async function sourceCanvas( src, maxDim = MAX_DIM ) {
 	const img = await loadImage( src );
 	const scale = Math.min(
 		1,
-		MAX_DIM / Math.max( img.naturalWidth, img.naturalHeight )
+		Math.max( 1, maxDim ) / Math.max( img.naturalWidth, img.naturalHeight )
 	);
 	const w = Math.max( 1, Math.round( img.naturalWidth * scale ) );
 	const h = Math.max( 1, Math.round( img.naturalHeight * scale ) );
@@ -135,7 +151,13 @@ export function PanoramaDialog( { onClose, extras } ) {
 			return undefined;
 		}
 		setHorizon( 0 );
-		sourceCanvas( src )
+		// What we edit must be what the graphics driver can show: the
+		// working canvas follows gl.MAX_TEXTURE_SIZE, not a fixed number.
+		const cap = Math.min(
+			MAX_DIM,
+			viewerRef.current?.maxTextureSize() || MAX_DIM
+		);
+		sourceCanvas( src, cap )
 			.then( ( cv ) => {
 				if ( alive ) {
 					const keep = document.createElement( 'canvas' );
@@ -144,7 +166,16 @@ export function PanoramaDialog( { onClose, extras } ) {
 					keep.getContext( '2d' ).drawImage( cv, 0, 0 );
 					pristineRef.current = keep;
 					setWorking( cv );
-					viewerRef.current?.setImage( cv );
+					if ( false === viewerRef.current?.setImage( cv ) ) {
+						// The sphere would be black now; a black sphere
+						// with no message is the one thing we must not do.
+						extras?.toasts?.error?.(
+							__(
+								'Your graphics driver refused this image - it is too large for this device.',
+								'wunderpaint'
+							)
+						);
+					}
 				}
 			} )
 			.catch( () =>
@@ -375,15 +406,27 @@ export function PanoramaDialog( { onClose, extras } ) {
 				provider: genProvider,
 				image,
 			} );
+			// Placed as a 2:1 frame that fills the document instead of
+			// the fit-only default, which never scaled up and so left a
+			// generated panorama bordered on any larger document.
 			const layer = await insertResultLayer(
 				editor,
 				url,
-				__( '360° Panorama', 'wunderpaint' )
+				__( '360° Panorama', 'wunderpaint' ),
+				panoramaLayerRect( state.doc )
 			);
 			setLibSrc( null );
 			setLayerId( layer.id );
 			extras?.toasts?.success?.(
-				__( 'Panorama created and added as a layer.', 'wunderpaint' )
+				panoramaFillsDoc( state.doc )
+					? __(
+							'Panorama created and added as a layer.',
+							'wunderpaint'
+					  )
+					: __(
+							'Panorama created. The document is not 2:1, so exporting it will not give a valid 360° image - use "Copy embed HTML" for that.',
+							'wunderpaint'
+					  )
 			);
 		} catch ( err ) {
 			extras?.toasts?.error?.( err.message );

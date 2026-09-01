@@ -1,11 +1,12 @@
 {
 	"name": "wpie-text-art",
-	"version": "3.1.1",
+	"version": "3.2.1",
 	"private": true,
 	"type": "module",
 	"scripts": {
 		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
-		"qa": "node tools/qa-dialog.mjs"
+		"qa": "node tools/qa-dialog.mjs",
+		"test": "node --test tests/*.test.js"
 	},
 	"devDependencies": {
 		"esbuild": "^0.24.0"

@@ -41,7 +41,9 @@ Key idea: `bridge.ui` is NOT mocked - the kit bundles the editor's REAL
 ## Rules
 
 - When the bridge API grows, extend `mock-entry.js` HERE - never fork a
-  per-extension copy again. Anything truly extension-specific goes into
+  per-extension copy again. Added since: `bridge.shapes` (2.18), wired to
+  the editor's real `shapeToPathD` (Type Flow Studio turns document layers
+  into lanes, so a stub would have tested nothing). Anything truly extension-specific goes into
   that extension's `setup.js` via `patch`.
 - Migrated so far: **wpie-diagram-studio** (full 60-check suite green).
   The remaining extensions migrate incrementally: replace the stage/mock

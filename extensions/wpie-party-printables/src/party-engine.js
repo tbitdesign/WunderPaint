@@ -282,6 +282,13 @@ export function boxDieline( like, opts = {} ) {
 		[ 3, 1 ], // back
 		[ 1, 2 ], // bottom
 	];
+	// Every edge of this net is either a cut or a fold, never both. Fold
+	// edges are collected while the sheet is drawn and printed dashed at
+	// the very end, and the solid cut contour then leaves them out. Do not
+	// go back to stroking each face whole and laying the dashes on top:
+	// the solid line stays visible in every dash gap, so the printed sheet
+	// says "cut" on exactly the edges its own legend calls folds.
+	const folds = [];
 	const fill = ( fx, fy, i ) => {
 		const x = ox + fx * F;
 		const y = oy + fy * F;
@@ -376,26 +383,35 @@ export function boxDieline( like, opts = {} ) {
 		g.restore();
 	}
 
-	// Glue flaps: trapezoids off the top face and side faces.
+	// Glue flaps: trapezoids off the top face and side faces. The base a
+	// flap hinges on is a fold like any inner edge, so it goes into folds
+	// and only the three free edges get the solid cut contour.
 	g.fillStyle = '#f2efe9';
 	const flap = ( x0, y0, x1, y1, nx, ny ) => {
+		const ax = x0 + nx * FLAP + ( x1 - x0 ) * 0.14;
+		const ay = y0 + ny * FLAP + ( y1 - y0 ) * 0.14;
+		const bx = x1 + nx * FLAP - ( x1 - x0 ) * 0.14;
+		const by = y1 + ny * FLAP - ( y1 - y0 ) * 0.14;
 		g.beginPath();
 		g.moveTo( x0, y0 );
-		g.lineTo(
-			x0 + nx * FLAP + ( x1 - x0 ) * 0.14,
-			y0 + ny * FLAP + ( y1 - y0 ) * 0.14
-		);
-		g.lineTo(
-			x1 + nx * FLAP - ( x1 - x0 ) * 0.14,
-			y1 + ny * FLAP - ( y1 - y0 ) * 0.14
-		);
+		g.lineTo( ax, ay );
+		g.lineTo( bx, by );
 		g.lineTo( x1, y1 );
 		g.closePath();
 		g.fill();
+		// Open path, corner to corner: the base stays unstroked.
+		g.beginPath();
+		g.moveTo( x0, y0 );
+		g.lineTo( ax, ay );
+		g.lineTo( bx, by );
+		g.lineTo( x1, y1 );
 		g.stroke();
+		folds.push( [ x0, y0, x1, y1 ] );
 	};
 	g.strokeStyle = '#26292e';
-	g.lineWidth = 2;
+	// Same weight as the face outline below: a cut is a cut, and the
+	// legend shows exactly one solid sample for all of them.
+	g.lineWidth = 2.4;
 	// top face upper flap + bottom face lower flap + back face outer flap
 	flap( ox + F, oy, ox + 2 * F, oy, 0, -1 );
 	flap( ox + F, oy + 3 * F, ox + 2 * F, oy + 3 * F, 0, 1 );
@@ -413,32 +429,60 @@ export function boxDieline( like, opts = {} ) {
 		);
 	}
 
-	// Cut outline (solid): trace the outer boundary of the net + flaps
-	// approximately: stroke each face and flap edge that is outside.
+	// Edges shared by two faces are folds as well; collected once, from
+	// the left resp. upper face of the pair.
+	const hasFace = ( fx, fy ) =>
+		faces.some( ( [ cx, cy ] ) => cx === fx && cy === fy );
+	faces.forEach( ( [ fx, fy ] ) => {
+		const x = ox + fx * F;
+		const y = oy + fy * F;
+		if ( hasFace( fx + 1, fy ) ) {
+			folds.push( [ x + F, y, x + F, y + F ] );
+		}
+		if ( hasFace( fx, fy + 1 ) ) {
+			folds.push( [ x, y + F, x + F, y + F ] );
+		}
+	} );
+	// Both directions, because a face walks its edges clockwise while the
+	// fold was collected in whatever direction its owner produced it.
+	const edgeKey = ( x0, y0, x1, y1 ) =>
+		[ x0, y0, x1, y1 ].map( ( n ) => Math.round( n ) ).join( ':' );
+	const folded = new Set();
+	folds.forEach( ( [ x0, y0, x1, y1 ] ) => {
+		folded.add( edgeKey( x0, y0, x1, y1 ) );
+		folded.add( edgeKey( x1, y1, x0, y0 ) );
+	} );
+	const line = ( x0, y0, x1, y1 ) => {
+		g.beginPath();
+		g.moveTo( x0, y0 );
+		g.lineTo( x1, y1 );
+		g.stroke();
+	};
+
+	// Cut outline (solid): every face edge that neither borders another
+	// face nor carries a flap - the flaps stroked their own contour above.
 	g.strokeStyle = '#26292e';
 	g.lineWidth = 2.4;
 	faces.forEach( ( [ fx, fy ] ) => {
-		g.strokeRect( ox + fx * F, oy + fy * F, F, F );
+		const x = ox + fx * F;
+		const y = oy + fy * F;
+		[
+			[ x, y, x + F, y ],
+			[ x + F, y, x + F, y + F ],
+			[ x + F, y + F, x, y + F ],
+			[ x, y + F, x, y ],
+		].forEach( ( e ) => {
+			if ( ! folded.has( edgeKey( ...e ) ) ) {
+				line( ...e );
+			}
+		} );
 	} );
-	// Fold lines (dashed) over the inner edges.
+	// Fold lines (dashed) on the edges the cut outline left bare.
 	g.save();
 	g.strokeStyle = '#26292e';
 	g.lineWidth = 1.4;
 	g.setLineDash( [ 8, 6 ] );
-	for ( let colIdx = 1; colIdx < 4; colIdx++ ) {
-		g.beginPath();
-		g.moveTo( ox + colIdx * F, oy + F );
-		g.lineTo( ox + colIdx * F, oy + 2 * F );
-		g.stroke();
-	}
-	g.beginPath();
-	g.moveTo( ox + F, oy + F );
-	g.lineTo( ox + 2 * F, oy + F );
-	g.stroke();
-	g.beginPath();
-	g.moveTo( ox + F, oy + 2 * F );
-	g.lineTo( ox + 2 * F, oy + 2 * F );
-	g.stroke();
+	folds.forEach( ( e ) => line( ...e ) );
 	g.restore();
 
 	// Legend.
@@ -872,13 +916,26 @@ export function cupcakeToppers( like, opts = {} ) {
 				g.arc( cx, cy, D / 2 - 12, 0, Math.PI * 2 );
 				g.stroke();
 				g.setLineDash( [] );
-				if ( mono ) {
+			}
+			if ( mono ) {
+				// The studio keeps the text field, the font and the size
+				// live while a photo is loaded, so the monogram has to
+				// survive the photo too - it used to sit in the else branch
+				// and silently vanish. On artwork it gets the same white
+				// plus soft shadow the gift tags use; on flat color, ink.
+				g.save();
+				if ( img ) {
+					g.fillStyle = '#ffffff';
+					g.shadowColor = 'rgba(0,0,0,0.6)';
+					g.shadowBlur = 10;
+				} else {
 					g.fillStyle = textOn( color );
-					setFont( g, opts, 700, D * 0.4 );
-					g.textAlign = 'center';
-					g.textBaseline = 'middle';
-					g.fillText( mono, cx, cy + 4 );
 				}
+				setFont( g, opts, 700, D * 0.4 );
+				g.textAlign = 'center';
+				g.textBaseline = 'middle';
+				g.fillText( mono, cx, cy + 4 );
+				g.restore();
 			}
 			g.strokeStyle = '#b9542a';
 			g.lineWidth = 1.6;

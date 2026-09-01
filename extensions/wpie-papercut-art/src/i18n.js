@@ -10,6 +10,9 @@ const DE = {
 	'Sheets & objects': 'Bögen & Objekte',
 	Selection: 'Auswahl',
 	'Add empty sheet': 'Leeren Bogen hinzufügen',
+	'Add new things onto this sheet': 'Neues auf diesen Bogen legen',
+	'New things join this sheet and share its paper, its color and its shadow.':
+		'Neues kommt auf diesen Bogen und teilt sein Papier, seine Farbe und seinen Schatten.',
 	'Pick something in the picture, or add from the left.':
 		'Etwas im Bild anklicken, oder links etwas hinzufügen.',
 	objects: 'Objekte',
@@ -164,6 +167,9 @@ const ES = {
 	'Sheets & objects': 'Hojas y objetos',
 	Selection: 'Selección',
 	'Add empty sheet': 'Añadir hoja vacía',
+	'Add new things onto this sheet': 'Añadir lo nuevo a esta hoja',
+	'New things join this sheet and share its paper, its color and its shadow.':
+		'Lo nuevo se une a esta hoja y comparte su papel, su color y su sombra.',
 	'Pick something in the picture, or add from the left.':
 		'Haz clic en algo de la imagen, o añade desde la izquierda.',
 	objects: 'objetos',
@@ -319,6 +325,10 @@ const FR = {
 	'Sheets & objects': 'Feuilles et objets',
 	Selection: 'Sélection',
 	'Add empty sheet': 'Ajouter une feuille vide',
+	'Add new things onto this sheet':
+		'Ajouter les nouveaux éléments à cette feuille',
+	'New things join this sheet and share its paper, its color and its shadow.':
+		'Les nouveaux éléments rejoignent cette feuille et partagent son papier, sa couleur et son ombre.',
 	'Pick something in the picture, or add from the left.':
 		'Cliquez sur un élément de l’image, ou ajoutez depuis la gauche.',
 	objects: 'objets',
@@ -474,6 +484,9 @@ const PT = {
 	'Sheets & objects': 'Folhas e objetos',
 	Selection: 'Seleção',
 	'Add empty sheet': 'Adicionar folha vazia',
+	'Add new things onto this sheet': 'Adicionar novos elementos a esta folha',
+	'New things join this sheet and share its paper, its color and its shadow.':
+		'Os novos elementos ficam nesta folha e partilham o seu papel, a sua cor e a sua sombra.',
 	'Pick something in the picture, or add from the left.':
 		'Clique em algo na imagem, ou adicione pela esquerda.',
 	objects: 'objetos',
@@ -629,6 +642,10 @@ const IT = {
 	'Sheets & objects': 'Fogli e oggetti',
 	Selection: 'Selezione',
 	'Add empty sheet': 'Aggiungi foglio vuoto',
+	'Add new things onto this sheet':
+		'Aggiungi i nuovi elementi a questo foglio',
+	'New things join this sheet and share its paper, its color and its shadow.':
+		'I nuovi elementi finiscono su questo foglio e ne condividono la carta, il colore e l’ombra.',
 	'Pick something in the picture, or add from the left.':
 		'Fai clic su qualcosa nell’immagine, o aggiungi da sinistra.',
 	objects: 'oggetti',
@@ -784,6 +801,9 @@ const NL = {
 	'Sheets & objects': 'Vellen en objecten',
 	Selection: 'Selectie',
 	'Add empty sheet': 'Leeg vel toevoegen',
+	'Add new things onto this sheet': 'Nieuwe dingen op dit vel plaatsen',
+	'New things join this sheet and share its paper, its color and its shadow.':
+		'Nieuwe dingen komen op dit vel en delen het papier, de kleur en de schaduw ervan.',
 	'Pick something in the picture, or add from the left.':
 		'Klik op iets in de afbeelding, of voeg links iets toe.',
 	objects: 'objecten',

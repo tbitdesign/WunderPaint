@@ -2173,10 +2173,29 @@ function makePaintTool( toolId ) {
 				'pencil' === toolId
 					? __( 'Pencil', 'wunderpaint' )
 					: __( 'Brush stroke', 'wunderpaint' );
+			// A MEDIUM OVERRULES THE PER-STROKE LAYER, and it has to: the
+			// one seam that applies a paint style sits far below, on the
+			// path that writes pixels into a layer. The 'strokeLayer'
+			// branch commits and returns before ever reaching it, so a
+			// watercolour or charcoal stroke came back as a plain stroke
+			// layer - no medium, no word about it - for anyone who had
+			// ticked the box while the style was still Normal (the panel
+			// hides that tick for a medium but keeps the stored value).
+			//
+			// Of the two ways out, this is the quieter one. Losing the
+			// MEDIUM is the loud surprise: it is what the user picked
+			// last, what the panel is showing, and what the stroke was
+			// supposed to look like. Losing the per-stroke LAYER only
+			// costs a tick the panel is not even offering at that moment,
+			// and it is exactly what the wet GL path already does for the
+			// same reason (wet-controller.js, "ALWAYS 'single'"), so both
+			// paths now agree instead of contradicting each other.
 			const target = paintTarget( {
 				layers: tc.layers,
 				activeId: tc.editor.state.activeId,
-				layerMode: tc.opts.layerMode || 'single',
+				layerMode: styleIsPlain( tc.opts.paintStyle || 'normal' )
+					? tc.opts.layerMode || 'single'
+					: 'single',
 			} );
 
 			// The old way: one stroke layer per stroke, kept as a choice

@@ -2622,6 +2622,64 @@
 	position: relative;
 }
 
+/* The fourth tab: a file the visitor brings with them. The panel takes a
+   drop anywhere, so the dashed card is an invitation rather than the only
+   target, and it holds the same size as the preview beside it in the other
+   tabs so the dialog does not change height when the tab changes. */
+/* .preview-card in the selector, and not for decoration: the base rule for
+   that class carries the same weight as this one and sits further down, so
+   without the extra class it wins and the drop area comes out white. */
+#wpie-root .create-open .preview-card.open-drop {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	overflow: hidden;
+	cursor: pointer;
+	border: 1px dashed var( --ed-border );
+	border-radius: 6px;
+	color: var( --ed-text-dim );
+	background: var( --ed-panel );
+	transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+#wpie-root .create-open .preview-card.open-drop:hover:not( :disabled ) {
+	border-color: var( --ed-text-dim );
+	color: var( --ed-text );
+	background: var( --ed-panel-2, var( --ed-panel ) );
+}
+#wpie-root .create-open .preview-card.open-drop:focus-visible {
+	outline: 2px solid var( --accent );
+	outline-offset: 2px;
+}
+/* Once a picture is in, the dashes have done their job: the card holds the
+   picture and stops advertising that something may be dropped on it. */
+#wpie-root .create-open .preview-card.open-drop.has-file {
+	border-style: solid;
+}
+#wpie-root .create-open .preview-card.open-drop img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	display: block;
+}
+#wpie-root .create-open .open-mark {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+}
+
+#wpie-root .create-open .open-hint {
+	margin: 10px 0 0;
+	max-width: 34em;
+	text-align: center;
+	font-size: 12.5px;
+	line-height: 1.5;
+	color: var( --ed-text-dim );
+	overflow-wrap: anywhere;
+}
+
 #wpie-root .create-preview-wrap .preview-card {
 	background: #fff;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);

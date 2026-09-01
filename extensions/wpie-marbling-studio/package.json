@@ -1,6 +1,6 @@
 {
 	"name": "wpie-marbling-studio",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: paper marbling on a virtual water bath - drops, combs, vortices and waves with exact mathematics",

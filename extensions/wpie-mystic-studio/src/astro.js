@@ -56,7 +56,17 @@ const centuries = ( jd ) => ( jd - 2451545.0 ) / 36525;
 /* ----------------------------- planet engine ----------------------------- */
 
 // [ a(AU), e, i(deg), L(deg), longPeri(deg), longNode(deg) ] + rates per
-// Julian century, plus optional long-period terms for Jupiter..Pluto.
+// Julian century. This is JPL's table for 1800-2050 and nothing else.
+//
+// JPL publishes a SECOND table, for 3000BC-3000AD, whose Jupiter..Pluto rows
+// carry four extra long-period terms applied to the mean anomaly. Those
+// terms belong to that table's element values, not to these: pairing them
+// with the 1800-2050 elements (they came along when this table was copied
+// from the Solar System Studio) pushed Uranus a full degree and Neptune 0.7
+// degrees off the published ephemeris, clean through the half degree the
+// SPEC promises, while Sun and Moon still looked perfect. Do not bring them
+// back without swapping in the 3000BC-3000AD elements as well; the
+// ephemeris block in astro.test.js pins exactly this.
 export const ELEMENTS = {
 	mercury: {
 		el: [
@@ -107,7 +117,6 @@ export const ELEMENTS = {
 			-0.00011607, -0.00013253, -0.00183714, 3034.74612775, 0.21252668,
 			0.20469106,
 		],
-		bcsf: [ -0.00012452, 0.0606406, -0.35635438, 38.35125 ],
 	},
 	saturn: {
 		el: [
@@ -118,7 +127,6 @@ export const ELEMENTS = {
 			-0.0012506, -0.00050991, 0.00193609, 1222.49362201, -0.41897216,
 			-0.28867794,
 		],
-		bcsf: [ 0.00025899, -0.13434469, 0.87320147, 38.35125 ],
 	},
 	uranus: {
 		el: [
@@ -129,7 +137,6 @@ export const ELEMENTS = {
 			-0.00196176, -0.00004397, -0.00242939, 428.48202785, 0.40805281,
 			0.04240589,
 		],
-		bcsf: [ 0.00058331, -0.97731848, 0.17689245, 7.67025 ],
 	},
 	neptune: {
 		el: [
@@ -140,7 +147,6 @@ export const ELEMENTS = {
 			0.00026291, 0.00005105, 0.00035372, 218.45945325, -0.32241464,
 			-0.00508664,
 		],
-		bcsf: [ -0.00041348, 0.68346318, -0.10162547, 7.67025 ],
 	},
 	pluto: {
 		el: [
@@ -151,7 +157,6 @@ export const ELEMENTS = {
 			-0.00031596, 0.0000517, 0.00004818, 145.20780515, -0.04062942,
 			-0.01183482,
 		],
-		bcsf: [ -0.01262724, 0, 0, 0 ],
 	},
 };
 
@@ -185,14 +190,8 @@ export function heliocentric( body, jd ) {
 	const wbar = rec.el[ 4 ] + rec.rate[ 4 ] * T;
 	const node = rec.el[ 5 ] + rec.rate[ 5 ] * T;
 
-	let M = L - wbar;
-	if ( rec.bcsf ) {
-		const [ b, c, s, f ] = rec.bcsf;
-		M +=
-			b * T * T +
-			c * Math.cos( f * T * DEG ) +
-			s * Math.sin( f * T * DEG );
-	}
+	// No long-period term on the mean anomaly: see the note above ELEMENTS.
+	const M = L - wbar;
 	const E = solveKepler( M, e );
 	const xOrb = a * ( Math.cos( E * DEG ) - e );
 	const yOrb = a * Math.sqrt( 1 - e * e ) * Math.sin( E * DEG );

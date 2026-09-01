@@ -22,6 +22,32 @@ import {
 const easeInOut = ( k ) =>
 	k < 0.5 ? 4 * k * k * k : 1 - Math.pow( -2 * k + 2, 3 ) / 2;
 
+/**
+ * The size a source may be uploaded at. WebGL rejects anything wider or
+ * taller than gl.MAX_TEXTURE_SIZE with INVALID_VALUE and leaves the
+ * texture incomplete - the sphere then renders black, with nothing on
+ * screen that says why. That limit is a property of the device (4096 on
+ * plenty of phones, 16384 on a desktop), so it has to be ASKED for; a
+ * hard-coded cap is either wasteful or, on a small device, an empty
+ * sphere. Keeps the aspect ratio, which for an equirectangular source is
+ * not cosmetic - 2:1 is what makes the projection correct.
+ *
+ * @param {number} limit gl.MAX_TEXTURE_SIZE of the live context.
+ * @param {number} w     Source width in pixels.
+ * @param {number} h     Source height in pixels.
+ * @return {{w: number, h: number}} Size that the driver accepts.
+ */
+export function textureFit( limit, w, h ) {
+	const max = Math.max( 1, limit || 0 );
+	const sw = Math.max( 1, w || 0 );
+	const sh = Math.max( 1, h || 0 );
+	const scale = Math.min( 1, max / Math.max( sw, sh ) );
+	return {
+		w: Math.min( max, Math.max( 1, Math.round( sw * scale ) ) ),
+		h: Math.min( max, Math.max( 1, Math.round( sh * scale ) ) ),
+	};
+}
+
 const BTN_CSS =
 	'width:32px;height:32px;border:0;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0';
 
@@ -270,30 +296,78 @@ export class PanoramaViewer {
 		};
 	}
 
-	/** Upload a new equirectangular source (image or canvas). */
+	/**
+	 * The largest texture this context accepts, asked once and cached.
+	 * Callers use it to size their own working copy, so what they edit is
+	 * what the sphere can actually show.
+	 *
+	 * @return {number} Pixels per edge, 0 without a GL context.
+	 */
+	maxTextureSize() {
+		if ( ! this.gl ) {
+			return 0;
+		}
+		if ( ! this.maxTex ) {
+			this.maxTex =
+				this.gl.getParameter( this.gl.MAX_TEXTURE_SIZE ) || 2048;
+		}
+		return this.maxTex;
+	}
+
+	/**
+	 * Upload a new equirectangular source (image or canvas).
+	 *
+	 * @param {HTMLImageElement|HTMLCanvasElement} source Equirect source.
+	 * @return {boolean} False when the upload did not take - the caller
+	 *                   has to say so, because a failed upload looks
+	 *                   exactly like a black sphere.
+	 */
 	setImage( source ) {
 		const { gl } = this;
 		if ( ! gl ) {
-			return;
+			return false;
+		}
+		const sw = source.naturalWidth || source.width || 0;
+		const sh = source.naturalHeight || source.height || 0;
+		let upload = source;
+		const fit = textureFit( this.maxTextureSize(), sw, sh );
+		if ( sw && sh && ( fit.w !== sw || fit.h !== sh ) ) {
+			// Only the view is downscaled. The caller keeps its full-size
+			// working canvas for the seam repair and for what it saves,
+			// so a device with a small texture limit costs picture
+			// sharpness here and nothing at all in the export.
+			const cv = document.createElement( 'canvas' );
+			cv.width = fit.w;
+			cv.height = fit.h;
+			cv.getContext( '2d' ).drawImage( source, 0, 0, fit.w, fit.h );
+			upload = cv;
 		}
 		if ( ! this.tex ) {
 			this.tex = gl.createTexture();
 		}
 		gl.bindTexture( gl.TEXTURE_2D, this.tex );
+		// Drain older errors first, or the check below would report a
+		// failure that belongs to some earlier call.
+		let stale = gl.getError();
+		while ( gl.NO_ERROR !== stale ) {
+			stale = gl.getError();
+		}
 		gl.texImage2D(
 			gl.TEXTURE_2D,
 			0,
 			gl.RGBA,
 			gl.RGBA,
 			gl.UNSIGNED_BYTE,
-			source
+			upload
 		);
+		const err = gl.getError();
 		// NPOT-safe: clamp + linear, no mipmaps - AI sizes are rarely
 		// powers of two and REPEAT would render black in WebGL1.
 		gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR );
 		gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
 		gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
 		this.dirty = true;
+		return gl.NO_ERROR === err;
 	}
 
 	/** Replace the markers ([{ yaw, pitch, label, color, size, icon }]). */

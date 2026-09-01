@@ -346,6 +346,30 @@ export function defaultObject( kind, extra = {} ) {
  */
 export const isCutObject = ( o ) => !! o.cut;
 
+/**
+ * The two kinds that cannot be punched, and why only these two.
+ *
+ * A `backdrop` IS the page: punching it hands the whole sheet to the
+ * layer behind, so the control's only outcome is "this sheet is gone" -
+ * the same reason nothing punches by default. A `frame` is already
+ * paper with a hole in it; its window is the punch, and the layer
+ * builder takes that window out on its own path.
+ *
+ * `terrain` and `border` are deliberately NOT here. They stopped being
+ * sheet bases in v3 and are ordinary placeable objects now, so a ridge
+ * or a frame edge punched out of the paper is a shape like any other -
+ * which is what "any object, any layer" in the panel promises.
+ */
+export const NO_PUNCH_KINDS = [ 'backdrop', 'frame' ];
+
+/**
+ * May this kind of object be punched out of the paper?
+ *
+ * @param {string} kind An object kind.
+ * @return {boolean} True if the punch control applies.
+ */
+export const canPunch = ( kind ) => ! NO_PUNCH_KINDS.includes( kind );
+
 /** An empty transparency. What sits on it is entirely up to the objects. */
 export function defaultLayer( extra = {} ) {
 	return {
@@ -502,7 +526,6 @@ function cleanObject( raw ) {
 		o.yBase = num( raw.yBase, d.yBase, 2, 100 );
 		o.height = num( raw.height, d.height, 0, 100 );
 		o.jag = num( raw.jag, d.jag, 0, 100 );
-		o.cut = false;
 	} else if ( 'frame' === raw.kind ) {
 		o.window = WINDOWS.includes( raw.window ) ? raw.window : 'circle';
 		o.inset = num( raw.inset, d.inset, 0, 30 );
@@ -512,12 +535,8 @@ function cleanObject( raw ) {
 		o.width = num( raw.width, d.width, 4, 80 );
 		o.tilt = num( raw.tilt, d.tilt, -90, 90 );
 		o.gap = num( raw.gap, d.gap, 10, 140 );
-		o.cut = false;
 	} else if ( 'border' === raw.kind ) {
 		o.border = num( raw.border, d.border, 1, 20 );
-		o.cut = false;
-	} else if ( 'backdrop' === raw.kind ) {
-		o.cut = false;
 	} else if ( 'cloud' === raw.kind ) {
 		o.wide = !! raw.wide;
 		o.puff = num( raw.puff, d.puff, 0, 100 );
@@ -562,6 +581,13 @@ function cleanObject( raw ) {
 		o.lineGap = num( raw.lineGap, d.lineGap, 0, 120 );
 		// v2 carried the paper/cut choice for text in its own field.
 		o.cut = undefined === raw.cut ? 'cut' === raw.mode : !! raw.cut;
+	}
+	// The last word on punching, AFTER every kind had its say - the text
+	// branch above sets `cut` too. A kind that cannot be punched stays
+	// paper even when a hand-written preset asks for a hole; which two
+	// those are, and why only those two, stands at NO_PUNCH_KINDS.
+	if ( ! canPunch( o.kind ) ) {
+		o.cut = false;
 	}
 	return o;
 }

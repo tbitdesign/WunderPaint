@@ -592,11 +592,34 @@ export function BrushPanel( { editor } ) {
 					</div>
 				) }
 
-				{ undefined !== opts.layerMode && plainStyle && (
-					<label className="bp-check">
+				{ undefined !== opts.layerMode && (
+					// SHOWN GREYED FOR A MEDIUM, not hidden. A medium is
+					// painted INTO a layer - that is where the pigment can
+					// meet the pixels underneath - so the brush ignores
+					// this tick while one is picked (see tool-handlers.js,
+					// "A MEDIUM OVERRULES THE PER-STROKE LAYER"). Hiding
+					// the row left the stored 'perStroke' alive and
+					// invisible, and the box came back ticked after the
+					// medium was switched off, which read as the setting
+					// having been in force all along. Greyed and unticked
+					// says what the next stroke will actually do.
+					<label
+						className="bp-check"
+						title={
+							plainStyle
+								? undefined
+								: __(
+										'A medium always paints into the layer, so this is off while one is picked.',
+										'wunderpaint'
+								  )
+						}
+					>
 						<input
 							type="checkbox"
-							checked={ 'perStroke' === opts.layerMode }
+							disabled={ ! plainStyle }
+							checked={
+								plainStyle && 'perStroke' === opts.layerMode
+							}
 							onChange={ ( e ) =>
 								set( {
 									layerMode: e.target.checked

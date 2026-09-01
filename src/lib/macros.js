@@ -77,6 +77,20 @@ export const MACRO_OPS = {
 			}
 		},
 	},
+	// Magic Resize retargets a design to another format without distortion
+	// (doc-ops.magicResizeDoc). It has recorded itself since v1.11 but had
+	// no entry here, so a recording counted the step and then dropped it on
+	// replay - the op is part of the vocabulary, not an afterthought.
+	magicResize: {
+		label: ( p ) =>
+			`${ __( 'Resize Design', 'wunderpaint' ) } ${ p.w }×${ p.h }`,
+		run: ( editor, p ) => {
+			if ( ! ( p.w > 0 && p.h > 0 ) ) {
+				return;
+			}
+			return DocOps.magicResizeDoc( editor, p.w, p.h );
+		},
+	},
 	rotate90: {
 		label: ( p ) =>
 			`${ __( 'Rotate 90°', 'wunderpaint' ) } ${ p.cw ? 'CW' : 'CCW' }`,
@@ -142,6 +156,33 @@ export const MACRO_OPS = {
 					await DocOps.scaleDoc( editor, p.w, p.h );
 				}
 			}
+		},
+	},
+	// A crop dragged on the canvas, recorded by doc-ops.cropDoc. The rect
+	// arrives with the document size it was drawn on, so replaying it on
+	// another image scales the framing instead of cutting at raw pixels;
+	// on the original size the mapping is the identity. Clamped to the
+	// document because a rounded-up rect must never leave the canvas.
+	crop: {
+		label: ( p ) => `${ __( 'Crop', 'wunderpaint' ) } ${ p.w }×${ p.h }`,
+		run: ( editor, p ) => {
+			const { doc } = editor.state;
+			const sx = p.docW > 0 ? doc.w / p.docW : 1;
+			const sy = p.docH > 0 ? doc.h / p.docH : 1;
+			const x = Math.min(
+				Math.max( 0, Math.round( p.x * sx ) ),
+				doc.w - 1
+			);
+			const y = Math.min(
+				Math.max( 0, Math.round( p.y * sy ) ),
+				doc.h - 1
+			);
+			const w = Math.min( Math.round( p.w * sx ), doc.w - x );
+			const h = Math.min( Math.round( p.h * sy ), doc.h - y );
+			if ( ! ( w >= 1 && h >= 1 ) ) {
+				return;
+			}
+			return DocOps.cropDoc( editor, { x, y, w, h } );
 		},
 	},
 	// Local AI steps (v1.246). Lazily imported: ai-actions is not

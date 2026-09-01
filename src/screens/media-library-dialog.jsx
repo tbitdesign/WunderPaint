@@ -116,6 +116,100 @@ const BUILTIN_SMART = [
 /** How many tags the sidebar shows before the "Show all" toggle. */
 const TAG_PREVIEW = 6;
 
+/**
+ * Whether the host this manager runs on can actually sort, filter and search.
+ *
+ * WordPress can. The standalone studio cannot: its local host (src/standalone/
+ * local-host.js) splits the query string off the path before it routes, and
+ * answers /media-library/items with the whole IndexedDB store on every call -
+ * folder, tag, type, file type, shape, size, color, author, month, sort and
+ * page all travel and are all thrown away. Folders and tags come back as an
+ * empty list and cannot be created, and the search index reports nothing to
+ * search. Every one of those controls was therefore decoration there.
+ *
+ * The studio hides what it cannot do instead of offering it broken, so the
+ * controls below are not rendered when this is false. This is a rule about the
+ * HOST, not about the plugin: in WordPress it is always true and nothing
+ * changes.
+ */
+const canQueryLibrary = () => ! window.WPIE?.standalone;
+
+/**
+ * Whether an image's title, alt text, caption and description can be edited.
+ *
+ * They live on the WordPress attachment and travel through the core REST route
+ * wp/v2/media/<id>, which the standalone studio does not serve at all: reading
+ * comes back empty and saving never reaches anything (a batch rename there
+ * reported "Renamed 0 image(s)" as a success). The editor behind these buttons
+ * would open blank and save nothing, so the studio does not offer it.
+ */
+const canEditMeta = () => ! window.WPIE?.standalone;
+
+/**
+ * Whether the Media Library Tools menu has any work it can actually do here.
+ *
+ * Every entry in that menu turned out to need a server, so in the standalone
+ * studio the whole menu - and with it the button that opens it - is gone.
+ * Followed one by one, on what each entry CALLS rather than what it is named:
+ *
+ *   Suggest folders        clusterLibrary() groups the stored SigLIP vectors
+ *                          from /search-index/vectors, which the studio's
+ *                          local host answers with an empty list; and the
+ *                          payoff is mediaLib.folders.create, a folder store
+ *                          the studio does not have.
+ *   Find duplicates        the same vectors, so it can only ever report
+ *                          "no duplicates" about a library nobody compared.
+ *   Regenerate thumbnails  POST /media-library/regenerate lands in the local
+ *                          host's silent bookkeeping branch and comes back
+ *                          {}, so r.done is undefined and the run ends on
+ *                          "Regenerated thumbnails for 0 image(s)." as a
+ *                          SUCCESS. Rebuilding sizes is PHP's work anyway.
+ *   Rename by pattern      updateMedia() writes to wp/v2/media/<id>, a route
+ *                          the studio does not serve at all, and doRename's
+ *                          empty catch swallows every failure and reports
+ *                          "Renamed 0 image(s)." as a success.
+ *   Add Watermarks         composites in a canvas, but the ONLY way a result
+ *                          leaves that dialog is saveAsNew() -> POST
+ *                          /save-as, which the local host rejects outright.
+ *                          Browser work with a server-only exit is still
+ *                          server work.
+ *   Find broken files      GET /media-library/broken asks what is missing on
+ *                          disk. There is no disk here, the catch-all GET
+ *                          answers with an empty list, and "No broken files
+ *                          found." is a verdict on a check that never ran.
+ *   Clean up the library   the usage engine's /media-usage/*,
+ *                          /media-orphans/* and /media-oversize scans, none
+ *                          of them routed: every tab reads empty and a sweep
+ *                          is rejected.
+ *   Generate Metadata      the Metadata Assistant needs /ai/caption (byok.js
+ *                          serves generate, edit, complete and test - not
+ *                          caption) and writes through wp/v2/media.
+ *   Optimize images        extras.openBatch reaches for window.WPIE.proOpen,
+ *                          which the studio never defines, so it only raises
+ *                          the Pro teaser; and the processor behind it reads
+ *                          wp/v2/media and saves back into the library.
+ *
+ * Nothing survived, so this is one gate on the whole wrap instead of nine
+ * identical ones, and no button is left that opens an empty menu. If a tool
+ * ever joins that runs start to finish in the browser, this gate has to move
+ * from the wrap down onto the individual entries.
+ *
+ * The rule behind it is Thomas': wunderpaint.com is where somebody makes a
+ * picture and takes it away, not where they manage a collection. In WordPress
+ * this is always true and the menu is untouched.
+ */
+const canRunLibraryTools = () => ! window.WPIE?.standalone;
+
+/**
+ * Whether there are WordPress posts to hang an image on.
+ *
+ * "Featured image" opens the post picker, which searches wp/v2/posts, and then
+ * writes featured_media back onto the chosen post. The standalone studio
+ * serves no core REST namespace and has no posts to serve from it, so the
+ * picker would open on a list that stays empty however you search it.
+ */
+const canAttachToPosts = () => ! window.WPIE?.standalone;
+
 /** Human-readable byte size. */
 const fmtSize = ( b ) => {
 	if ( ! b ) {
@@ -1802,52 +1896,63 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							{ __( 'Media Library Manager', 'wunderpaint' ) }
 						</span>
 						<HelpLink article="media-library" extras={ extras } />
-						<div className="dsm-sub">
-							{ __(
-								'Organize your media with folders, tags and search.',
-								'wunderpaint'
-							) }
-						</div>
-					</div>
-					<div className="wpie-mlm-searchwrap">
-						<span className="ico">
-							{ I.search( { size: 15 } ) }
-						</span>
-						<input
-							className="wpie-mlm-search"
-							placeholder={ __(
-								'Search images by what they show',
-								'wunderpaint'
-							) }
-							value={ query }
-							onChange={ ( e ) =>
-								onSearchChange( e.target.value )
-							}
-							onKeyDown={ ( e ) => {
-								if ( 'Enter' === e.key ) {
-									if ( searchTimer.current ) {
-										clearTimeout( searchTimer.current );
-									}
-									runSemantic( query );
-								}
-							} }
-						/>
-						{ query && (
-							<button
-								className="clr"
-								onClick={ () => {
-									setQuery( '' );
-									selectView( {
-										type: 'all',
-										name: __( 'All images', 'wunderpaint' ),
-									} );
-								} }
-								aria-label={ __( 'Clear', 'wunderpaint' ) }
-							>
-								{ I.close( { size: 13 } ) }
-							</button>
+						{ /* The promise in this line is folders, tags and
+						   search - none of which the standalone studio has.
+						   The note right below the head says what its library
+						   IS there, so this one simply steps aside. */ }
+						{ canQueryLibrary() && (
+							<div className="dsm-sub">
+								{ __(
+									'Organize your media with folders, tags and search.',
+									'wunderpaint'
+								) }
+							</div>
 						) }
 					</div>
+					{ canQueryLibrary() && (
+						<div className="wpie-mlm-searchwrap">
+							<span className="ico">
+								{ I.search( { size: 15 } ) }
+							</span>
+							<input
+								className="wpie-mlm-search"
+								placeholder={ __(
+									'Search images by what they show',
+									'wunderpaint'
+								) }
+								value={ query }
+								onChange={ ( e ) =>
+									onSearchChange( e.target.value )
+								}
+								onKeyDown={ ( e ) => {
+									if ( 'Enter' === e.key ) {
+										if ( searchTimer.current ) {
+											clearTimeout( searchTimer.current );
+										}
+										runSemantic( query );
+									}
+								} }
+							/>
+							{ query && (
+								<button
+									className="clr"
+									onClick={ () => {
+										setQuery( '' );
+										selectView( {
+											type: 'all',
+											name: __(
+												'All images',
+												'wunderpaint'
+											),
+										} );
+									} }
+									aria-label={ __( 'Clear', 'wunderpaint' ) }
+								>
+									{ I.close( { size: 13 } ) }
+								</button>
+							) }
+						</div>
+					) }
 					<button
 						className="dsm-close"
 						onClick={ onClose }
@@ -1934,299 +2039,331 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							</div>
 						</div>
 
-						<div className="wpie-mlm-sec">
-							<div className="wpie-mlm-sechead">
-								<span>{ __( 'Folders', 'wunderpaint' ) }</span>
-								{ canTerms && (
-									<button
-										title={ __(
-											'New folder',
-											'wunderpaint'
-										) }
-										onClick={ () => addFolder( 0 ) }
-									>
-										{ I.plus( { size: 14 } ) }
-									</button>
-								) }
-							</div>
-							{ folders.length ? (
-								renderFolderRows( 0, 0 )
-							) : (
-								<div className="wpie-mlm-empty">
-									{ __( 'No folders yet.', 'wunderpaint' ) }
-								</div>
-							) }
-						</div>
-
-						<div className="wpie-mlm-sec">
-							<div className="wpie-mlm-sechead">
-								<span className="wpie-mlm-sectitle">
-									{ __( 'Tags', 'wunderpaint' ) }
-								</span>
-								<span className="acts">
-									<button
-										title={
-											tagCloud
-												? __(
-														'List view',
-														'wunderpaint'
-												  )
-												: __(
-														'Cloud view',
-														'wunderpaint'
-												  )
-										}
-										onClick={ () =>
-											setTagCloud( ( v ) => ! v )
-										}
-									>
-										{ tagCloud
-											? I.list( { size: 14 } )
-											: I.grid( { size: 13 } ) }
-									</button>
-									{ canTerms && (
-										<button
-											title={ __(
-												'New tag',
-												'wunderpaint'
-											) }
-											onClick={ addTagTerm }
-										>
-											{ I.plus( { size: 14 } ) }
-										</button>
-									) }
-								</span>
-							</div>
-							{ tagCloud ? (
-								<div className="wpie-mlm-tagcloud">
-									{ shownTags.map( ( t ) => (
-										<button
-											key={ t.id }
-											className={
-												'cl' +
-												( 'tag' === view.type &&
-												view.id === t.id
-													? ' active'
-													: '' )
-											}
-											style={ {
-												fontSize:
-													11 +
-													Math.round(
-														8 *
-															( ( t.count || 0 ) /
-																tagMax )
-													),
-											} }
-											title={ sprintf(
-												/* translators: %d: count */ __(
-													'%d images',
+						{ /* Folders, tags and smart folders: all three are ways
+						   of asking the library a question, and the standalone
+						   studio answers every question with "everything".
+						   Folders and tags come back empty and cannot be
+						   created there, and a smart folder is a saved filter,
+						   so they are left out rather than shown as three
+						   sections that never do anything. */ }
+						{ canQueryLibrary() && (
+							<>
+								<div className="wpie-mlm-sec">
+									<div className="wpie-mlm-sechead">
+										<span>
+											{ __( 'Folders', 'wunderpaint' ) }
+										</span>
+										{ canTerms && (
+											<button
+												title={ __(
+													'New folder',
 													'wunderpaint'
-												),
-												t.count || 0
-											) }
-											onClick={ () =>
-												selectView( {
-													type: 'tag',
-													id: t.id,
-													name: t.name,
-												} )
-											}
-										>
-											{ t.name }
-										</button>
-									) ) }
-									{ ! tags.length && (
+												) }
+												onClick={ () => addFolder( 0 ) }
+											>
+												{ I.plus( { size: 14 } ) }
+											</button>
+										) }
+									</div>
+									{ folders.length ? (
+										renderFolderRows( 0, 0 )
+									) : (
 										<div className="wpie-mlm-empty">
 											{ __(
-												'No tags yet.',
+												'No folders yet.',
 												'wunderpaint'
 											) }
 										</div>
 									) }
 								</div>
-							) : (
-								<div className="wpie-mlm-tags">
-									{ shownTags.map( ( t ) => (
-										<span
-											key={ t.id }
-											className={
-												'wpie-mlm-chip' +
-												( 'tag' === view.type &&
-												view.id === t.id
-													? ' active'
-													: '' )
-											}
-										>
+
+								<div className="wpie-mlm-sec">
+									<div className="wpie-mlm-sechead">
+										<span className="wpie-mlm-sectitle">
+											{ __( 'Tags', 'wunderpaint' ) }
+										</span>
+										<span className="acts">
 											<button
-												className="lbl"
+												title={
+													tagCloud
+														? __(
+																'List view',
+																'wunderpaint'
+														  )
+														: __(
+																'Cloud view',
+																'wunderpaint'
+														  )
+												}
 												onClick={ () =>
-													selectView( {
-														type: 'tag',
-														id: t.id,
-														name: t.name,
-													} )
+													setTagCloud( ( v ) => ! v )
 												}
 											>
-												<span className="nm">
-													{ t.name }
-												</span>
-												<b>{ t.count }</b>
+												{ tagCloud
+													? I.list( { size: 14 } )
+													: I.grid( { size: 13 } ) }
 											</button>
 											{ canTerms && (
 												<button
-													className="x"
 													title={ __(
-														'Delete tag',
+														'New tag',
 														'wunderpaint'
 													) }
-													onClick={ () =>
-														deleteTagTerm( t )
-													}
+													onClick={ addTagTerm }
 												>
-													{ I.close( { size: 11 } ) }
+													{ I.plus( { size: 14 } ) }
 												</button>
 											) }
 										</span>
-									) ) }
-									{ ! tags.length && (
-										<div className="wpie-mlm-empty">
-											{ __(
-												'No tags yet.',
-												'wunderpaint'
+									</div>
+									{ tagCloud ? (
+										<div className="wpie-mlm-tagcloud">
+											{ shownTags.map( ( t ) => (
+												<button
+													key={ t.id }
+													className={
+														'cl' +
+														( 'tag' === view.type &&
+														view.id === t.id
+															? ' active'
+															: '' )
+													}
+													style={ {
+														fontSize:
+															11 +
+															Math.round(
+																8 *
+																	( ( t.count ||
+																		0 ) /
+																		tagMax )
+															),
+													} }
+													title={ sprintf(
+														/* translators: %d: count */ __(
+															'%d images',
+															'wunderpaint'
+														),
+														t.count || 0
+													) }
+													onClick={ () =>
+														selectView( {
+															type: 'tag',
+															id: t.id,
+															name: t.name,
+														} )
+													}
+												>
+													{ t.name }
+												</button>
+											) ) }
+											{ ! tags.length && (
+												<div className="wpie-mlm-empty">
+													{ __(
+														'No tags yet.',
+														'wunderpaint'
+													) }
+												</div>
+											) }
+										</div>
+									) : (
+										<div className="wpie-mlm-tags">
+											{ shownTags.map( ( t ) => (
+												<span
+													key={ t.id }
+													className={
+														'wpie-mlm-chip' +
+														( 'tag' === view.type &&
+														view.id === t.id
+															? ' active'
+															: '' )
+													}
+												>
+													<button
+														className="lbl"
+														onClick={ () =>
+															selectView( {
+																type: 'tag',
+																id: t.id,
+																name: t.name,
+															} )
+														}
+													>
+														<span className="nm">
+															{ t.name }
+														</span>
+														<b>{ t.count }</b>
+													</button>
+													{ canTerms && (
+														<button
+															className="x"
+															title={ __(
+																'Delete tag',
+																'wunderpaint'
+															) }
+															onClick={ () =>
+																deleteTagTerm(
+																	t
+																)
+															}
+														>
+															{ I.close( {
+																size: 11,
+															} ) }
+														</button>
+													) }
+												</span>
+											) ) }
+											{ ! tags.length && (
+												<div className="wpie-mlm-empty">
+													{ __(
+														'No tags yet.',
+														'wunderpaint'
+													) }
+												</div>
 											) }
 										</div>
 									) }
+									{ ( tagsHidden > 0 || tagsAll ) &&
+										tags.length > TAG_PREVIEW && (
+											<button
+												className="wpie-mlm-tagmore"
+												onClick={ () =>
+													setTagsAll( ( v ) => ! v )
+												}
+											>
+												<span className="chev">
+													{ tagsAll ? '▴' : '▾' }
+												</span>
+												{ tagsAll
+													? __(
+															'Show fewer tags',
+															'wunderpaint'
+													  )
+													: sprintf(
+															/* translators: %d: count */ __(
+																'Show all %d tags',
+																'wunderpaint'
+															),
+															tags.length
+													  ) }
+											</button>
+										) }
 								</div>
-							) }
-							{ ( tagsHidden > 0 || tagsAll ) &&
-								tags.length > TAG_PREVIEW && (
-									<button
-										className="wpie-mlm-tagmore"
-										onClick={ () =>
-											setTagsAll( ( v ) => ! v )
-										}
-									>
-										<span className="chev">
-											{ tagsAll ? '▴' : '▾' }
-										</span>
-										{ tagsAll
-											? __(
-													'Show fewer tags',
-													'wunderpaint'
-											  )
-											: sprintf(
-													/* translators: %d: count */ __(
-														'Show all %d tags',
-														'wunderpaint'
-													),
-													tags.length
-											  ) }
-									</button>
-								) }
-						</div>
 
-						<div className="wpie-mlm-sec">
-							<div className="wpie-mlm-sechead">
-								<span>
-									{ __( 'Smart folders', 'wunderpaint' ) }
-								</span>
-							</div>
-							{ BUILTIN_SMART.map( ( s ) => (
-								<div
-									key={ s.id }
-									className={
-										'wpie-mlm-row' +
-										( 'smart' === view.type &&
-										view.id === s.id
-											? ' active'
-											: '' )
-									}
-									onClick={ () =>
-										selectView( {
-											type: 'smart',
-											id: s.id,
-											name: s.name,
-											kind: s.kind,
-											params: s.params,
-										} )
-									}
-									role="button"
-									tabIndex={ 0 }
-									onKeyDown={ ( e ) =>
-										'Enter' === e.key &&
-										selectView( {
-											type: 'smart',
-											id: s.id,
-											name: s.name,
-											kind: s.kind,
-											params: s.params,
-										} )
-									}
-								>
-									<span className="ico">
-										{ ( I[ s.icon ] || I.sparkles )( {
-											size: 15,
-										} ) }
-									</span>
-									<span className="nm">{ s.name }</span>
-								</div>
-							) ) }
-							{ savedSmart.map( ( s ) => (
-								<div
-									key={ s.id }
-									className={
-										'wpie-mlm-row' +
-										( 'smart' === view.type &&
-										view.id === s.id
-											? ' active'
-											: '' )
-									}
-									onClick={ () =>
-										selectView( {
-											type: 'smart',
-											id: s.id,
-											name: s.name,
-											kind: s.kind,
-											params: s.params,
-										} )
-									}
-									role="button"
-									tabIndex={ 0 }
-									onKeyDown={ ( e ) =>
-										'Enter' === e.key &&
-										selectView( {
-											type: 'smart',
-											id: s.id,
-											name: s.name,
-											kind: s.kind,
-											params: s.params,
-										} )
-									}
-								>
-									<span className="ico">
-										{ 'semantic' === s.kind
-											? I.search( { size: 13 } )
-											: I.sparkles( { size: 14 } ) }
-									</span>
-									<span className="nm">{ s.name }</span>
-									<span className="acts">
-										<button
-											title={ __(
-												'Delete',
+								<div className="wpie-mlm-sec">
+									<div className="wpie-mlm-sechead">
+										<span>
+											{ __(
+												'Smart folders',
 												'wunderpaint'
 											) }
-											onClick={ ( e ) => {
-												e.stopPropagation();
-												deleteSmart( s );
-											} }
+										</span>
+									</div>
+									{ BUILTIN_SMART.map( ( s ) => (
+										<div
+											key={ s.id }
+											className={
+												'wpie-mlm-row' +
+												( 'smart' === view.type &&
+												view.id === s.id
+													? ' active'
+													: '' )
+											}
+											onClick={ () =>
+												selectView( {
+													type: 'smart',
+													id: s.id,
+													name: s.name,
+													kind: s.kind,
+													params: s.params,
+												} )
+											}
+											role="button"
+											tabIndex={ 0 }
+											onKeyDown={ ( e ) =>
+												'Enter' === e.key &&
+												selectView( {
+													type: 'smart',
+													id: s.id,
+													name: s.name,
+													kind: s.kind,
+													params: s.params,
+												} )
+											}
 										>
-											{ I.trash( { size: 12 } ) }
-										</button>
-									</span>
+											<span className="ico">
+												{ ( I[ s.icon ] || I.sparkles )(
+													{
+														size: 15,
+													}
+												) }
+											</span>
+											<span className="nm">
+												{ s.name }
+											</span>
+										</div>
+									) ) }
+									{ savedSmart.map( ( s ) => (
+										<div
+											key={ s.id }
+											className={
+												'wpie-mlm-row' +
+												( 'smart' === view.type &&
+												view.id === s.id
+													? ' active'
+													: '' )
+											}
+											onClick={ () =>
+												selectView( {
+													type: 'smart',
+													id: s.id,
+													name: s.name,
+													kind: s.kind,
+													params: s.params,
+												} )
+											}
+											role="button"
+											tabIndex={ 0 }
+											onKeyDown={ ( e ) =>
+												'Enter' === e.key &&
+												selectView( {
+													type: 'smart',
+													id: s.id,
+													name: s.name,
+													kind: s.kind,
+													params: s.params,
+												} )
+											}
+										>
+											<span className="ico">
+												{ 'semantic' === s.kind
+													? I.search( { size: 13 } )
+													: I.sparkles( {
+															size: 14,
+													  } ) }
+											</span>
+											<span className="nm">
+												{ s.name }
+											</span>
+											<span className="acts">
+												<button
+													title={ __(
+														'Delete',
+														'wunderpaint'
+													) }
+													onClick={ ( e ) => {
+														e.stopPropagation();
+														deleteSmart( s );
+													} }
+												>
+													{ I.trash( { size: 12 } ) }
+												</button>
+											</span>
+										</div>
+									) ) }
 								</div>
-							) ) }
-						</div>
+							</>
+						) }
 
 						<div className="wpie-mlm-side-foot">
 							{ indexInfo &&
@@ -2333,19 +2470,27 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 									) }
 								</button>
 							) }
-							{ '_missingAlt' === view.id && ! pick && (
-								<button
-									className="ai-btn secondary sm"
-									onClick={ () =>
-										extras.openAltText( 'noalt' )
-									}
-								>
-									{ __(
-										'Fill with Metadata Assistant',
-										'wunderpaint'
-									) }
-								</button>
-							) }
+							{ /* The second door to the Metadata Assistant, hidden for
+							   the same reason as the menu entry: it needs /ai/caption
+							   and wp/v2/media. The smart folder that shows this button
+							   is already out of reach in the studio, so this is the
+							   belt to that braces - one outlet hidden and one left
+							   open is how a "hidden" feature comes back. */ }
+							{ canEditMeta() &&
+								'_missingAlt' === view.id &&
+								! pick && (
+									<button
+										className="ai-btn secondary sm"
+										onClick={ () =>
+											extras.openAltText( 'noalt' )
+										}
+									>
+										{ __(
+											'Fill with Metadata Assistant',
+											'wunderpaint'
+										) }
+									</button>
+								) }
 							<span className="wpie-mlm-spacer" />
 							{ ( ! window.WPIE?.demo ||
 								window.WPIE?.standalone ) && (
@@ -2442,210 +2587,234 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 								</button>
 							</span>
 							<span className="wpie-mlm-spacer" />
-							<div className="wpie-mlm-swatches">
-								{ COLOR_BUCKETS.map( ( c ) => (
-									<button
-										key={ c }
-										type="button"
-										className={
-											'sw' +
-											( filters.color === c
-												? ' active'
-												: '' )
-										}
-										style={ {
-											background: COLOR_SWATCH[ c ],
-										} }
-										title={ c }
-										aria-label={ c }
-										onClick={ () =>
-											changeFilter( {
-												color:
-													filters.color === c
-														? ''
-														: c,
-											} )
-										}
-									/>
-								) ) }
-							</div>
-							{ ( filters.color ||
-								filters.mime ||
-								filters.orient ||
-								filters.size ||
-								filters.author ||
-								filters.month ||
-								'images' !== filters.type ||
-								sortKey ) && (
-								<button
-									className="ai-btn secondary sm"
-									onClick={ () => {
-										setSortKey( '' );
-										const next = {
-											orderby: '',
-											order: 'DESC',
-											type: 'images',
-											mime: '',
-											orient: '',
-											size: '',
-											color: '',
-											author: 0,
-											month: '',
-										};
-										setFilters( next );
-										reloadWith( next );
-									} }
-								>
-									{ __( 'Reset', 'wunderpaint' ) }
-								</button>
+							{ /* Color filter and the Reset that goes with it:
+							   both are query parameters, thrown away by the
+							   standalone studio's local host. The grid/list
+							   toggle above is pure client state and stays. */ }
+							{ canQueryLibrary() && (
+								<>
+									<div className="wpie-mlm-swatches">
+										{ COLOR_BUCKETS.map( ( c ) => (
+											<button
+												key={ c }
+												type="button"
+												className={
+													'sw' +
+													( filters.color === c
+														? ' active'
+														: '' )
+												}
+												style={ {
+													background:
+														COLOR_SWATCH[ c ],
+												} }
+												title={ c }
+												aria-label={ c }
+												onClick={ () =>
+													changeFilter( {
+														color:
+															filters.color === c
+																? ''
+																: c,
+													} )
+												}
+											/>
+										) ) }
+									</div>
+									{ ( filters.color ||
+										filters.mime ||
+										filters.orient ||
+										filters.size ||
+										filters.author ||
+										filters.month ||
+										'images' !== filters.type ||
+										sortKey ) && (
+										<button
+											className="ai-btn secondary sm"
+											onClick={ () => {
+												setSortKey( '' );
+												const next = {
+													orderby: '',
+													order: 'DESC',
+													type: 'images',
+													mime: '',
+													orient: '',
+													size: '',
+													color: '',
+													author: 0,
+													month: '',
+												};
+												setFilters( next );
+												reloadWith( next );
+											} }
+										>
+											{ __( 'Reset', 'wunderpaint' ) }
+										</button>
+									) }
+								</>
 							) }
 						</div>
 
-						<div className="wpie-mlm-filterrow">
-							<select
-								className="dsm-select sm"
-								value={ sortKey }
-								onChange={ ( e ) =>
-									changeSort( e.target.value )
-								}
-								title={ __( 'Sort', 'wunderpaint' ) }
-							>
-								{ SORTS.map( ( s ) => (
-									<option
-										key={ s.key || 'newest' }
-										value={ s.key }
-									>
-										{ s.label }
+						{ /* Sort and the six filter selects. Every one of them
+						   is a query parameter, and the standalone studio's
+						   local host drops the query string before it routes,
+						   so choosing anything here changed nothing. Hidden
+						   there; in WordPress the row is unchanged. */ }
+						{ canQueryLibrary() && (
+							<div className="wpie-mlm-filterrow">
+								<select
+									className="dsm-select sm"
+									value={ sortKey }
+									onChange={ ( e ) =>
+										changeSort( e.target.value )
+									}
+									title={ __( 'Sort', 'wunderpaint' ) }
+								>
+									{ SORTS.map( ( s ) => (
+										<option
+											key={ s.key || 'newest' }
+											value={ s.key }
+										>
+											{ s.label }
+										</option>
+									) ) }
+								</select>
+								<select
+									className="dsm-select sm"
+									value={ filters.type }
+									onChange={ ( e ) =>
+										changeFilter( {
+											type: e.target.value,
+											mime: '',
+										} )
+									}
+									title={ __( 'Media type', 'wunderpaint' ) }
+								>
+									<option value="images">
+										{ __( 'Images', 'wunderpaint' ) }
 									</option>
-								) ) }
-							</select>
-							<select
-								className="dsm-select sm"
-								value={ filters.type }
-								onChange={ ( e ) =>
-									changeFilter( {
-										type: e.target.value,
-										mime: '',
-									} )
-								}
-								title={ __( 'Media type', 'wunderpaint' ) }
-							>
-								<option value="images">
-									{ __( 'Images', 'wunderpaint' ) }
-								</option>
-								<option value="videos">
-									{ __( 'Videos', 'wunderpaint' ) }
-								</option>
-								<option value="audio">
-									{ __( 'Audio', 'wunderpaint' ) }
-								</option>
-								<option value="docs">
-									{ __( 'Documents', 'wunderpaint' ) }
-								</option>
-								<option value="all">
-									{ __( 'All media', 'wunderpaint' ) }
-								</option>
-							</select>
-							<select
-								className="dsm-select sm"
-								value={ filters.mime }
-								onChange={ ( e ) =>
-									changeFilter( { mime: e.target.value } )
-								}
-								title={ __( 'File type', 'wunderpaint' ) }
-							>
-								<option value="">
-									{ __( 'Any file type', 'wunderpaint' ) }
-								</option>
-								<option value="image/jpeg">JPEG</option>
-								<option value="image/png">PNG</option>
-								<option value="image/webp">WebP</option>
-								<option value="image/gif">GIF</option>
-								<option value="image/svg+xml">SVG</option>
-								<option value="application/pdf">PDF</option>
-							</select>
-							<select
-								className="dsm-select sm"
-								value={ filters.orient }
-								onChange={ ( e ) =>
-									changeFilter( { orient: e.target.value } )
-								}
-								title={ __( 'Orientation', 'wunderpaint' ) }
-							>
-								<option value="">
-									{ __( 'Any shape', 'wunderpaint' ) }
-								</option>
-								<option value="l">
-									{ __( 'Landscape', 'wunderpaint' ) }
-								</option>
-								<option value="p">
-									{ __( 'Portrait', 'wunderpaint' ) }
-								</option>
-								<option value="s">
-									{ __( 'Square', 'wunderpaint' ) }
-								</option>
-							</select>
-							<select
-								className="dsm-select sm"
-								value={ filters.size }
-								onChange={ ( e ) =>
-									changeFilter( { size: e.target.value } )
-								}
-								title={ __( 'Size', 'wunderpaint' ) }
-							>
-								<option value="">
-									{ __( 'Any size', 'wunderpaint' ) }
-								</option>
-								<option value="small">
-									{ __( 'Small', 'wunderpaint' ) }
-								</option>
-								<option value="medium">
-									{ __( 'Medium', 'wunderpaint' ) }
-								</option>
-								<option value="large">
-									{ __( 'Large', 'wunderpaint' ) }
-								</option>
-								<option value="huge">
-									{ __( 'Huge', 'wunderpaint' ) }
-								</option>
-							</select>
-							<select
-								className="dsm-select sm"
-								value={ filters.author }
-								onChange={ ( e ) =>
-									changeFilter( {
-										author: Number( e.target.value ) || 0,
-									} )
-								}
-								title={ __( 'Author', 'wunderpaint' ) }
-							>
-								<option value={ 0 }>
-									{ __( 'Any author', 'wunderpaint' ) }
-								</option>
-								{ facets.authors.map( ( a ) => (
-									<option key={ a.id } value={ a.id }>
-										{ a.name }
+									<option value="videos">
+										{ __( 'Videos', 'wunderpaint' ) }
 									</option>
-								) ) }
-							</select>
-							<select
-								className="dsm-select sm"
-								value={ filters.month }
-								onChange={ ( e ) =>
-									changeFilter( { month: e.target.value } )
-								}
-								title={ __( 'Upload month', 'wunderpaint' ) }
-							>
-								<option value="">
-									{ __( 'Any date', 'wunderpaint' ) }
-								</option>
-								{ facets.months.map( ( m ) => (
-									<option key={ m } value={ m }>
-										{ m }
+									<option value="audio">
+										{ __( 'Audio', 'wunderpaint' ) }
 									</option>
-								) ) }
-							</select>
-						</div>
+									<option value="docs">
+										{ __( 'Documents', 'wunderpaint' ) }
+									</option>
+									<option value="all">
+										{ __( 'All media', 'wunderpaint' ) }
+									</option>
+								</select>
+								<select
+									className="dsm-select sm"
+									value={ filters.mime }
+									onChange={ ( e ) =>
+										changeFilter( { mime: e.target.value } )
+									}
+									title={ __( 'File type', 'wunderpaint' ) }
+								>
+									<option value="">
+										{ __( 'Any file type', 'wunderpaint' ) }
+									</option>
+									<option value="image/jpeg">JPEG</option>
+									<option value="image/png">PNG</option>
+									<option value="image/webp">WebP</option>
+									<option value="image/gif">GIF</option>
+									<option value="image/svg+xml">SVG</option>
+									<option value="application/pdf">PDF</option>
+								</select>
+								<select
+									className="dsm-select sm"
+									value={ filters.orient }
+									onChange={ ( e ) =>
+										changeFilter( {
+											orient: e.target.value,
+										} )
+									}
+									title={ __( 'Orientation', 'wunderpaint' ) }
+								>
+									<option value="">
+										{ __( 'Any shape', 'wunderpaint' ) }
+									</option>
+									<option value="l">
+										{ __( 'Landscape', 'wunderpaint' ) }
+									</option>
+									<option value="p">
+										{ __( 'Portrait', 'wunderpaint' ) }
+									</option>
+									<option value="s">
+										{ __( 'Square', 'wunderpaint' ) }
+									</option>
+								</select>
+								<select
+									className="dsm-select sm"
+									value={ filters.size }
+									onChange={ ( e ) =>
+										changeFilter( { size: e.target.value } )
+									}
+									title={ __( 'Size', 'wunderpaint' ) }
+								>
+									<option value="">
+										{ __( 'Any size', 'wunderpaint' ) }
+									</option>
+									<option value="small">
+										{ __( 'Small', 'wunderpaint' ) }
+									</option>
+									<option value="medium">
+										{ __( 'Medium', 'wunderpaint' ) }
+									</option>
+									<option value="large">
+										{ __( 'Large', 'wunderpaint' ) }
+									</option>
+									<option value="huge">
+										{ __( 'Huge', 'wunderpaint' ) }
+									</option>
+								</select>
+								<select
+									className="dsm-select sm"
+									value={ filters.author }
+									onChange={ ( e ) =>
+										changeFilter( {
+											author:
+												Number( e.target.value ) || 0,
+										} )
+									}
+									title={ __( 'Author', 'wunderpaint' ) }
+								>
+									<option value={ 0 }>
+										{ __( 'Any author', 'wunderpaint' ) }
+									</option>
+									{ facets.authors.map( ( a ) => (
+										<option key={ a.id } value={ a.id }>
+											{ a.name }
+										</option>
+									) ) }
+								</select>
+								<select
+									className="dsm-select sm"
+									value={ filters.month }
+									onChange={ ( e ) =>
+										changeFilter( {
+											month: e.target.value,
+										} )
+									}
+									title={ __(
+										'Upload month',
+										'wunderpaint'
+									) }
+								>
+									<option value="">
+										{ __( 'Any date', 'wunderpaint' ) }
+									</option>
+									{ facets.months.map( ( m ) => (
+										<option key={ m } value={ m }>
+											{ m }
+										</option>
+									) ) }
+								</select>
+							</div>
+						) }
 
 						<div
 							className={
@@ -2845,18 +3014,22 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 												>
 													{ I.link( { size: 12 } ) }
 												</button>
-												<button
-													type="button"
-													title={ __(
-														'Edit metadata',
-														'wunderpaint'
-													) }
-													onClick={ () =>
-														setEditId( item.id )
-													}
-												>
-													{ I.pencil( { size: 12 } ) }
-												</button>
+												{ canEditMeta() && (
+													<button
+														type="button"
+														title={ __(
+															'Edit metadata',
+															'wunderpaint'
+														) }
+														onClick={ () =>
+															setEditId( item.id )
+														}
+													>
+														{ I.pencil( {
+															size: 12,
+														} ) }
+													</button>
+												) }
 											</span>
 										</div>
 									);
@@ -2959,19 +3132,21 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 												? I.check( { size: 12 } )
 												: '' }
 										</span>
-										<button
-											className="edit"
-											title={ __(
-												'Edit metadata',
-												'wunderpaint'
-											) }
-											onClick={ ( e ) => {
-												e.stopPropagation();
-												setEditId( item.id );
-											} }
-										>
-											{ I.pencil( { size: 12 } ) }
-										</button>
+										{ canEditMeta() && (
+											<button
+												className="edit"
+												title={ __(
+													'Edit metadata',
+													'wunderpaint'
+												) }
+												onClick={ ( e ) => {
+													e.stopPropagation();
+													setEditId( item.id );
+												} }
+											>
+												{ I.pencil( { size: 12 } ) }
+											</button>
+										) }
 										<button
 											className="copy"
 											title={ __(
@@ -3076,88 +3251,136 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 								</span>
 								<span className="wpie-mlm-spacer" />
 
-								<label className="wpie-mlm-act">
-									<select
-										className="dsm-select sm"
-										value=""
-										onChange={ ( e ) => {
-											const v = e.target.value;
-											e.target.value = '';
-											moveToFolder(
-												'0' === v ? 0 : Number( v )
-											);
-										} }
-										disabled={ busy }
-									>
-										<option value="">
-											{ __(
-												'Move to folder',
-												'wunderpaint'
-											) }
-										</option>
-										<option value="0">
-											{ __( 'No folder', 'wunderpaint' ) }
-										</option>
-										{ folders.map( ( f ) => (
-											<option key={ f.id } value={ f.id }>
-												{ f.name }
-											</option>
-										) ) }
-									</select>
-								</label>
+								{ /* Move to folder / Add tag / Remove tag: the
+								   standalone studio has neither folders nor
+								   tags - the lists come back empty and a
+								   create falls into the local host's silent
+								   bookkeeping branch - so all three dropdowns
+								   could only ever be empty. Hidden there. */ }
+								{ canQueryLibrary() && (
+									<>
+										<label className="wpie-mlm-act">
+											<select
+												className="dsm-select sm"
+												value=""
+												onChange={ ( e ) => {
+													const v = e.target.value;
+													e.target.value = '';
+													moveToFolder(
+														'0' === v
+															? 0
+															: Number( v )
+													);
+												} }
+												disabled={ busy }
+											>
+												<option value="">
+													{ __(
+														'Move to folder',
+														'wunderpaint'
+													) }
+												</option>
+												<option value="0">
+													{ __(
+														'No folder',
+														'wunderpaint'
+													) }
+												</option>
+												{ folders.map( ( f ) => (
+													<option
+														key={ f.id }
+														value={ f.id }
+													>
+														{ f.name }
+													</option>
+												) ) }
+											</select>
+										</label>
 
-								<label className="wpie-mlm-act">
-									<select
-										className="dsm-select sm"
-										value=""
-										onChange={ ( e ) => {
-											const v = e.target.value;
-											e.target.value = '';
-											if ( v ) {
-												applyTag( Number( v ), false );
-											}
-										} }
-										disabled={ busy || ! tags.length }
-									>
-										<option value="">
-											{ __( 'Add tag', 'wunderpaint' ) }
-										</option>
-										{ tags.map( ( t ) => (
-											<option key={ t.id } value={ t.id }>
-												{ t.name }
-											</option>
-										) ) }
-									</select>
-								</label>
+										<label className="wpie-mlm-act">
+											<select
+												className="dsm-select sm"
+												value=""
+												onChange={ ( e ) => {
+													const v = e.target.value;
+													e.target.value = '';
+													if ( v ) {
+														applyTag(
+															Number( v ),
+															false
+														);
+													}
+												} }
+												disabled={
+													busy || ! tags.length
+												}
+											>
+												<option value="">
+													{ __(
+														'Add tag',
+														'wunderpaint'
+													) }
+												</option>
+												{ tags.map( ( t ) => (
+													<option
+														key={ t.id }
+														value={ t.id }
+													>
+														{ t.name }
+													</option>
+												) ) }
+											</select>
+										</label>
 
-								<label className="wpie-mlm-act">
-									<select
-										className="dsm-select sm"
-										value=""
-										onChange={ ( e ) => {
-											const v = e.target.value;
-											e.target.value = '';
-											if ( v ) {
-												applyTag( Number( v ), true );
-											}
-										} }
-										disabled={ busy || ! tags.length }
-									>
-										<option value="">
-											{ __(
-												'Remove tag',
-												'wunderpaint'
-											) }
-										</option>
-										{ tags.map( ( t ) => (
-											<option key={ t.id } value={ t.id }>
-												{ t.name }
-											</option>
-										) ) }
-									</select>
-								</label>
+										<label className="wpie-mlm-act">
+											<select
+												className="dsm-select sm"
+												value=""
+												onChange={ ( e ) => {
+													const v = e.target.value;
+													e.target.value = '';
+													if ( v ) {
+														applyTag(
+															Number( v ),
+															true
+														);
+													}
+												} }
+												disabled={
+													busy || ! tags.length
+												}
+											>
+												<option value="">
+													{ __(
+														'Remove tag',
+														'wunderpaint'
+													) }
+												</option>
+												{ tags.map( ( t ) => (
+													<option
+														key={ t.id }
+														value={ t.id }
+													>
+														{ t.name }
+													</option>
+												) ) }
+											</select>
+										</label>
+									</>
+								) }
 
-								{ cloudEngine && (
+								{ /* Auto-tag needs three server pieces and the studio
+								   has none of them: ai.caption() posts to /ai/caption,
+								   and byok.js serves generate, edit, complete and test
+								   - not caption; the tags it would invent go through
+								   mediaLib.tags.create and assign, which fall into the
+								   local host's silent bookkeeping branch and come back
+								   {} without an id; and the alt text, caption and
+								   description travel through wp/v2/media like every
+								   other edit canEditMeta() covers. The per-image catch
+								   kept the run going past all of it and it still
+								   toasted "Auto-tagged N image(s) with AI." */ }
+								{ canEditMeta() && cloudEngine && (
 									<button
 										className="ai-btn secondary sm"
 										onClick={ aiAutoTag }
@@ -3180,7 +3403,14 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 											: __( 'Auto-tag', 'wunderpaint' ) }
 									</button>
 								) }
-								{ 1 === selected.size &&
+								{ /* Find similar ranks the library against one image's
+								   stored SigLIP vector. Those vectors come from
+								   /search-index/vectors, which the studio answers with
+								   an empty list, and showRanked() then asks for the hits
+								   by id - a query parameter the local host drops. Same
+								   missing index the search box is hidden for. */ }
+								{ canQueryLibrary() &&
+									1 === selected.size &&
 									searchModelInstalled() && (
 										<button
 											className="ai-btn secondary sm"
@@ -3197,24 +3427,35 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 											) }
 										</button>
 									) }
-								<button
-									className="ai-btn secondary sm"
-									onClick={ () => {
-										const one = [ ...selected ][ 0 ];
-										setPostPickFor( one );
-									} }
-									disabled={ busy || 1 !== selected.size }
-									title={
-										1 !== selected.size
-											? __(
-													'Select exactly one image.',
-													'wunderpaint'
-											  )
-											: undefined
-									}
-								>
-									{ __( 'Featured image', 'wunderpaint' ) }
-								</button>
+								{ /* Featured image opens the post picker, which searches
+								   wp/v2/posts, and then writes featured_media back onto
+								   the post it found. The studio serves no core REST
+								   namespace and has no posts to serve from it, so the
+								   picker would open on a list that stays empty however
+								   you search it. */ }
+								{ canAttachToPosts() && (
+									<button
+										className="ai-btn secondary sm"
+										onClick={ () => {
+											const one = [ ...selected ][ 0 ];
+											setPostPickFor( one );
+										} }
+										disabled={ busy || 1 !== selected.size }
+										title={
+											1 !== selected.size
+												? __(
+														'Select exactly one image.',
+														'wunderpaint'
+												  )
+												: undefined
+										}
+									>
+										{ __(
+											'Featured image',
+											'wunderpaint'
+										) }
+									</button>
+								) }
 								{ ! pick && (
 									<button
 										className="ai-btn secondary sm"
@@ -3250,219 +3491,238 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 
 				<div className="dsm-foot">
 					<div className="wpie-mlm-footleft">
-						<div
-							className="wpie-mlm-toolswrap"
-							onMouseEnter={ toolsEnter }
-							onMouseLeave={ toolsLeave }
-						>
-							{ /* Invisible sizer (v1.250.2): the wrap - and with
-							   it button and menu, which both fill it - takes
-							   the width of the longest menu entry, so labels
-							   never wrap (the v1.245.4 button-width menu did). */ }
+						{ canRunLibraryTools() && (
 							<div
-								className="wpie-mlm-tools-sizer"
-								aria-hidden="true"
+								className="wpie-mlm-toolswrap"
+								onMouseEnter={ toolsEnter }
+								onMouseLeave={ toolsLeave }
 							>
-								{ [
-									__( 'Suggest folders', 'wunderpaint' ),
-									__( 'Find duplicates', 'wunderpaint' ),
-									__(
-										'Regenerate thumbnails',
-										'wunderpaint'
-									),
-									__( 'Rename by pattern', 'wunderpaint' ),
-									...( pick
-										? []
-										: [
-												__(
-													'Add Watermarks',
-													'wunderpaint'
-												),
-												__(
-													'Generate Metadata',
-													'wunderpaint'
-												),
-												__(
-													'Optimize images',
-													'wunderpaint'
-												),
-										  ] ),
-									__( 'Find broken files', 'wunderpaint' ),
-								].map( ( l ) => (
-									<span key={ l }>{ l }</span>
-								) ) }
-							</div>
-							{ toolsOpen && (
-								<div className="wpie-mlm-tools-menu">
-									<button
-										className="wpie-mlm-link-btn"
-										onClick={ () => {
-											setToolsOpen( false );
-											suggestClusters();
-										} }
-										disabled={ ! searchModelInstalled() }
-										title={
-											! searchModelInstalled()
-												? __(
-														'Needs the image search model.',
-														'wunderpaint'
-												  )
-												: undefined
-										}
-									>
-										{ I.wand( { size: 14 } ) }{ ' ' }
-										{ __(
-											'Suggest folders',
-											'wunderpaint'
-										) }
-									</button>
-									<button
-										className="wpie-mlm-link-btn"
-										onClick={ () => {
-											setToolsOpen( false );
-											findDups();
-										} }
-										disabled={ ! searchModelInstalled() }
-										title={
-											! searchModelInstalled()
-												? __(
-														'Needs the image search model.',
-														'wunderpaint'
-												  )
-												: undefined
-										}
-									>
-										{ I.layers( { size: 14 } ) }{ ' ' }
-										{ __(
-											'Find duplicates',
-											'wunderpaint'
-										) }
-									</button>
-									<button
-										className="wpie-mlm-link-btn"
-										onClick={ () => {
-											setToolsOpen( false );
-											runRegenThumbs();
-										} }
-									>
-										{ I.image( { size: 14 } ) }{ ' ' }
-										{ __(
+								{ /* Invisible sizer (v1.250.2): the wrap - and with
+								   it button and menu, which both fill it - takes
+								   the width of the longest menu entry, so labels
+								   never wrap (the v1.245.4 button-width menu did). */ }
+								<div
+									className="wpie-mlm-tools-sizer"
+									aria-hidden="true"
+								>
+									{ [
+										__( 'Suggest folders', 'wunderpaint' ),
+										__( 'Find duplicates', 'wunderpaint' ),
+										__(
 											'Regenerate thumbnails',
 											'wunderpaint'
-										) }
-									</button>
-									<button
-										className="wpie-mlm-link-btn"
-										onClick={ () => {
-											setToolsOpen( false );
-											openRename();
-										} }
-									>
-										{ I.pencil( { size: 14 } ) }{ ' ' }
-										{ __(
+										),
+										__(
 											'Rename by pattern',
 											'wunderpaint'
-										) }
-									</button>
-									{ ! pick && (
-										<button
-											className="wpie-mlm-link-btn"
-											onClick={ () => {
-												setToolsOpen( false );
-												addWatermarks();
-											} }
-										>
-											{ I.stamp( { size: 14 } ) }{ ' ' }
-											{ __(
-												'Add Watermarks',
-												'wunderpaint'
-											) }
-										</button>
-									) }
-									<button
-										className="wpie-mlm-link-btn"
-										onClick={ () => {
-											setToolsOpen( false );
-											findBroken();
-										} }
-									>
-										{ I.search( { size: 14 } ) }{ ' ' }
-										{ __(
+										),
+										...( pick
+											? []
+											: [
+													__(
+														'Add Watermarks',
+														'wunderpaint'
+													),
+													__(
+														'Generate Metadata',
+														'wunderpaint'
+													),
+													__(
+														'Optimize images',
+														'wunderpaint'
+													),
+											  ] ),
+										__(
 											'Find broken files',
 											'wunderpaint'
-										) }
-									</button>
-									{ ! pick && (
+										),
+									].map( ( l ) => (
+										<span key={ l }>{ l }</span>
+									) ) }
+								</div>
+								{ toolsOpen && (
+									<div className="wpie-mlm-tools-menu">
 										<button
 											className="wpie-mlm-link-btn"
 											onClick={ () => {
 												setToolsOpen( false );
-												setCleanupOpen( true );
+												suggestClusters();
 											} }
-										>
-											{ I.trash( { size: 14 } ) }{ ' ' }
-											{ __(
-												'Clean up the library',
-												'wunderpaint'
-											) }
-										</button>
-									) }
-									{ ! pick && (
-										<button
-											className="wpie-mlm-link-btn"
-											onClick={ () => {
-												setToolsOpen( false );
-												extras.openAltText( 'all', [
-													...selected,
-												] );
-											} }
-										>
-											{ I.text( { size: 14 } ) }{ ' ' }
-											{ __(
-												'Generate Metadata',
-												'wunderpaint'
-											) }
-										</button>
-									) }
-									{ ! pick && extras?.openBatch && (
-										<button
-											className="wpie-mlm-link-btn"
+											disabled={
+												! searchModelInstalled()
+											}
 											title={
-												selected.size
-													? undefined
-													: __(
-															'Opens the Image Processor in Optimize mode; select images first to preload them.',
+												! searchModelInstalled()
+													? __(
+															'Needs the image search model.',
 															'wunderpaint'
 													  )
+													: undefined
 											}
-											onClick={ () => {
-												setToolsOpen( false );
-												extras.openBatch( {
-													initialIds: [ ...selected ],
-													initialFormat: 'auto',
-												} );
-											} }
 										>
-											{ I.sliders( { size: 14 } ) }{ ' ' }
+											{ I.wand( { size: 14 } ) }{ ' ' }
 											{ __(
-												'Optimize images',
+												'Suggest folders',
 												'wunderpaint'
 											) }
 										</button>
+										<button
+											className="wpie-mlm-link-btn"
+											onClick={ () => {
+												setToolsOpen( false );
+												findDups();
+											} }
+											disabled={
+												! searchModelInstalled()
+											}
+											title={
+												! searchModelInstalled()
+													? __(
+															'Needs the image search model.',
+															'wunderpaint'
+													  )
+													: undefined
+											}
+										>
+											{ I.layers( { size: 14 } ) }{ ' ' }
+											{ __(
+												'Find duplicates',
+												'wunderpaint'
+											) }
+										</button>
+										<button
+											className="wpie-mlm-link-btn"
+											onClick={ () => {
+												setToolsOpen( false );
+												runRegenThumbs();
+											} }
+										>
+											{ I.image( { size: 14 } ) }{ ' ' }
+											{ __(
+												'Regenerate thumbnails',
+												'wunderpaint'
+											) }
+										</button>
+										<button
+											className="wpie-mlm-link-btn"
+											onClick={ () => {
+												setToolsOpen( false );
+												openRename();
+											} }
+										>
+											{ I.pencil( { size: 14 } ) }{ ' ' }
+											{ __(
+												'Rename by pattern',
+												'wunderpaint'
+											) }
+										</button>
+										{ ! pick && (
+											<button
+												className="wpie-mlm-link-btn"
+												onClick={ () => {
+													setToolsOpen( false );
+													addWatermarks();
+												} }
+											>
+												{ I.stamp( { size: 14 } ) }{ ' ' }
+												{ __(
+													'Add Watermarks',
+													'wunderpaint'
+												) }
+											</button>
+										) }
+										<button
+											className="wpie-mlm-link-btn"
+											onClick={ () => {
+												setToolsOpen( false );
+												findBroken();
+											} }
+										>
+											{ I.search( { size: 14 } ) }{ ' ' }
+											{ __(
+												'Find broken files',
+												'wunderpaint'
+											) }
+										</button>
+										{ ! pick && (
+											<button
+												className="wpie-mlm-link-btn"
+												onClick={ () => {
+													setToolsOpen( false );
+													setCleanupOpen( true );
+												} }
+											>
+												{ I.trash( { size: 14 } ) }{ ' ' }
+												{ __(
+													'Clean up the library',
+													'wunderpaint'
+												) }
+											</button>
+										) }
+										{ ! pick && (
+											<button
+												className="wpie-mlm-link-btn"
+												onClick={ () => {
+													setToolsOpen( false );
+													extras.openAltText( 'all', [
+														...selected,
+													] );
+												} }
+											>
+												{ I.text( { size: 14 } ) }{ ' ' }
+												{ __(
+													'Generate Metadata',
+													'wunderpaint'
+												) }
+											</button>
+										) }
+										{ ! pick && extras?.openBatch && (
+											<button
+												className="wpie-mlm-link-btn"
+												title={
+													selected.size
+														? undefined
+														: __(
+																'Opens the Image Processor in Optimize mode; select images first to preload them.',
+																'wunderpaint'
+														  )
+												}
+												onClick={ () => {
+													setToolsOpen( false );
+													extras.openBatch( {
+														initialIds: [
+															...selected,
+														],
+														initialFormat: 'auto',
+													} );
+												} }
+											>
+												{ I.sliders( { size: 14 } ) }{ ' ' }
+												{ __(
+													'Optimize images',
+													'wunderpaint'
+												) }
+											</button>
+										) }
+									</div>
+								) }
+								<button
+									className={
+										'wpie-mlm-toolsbtn' +
+										( toolsOpen ? ' open' : '' )
+									}
+									onClick={ () =>
+										setToolsOpen( ( v ) => ! v )
+									}
+								>
+									{ I.settings( { size: 15 } ) }{ ' ' }
+									{ __(
+										'Media Library Tools',
+										'wunderpaint'
 									) }
-								</div>
-							) }
-							<button
-								className={
-									'wpie-mlm-toolsbtn' +
-									( toolsOpen ? ' open' : '' )
-								}
-								onClick={ () => setToolsOpen( ( v ) => ! v ) }
-							>
-								{ I.settings( { size: 15 } ) }{ ' ' }
-								{ __( 'Media Library Tools', 'wunderpaint' ) }
-							</button>
-						</div>
+								</button>
+							</div>
+						) }
 						{ prepping && (
 							<span className="dsm-mono">
 								{ __(
@@ -4264,16 +4524,18 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							>
 								{ __( 'Download', 'wunderpaint' ) }
 							</a>
-							<button
-								type="button"
-								className="ai-btn secondary sm"
-								onClick={ () => {
-									setPreviewId( 0 );
-									setEditId( previewItem.id );
-								} }
-							>
-								{ __( 'Edit metadata', 'wunderpaint' ) }
-							</button>
+							{ canEditMeta() && (
+								<button
+									type="button"
+									className="ai-btn secondary sm"
+									onClick={ () => {
+										setPreviewId( 0 );
+										setEditId( previewItem.id );
+									} }
+								>
+									{ __( 'Edit metadata', 'wunderpaint' ) }
+								</button>
+							) }
 							<button
 								type="button"
 								className="ai-btn ghost sm"

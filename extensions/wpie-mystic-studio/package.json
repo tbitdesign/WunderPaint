@@ -1,6 +1,6 @@
 {
 	"name": "wpie-mystic-studio",
-	"version": "0.5.5",
+	"version": "0.5.6",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: computed birth charts, moon phases and zodiac posters",

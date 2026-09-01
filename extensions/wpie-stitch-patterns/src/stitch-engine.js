@@ -296,11 +296,17 @@ export function renderChart( ctx, grid, cols, rows, opts ) {
 				ctx.fillStyle = `rgba(${ p[ 0 ] },${ p[ 1 ] },${ p[ 2 ] },0.25)`;
 				ctx.fillRect( cx, cy, cell, ch );
 				if ( 'round' !== opts.drill ) {
-					const ins = cell * 0.06;
-					const sx = cx + ins;
-					const sy = cy + ins;
-					const sw = cell - 2 * ins;
-					const sh = ch - 2 * ins;
+					// Square drills butt up against each other on the
+					// canvas - that gapless coverage is the whole reason
+					// people pick them over round ones, so the drill
+					// fills its cell edge to edge. An inset here would
+					// print a paper margin the finished piece never has;
+					// the fine grid drawn on top keeps the cells
+					// countable without one.
+					const sx = cx;
+					const sy = cy;
+					const sw = cell;
+					const sh = ch;
 					ctx.fillStyle = hexOf( p );
 					ctx.fillRect( sx, sy, sw, sh );
 					// Facets: lighter top wedge, darker bottom wedge,
@@ -551,7 +557,9 @@ export function renderLegend( ctx, grid, opts ) {
  * @param {HTMLCanvasElement} source Source canvas (any size).
  * @param {Object}            opts   { nails (144..320), budget
  *                                     (400..4000), color (hex thread),
- *                                     size (internal, default 380) }.
+ *                                     alpha (ink per pass, 0.08..0.3 -
+ *                                     drives both the render and the
+ *                                     fade), size (internal, def. 380) }.
  * @return {Object} { canvas, sequence (nail indices), nails }
  */
 export function buildStringArt( source, opts = {} ) {
@@ -671,11 +679,19 @@ export function buildStringArt( source, opts = {} ) {
 	g.fillRect( 0, 0, c.width, c.height );
 	g.strokeStyle = color;
 	// Thread weight: how much ink one pass leaves (fine/normal/bold).
-	g.globalAlpha = Math.max( 0.08, Math.min( 0.3, opts.alpha || 0.16 ) );
+	const alpha = Math.max( 0.08, Math.min( 0.3, opts.alpha || 0.16 ) );
+	g.globalAlpha = alpha;
 	g.lineWidth = 1;
 	g.lineCap = 'round';
-	const FADE = 18;
-	const SIDE = 4;
+	// The fade has to match the ink, otherwise the planner is blind to
+	// the thread weight: 18 and 4 are the values that fit the 0.16
+	// default, so they scale with it. Pin them back to constants and a
+	// fine thread erases half again as much need as it really covers -
+	// the greedy search then walks the identical chord sequence for
+	// fine, normal and bold, and only the printed image gets paler.
+	const WEIGHT = alpha / 0.16;
+	const FADE = 18 * WEIGHT;
+	const SIDE = 4 * WEIGHT;
 	const MIN_SPAN = Math.round( NAILS * 0.05 );
 	const PENALTY = 14;
 	const used = new Set();
@@ -789,18 +805,28 @@ export function renderStringGuide( like, art, opts = {} ) {
  * connects to nail (i * factor) mod n. Factor 2 draws a cardioid,
  * 3 a nephroid, higher factors bloom into rosettes. No image needed.
  *
+ * The sheet prints the nail numbers it talks in, otherwise the rule
+ * above is not buildable on a bare ring of dots.
+ *
  * @param {Object} like Canvas-like.
- * @param {Object} opts { nails (60..320), factor (2..12), color (hex) }.
+ * @param {Object} opts { nails (60..320), factor (2..12), color (hex),
+ *                        labels (false for the small preview tile,
+ *                        where numbers only scale down to smudges) }.
  * @return {HTMLCanvasElement}
  */
 export function buildStringMandala( like, opts = {} ) {
 	const NAILS = Math.max( 60, Math.min( 320, opts.nails || 200 ) );
 	const factor = Math.max( 2, Math.min( 12, opts.factor || 2 ) );
 	const color = opts.color || '#26292e';
+	const labels = false !== opts.labels;
 	const SIZE = 1000;
 	const CX = SIZE / 2;
 	const CY = SIZE / 2;
-	const R = SIZE / 2 - 30;
+	// The ring keeps its distance from the edge because the nail
+	// numbers are printed outside it - shrink this margin back and they
+	// run off the sheet. The margin stays the same when the numbers are
+	// suppressed, so both sheets are the same drawing.
+	const R = SIZE / 2 - 62;
 	const c = makeCanvas( like, SIZE, SIZE );
 	const g = c.getContext( '2d' );
 	g.fillStyle = '#ffffff';
@@ -827,6 +853,33 @@ export function buildStringMandala( like, opts = {} ) {
 		g.beginPath();
 		g.arc( x, y, 3, 0, Math.PI * 2 );
 		g.fill();
+	}
+	if ( labels ) {
+		// Counting starts at 0 at the top and runs clockwise: the
+		// mandala IS the times table, and "i goes to i * factor" only
+		// reads off the sheet when the nail called 0 is the one the
+		// arithmetic calls 0. (The string-art winding guide numbers
+		// from 1 - that sheet lists a threading ORDER, not a table.)
+		// Only every step-th nail is written, or the ring turns into a
+		// grey band of digits.
+		let step = 20;
+		if ( NAILS <= 120 ) {
+			step = 5;
+		} else if ( NAILS <= 240 ) {
+			step = 10;
+		}
+		g.font = '600 20px sans-serif';
+		g.textAlign = 'center';
+		g.textBaseline = 'middle';
+		for ( let i = 0; i < NAILS; i += step ) {
+			const a = ( i / NAILS ) * Math.PI * 2 - Math.PI / 2;
+			g.fillStyle = i ? '#6a7078' : '#26292e';
+			g.fillText(
+				String( i ),
+				CX + Math.cos( a ) * ( R + 26 ),
+				CY + Math.sin( a ) * ( R + 26 )
+			);
+		}
 	}
 	return c;
 }

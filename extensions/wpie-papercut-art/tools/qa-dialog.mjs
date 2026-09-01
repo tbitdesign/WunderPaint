@@ -768,4 +768,94 @@ check(
 	'and leaves the passepartout where it was'
 );
 
+/* ------------------- punching a ridge, not only a bird ------------------- */
+
+// The switch used to sit INSIDE the "page-covering object" guard, so a
+// terrain - an ordinary placeable object since v3 - could be dragged and
+// reshaped but never punched, while the comment beside it promised "any
+// object, any layer". Only a backdrop and a passepartout really have no
+// hole to give; a ridge is not one of them.
+await page.evaluate( () => {
+	const p = window.__pca.params;
+	// The passepartout covers the stage, and the signature below has to
+	// see the ridge itself change.
+	p.layers = p.layers.filter(
+		( l ) => ! l.objects.some( ( o ) => 'frame' === o.kind )
+	);
+	window.__pca.engine.build( p );
+	window.__pca.rerender();
+} );
+await page
+	.locator( '.wpiepca-tile', { hasText: 'Bergkette' } )
+	.first()
+	.click();
+await page.waitForTimeout( 400 );
+const punchRow = page
+	.locator( '.wpiepca-lage .dsm-checkrow', {
+		hasText: 'Aus dem Papier stanzen',
+	} )
+	.first();
+check(
+	( await punchRow.count() ) > 0,
+	'a ridge is offered the punch, like everything else that can hold a hole'
+);
+const beforePunch = await sig();
+await punchRow.click();
+await page.waitForTimeout( 450 );
+const punched = await page.evaluate( () => {
+	const o = window.__pca.params.layers
+		.flatMap( ( l ) => l.objects )
+		.find( ( x ) => x.id === window.__pca.selected );
+	return { kind: o && o.kind, cut: !! ( o && o.cut ) };
+} );
+check(
+	'terrain' === punched.kind && punched.cut,
+	'and the switch really punches it'
+);
+check( ( await sig() ) !== beforePunch, 'and the picture changes with it' );
+
+/* ---------------------- several things on ONE sheet ---------------------- */
+
+// The renderer has been able to put several things on one sheet since
+// v3 - that is how a bird reaching into the passepartout's window stays
+// whole - but no insert point ever asked for it: every tile made a fresh
+// sheet and addObject's `onto` had no caller at all. The switch in the
+// Selection panel is that caller.
+await page.locator( '.wpiepca-tile', { hasText: 'Stern' } ).first().click();
+await page.waitForTimeout( 400 );
+const shareRow = page
+	.locator( '.wpiepca-lage .dsm-checkrow', {
+		hasText: 'Neues auf diesen Bogen legen',
+	} )
+	.first();
+check(
+	( await shareRow.count() ) > 0,
+	'a sheet can be told to take the next things'
+);
+await shareRow.click();
+await page.locator( '.wpiepca-tile', { hasText: 'Adler' } ).first().click();
+await page.waitForTimeout( 400 );
+const shared = await page.evaluate( () => {
+	const layers = window.__pca.params.layers;
+	const host = layers.find( ( l ) =>
+		l.objects.some( ( o ) => 'frame' === o.kind )
+	);
+	const eagle = layers
+		.flatMap( ( l ) => l.objects )
+		.find( ( o ) => 'flyer' === o.kind );
+	return {
+		together: !! (
+			host &&
+			eagle &&
+			host.objects.some( ( o ) => o.id === eagle.id )
+		),
+		onHost: host ? host.objects.length : 0,
+		sheets: layers.length,
+	};
+} );
+check(
+	shared.together,
+	`the eagle joined the passepartout's own sheet (${ shared.onHost } things on it)`
+);
+
 process.exit( await qa.finish() );

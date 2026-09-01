@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.427.2
+Stable tag: 1.428.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -253,6 +253,16 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+
+= 1.428.0 =
+* A pass over what the editor promises against what it actually does, and everything below came out of it. The paint media are the clearest case: with "each stroke on its own layer" left on, a watercolor or charcoal stroke quietly landed as an ordinary one, with no message and no way to tell. It keeps its medium now.
+* Recordings and exports say what they mean. An action recording counted a crop and a magic resize that it then skipped on playback, so both are recorded properly. A mockup inserted into a large document arrived enlarged and soft under a footer promising high resolution, and is now placed at its own resolution. A panorama on a document that is not two to one says so, rather than letting the export produce a file that is no longer a valid 360 image, and a machine whose graphics hardware cannot take the texture says that instead of showing an empty sphere.
+* Living Photos records a whole turn. It used to record from the moment you pressed the button, which on a six second loop could mean half a second of video. The Solar System's video now shows the background you picked instead of replacing it with dark blue, and Chaos Art no longer ends the film while you have it paused.
+* Marble Bath and the 3D Particle Studio can record in Safari. Both carried their own recorder that only knew WebM, which that browser cannot write, so the button was there and could never work.
+* Mystic Studio's planets stood in the wrong places. Uranus was a full degree out and Neptune two thirds of one, because two reference tables had been mixed. The positions are corrected and pinned against published ephemeris values for a set of known dates, so they cannot drift again unnoticed.
+* Printable sheets are legible and honest. Puzzle numbers and starting letters were drawn in the palette's lead color, which on a pale palette left them invisible on paper. The gift box printed every line solid while its own legend promised dashed folds. Cupcake toppers offered a text field for a design that never drew the text.
+* Smaller things across the studios: Papercut can punch a hole in any object it lets you place, City Diorama's Variation really rolls the skyline and its status line no longer counts two different sets of buildings, Star Map's foil color returns with the theme, Stitch Patterns' thread weight reaches the planner, Generative Art's five densest motifs got their density dial, a page in the Flip Studio opens from anywhere in its row, and the source list in Drawing Templates shows its grouping again.
+* The handbook and the help assistant were describing things the code does not do, in eight places. Those are corrected at the source, so pages written from them later inherit the correction rather than the error.
 
 = 1.427.2 =
 * Four brush tips to a row again. They grew last release and the strip could only hold three of them, so the strip itself is wider now and the panel with it.

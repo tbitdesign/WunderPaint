@@ -113,6 +113,7 @@ const DEFAULTS = {
 };
 
 import { t } from './i18n.js';
+import { sourceLayerOptions } from './source-list.js';
 
 /* -------------------------------- helpers -------------------------------- */
 
@@ -333,27 +334,27 @@ function openStudio( ctx ) {
 			const o = el( 'option', null, srcSel );
 			o.value = v;
 			o.textContent = label;
+			return o;
 		};
 		add( 'doc', t( 'Whole document' ) );
-		const walk = ( layers, depth ) => {
-			for ( const l of layers || [] ) {
-				if ( 'group' === l.type ) {
-					walk( l.children, depth + 1 );
-					continue;
-				}
-				add(
-					'layer:' + l.id,
-					' '.repeat( depth * 2 ) + ( l.name || l.type )
-				);
-			}
-		};
-		walk( editor.state.layers, 0 );
+		// The layer entries come ready-indented from source-list.js - with
+		// non-breaking spaces, because a browser eats ordinary ones inside
+		// an <option> and the nesting would be gone.
+		for ( const entry of sourceLayerOptions( editor.state.layers ) ) {
+			const o = add( entry.value, entry.label );
+			// Group headings only name what follows, they are no source.
+			o.disabled = entry.disabled;
+		}
 		add( 'media', t( 'Media library…' ) );
 	}
 	fillSourceOptions();
 	srcSel.value =
 		[ 'doc', 'media' ].includes( params.source ) ||
-		srcSel.querySelector( `option[value="${ params.source }"]` )
+		// `:not( [disabled] )` keeps a stored empty source from landing on a
+		// group heading, which carries an empty value and is no source.
+		srcSel.querySelector(
+			`option[value="${ params.source }"]:not( [disabled] )`
+		)
 			? params.source
 			: 'doc';
 	params.source = srcSel.value;

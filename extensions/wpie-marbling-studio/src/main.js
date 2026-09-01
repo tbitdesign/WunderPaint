@@ -15,7 +15,11 @@
  * on the right, status and the primary button in the foot.
  */
 
-import { MarblingEngine } from './engine.js';
+import {
+	MarblingEngine,
+	canRecordVideo,
+	recordingExtension,
+} from './engine.js';
 import {
 	mergeParams,
 	MAX_OPS,
@@ -228,6 +232,14 @@ function openStudio( ctx ) {
 	};
 
 	const engine = new MarblingEngine( canvas );
+	// bridge.video carries the core's recorder and its full mime chain
+	// (WebM, then MP4 for WebKit). Feature-detected: an older core has
+	// none, and the studio then falls back to its own recorder.
+	const videoBridge = bridge.video || null;
+	const noRecorderText = () =>
+		t(
+			'This browser cannot record video. Chrome, Edge, Firefox and Safari 17 or newer can.'
+		);
 	let replaying = false;
 
 	/* ------------------------------ show document -------------------------- */
@@ -907,6 +919,12 @@ function openStudio( ctx ) {
 		prevBtn.type = 'button';
 		prevBtn.innerHTML = ICONS.play + ' ' + t( 'Preview' );
 		prevBtn.onclick = () => playPreview();
+		// Offer the film only where it can actually be made, and say why
+		// when it cannot: WebGL2 is one gate, the browser's recorder is
+		// the other. Safari has no WebM encoder, so a button labelled
+		// "Video (WebM)" used to stand there in full width and then fail
+		// with a bare "Recording failed." - the label now follows the
+		// format the recorder will really produce.
 		if ( engine.cpu ) {
 			ui.el(
 				'div',
@@ -914,11 +932,17 @@ function openStudio( ctx ) {
 				fi,
 				t( 'Video export needs WebGL2, which this browser lacks.' )
 			);
+		} else if ( ! canRecordVideo( videoBridge ) ) {
+			ui.el( 'div', 'wpiemb-note', fi, noRecorderText() );
 		} else {
+			const recExt = recordingExtension( videoBridge );
 			const vidRow = ui.el( 'div', 'wpiemb-btnrow', fi );
 			const vidBtn = ui.el( 'button', 'ai-btn secondary', vidRow );
 			vidBtn.type = 'button';
-			vidBtn.innerHTML = ICONS.film + ' ' + t( 'Video (WebM)' );
+			vidBtn.innerHTML =
+				ICONS.film +
+				' ' +
+				( 'mp4' === recExt ? t( 'Video (MP4)' ) : t( 'Video (WebM)' ) );
 			vidBtn.onclick = () =>
 				recordAnd( vidBtn, ( blob, ext ) =>
 					download( blob, 'marbling.' + ext )
@@ -1541,6 +1565,29 @@ function openStudio( ctx ) {
 		};
 	};
 
+	/**
+	 * Why the film did not come. "Recording failed." on its own told a
+	 * Safari visitor nothing at all - and Safari was exactly who used to
+	 * hit this, because the recorder was offered a format it cannot
+	 * encode. Keep a reason on every path.
+	 *
+	 * @param {Error} e The rejection from recordVideo().
+	 * @return {string} Message for the toast.
+	 */
+	function recordingProblem( e ) {
+		const code = e && e.code;
+		if ( 'webgl2' === code ) {
+			return t( 'Video export needs WebGL2, which this browser lacks.' );
+		}
+		if ( 'unsupported' === code ) {
+			return noRecorderText();
+		}
+		const detail = e && e.message ? String( e.message ) : '';
+		return detail
+			? t( 'Recording failed.' ) + ' ' + detail
+			: t( 'Recording failed.' );
+	}
+
 	async function recordAnd( btn, sink ) {
 		if ( btn.disabled || replaying ) {
 			return;
@@ -1558,10 +1605,11 @@ function openStudio( ctx ) {
 				fps: 30,
 				mode: state.video,
 				params: { waterAmp: state.waterAmp, loop: state.loop },
+				video: videoBridge,
 			} );
 			await sink( blob, ext );
 		} catch ( e ) {
-			toasts.error( t( 'Recording failed.' ) );
+			toasts.error( recordingProblem( e ) );
 		}
 		btn.innerHTML = prev;
 		btn.disabled = false;
@@ -1579,7 +1627,11 @@ function openStudio( ctx ) {
 				'X-WP-Nonce': boot.nonce || '',
 				'Content-Disposition':
 					'attachment; filename="marbling.' + ext + '"',
-				'Content-Type': blob.type || 'video/webm',
+				// Follow the recording, not a wish: WebKit hands back
+				// MP4 bytes, and WordPress rejects an upload whose type
+				// does not match the file it was given.
+				'Content-Type':
+					blob.type || ( 'mp4' === ext ? 'video/mp4' : 'video/webm' ),
 			},
 			body: blob,
 		} );

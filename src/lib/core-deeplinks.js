@@ -36,6 +36,7 @@
  * @type {Object<string,string>}
  */
 export const CORE_DEEPLINKS = {
+	'360-panorama': 'openPanorama',
 	actions: 'openActions',
 	'asset-generator': 'openGenerate',
 	'asset-library': 'openLibrary',
@@ -43,6 +44,7 @@ export const CORE_DEEPLINKS = {
 	'batch-watermark': 'openBatchWatermark',
 	'brand-kits': 'openBrandKits',
 	'chart-table': 'openChart',
+	'collage-photo-grid': 'openCollage',
 	'check-contrast': 'openContrast',
 	'color-schemer': 'openColorSchemer',
 	'content-generator': 'openCreatePost',

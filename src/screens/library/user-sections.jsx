@@ -264,31 +264,46 @@ export function DesignsSection( { editor, extras, onClose } ) {
 									</span>
 								</button>
 								<div className="library-tpl-actions">
-									<button
-										title={ __(
-											'Duplicate design',
-											'wunderpaint'
-										) }
-										aria-label={ __(
-											'Duplicate design',
-											'wunderpaint'
-										) }
-										disabled={ busy }
-										onClick={ async () => {
-											try {
-												await designsApi.duplicate(
-													design.id
-												);
-												refresh();
-											} catch ( err ) {
-												extras.toasts.error(
-													err.message
-												);
-											}
-										} }
-									>
-										{ I.duplicate( { size: 12 } ) }
-									</button>
+									{ /* Duplicating needs the route
+									   /designs/{id}/duplicate. The standalone
+									   studio's local host reads only the first
+									   two path segments, so the call landed in
+									   the generic design-update branch and
+									   rewrote the SAME record with an empty
+									   body: no second design appeared, and the
+									   button reported nothing at all. Hidden
+									   there instead of pretending; in
+									   WordPress the button is unchanged.
+									   Rename and Move to folder next to it do
+									   work in the studio - they go through the
+									   plain update route - so they stay. */ }
+									{ ! window.WPIE?.standalone && (
+										<button
+											title={ __(
+												'Duplicate design',
+												'wunderpaint'
+											) }
+											aria-label={ __(
+												'Duplicate design',
+												'wunderpaint'
+											) }
+											disabled={ busy }
+											onClick={ async () => {
+												try {
+													await designsApi.duplicate(
+														design.id
+													);
+													refresh();
+												} catch ( err ) {
+													extras.toasts.error(
+														err.message
+													);
+												}
+											} }
+										>
+											{ I.duplicate( { size: 12 } ) }
+										</button>
+									) }
 									<button
 										title={ __(
 											'Move to folder',

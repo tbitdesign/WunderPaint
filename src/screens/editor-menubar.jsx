@@ -168,17 +168,30 @@ function buildMenus( editor, extras ) {
 					kbd: window.WPIE?.demo ? '⌘S' : '⇧⌘E',
 					run: () => extras.openExport( 'export' ),
 				},
+				// Sharing needs a server that can hand out a public link, and
+				// the standalone studio has none: its local host knows no
+				// /designs/{id}/share, so the POST fell into the generic
+				// design-update branch - the full-size JPEG was merged into
+				// the stored design and the link dialog opened empty. Stop
+				// Sharing was worse: its DELETE matched the plain
+				// design-delete branch and threw the whole design away while
+				// reporting the link revoked. Hidden here rather than made to
+				// look like it works; in WordPress both are unchanged.
 				{
 					ws: 'mi.file.share',
 					label: __( 'Share Design Link', 'wunderpaint' ),
 					run: () => Ops.shareDesignOp( editor, extras ),
-					when: () => !! state.doc.source?.designId,
+					when: () =>
+						!! state.doc.source?.designId &&
+						! window.WPIE?.standalone,
 				},
 				{
 					ws: 'mi.file.unshare',
 					label: __( 'Stop Sharing', 'wunderpaint' ),
 					run: () => Ops.unshareDesignOp( editor, extras ),
-					when: () => !! state.doc.source?.designId,
+					when: () =>
+						!! state.doc.source?.designId &&
+						! window.WPIE?.standalone,
 				},
 				{ divider: true },
 				{

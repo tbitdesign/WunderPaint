@@ -868,8 +868,12 @@ function openStudio( ctx ) {
 					downloadFont( cut.bytes, cut.filename, bridge );
 				}
 				const msg = t( 'Downloaded %d file(s).' ).replace( '%d', cuts.length );
+				// Outside WordPress there is no font library and no such
+				// right, so the note would blame the user for something
+				// that was never on offer. Gate it on the host, not on
+				// the capability.
 				setStatus(
-					canInstall()
+					canInstall() || isStandalone()
 						? msg
 						: `${ msg } ${ t(
 								'Only an administrator can add fonts to this site. The files were downloaded instead.'

@@ -13,6 +13,18 @@ const LOCALE = (
 ).toLowerCase();
 
 const DE = {
+	Engraving: 'Stich',
+	'Contour Lines': 'Höhenlinien',
+	Stipple: 'Punktierung',
+	'One Line': 'Eine Linie',
+	'Line spacing': 'Linienabstand',
+	Angle: 'Winkel',
+	'Line weight': 'Linienstärke',
+	'Follow the form': 'Der Form folgen',
+	Levels: 'Stufen',
+	'Line width': 'Strichbreite',
+	Dots: 'Punkte',
+	'Insert as vector paths': 'Als Vektorpfade einfügen',
 	'Your image, rebuilt from characters, bricks and tiles - as editable layers.':
 		'Dein Bild, neu gebaut aus Zeichen, Steinen und Kacheln - als editierbare Ebenen.',
 	Close: 'Schließen',
@@ -194,6 +206,18 @@ const DE = {
 };
 
 const ES = {
+	Engraving: 'Grabado',
+	'Contour Lines': 'Curvas de nivel',
+	Stipple: 'Punteado',
+	'One Line': 'Una línea',
+	'Line spacing': 'Espaciado de líneas',
+	Angle: 'Ángulo',
+	'Line weight': 'Grosor de línea',
+	'Follow the form': 'Seguir la forma',
+	Levels: 'Niveles',
+	'Line width': 'Ancho de trazo',
+	Dots: 'Puntos',
+	'Insert as vector paths': 'Insertar como trazados vectoriales',
 	'Your image, rebuilt from characters, bricks and tiles - as editable layers.':
 		'Tu imagen, reconstruida con caracteres, ladrillos y fichas, como capas editables.',
 	Close: 'Cerrar',
@@ -375,6 +399,18 @@ const ES = {
 };
 
 const FR = {
+	Engraving: 'Gravure',
+	'Contour Lines': 'Courbes de niveau',
+	Stipple: 'Pointillé',
+	'One Line': 'Une ligne',
+	'Line spacing': 'Écart des lignes',
+	Angle: 'Angle',
+	'Line weight': 'Épaisseur du trait',
+	'Follow the form': 'Suivre la forme',
+	Levels: 'Niveaux',
+	'Line width': 'Largeur du trait',
+	Dots: 'Points',
+	'Insert as vector paths': 'Insérer comme tracés vectoriels',
 	'Your image, rebuilt from characters, bricks and tiles - as editable layers.':
 		'Votre image, reconstruite en caractères, briques et tuiles, en calques modifiables.',
 	Close: 'Fermer',
@@ -556,6 +592,18 @@ const FR = {
 };
 
 const PT = {
+	Engraving: 'Gravura',
+	'Contour Lines': 'Curvas de nível',
+	Stipple: 'Pontilhado',
+	'One Line': 'Uma linha',
+	'Line spacing': 'Espaçamento das linhas',
+	Angle: 'Ângulo',
+	'Line weight': 'Espessura da linha',
+	'Follow the form': 'Seguir a forma',
+	Levels: 'Níveis',
+	'Line width': 'Largura do traço',
+	Dots: 'Pontos',
+	'Insert as vector paths': 'Inserir como traçados vetoriais',
 	'Your image, rebuilt from characters, bricks and tiles - as editable layers.':
 		'Sua imagem, reconstruída com caracteres, blocos e peças, como camadas editáveis.',
 	Close: 'Fechar',
@@ -737,6 +785,18 @@ const PT = {
 };
 
 const IT = {
+	Engraving: 'Incisione',
+	'Contour Lines': 'Curve di livello',
+	Stipple: 'Puntinato',
+	'One Line': 'Una linea',
+	'Line spacing': 'Spaziatura delle linee',
+	Angle: 'Angolo',
+	'Line weight': 'Spessore della linea',
+	'Follow the form': 'Segui la forma',
+	Levels: 'Livelli',
+	'Line width': 'Larghezza del tratto',
+	Dots: 'Punti',
+	'Insert as vector paths': 'Inserisci come tracciati vettoriali',
 	'Your image, rebuilt from characters, bricks and tiles - as editable layers.':
 		'La tua immagine, ricostruita con caratteri, mattoncini e tessere, come livelli modificabili.',
 	Close: 'Chiudi',
@@ -918,6 +978,18 @@ const IT = {
 };
 
 const NL = {
+	Engraving: 'Gravure',
+	'Contour Lines': 'Hoogtelijnen',
+	Stipple: 'Stippeling',
+	'One Line': 'Eén lijn',
+	'Line spacing': 'Lijnafstand',
+	Angle: 'Hoek',
+	'Line weight': 'Lijndikte',
+	'Follow the form': 'De vorm volgen',
+	Levels: 'Niveaus',
+	'Line width': 'Streekbreedte',
+	Dots: 'Punten',
+	'Insert as vector paths': 'Als vectorpaden invoegen',
 	'Your image, rebuilt from characters, bricks and tiles - as editable layers.':
 		'Je afbeelding, opnieuw opgebouwd uit tekens, bouwstenen en tegels - als bewerkbare lagen.',
 	Close: 'Sluiten',
