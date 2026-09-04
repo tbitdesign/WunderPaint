@@ -386,11 +386,11 @@ function insideRuns( pts, w, h, margin ) {
  * Neighbouring cells compute a shared edge crossing from the same two
  * corner values, so their endpoints match to the bit and can be keyed.
  *
- * @param {Function} at    ( x, y ) -> scalar.
- * @param {number}   iso   Level to trace.
- * @param {number}   min   Grid origin (both axes).
- * @param {number}   span  Grid size (both axes).
- * @param {number}   N     Cells per axis.
+ * @param {Function} fieldAt ( x, y ) -> scalar.
+ * @param {number}   iso     Level to trace.
+ * @param {number}   min     Grid origin (both axes).
+ * @param {number}   span    Grid size (both axes).
+ * @param {number}   N       Cells per axis.
  * @return {Array} Array of point chains.
  */
 function isoContours( fieldAt, iso, min, span, N ) {
@@ -1901,7 +1901,8 @@ export const DYNAMIC_SHAPES = [
 				min: 2,
 				max: 8,
 				step: 1,
-				def: 3,
+				// Five by default: three prongs read as a fork (v1.430).
+				def: 5,
 			},
 			{
 				key: 'depth',
@@ -5941,18 +5942,18 @@ export const DYNAMIC_SHAPES = [
 				const side = ( q ) => nx * ( q.x - mx ) + ny * ( q.y - my );
 				const out = [];
 				for ( let i = 0; i < poly.length; i++ ) {
-					const c = poly[ i ];
+					const cur = poly[ i ];
 					const d = poly[ ( i + 1 ) % poly.length ];
-					const sc = side( c );
+					const sc = side( cur );
 					const sd = side( d );
 					if ( sc <= 0 ) {
-						out.push( c );
+						out.push( cur );
 					}
 					if ( sc <= 0 !== sd <= 0 ) {
 						const t = sc / ( sc - sd );
 						out.push( {
-							x: c.x + ( d.x - c.x ) * t,
-							y: c.y + ( d.y - c.y ) * t,
+							x: cur.x + ( d.x - cur.x ) * t,
+							y: cur.y + ( d.y - cur.y ) * t,
 						} );
 					}
 				}

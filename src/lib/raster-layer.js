@@ -540,7 +540,8 @@ export function cloneStamp( layer, snapshot, offset, at, opts = {} ) {
  *
  * @param {Object} layer Raster layer (canvas required).
  * @param {Object} at    Doc-space center point.
- * @param {Object} opts  { mode:'blur'|'sharpen', size, strength, hardness, mask }.
+ * @param {Object} opts  { mode: blur|sharpen|smudge|dodge|burn|sponge, size,
+ *                       strength, hardness, mask, prev (smudge), sponge }.
  */
 export function effectStamp( layer, at, opts = {} ) {
 	if ( ! layer.canvas ) {
@@ -564,14 +565,61 @@ export function effectStamp( layer, at, opts = {} ) {
 		-( local.x - radius ),
 		-( local.y - radius )
 	);
-	const img = sctx.getImageData( 0, 0, size, size );
-	const buffer = { data: img.data, width: size, height: size };
-	if ( 'sharpen' === mode ) {
-		sharpen( buffer, { amount: strength * 2 } );
+	if ( 'smudge' === mode ) {
+		// Smudge (v1.429): the pixels under the previous step are dragged
+		// to this one. The stamp holds that patch; the soft edge and the
+		// strength decide how much of it lands.
+		const prev = opts.prev || at;
+		sctx.clearRect( 0, 0, size, size );
+		sctx.drawImage(
+			layer.canvas,
+			-( prev.x - layer.x - radius ),
+			-( prev.y - layer.y - radius )
+		);
 	} else {
-		gaussianBlur( buffer, { radius: Math.max( 1, strength / 8 ) } );
+		const img = sctx.getImageData( 0, 0, size, size );
+		const buffer = { data: img.data, width: size, height: size };
+		if ( 'sharpen' === mode ) {
+			sharpen( buffer, { amount: strength * 2 } );
+		} else if ( 'dodge' === mode || 'burn' === mode ) {
+			// Lighten or darken (v1.429): a gentle per-stamp factor, the
+			// stroke's steps add up the way a real dodge would.
+			const k = ( strength / 100 ) * 0.18;
+			const f = 'dodge' === mode ? 1 + k : 1 - k;
+			const d = img.data;
+			for ( let i = 0; i < d.length; i += 4 ) {
+				d[ i ] = Math.min( 255, d[ i ] * f );
+				d[ i + 1 ] = Math.min( 255, d[ i + 1 ] * f );
+				d[ i + 2 ] = Math.min( 255, d[ i + 2 ] * f );
+			}
+		} else if ( 'sponge' === mode ) {
+			// Saturate or desaturate around the pixel's own luminance.
+			const k =
+				( strength / 100 ) *
+				0.2 *
+				( 'saturate' === opts.sponge ? 1 : -1 );
+			const d = img.data;
+			for ( let i = 0; i < d.length; i += 4 ) {
+				const lum =
+					0.2126 * d[ i ] + 0.7152 * d[ i + 1 ] + 0.0722 * d[ i + 2 ];
+				d[ i ] = Math.max(
+					0,
+					Math.min( 255, lum + ( d[ i ] - lum ) * ( 1 + k ) )
+				);
+				d[ i + 1 ] = Math.max(
+					0,
+					Math.min( 255, lum + ( d[ i + 1 ] - lum ) * ( 1 + k ) )
+				);
+				d[ i + 2 ] = Math.max(
+					0,
+					Math.min( 255, lum + ( d[ i + 2 ] - lum ) * ( 1 + k ) )
+				);
+			}
+		} else {
+			gaussianBlur( buffer, { radius: Math.max( 1, strength / 8 ) } );
+		}
+		sctx.putImageData( img, 0, 0 );
 	}
-	sctx.putImageData( img, 0, 0 );
 
 	// Soft circular edge.
 	const inner = Math.min(
@@ -594,6 +642,9 @@ export function effectStamp( layer, at, opts = {} ) {
 
 	const ctx = layer.canvas.getContext( '2d' );
 	ctx.save();
+	if ( 'smudge' === mode ) {
+		ctx.globalAlpha = Math.max( 0.05, Math.min( 1, strength / 100 ) );
+	}
 	if ( mask ) {
 		const scratch = createCanvas( layer.canvas.width, layer.canvas.height );
 		const scx = scratch.getContext( '2d' );

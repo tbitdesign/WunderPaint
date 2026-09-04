@@ -932,8 +932,8 @@ export const ai = {
 			model,
 			image,
 		} ),
-	layout: ( { text, style, w, h, n } ) =>
-		aiPost( 'layout', { text, style, w, h, n } ),
+	layout: ( { text, segments, fonts, style, w, h, n } ) =>
+		aiPost( 'layout', { text, segments, fonts, style, w, h, n } ),
 	seo: ( { title, excerpt } ) => aiPost( 'seo', { title, excerpt } ),
 	test: ( provider ) => aiPost( 'test', { provider } ),
 };

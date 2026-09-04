@@ -128,10 +128,64 @@ export const I = {
 			<path d="M4 6h16M8 11h8M6 16h12M10 21h4" />
 		</Icon>
 	),
+	// Fluid Text (v1.429): a box with lines of different weight filling it.
+	fluidText: ( p ) => (
+		<Icon { ...p }>
+			<rect x="3" y="3" width="18" height="18" rx="1.5" />
+			<path d="M6.5 8h11" strokeWidth="2.6" />
+			<path d="M6.5 12.5h11" strokeWidth="1.4" />
+			<path d="M6.5 17h11" strokeWidth="3.2" />
+		</Icon>
+	),
 	shape: ( p ) => (
 		<Icon { ...p }>
 			<rect x="3" y="3" width="10" height="10" />
 			<circle cx="17" cy="17" r="4" />
+		</Icon>
+	),
+	// Boolean operations (v1.430): two overlapping squares, the kept
+	// part filled.
+	boolUnite: ( p ) => (
+		<Icon { ...p }>
+			<path
+				d="M3 3h11v7h7v11H10v-7H3z"
+				fill="currentColor"
+				fillOpacity="0.35"
+			/>
+		</Icon>
+	),
+	boolSubtract: ( p ) => (
+		<Icon { ...p }>
+			<path
+				d="M3 3h11v7h-4v4H3z"
+				fill="currentColor"
+				fillOpacity="0.35"
+			/>
+			<rect x="10" y="10" width="11" height="11" />
+		</Icon>
+	),
+	boolIntersect: ( p ) => (
+		<Icon { ...p }>
+			<rect x="3" y="3" width="11" height="11" />
+			<rect x="10" y="10" width="11" height="11" />
+			<rect
+				x="10"
+				y="10"
+				width="4"
+				height="4"
+				fill="currentColor"
+				fillOpacity="0.5"
+			/>
+		</Icon>
+	),
+	boolExclude: ( p ) => (
+		<Icon { ...p }>
+			<path
+				d="M3 3h11v7h-4v4H3zM21 21H10v-7h4v-4h7z"
+				fill="currentColor"
+				fillOpacity="0.35"
+			/>
+			<rect x="10" y="10" width="4" height="4" />
 		</Icon>
 	),
 	pen: ( p ) => (
@@ -423,6 +477,22 @@ export const I = {
 			<path d="M9 6l6 6-6 6" />
 		</Icon>
 	),
+	// To the front / back of the stack (v1.429): the one-step arrows with
+	// a bar at the end of the way.
+	toFront: ( p ) => (
+		<Icon { ...p }>
+			<path d="M5 5h14" />
+			<path d="M12 20V9" />
+			<path d="M7 14l5-5 5 5" />
+		</Icon>
+	),
+	toBack: ( p ) => (
+		<Icon { ...p }>
+			<path d="M5 19h14" />
+			<path d="M12 4v11" />
+			<path d="M7 10l5 5 5-5" />
+		</Icon>
+	),
 	arrUp: ( p ) => (
 		<Icon { ...p }>
 			<path d="M12 19V5M5 12l7-7 7 7" />
@@ -446,6 +516,12 @@ export const I = {
 	underline: ( p ) => (
 		<Icon { ...p }>
 			<path d="M6 3v7a6 6 0 0 0 12 0V3M4 21h16" />
+		</Icon>
+	),
+	strikethrough: ( p ) => (
+		<Icon { ...p }>
+			<path d="M16 6.5A4 4 0 0 0 12 4c-2.3 0-4 1.4-4 3.3 0 1.6 1.1 2.5 3 3M8 17.5A4 4 0 0 0 12 20c2.3 0 4-1.4 4-3.3 0-.8-.2-1.4-.6-2" />
+			<path d="M4 12h16" />
 		</Icon>
 	),
 	caseUpper: ( p ) => (

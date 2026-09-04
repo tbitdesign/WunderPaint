@@ -165,18 +165,55 @@ export const SHORTCUTS = [
 	},
 	{
 		id: 'paste',
-		match: ( c ) => c.meta && 'v' === c.key,
+		match: ( c ) => c.meta && ! c.shift && 'v' === c.key,
 		run: ( editor ) => Ops.pasteLayers( editor ),
 	},
 	{
+		id: 'paste-in-place',
+		match: ( c ) => c.meta && c.shift && 'v' === c.key,
+		run: ( editor ) => Ops.pasteInPlaceOp( editor ),
+	},
+	// Arrange (v1.429): Shift turns the one-step moves into "all the
+	// way". On a US layout Shift+] reports '}', so both keys count.
+	{
+		id: 'bring-to-front',
+		match: ( c ) => c.meta && c.shift && ( ']' === c.key || '}' === c.key ),
+		run: ( editor ) => Ops.bringToFrontOp( editor ),
+	},
+	{
+		id: 'send-to-back',
+		match: ( c ) => c.meta && c.shift && ( '[' === c.key || '{' === c.key ),
+		run: ( editor ) => Ops.sendToBackOp( editor ),
+	},
+	{
 		id: 'bring-forward',
-		match: ( c ) => c.meta && ']' === c.key,
+		match: ( c ) => c.meta && ! c.shift && ']' === c.key,
 		run: ( editor ) => Ops.bringForwardOp( editor ),
 	},
 	{
 		id: 'send-backward',
-		match: ( c ) => c.meta && '[' === c.key,
+		match: ( c ) => c.meta && ! c.shift && '[' === c.key,
 		run: ( editor ) => Ops.sendBackwardOp( editor ),
+	},
+	{
+		id: 'group',
+		match: ( c ) => c.meta && ! c.shift && 'g' === c.key,
+		run: ( editor ) => Ops.newGroupOp( editor ),
+	},
+	{
+		id: 'ungroup',
+		match: ( c ) => c.meta && c.shift && 'g' === c.key,
+		run: ( editor ) => Ops.ungroupOp( editor ),
+	},
+	{
+		id: 'hide-layer',
+		match: ( c ) => c.meta && c.shift && 'h' === c.key,
+		run: ( editor ) => Ops.hideLayersOp( editor ),
+	},
+	{
+		id: 'lock-layer',
+		match: ( c ) => c.meta && ! c.shift && '2' === c.key,
+		run: ( editor ) => Ops.toggleLockOp( editor ),
 	},
 	{
 		id: 'delete-layer',
@@ -233,7 +270,11 @@ export const SHORTCUTS = [
 		match: ( c ) => ! c.meta && '[' === c.key,
 		run: ( editor ) => {
 			const tool = editor.state.tool;
-			if ( [ 'brush', 'pencil', 'eraser' ].includes( tool ) ) {
+			if (
+				[ 'brush', 'pencil', 'eraser', 'stamp', 'fxbrush' ].includes(
+					tool
+				)
+			) {
 				const size = editor.state.toolOpts[ tool ].size;
 				editor.dispatch( {
 					type: 'SET_TOOL_OPTS',
@@ -250,7 +291,11 @@ export const SHORTCUTS = [
 		match: ( c ) => ! c.meta && ']' === c.key,
 		run: ( editor ) => {
 			const tool = editor.state.tool;
-			if ( [ 'brush', 'pencil', 'eraser' ].includes( tool ) ) {
+			if (
+				[ 'brush', 'pencil', 'eraser', 'stamp', 'fxbrush' ].includes(
+					tool
+				)
+			) {
 				const size = editor.state.toolOpts[ tool ].size;
 				editor.dispatch( {
 					type: 'SET_TOOL_OPTS',
@@ -468,6 +513,37 @@ export const SHORTCUT_META = [
 		id: 'paste',
 		combo: 'mod+v',
 		label: __( 'Paste layer', 'wunderpaint' ),
+	},
+	{
+		id: 'paste-in-place',
+		combo: 'mod+shift+v',
+		label: __( 'Paste in Place', 'wunderpaint' ),
+	},
+	{
+		id: 'bring-to-front',
+		combo: 'mod+shift+]',
+		label: __( 'Bring to Front', 'wunderpaint' ),
+	},
+	{
+		id: 'send-to-back',
+		combo: 'mod+shift+[',
+		label: __( 'Send to Back', 'wunderpaint' ),
+	},
+	{ id: 'group', combo: 'mod+g', label: __( 'Group', 'wunderpaint' ) },
+	{
+		id: 'ungroup',
+		combo: 'mod+shift+g',
+		label: __( 'Ungroup', 'wunderpaint' ),
+	},
+	{
+		id: 'hide-layer',
+		combo: 'mod+shift+h',
+		label: __( 'Hide layer', 'wunderpaint' ),
+	},
+	{
+		id: 'lock-layer',
+		combo: 'mod+2',
+		label: __( 'Lock or unlock layer', 'wunderpaint' ),
 	},
 	{
 		id: 'library',

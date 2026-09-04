@@ -14,7 +14,11 @@ import { VarButton } from '../../components/var-picker';
 import { useHoverTip } from '../../components/hover-tip';
 import { getExtensionGenerator } from '../../lib/extensions';
 import { unitFor } from '../../lib/selection-units';
-import { canLayoutText } from '../../lib/text-layouts';
+import {
+	canFluidText,
+	canTextLook,
+	toggleFluidTextOp,
+} from '../../lib/text-fit-ops';
 import { LayoutPopover } from './layout-popover';
 
 const ALIGN_MODES = [
@@ -157,6 +161,104 @@ function AlignFlyout( { editor, tip } ) {
 	);
 }
 
+/** Icons of the four boolean modes, keyed by mode id. */
+const COMBINE_ICONS = {
+	unite: 'boolUnite',
+	subtract: 'boolSubtract',
+	intersect: 'boolIntersect',
+	exclude: 'boolExclude',
+};
+
+/**
+ * Boolean operations flyout (v1.430), shown once two or more shapes are
+ * selected. The bottom-most shape is the base: it keeps its style and
+ * receives the result, a subtract takes the others out of it.
+ */
+function CombineFlyout( { editor, tip } ) {
+	const [ pos, setPos ] = useState( null );
+	const ref = useRef( null );
+	useEffect( () => {
+		if ( ! pos ) {
+			return;
+		}
+		const onDown = ( e ) => {
+			if ( ref.current && ! ref.current.contains( e.target ) ) {
+				setPos( null );
+			}
+		};
+		const onKey = ( e ) => {
+			if ( 'Escape' === e.key ) {
+				e.stopPropagation();
+				setPos( null );
+			}
+		};
+		document.addEventListener( 'mousedown', onDown, true );
+		document.addEventListener( 'keydown', onKey, true );
+		return () => {
+			document.removeEventListener( 'mousedown', onDown, true );
+			document.removeEventListener( 'keydown', onKey, true );
+		};
+	}, [ pos ] );
+	const toggle = ( e ) => {
+		if ( pos ) {
+			setPos( null );
+			return;
+		}
+		const r = e.currentTarget.getBoundingClientRect();
+		setPos( {
+			left: Math.max(
+				8,
+				Math.min( r.left - 40, window.innerWidth - 130 )
+			),
+			top: r.bottom + 6,
+		} );
+	};
+	const label = __( 'Combine shapes', 'wunderpaint' );
+	return (
+		<div className="cb-align" ref={ ref }>
+			<button
+				aria-label={ label }
+				aria-expanded={ !! pos }
+				onClick={ ( e ) => {
+					tip?.hide();
+					toggle( e );
+				} }
+				{ ...( tip ? tip.props( label ) : { title: label } ) }
+			>
+				{ I.boolUnite( { size: 13 } ) }
+			</button>
+			{ pos && (
+				<div
+					className="cb-align-pop"
+					style={ {
+						position: 'fixed',
+						left: pos.left,
+						top: pos.top,
+					} }
+				>
+					<div className="cb-align-grid cb-combine-grid">
+						{ Ops.COMBINE_MODES.map( ( mode ) => (
+							<button
+								key={ mode.id }
+								title={ mode.label() }
+								aria-label={ mode.label() }
+								onClick={ () => {
+									Ops.combineShapesOp( editor, mode.id );
+									setPos( null );
+								} }
+							>
+								{ I[ COMBINE_ICONS[ mode.id ] ]( {
+									size: 14,
+								} ) }
+							</button>
+						) ) }
+					</div>
+				</div>
+			) }
+		</div>
+	);
+}
+
 export function ContextBar( {
 	editor,
 	extras,
@@ -245,6 +347,15 @@ export function ContextBar( {
 				run: () => extras.openBackgroundStudio( bgLayer.id ),
 			};
 		}
+		if ( 'shape' === layer.type && ! layer.quad ) {
+			// Shapes (v1.430): the Shape Studio panel with this layer's
+			// dials, the same door as the double-click and the context
+			// menu - which Easy Mode does not have.
+			return {
+				label: __( 'Edit Shape', 'wunderpaint' ),
+				run: () => extras?.openShapeStudio?.( layer.id ),
+			};
+		}
 		if ( 'smart' === layer.type ) {
 			return {
 				label: __( 'Edit Smart Object', 'wunderpaint' ),
@@ -265,7 +376,8 @@ export function ContextBar( {
 
 	// Text layouts (E1): the button opens the preview popover with six
 	// rendered suggestions of this layer's text.
-	const canLayout = canLayoutText( layer );
+	// Layouts are looks on Fluid Text (v1.430): any text with a word.
+	const canLayout = canTextLook( layer );
 	const [ layoutAnchor, setLayoutAnchor ] = useState( null );
 
 	// Styled tooltips above the bar (v1.250), same look as the tool rail;
@@ -421,6 +533,15 @@ export function ContextBar( {
 			},
 		} );
 	}
+	if ( canFluidText( layer ) ) {
+		// Fluid Text (v1.429): the box sets line breaks and sizes.
+		actions.splice( 1, 0, {
+			icon: 'fluidText',
+			label: __( 'Fluid Text', 'wunderpaint' ),
+			on: !! layer.textFit,
+			run: () => toggleFluidTextOp( editor ),
+		} );
+	}
 	if ( canLayout ) {
 		actions.splice( 1, 0, {
 			icon: 'textLayout',
@@ -462,11 +583,33 @@ export function ContextBar( {
 					title={ __( 'Color', 'wunderpaint' ) }
 					tipProps={ tip.props( __( 'Color', 'wunderpaint' ) ) }
 					onChange={ ( c ) => {
-						dispatch( {
-							type: 'UPDATE_LAYER',
-							id: layer.id,
-							patch: { [ colorKey ]: c },
-						} );
+						// The whole selection of this type (v1.429).
+						const ids = [
+							...new Set( [
+								layer.id,
+								...( editor.state.selectedIds || [] ),
+							] ),
+						].filter( ( id ) =>
+							editor.state.layers.some(
+								( l ) =>
+									l.id === id &&
+									l.type === layer.type &&
+									! l.locked
+							)
+						);
+						if ( ids.length > 1 ) {
+							dispatch( {
+								type: 'UPDATE_LAYERS',
+								ids,
+								patch: { [ colorKey ]: c },
+							} );
+						} else {
+							dispatch( {
+								type: 'UPDATE_LAYER',
+								id: layer.id,
+								patch: { [ colorKey ]: c },
+							} );
+						}
 						commit( __( 'Change color', 'wunderpaint' ) );
 					} }
 				/>
@@ -483,6 +626,7 @@ export function ContextBar( {
 					) : (
 						<button
 							key={ action.icon }
+							className={ action.on ? 'is-on' : undefined }
 							aria-label={ action.label }
 							onClick={ ( e ) => {
 								tip.hide();
@@ -497,6 +641,9 @@ export function ContextBar( {
 					)
 				) }
 			{ ! isText && <AlignFlyout editor={ editor } tip={ tip } /> }
+			{ ! isText && Ops.canCombineShapes( editor.state ) && (
+				<CombineFlyout editor={ editor } tip={ tip } />
+			) }
 			{ isText && (
 				<VarButton
 					value={ layer.text || '' }

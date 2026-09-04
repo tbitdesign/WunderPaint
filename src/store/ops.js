@@ -52,6 +52,8 @@ export {
 	pasteLayers,
 	radialRepeat,
 	radialRepeatPrompt,
+	gridRepeat,
+	gridRepeatPrompt,
 	saveSelectionOp,
 	selectAllOp,
 	sendBackwardOp,
@@ -111,6 +113,39 @@ export {
 	saveAsPatternOp,
 	ungroupOp,
 } from './ops/io-ops';
+
+export {
+	MODIFY_KINDS,
+	modifySelection,
+	modifySelectionPrompt,
+} from './ops/selection-modify-ops';
+
+export {
+	bringToFrontOp,
+	flipLayersOp,
+	hideLayersOp,
+	pasteInPlaceOp,
+	renameLayerOp,
+	rotateLayersOp,
+	SELECT_SAME_CRITERIA,
+	selectSameOp,
+	sendToBackOp,
+	soloLayerOp,
+	toggleAllGroupsOp,
+	toggleLockOp,
+} from './ops/arrange-ops';
+
+export {
+	canCombineShapes,
+	canOffsetPath,
+	canOutlineStroke,
+	combineShapesOp,
+	COMBINE_MODES,
+	offsetPathOp,
+	offsetPathPrompt,
+	outlineStrokeOp,
+	selectedShapeLayers,
+} from './ops/shape-ops';
 
 export {
 	addPageOp,

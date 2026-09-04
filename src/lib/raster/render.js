@@ -655,9 +655,20 @@ export async function renderToCanvas( doc, layers, opts = {} ) {
 export async function renderToBlob(
 	doc,
 	layers,
-	{ scale = 1, format = 'png', quality = 90, cache, postProcess } = {}
+	{
+		scale = 1,
+		format = 'png',
+		quality = 90,
+		cache,
+		postProcess,
+		viewport,
+	} = {}
 ) {
-	let canvas = await renderToCanvas( doc, layers, { scale, cache } );
+	let canvas = await renderToCanvas( doc, layers, {
+		scale,
+		cache,
+		viewport,
+	} );
 	if ( postProcess ) {
 		canvas = postProcess( canvas ) || canvas;
 	}
@@ -709,14 +720,45 @@ export async function renderToDataURL(
  * @param y
  * @param cache
  */
-export async function samplePixel( doc, layers, x, y, cache ) {
+export async function samplePixel( doc, layers, x, y, cache, size = 1 ) {
+	// A sample size of 3 or 5 (v1.429) averages the square around the
+	// point, weighted by alpha, so a noisy photo yields the colour you
+	// see rather than the grain you hit.
+	const n = Math.max( 1, Math.round( size ) | 1 );
+	const half = ( n - 1 ) / 2;
 	const canvas = await renderToCanvas( doc, layers, {
 		cache,
-		viewport: { x: Math.floor( x ), y: Math.floor( y ), w: 1, h: 1 },
+		viewport: {
+			x: Math.floor( x ) - half,
+			y: Math.floor( y ) - half,
+			w: n,
+			h: n,
+		},
 		scale: 1,
 	} );
-	const [ r, g, b, a ] = canvas
-		.getContext( '2d' )
-		.getImageData( 0, 0, 1, 1 ).data;
-	return { r, g, b, a };
+	const data = canvas.getContext( '2d' ).getImageData( 0, 0, n, n ).data;
+	if ( 1 === n ) {
+		const [ r, g, b, a ] = data;
+		return { r, g, b, a };
+	}
+	let r = 0;
+	let g = 0;
+	let b = 0;
+	let a = 0;
+	for ( let i = 0; i < data.length; i += 4 ) {
+		const w = data[ i + 3 ];
+		r += data[ i ] * w;
+		g += data[ i + 1 ] * w;
+		b += data[ i + 2 ] * w;
+		a += w;
+	}
+	if ( ! a ) {
+		return { r: 0, g: 0, b: 0, a: 0 };
+	}
+	return {
+		r: Math.round( r / a ),
+		g: Math.round( g / a ),
+		b: Math.round( b / a ),
+		a: Math.round( a / ( n * n ) ),
+	};
 }

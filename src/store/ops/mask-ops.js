@@ -13,6 +13,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { makeRaster, makeGroup } from '../document';
 import { selectionToMaskCanvas } from '../selection';
+import { morphMaskCanvas } from '../../lib/mask-morph';
 import { activeLayerOf } from '../editor-context';
 import {
 	renderToCanvas,
@@ -73,88 +74,6 @@ export function addMaskOp( editor ) {
 		dispatch( { type: 'SET_SELECTION', selection: null } );
 	}
 	commit( __( 'Add Layer Mask', 'wunderpaint' ) );
-}
-
-/** Grow (expand > 0) or shrink (< 0) the white area of a mask canvas. */
-function morphMaskCanvas( canvas, expand ) {
-	if ( ! expand ) {
-		return canvas;
-	}
-	const w = canvas.width;
-	const h = canvas.height;
-	const ctx = canvas.getContext( '2d' );
-	const img = ctx.getImageData( 0, 0, w, h );
-	const a = img.data;
-	// Chamfer distance transform (3-4 weights, two passes): dist[i] is
-	// ~3x the pixel distance to the nearest pixel OUTSIDE the region we
-	// measure from. Exact enough for a px-accurate grow/shrink and O(n).
-	// Seeds (distance 0) are the region we measure FROM: the kept area
-	// when growing, the outside when shrinking.
-	const seed = ( i ) =>
-		expand > 0 ? a[ i * 4 + 3 ] > 127 : a[ i * 4 + 3 ] <= 127;
-	const INF = 1 << 29;
-	const dist = new Int32Array( w * h );
-	for ( let i = 0; i < w * h; i++ ) {
-		dist[ i ] = seed( i ) ? 0 : INF;
-	}
-	for ( let y = 0; y < h; y++ ) {
-		for ( let x = 0; x < w; x++ ) {
-			const i = y * w + x;
-			if ( ! dist[ i ] ) {
-				continue;
-			}
-			let d = dist[ i ];
-			if ( x > 0 ) {
-				d = Math.min( d, dist[ i - 1 ] + 3 );
-			}
-			if ( y > 0 ) {
-				d = Math.min( d, dist[ i - w ] + 3 );
-				if ( x > 0 ) {
-					d = Math.min( d, dist[ i - w - 1 ] + 4 );
-				}
-				if ( x < w - 1 ) {
-					d = Math.min( d, dist[ i - w + 1 ] + 4 );
-				}
-			}
-			dist[ i ] = d;
-		}
-	}
-	for ( let y = h - 1; y >= 0; y-- ) {
-		for ( let x = w - 1; x >= 0; x-- ) {
-			const i = y * w + x;
-			if ( ! dist[ i ] ) {
-				continue;
-			}
-			let d = dist[ i ];
-			if ( x < w - 1 ) {
-				d = Math.min( d, dist[ i + 1 ] + 3 );
-			}
-			if ( y < h - 1 ) {
-				d = Math.min( d, dist[ i + w ] + 3 );
-				if ( x < w - 1 ) {
-					d = Math.min( d, dist[ i + w + 1 ] + 4 );
-				}
-				if ( x > 0 ) {
-					d = Math.min( d, dist[ i + w - 1 ] + 4 );
-				}
-			}
-			dist[ i ] = d;
-		}
-	}
-	// Grow: everything within `expand` px of the region joins it.
-	// Shrink: everything within |expand| px of the OUTSIDE leaves it.
-	const limit = Math.abs( expand ) * 3;
-	for ( let i = 0; i < w * h; i++ ) {
-		const nowInside =
-			expand > 0
-				? a[ i * 4 + 3 ] > 127 || dist[ i ] <= limit
-				: a[ i * 4 + 3 ] > 127 && dist[ i ] > limit;
-		a[ i * 4 ] = a[ i * 4 + 1 ] = a[ i * 4 + 2 ] = 255;
-		a[ i * 4 + 3 ] = nowInside ? 255 : 0;
-	}
-	const out = createCanvas( w, h );
-	out.getContext( '2d' ).putImageData( img, 0, 0 );
-	return out;
 }
 
 /**

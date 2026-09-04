@@ -22,6 +22,7 @@ import { openStampMaker } from '@ed/lib/stamp-maker.js';
 // bridge.shapes (API 2.18) is the editor's own converter: mirror it, do not
 // approximate it - a studio that turns layers into paths must see real data.
 import { shapeToPathD, isParametricShape } from '@ed/lib/shape-path.js';
+import { importSvg, exportSvg } from '@ed/lib/svg-io.js';
 
 /** Six coloured plates with real pixel dimensions, shared by both media mocks. */
 function mockMediaItems() {
@@ -263,6 +264,9 @@ window.__installWpieMock = ( opts = {} ) => {
 				fromLayer: shapeToPathD,
 				isParametric: isParametricShape,
 			},
+			// svg (Core 1.157+): the vector importer/exporter, so studios that
+			// insert SVG as editable layers (Sheet Music) can be checked here.
+			svg: { importSvg, exportSvg },
 			documents: {
 				// These mirror src/store/document.js on purpose, defaults
 				// and all. A mock that is kinder than the real factory

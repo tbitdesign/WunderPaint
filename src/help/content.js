@@ -65,6 +65,10 @@ export const HELP_ARTICLES = [
 		title: __( 'The tools', 'wunderpaint' ),
 		body: [
 			__(
+				'The eyedropper samples a point or the average of a 3 by 3 or 5 by 5 square, and Alt-click picks the background color. The clone stamp needs a source first: Alt-click sets it. Its bar has size, opacity and hardness and an Aligned switch: on, the distance between source and brush stays across strokes, so a texture continues; off, every stroke starts again at the source. The effect brush blurs, sharpens, smudges, dodges, burns and sponges. With the pen, a click sets a corner, a drag pulls out handles and Alt breaks a handle pair; its freehand mode draws like a pencil and fits smooth anchors to the stroke on release, the fidelity decides how closely.',
+				'wunderpaint'
+			),
+			__(
 				'Move (V) and Select (O) select and arrange layers. Marquee (M), Lasso (L) and Magic Wand (W) make selections; Smart Select (K) selects the object you click with local AI. Crop (C) trims the canvas.',
 				'wunderpaint'
 			),
@@ -189,6 +193,10 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
+				'The right-click menu on the canvas is grouped: Edit, Convert, Combine, Arrange, Group & Mask and Layer. The Arrange row moves a layer to the front or back (Shift+Cmd+] and [), one step (Cmd+] and [), flips it or turns it a quarter; the Layer group renames, hides (Shift+Cmd+H), locks (Cmd+2) and deletes. Cmd+G groups, Shift+Cmd+G ungroups, Shift+Cmd+V pastes a copy exactly where it was copied from, and Select > Select Same picks every layer with the same fill, stroke, font or type. Where layers overlap, the menu lists everything under the cursor. Alt-click an eye in the Layers panel to see that layer alone, the folder button beside the filter collapses every group, and Grid Repeat lays copies out in rows and columns.',
+				'wunderpaint'
+			),
+			__(
 				'A layer mask hides parts of a layer without deleting them: add one via Layer → Add Layer Mask, then paint on the mask with black (hide) or white (show). Click the mask thumbnail to target it.',
 				'wunderpaint'
 			),
@@ -203,6 +211,10 @@ export const HELP_ARTICLES = [
 		cat: 'basics',
 		title: __( 'Selections', 'wunderpaint' ),
 		body: [
+			__(
+				'The marquee draws rectangles or ellipses, the lasso works freehand or as a polygon (click the corners, double-click or Enter closes), and both bars carry the modes New, Add and Subtract plus a feather, so a touch screen has what Shift and Alt give a keyboard. Select > Modify expands, contracts, smooths or borders any selection by a number of pixels.',
+				'wunderpaint'
+			),
 			__(
 				'Selections limit painting, filling and many commands to a region. Marquee drags rectangles, Lasso draws freeform shapes, the Magic Wand selects by color, set its tolerance in the options bar, or disable "Contiguous" to select a color across the whole image.',
 				'wunderpaint'
@@ -275,11 +287,23 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
+				'Fluid Text (the switch in the context bar, in the options bar beside the curve, or in the Character section) lets the box set the type: every line fills the width of the frame and the words spread over as many lines as the height allows, so the text re-flows while you drag. Layouts put a look on top, from stacked poster capitals to an editorial lockup; the look re-flows with the box and your text stays editable. Switching Fluid Text off freezes the current look into the layer.',
+				'wunderpaint'
+			),
+			__(
+				'Number fields in the Properties panel take arithmetic: "100+20", "/2" or "*1.5" work on the current value, and the chain between W and H keeps the proportion while you type. With several layers selected, a fill, stroke, font or size change hits all of them.',
+				'wunderpaint'
+			),
+			__(
 				'The Character section (Properties panel) controls font, size, weight, spacing and color. The font picker previews the families that are ready to use, all served from your own site; the rest of the catalogue can be downloaded under Settings, Fonts.',
 				'wunderpaint'
 			),
 			__(
 				'Settings → Fonts adds more sources: upload your own woff2, woff, ttf or otf files (house fonts), or enable the optional Google Fonts CDN catalog. Both appear as extra groups in the font picker.',
+				'wunderpaint'
+			),
+			__(
+				'Bold, italic, underline and strikethrough sit in the options bar and the Character section; a selection inside the text takes them as character styles. Case sets uppercase, lowercase or capitalized words without changing the stored text, and Paragraph spacing adds air between paragraphs without empty lines.',
 				'wunderpaint'
 			),
 			__(
@@ -393,6 +417,10 @@ export const HELP_ARTICLES = [
 			),
 			__(
 				'Generators with a seed have a Shuffle button. The seed is a stored number, so a design renders the same way tomorrow and in every export: shuffling writes a new number instead of rolling dice while drawing. The chips above the dials are style presets, setting several dials at once so you can aim a formula without knowing what its exponents mean.',
+				'wunderpaint'
+			),
+			__(
+				'Shapes combine. Select two or more and the context bar (and the context menu) offers Unite, Subtract, Intersect and Exclude; the bottom-most shape is the base and keeps its style. Outline Stroke turns a stroke into its own filled path, dashes included, and Offset Path grows or shrinks a shape by a distance. A stroke can sit inside, on or outside the outline, with mitred, round or bevelled joins and flat, round or square ends (Stroke section); a rectangle rounds each corner on its own (Shape section), and the Style picker in the options bar shows complete looks on your own shape: outlines, sticker, neon, glass, shadows, gradient, patterns.',
 				'wunderpaint'
 			),
 			__(
@@ -1149,6 +1177,10 @@ export const HELP_ARTICLES = [
 			),
 			__(
 				'"Keep editable project file" stores your layers alongside the image, so reopening restores the full layer stack.',
+				'wunderpaint'
+			),
+			__(
+				'With layers selected, Export offers "Selection only": a tight box around just those layers, transparent unless the format has to flatten, which is the quickest way to get one element out of a design.',
 				'wunderpaint'
 			),
 			__(

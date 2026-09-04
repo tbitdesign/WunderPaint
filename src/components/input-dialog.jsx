@@ -29,6 +29,16 @@ export function DialogHost() {
 	// beside the value - "keep every copy upright" - and without it the
 	// choice has to be folded into the select as twice as many options.
 	const [ checkValue, setCheckValue ] = useState( false );
+	// Several labelled inputs at once (v1.429, Grid Repeat): `fields`
+	// replaces the single value; the answer is { fields: { key: text } }.
+	const [ fieldValues, setFieldValues ] = useState( {} );
+	const initialFieldsFor = ( req ) =>
+		Object.fromEntries(
+			( req.opts.fields || [] ).map( ( f ) => [
+				f.key,
+				String( f.defaultValue ?? '' ),
+			] )
+		);
 	const queue = useRef( [] );
 	const inputRef = useRef( null );
 
@@ -55,6 +65,7 @@ export function DialogHost() {
 				}
 				setValue( initialFor( req ) );
 				setSelectValue( initialSelectFor( req ) );
+				setFieldValues( initialFieldsFor( req ) );
 				return req;
 			} );
 		} );
@@ -79,6 +90,7 @@ export function DialogHost() {
 			setValue( initialFor( next ) );
 			setSelectValue( initialSelectFor( next ) );
 			setCheckValue( initialCheckFor( next ) );
+			setFieldValues( initialFieldsFor( next ) );
 		}
 		setRequest( next );
 	};
@@ -89,6 +101,8 @@ export function DialogHost() {
 		finish(
 			'prompt' !== kind
 				? true
+				: opts.fields
+				? { fields: fieldValues }
 				: opts.select || opts.check
 				? { value, select: selectValue, check: checkValue }
 				: value
@@ -134,7 +148,35 @@ export function DialogHost() {
 								{ opts.label }
 							</label>
 						) }
-						{ opts.options ? (
+						{ opts.fields ? (
+							<div className="wpie-input-dialog-fields">
+								{ opts.fields.map( ( f, i ) => (
+									<label
+										key={ f.key }
+										className="wpie-input-dialog-label"
+									>
+										<span>{ f.label }</span>
+										<input
+											ref={
+												0 === i ? inputRef : undefined
+											}
+											type={
+												'number' === f.type
+													? 'number'
+													: 'text'
+											}
+											value={ fieldValues[ f.key ] ?? '' }
+											onChange={ ( e ) =>
+												setFieldValues( ( cur ) => ( {
+													...cur,
+													[ f.key ]: e.target.value,
+												} ) )
+											}
+										/>
+									</label>
+								) ) }
+							</div>
+						) : opts.options ? (
 							<select
 								className="dsm-select"
 								id="wpie-dialog-input"

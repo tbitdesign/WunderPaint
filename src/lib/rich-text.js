@@ -27,6 +27,44 @@ export const spansText = ( spans ) =>
 	( spans || [] ).map( ( s ) => s.text ).join( '' );
 
 /** Drop empty runs, merge adjacent runs with equal style. */
+/** The case options a text layer may ask for (v1.429). */
+export const TEXT_CASES = [ 'uppercase', 'lowercase', 'capitalize' ];
+
+/** A valid case option, else '' (as typed). */
+export const caseOf = ( tt ) => ( TEXT_CASES.includes( tt ) ? tt : '' );
+
+/**
+ * Apply a case option without touching the stored text. Capitalize lifts
+ * the first letter of every word; `wordStart` says whether the string
+ * begins a word (a run that continues a word must not capitalise its
+ * first letter).
+ *
+ * @param {string}  text      Text.
+ * @param {string}  tt        uppercase | lowercase | capitalize | ''.
+ * @param {boolean} wordStart Whether the text starts at a word boundary.
+ * @return {string} The transformed text.
+ */
+export function applyCase( text, tt, wordStart = true ) {
+	const s = String( text ?? '' );
+	if ( 'uppercase' === tt ) {
+		return s.toLocaleUpperCase();
+	}
+	if ( 'lowercase' === tt ) {
+		return s.toLocaleLowerCase();
+	}
+	if ( 'capitalize' === tt ) {
+		let out = s.replace(
+			/(\s)(\p{L})/gu,
+			( m, a, b ) => a + b.toLocaleUpperCase()
+		);
+		if ( wordStart ) {
+			out = out.replace( /^(\p{L})/u, ( m ) => m.toLocaleUpperCase() );
+		}
+		return out;
+	}
+	return s;
+}
+
 export function normalizeSpans( spans ) {
 	const out = [];
 	for ( const run of spans || [] ) {
@@ -96,12 +134,14 @@ export function resolveStyle( layer, s ) {
 	const italic = undefined !== o.italic ? !! o.italic : !! layer.italic;
 	const underline =
 		undefined !== o.underline ? !! o.underline : !! layer.underline;
+	const strike = undefined !== o.strike ? !! o.strike : !! layer.strike;
 	return {
 		size,
 		family,
 		weight,
 		italic,
 		underline,
+		strike,
 		color: o.color || null,
 		// Word-level marker highlight (v1.141.1): set on the selection via
 		// the Character section, rendered behind the marked fragments.
@@ -203,15 +243,14 @@ export function textTopPad( layer, blockH ) {
  * @return {Object} The same layer, or a transformed shallow copy.
  */
 export function withTextTransform( layer ) {
-	const upper = layer && 'uppercase' === layer.textTransform;
+	const tt = caseOf( layer?.textTransform );
 	const list =
 		layer &&
 		( 'bullet' === layer.listStyle || 'number' === layer.listStyle );
-	if ( ! layer || ( ! upper && ! list ) ) {
+	if ( ! layer || ( ! tt && ! list ) ) {
 		return layer;
 	}
-	const up = ( s ) =>
-		upper ? String( s ).toLocaleUpperCase() : String( s );
+	const up = ( s ) => applyCase( s, tt );
 	// List markers (v1.301): every non-empty paragraph gets a bullet or
 	// its running number; empty lines neither mark nor count.
 	let counter = 0;
@@ -266,11 +305,16 @@ export function layoutRichText( ctx, layer ) {
 	// layout + paint see the transformed runs. Per-run transform keeps
 	// span boundaries intact (ß→SS may lengthen a run, never shift its
 	// neighbours).
-	if ( 'uppercase' === layer.textTransform ) {
-		runs = runs.map( ( r ) => ( {
-			...r,
-			text: String( r.text ).toLocaleUpperCase(),
-		} ) );
+	const tt = caseOf( layer.textTransform );
+	if ( tt ) {
+		// Capitalize needs to know whether a run starts a word: the
+		// previous run's last character tells it.
+		let prevEnd = ' ';
+		runs = runs.map( ( r ) => {
+			const text = applyCase( r.text, tt, /\s/.test( prevEnd ) );
+			prevEnd = String( r.text ).slice( -1 ) || prevEnd;
+			return { ...r, text };
+		} );
 	}
 	const wrap = !! layer.fixedWidth;
 	const maxW = Math.max( 1, layer.w || 1 );
@@ -294,8 +338,11 @@ export function layoutRichText( ctx, layer ) {
 	// Greedy word-wrap (area text) or one line per paragraph (point text).
 	const lines = [];
 	for ( const para of paras ) {
+		// The first line of every paragraph carries the paragraph spacing
+		// (v1.429) above it.
+		const first = lines.length;
 		if ( ! para.frags.length ) {
-			lines.push( { frags: [], st: para.st } );
+			lines.push( { frags: [], st: para.st, paraStart: true } );
 			continue;
 		}
 		if ( ! wrap ) {
@@ -304,13 +351,18 @@ export function layoutRichText( ctx, layer ) {
 					...f,
 					w: runWidth( ctx, f.text, f.st ),
 				} ) ),
+				paraStart: true,
 			} );
 			continue;
 		}
 		let cur = [];
 		let curW = 0;
 		const flush = () => {
-			lines.push( { frags: cur, st: para.st } );
+			lines.push( {
+				frags: cur,
+				st: para.st,
+				paraStart: lines.length === first,
+			} );
 			cur = [];
 			curW = 0;
 		};
@@ -370,18 +422,19 @@ export function layoutRichText( ctx, layer ) {
 		line.width = trimmed;
 	}
 
+	const ps = Number( layer.paragraphSpacing ) || 0;
 	let blockH = 0;
 	if ( lines.length ) {
 		blockH = lines[ 0 ].ascent + lines[ lines.length - 1 ].descent;
 		for ( let i = 1; i < lines.length; i++ ) {
-			blockH += lines[ i ].advance;
+			blockH += lines[ i ].advance + ( lines[ i ].paraStart ? ps : 0 );
 		}
 	}
 	const topPad = textTopPad( layer, blockH );
 	let base = topPad + ( lines[ 0 ]?.ascent || 0 );
 	lines.forEach( ( line, i ) => {
 		if ( i ) {
-			base += line.advance;
+			base += line.advance + ( line.paraStart ? ps : 0 );
 		}
 		line.baseline = base;
 		line.x =
@@ -512,8 +565,14 @@ export function styleToCss( s, zoom ) {
 	if ( undefined !== s.italic ) {
 		parts.push( `font-style:${ s.italic ? 'italic' : 'normal' }` );
 	}
-	if ( undefined !== s.underline ) {
-		parts.push( `text-decoration:${ s.underline ? 'underline' : 'none' }` );
+	if ( undefined !== s.underline || undefined !== s.strike ) {
+		const deco = [
+			s.underline ? 'underline' : '',
+			s.strike ? 'line-through' : '',
+		]
+			.filter( Boolean )
+			.join( ' ' );
+		parts.push( `text-decoration:${ deco || 'none' }` );
 	}
 	const color = safeColor( s.color );
 	if ( color ) {
@@ -529,17 +588,66 @@ export function styleToCss( s, zoom ) {
 	if ( undefined !== s.ls ) {
 		parts.push( `letter-spacing:${ ( safeNum( s.ls ) || 0 ) * zoom }px` );
 	}
+	if ( undefined !== s.lh ) {
+		// Unitless, so the overlay stacks lines like the canvas (Fluid
+		// Text and layouts carry their leading per run, v1.429).
+		const lh = safeNum( s.lh );
+		if ( lh ) {
+			parts.push( `line-height:${ lh }` );
+		}
+	}
+	if ( s.upper ) {
+		// Role casing of a Text Look (v1.430): the DOM keeps the stored
+		// characters and shows them in capitals.
+		parts.push( 'text-transform:uppercase' );
+	}
 	return parts.join( ';' );
 }
 
 /** The overlay's HTML for a layer (plain text stays a bare text node). */
 export function spansToHtml( layer, zoom ) {
 	const runs = textRuns( layer );
+	// Fluid Text (v1.429): the k-th newline is a SOFT break when listed in
+	// layer.textFitSoft; the overlay shows it as a marked <br> that the
+	// commit turns back into a space, so the fit stays free to re-break.
+	const soft = new Set( layer.textFitSoft || [] );
+	let brk = 0;
+	const html = ( text ) =>
+		escapeHtml( text )
+			.split( '\n' )
+			.map( ( part, i, arr ) =>
+				i < arr.length - 1
+					? part + ( soft.has( brk++ ) ? '<br data-soft="1">' : '\n' )
+					: part
+			)
+			.join( '' );
 	return runs
 		.map( ( run ) => {
-			const inner = escapeHtml( run.text );
+			const inner = html( run.text );
 			if ( ! run.s ) {
 				return inner;
+			}
+			if ( Array.isArray( run.d ) ) {
+				// A fitted view (Fluid Text, Text Looks): the derived part
+				// of the style sits on a marked outer span the commit
+				// ignores; only the user's own overrides ride inside.
+				const derived = {};
+				for ( const key of run.d ) {
+					if ( undefined !== run.s[ key ] ) {
+						derived[ key ] = run.s[ key ];
+					}
+				}
+				const user =
+					run.u && Object.keys( run.u ).length
+						? `<span style="${ styleToCss(
+								run.u,
+								zoom
+						  ) }">${ inner }</span>`
+						: inner;
+				return `<span data-derived="1" style="${ styleToCss(
+					derived,
+					zoom
+				) }">${ user }</span>`;
 			}
 			return `<span style="${ styleToCss(
 				run.s,
@@ -573,7 +681,12 @@ export function effectiveNodeStyle( node, root, layer, zoom ) {
 	const got = {};
 	let el = node.nodeType === 3 ? node.parentElement : node;
 	while ( el && el !== root ) {
-		const st = el.style;
+		// Derived styles of a fitted view belong to the fit or the look,
+		// never to the committed spans (v1.430).
+		const st =
+			el.getAttribute && el.getAttribute( 'data-derived' )
+				? null
+				: el.style;
 		if ( st ) {
 			if ( undefined === got.family && st.fontFamily ) {
 				got.family = firstFamily( st.fontFamily );
@@ -593,6 +706,9 @@ export function effectiveNodeStyle( node, root, layer, zoom ) {
 			if ( undefined === got.underline && deco ) {
 				got.underline = deco.includes( 'underline' );
 			}
+			if ( undefined === got.strike && deco ) {
+				got.strike = deco.includes( 'line-through' );
+			}
 			if ( undefined === got.color && st.color ) {
 				got.color = st.color;
 			}
@@ -607,6 +723,20 @@ export function effectiveNodeStyle( node, root, layer, zoom ) {
 			}
 			if ( undefined === got.ls && st.letterSpacing ) {
 				got.ls = Math.round( parseFloat( st.letterSpacing ) / zoom );
+			}
+			// Per-run leading (unitless, written by styleToCss): a baked
+			// Fluid Text or a layout lockup stacks its lines with it, and
+			// losing it on the way back made the lines gap and overlap
+			// after the first edit (v1.429.1).
+			if (
+				undefined === got.lh &&
+				st.lineHeight &&
+				! /px|em|%/.test( st.lineHeight )
+			) {
+				const lh = parseFloat( st.lineHeight );
+				if ( ! Number.isNaN( lh ) && lh > 0 ) {
+					got.lh = Math.round( lh * 1000 ) / 1000;
+				}
 			}
 		}
 		el = el.parentElement;
@@ -628,6 +758,9 @@ export function effectiveNodeStyle( node, root, layer, zoom ) {
 	if ( undefined !== got.underline && got.underline !== !! layer.underline ) {
 		out.underline = got.underline;
 	}
+	if ( undefined !== got.strike && got.strike !== !! layer.strike ) {
+		out.strike = got.strike;
+	}
 	if ( got.color && got.color !== layer.color ) {
 		out.color = got.color;
 	}
@@ -640,6 +773,9 @@ export function effectiveNodeStyle( node, root, layer, zoom ) {
 		got.ls !== ( layer.letterSpacing || 0 )
 	) {
 		out.ls = got.ls;
+	}
+	if ( undefined !== got.lh && got.lh !== ( layer.lineHeight || 1.05 ) ) {
+		out.lh = got.lh;
 	}
 	return Object.keys( out ).length ? out : null;
 }
@@ -672,7 +808,8 @@ export function domToSpans( root, layer, zoom ) {
 					effectiveNodeStyle( child, root, layer, zoom )
 				);
 			} else if ( 'BR' === child.nodeName ) {
-				push( '\n', null );
+				// A soft break of a fluid layer is just a word gap.
+				push( child.getAttribute( 'data-soft' ) ? ' ' : '\n', null );
 			} else if ( 1 === child.nodeType ) {
 				// A block wrapper starts on a fresh line.
 				if (

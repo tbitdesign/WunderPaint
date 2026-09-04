@@ -33,7 +33,7 @@ const recolorFx = ( fx, color ) =>
 	);
 
 /** Light or dark tile so the text never vanishes against the preview. */
-const tileBg = ( color ) => {
+export const tileBg = ( color ) => {
 	const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(
 		String( color || '' )
 	);

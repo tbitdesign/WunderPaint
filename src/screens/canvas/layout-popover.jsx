@@ -1,10 +1,10 @@
 /**
- * Layout popover (E1 of the dynamic-layouts design): the Layout button
- * opens this fixed-anchored panel with SIX rendered preview tiles of the
- * user's own text — two classics plus four seeded rolls from the
- * generative engine. Clicking a tile applies it (one history step, the
- * panel stays open for browsing), "Shuffle" rolls fresh seeds, × removes
- * the layout. E2 adds the cloud "AI suggestions" section below the grid.
+ * Layout popover (Text Looks, v1.430): the Layouts button opens this
+ * fixed-anchored panel with every classic look, four seeded rolls and,
+ * on request, cloud suggestions. Each tile renders the look on the
+ * layer's OWN box through the real pipeline, on the document's ground,
+ * with its name underneath. Clicking a tile puts the look on the layer
+ * (Fluid Text goes on with it); × takes the look off again.
  */
 
 import { useState, useEffect, useRef, useMemo } from '@wordpress/element';
@@ -14,49 +14,74 @@ import { renderToCanvas, sharedImageCache } from '../../lib/raster';
 import { ensureFontsForLayers } from '../../lib/font-manager';
 import { hasTextProvider } from '../../lib/providers';
 import {
-	TEXT_LAYOUTS,
-	classicSpec,
-	splitLayoutLines,
-	sourceTextOf,
-	clearTextLayoutOp,
-} from '../../lib/text-layouts';
-import { generateLayoutSpec } from '../../lib/layout-generator';
-import {
-	specPatch,
-	applyLayoutSpec,
-	cleanLayoutSpec,
-} from '../../lib/layout-spec';
+	CLASSIC_LOOKS,
+	cleanTextLook,
+	splitSegments,
+} from '../../lib/text-look';
+import { generateTextLook, lookFontPool } from '../../lib/text-look-generator';
+import { sourceTextOf, clearTextLayoutOp } from '../../lib/text-layouts';
+import { applyTextLookOp, clearTextLookOp } from '../../lib/text-fit-ops';
 import { ai } from '../../lib/api';
 import { salienceAvailable, wordSalience } from '../../lib/text-salience';
 
 const TILE_W = 148;
-const TILE_H = 96;
+const TILE_H_MAX = 110;
+const TILE_H_MIN = 44;
 
-const specKey = ( spec ) =>
-	'classic' === spec.source
-		? 'c:' + spec.id
-		: 'ai' === spec.source
-		? 'a:' + spec.id
-		: 's:' + spec.seed;
+const keyOf = ( look ) => look.source + ':' + look.id;
 
-// `extras` was missing from this list until v1.342.0 although context-bar has
-// always passed it: the AI error path below reads extras?.toasts, and optional
-// chaining does not save an undefined VARIABLE - the catch block threw a
-// ReferenceError instead of showing the message. Nothing caught it, because
-// .jsx was not linted.
+// The layer as a look sees it: a legacy baked layout gives its source
+// text back, everything positional is stripped for the tile.
+function previewLayer( layer, look ) {
+	const legacy = !! layer.textLayout;
+	return {
+		...layer,
+		x: 0,
+		y: 0,
+		rot: 0,
+		quad: null,
+		textFX: null,
+		filter: null,
+		adjust: null,
+		parent: null,
+		text: legacy ? sourceTextOf( layer ) : layer.text,
+		spans: legacy ? null : layer.spans,
+		lineStyles: null,
+		textLayout: null,
+		textFit: 'fluid',
+		textLook: look,
+		align: 'center',
+	};
+}
+
+// A throwaway layer naming every face the look uses, for the font loader.
+function fontProbe( look ) {
+	const runs = Object.values( look.roles ).map( ( r ) => ( {
+		text: 'x',
+		s: { family: r.family, weight: r.weight },
+	} ) );
+	if ( look.emph?.style?.family ) {
+		runs.push( {
+			text: 'x',
+			s: {
+				family: look.emph.style.family,
+				weight: look.emph.style.weight || 400,
+			},
+		} );
+	}
+	return { type: 'text', fontFamily: 'Inter', spans: runs };
+}
+
 export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 	const { state } = editor;
 	const layer = state.layers.find( ( l ) => l.id === state.activeId );
 	const ref = useRef( null );
-
-	// The source lines are captured once per open: applying a layout
-	// changes layer.text, but the lockup keeps describing the same words.
-	const lines = useMemo(
-		() => ( layer ? splitLayoutLines( sourceTextOf( layer ) ) : [] ),
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[ layer?.id ]
-	);
-	const baseIdx = layer?.textLayout?.idx ?? -1;
+	const text = layer
+		? layer.textLayout
+			? sourceTextOf( layer )
+			: layer.text
+		: '';
+	const segments = useMemo( () => splitSegments( text ), [ text ] );
 	const [ seeds, setSeeds ] = useState( () =>
 		Array.from(
 			{ length: 4 },
@@ -64,19 +89,19 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 		)
 	);
 	const [ previews, setPreviews ] = useState( {} );
-	const [ appliedKey, setAppliedKey ] = useState( null );
-	// Cloud suggestions (E2): explicit button only — costs per call.
-	const [ aiSpecs, setAiSpecs ] = useState( [] );
+	const doneRef = useRef( { key: '', set: new Set() } );
+	// Cloud suggestions: explicit button only, costs per call.
+	const [ aiLooks, setAiLooks ] = useState( [] );
 	const [ aiStyle, setAiStyle ] = useState( '' );
 	const [ aiBusy, setAiBusy ] = useState( false );
 	const hasCloud = hasTextProvider( editor.WPIE?.providers );
-	// Local semantics (E3): when the salience model is installed, score the
-	// words once and let the generator accent the MEANINGFUL word.
+	// Local semantics: when the salience model is installed, score the
+	// words once so the generator accents the MEANINGFUL word.
 	const [ salience, setSalience ] = useState( null );
 	useEffect( () => {
 		let cancelled = false;
 		if ( layer && salienceAvailable() ) {
-			wordSalience( sourceTextOf( layer ) )
+			wordSalience( text )
 				.then( ( map ) => {
 					if ( ! cancelled && map ) {
 						setSalience( map );
@@ -90,123 +115,120 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ layer?.id ] );
 
-	const specs = useMemo( () => {
-		if ( ! layer || lines.length < 2 ) {
-			return [];
-		}
-		const ctx = { color: layer.color || '#1a1d21', salience };
-		const classics = [ 1, 2 ].map( ( off ) =>
-			classicSpec(
-				TEXT_LAYOUTS[
-					( baseIdx + off + TEXT_LAYOUTS.length ) %
-						TEXT_LAYOUTS.length
-				].id,
-				lines,
-				ctx
-			)
-		);
-		const rolled = seeds.map( ( seed ) =>
-			generateLayoutSpec( lines, ctx, seed )
-		);
-		return [ ...classics, ...rolled, ...aiSpecs ].filter( Boolean );
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ layer?.id, lines, seeds, aiSpecs, salience ] );
+	// The families this site can show; the rolls and the cloud draw from
+	// them, so a tile never promises a face the canvas cannot paint.
+	const pool = useMemo( () => lookFontPool(), [] );
+	const generated = useMemo(
+		() =>
+			seeds
+				.map( ( seed ) =>
+					generateTextLook( segments, { salience, pool }, seed )
+				)
+				.filter( Boolean ),
+		[ segments, seeds, salience, pool ]
+	);
+	const entries = useMemo(
+		() => [
+			...CLASSIC_LOOKS.map( ( c ) => ( {
+				key: keyOf( c.look ),
+				name: c.name,
+				look: c.look,
+				group: 'classic',
+			} ) ),
+			...generated.map( ( g ) => ( {
+				key: keyOf( g ),
+				name: __( 'Generated', 'wunderpaint' ),
+				look: g,
+				group: 'generated',
+			} ) ),
+			...aiLooks.map( ( l ) => ( {
+				key: keyOf( l ),
+				name: __( 'Suggestion', 'wunderpaint' ),
+				look: l,
+				group: 'ai',
+			} ) ),
+		],
+		[ generated, aiLooks ]
+	);
 
-	// Render the preview tiles through the real pipeline, fonts first.
+	const docBg = state.doc?.bg || '#ffffff';
+	const transparent = ! docBg || 'transparent' === docBg;
+	const tileH = layer
+		? Math.max(
+				TILE_H_MIN,
+				Math.min(
+					TILE_H_MAX,
+					Math.round( ( TILE_W * layer.h ) / Math.max( 1, layer.w ) )
+				)
+		  )
+		: TILE_H_MIN;
+
+	// Render the tiles one after another through the real pipeline, fonts
+	// first; a new text, box or colour starts the set over.
+	const renderKey = layer
+		? `${ layer.id }|${ text }|${ layer.w }x${ layer.h }|${ layer.color }|${
+				layer.spans ? JSON.stringify( layer.spans ) : ''
+		  }`
+		: '';
 	useEffect( () => {
-		if ( ! layer || ! specs.length ) {
-			return;
+		if ( ! layer ) {
+			return undefined;
+		}
+		if ( doneRef.current.key !== renderKey ) {
+			doneRef.current = { key: renderKey, set: new Set() };
+			setPreviews( {} );
 		}
 		let cancelled = false;
-		const ctx = {
-			accent: editor.WPIE?.brand?.colors?.[ 0 ] || '#3b66ff',
-			color: layer.color || '#1a1d21',
-		};
-		Promise.all(
-			specs.map( async ( spec ) => {
-				const key = specKey( spec );
+		( async () => {
+			for ( const entry of entries ) {
+				if ( cancelled ) {
+					return;
+				}
+				if ( doneRef.current.set.has( entry.key ) ) {
+					continue;
+				}
 				try {
-					// Load every family the spec uses before measuring.
-					const probe = {
-						type: 'text',
-						fontFamily: 'Inter',
-						spans: spec.lines.flatMap( ( l ) => [
-							{
-								text: 'x',
-								s: {
-									family: l.fontFamily,
-									weight: l.weight,
-								},
-							},
-							...( l.emph?.style?.family
-								? [
-										{
-											text: 'x',
-											s: {
-												family: l.emph.style.family,
-												weight:
-													l.emph.style.weight || 400,
-											},
-										},
-								  ]
-								: [] ),
-						] ),
-					};
-					await ensureFontsForLayers( [ probe ] );
-					const patch = specPatch( layer, spec, ctx );
-					const preview = {
-						...layer,
-						...patch,
-						x: 0,
-						y: 0,
-						rot: 0,
-						quad: null,
-						textFX: null,
-						filter: null,
-						adjust: null,
-						parent: null,
-					};
+					await ensureFontsForLayers( [ fontProbe( entry.look ) ] );
+					const pl = previewLayer( layer, entry.look );
 					const scale = Math.min(
-						( TILE_W - 8 ) / Math.max( 1, layer.w ),
-						( TILE_H - 8 ) / Math.max( 1, patch.h ),
+						TILE_W / Math.max( 1, layer.w ),
+						tileH / Math.max( 1, layer.h ),
 						1
 					);
 					const canvas = await renderToCanvas(
 						{
 							w: layer.w,
-							h: patch.h,
-							bg: '#f0f0f1',
+							h: layer.h,
+							bg: transparent ? 'transparent' : docBg,
 						},
-						[ preview ],
+						[ pl ],
 						{
-							viewport: {
-								x: 0,
-								y: 0,
-								w: layer.w,
-								h: patch.h,
-							},
+							viewport: { x: 0, y: 0, w: layer.w, h: layer.h },
 							scale,
 							cache: sharedImageCache,
 						}
 					);
-					return [ key, canvas?.toDataURL?.() || null ];
+					const url = canvas?.toDataURL?.() || null;
+					if ( cancelled ) {
+						return;
+					}
+					doneRef.current.set.add( entry.key );
+					if ( url ) {
+						setPreviews( ( prev ) => ( {
+							...prev,
+							[ entry.key ]: url,
+						} ) );
+					}
 				} catch ( e ) {
-					return [ key, null ];
+					// The tile keeps its spinner; the look still applies.
 				}
-			} )
-		).then( ( pairs ) => {
-			if ( ! cancelled ) {
-				setPreviews( ( prev ) => ( {
-					...prev,
-					...Object.fromEntries( pairs.filter( ( p ) => p[ 1 ] ) ),
-				} ) );
 			}
-		} );
+		} )();
 		return () => {
 			cancelled = true;
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ specs ] );
+	}, [ entries, renderKey ] );
 
 	// Close on outside pointerdown / Escape.
 	useEffect( () => {
@@ -229,11 +251,11 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 		};
 	}, [ onClose ] );
 
-	if ( ! layer || 'text' !== layer.type || lines.length < 2 ) {
+	if ( ! layer || 'text' !== layer.type || ! segments.length ) {
 		return null;
 	}
 
-	const src = sourceTextOf( layer );
+	const activeKey = layer.textLook ? keyOf( layer.textLook ) : null;
 	const fetchAi = async () => {
 		if ( aiBusy ) {
 			return;
@@ -241,7 +263,9 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 		setAiBusy( true );
 		try {
 			const res = await ai.layout( {
-				text: src,
+				text,
+				segments: segments.map( ( s ) => s.text ),
+				fonts: pool,
 				style: aiStyle,
 				w: Math.round( layer.w ),
 				h: Math.round( layer.h ),
@@ -250,7 +274,7 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 			const stamp = Date.now();
 			const cleaned = ( res?.items || [] )
 				.map( ( it, i ) =>
-					cleanLayoutSpec( {
+					cleanTextLook( {
 						...it,
 						source: 'ai',
 						id: 'ai-' + stamp + '-' + i,
@@ -265,20 +289,19 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 					)
 				);
 			}
-			setAiSpecs( cleaned );
+			setAiLooks( cleaned );
 		} catch ( err ) {
 			extras?.toasts?.error( err.message );
 		} finally {
 			setAiBusy( false );
 		}
 	};
-	const apply = async ( spec ) => {
-		const idx =
-			'classic' === spec.source
-				? TEXT_LAYOUTS.findIndex( ( l ) => l.id === spec.id )
-				: undefined;
-		await applyLayoutSpec( editor, spec, { src, idx } );
-		setAppliedKey( specKey( spec ) );
+	const remove = () => {
+		if ( layer.textLook ) {
+			clearTextLookOp( editor );
+		} else if ( layer.textLayout ) {
+			clearTextLayoutOp( editor );
+		}
 	};
 
 	const left = Math.max(
@@ -286,6 +309,36 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 		Math.min( anchor.left, window.innerWidth - ( TILE_W * 3 + 44 ) )
 	);
 	const top = Math.min( anchor.top, window.innerHeight - 300 );
+
+	const tiles = ( group ) =>
+		entries
+			.filter( ( e ) => e.group === group )
+			.map( ( entry ) => (
+				<button
+					key={ entry.key }
+					className={
+						'layout-tile' +
+						( activeKey === entry.key ? ' active' : '' )
+					}
+					title={ entry.name }
+					onClick={ () => applyTextLookOp( editor, entry.look ) }
+				>
+					<span
+						className={
+							'layout-tile-img' +
+							( transparent ? ' checker' : '' )
+						}
+						style={ { height: tileH } }
+					>
+						{ previews[ entry.key ] ? (
+							<img src={ previews[ entry.key ] } alt="" />
+						) : (
+							<span className="layout-tile-loading" />
+						) }
+					</span>
+					<span className="layout-tile-name">{ entry.name }</span>
+				</button>
+			) );
 
 	return (
 		<div
@@ -299,6 +352,22 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 		>
 			<div className="layout-pop-head">
 				<span>{ __( 'Layouts', 'wunderpaint' ) }</span>
+				{ ( !! layer.textLook || !! layer.textLayout ) && (
+					<button
+						className="ai-btn secondary"
+						title={ __( 'Remove layout', 'wunderpaint' ) }
+						onClick={ remove }
+					>
+						×
+					</button>
+				) }
+			</div>
+			<div className="layout-pop-section">
+				<span>{ __( 'Classics', 'wunderpaint' ) }</span>
+			</div>
+			<div className="layout-tiles">{ tiles( 'classic' ) }</div>
+			<div className="layout-pop-section">
+				<span>{ __( 'Generated', 'wunderpaint' ) }</span>
 				<button
 					className="ai-btn secondary"
 					onClick={ () =>
@@ -315,49 +384,16 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 				>
 					{ __( 'Shuffle', 'wunderpaint' ) }
 				</button>
-				{ !! layer.textLayout && (
-					<button
-						className="ai-btn secondary"
-						title={ __( 'Remove layout', 'wunderpaint' ) }
-						onClick={ () => {
-							clearTextLayoutOp( editor );
-							setAppliedKey( null );
-						} }
-					>
-						×
-					</button>
-				) }
 			</div>
-			<div className="layout-tiles">
-				{ specs.map( ( spec ) => {
-					const key = specKey( spec );
-					return (
-						<button
-							key={ key }
-							className={
-								'layout-tile' +
-								( appliedKey === key ? ' active' : '' )
-							}
-							title={
-								'classic' === spec.source
-									? TEXT_LAYOUTS.find(
-											( l ) => l.id === spec.id
-									  )?.name
-									: 'ai' === spec.source
-									? __( 'Suggestion', 'wunderpaint' )
-									: __( 'Generated', 'wunderpaint' )
-							}
-							onClick={ () => apply( spec ) }
-						>
-							{ previews[ key ] ? (
-								<img src={ previews[ key ] } alt="" />
-							) : (
-								<span className="layout-tile-loading" />
-							) }
-						</button>
-					);
-				} ) }
-			</div>
+			<div className="layout-tiles">{ tiles( 'generated' ) }</div>
+			{ aiLooks.length > 0 && (
+				<>
+					<div className="layout-pop-section">
+						<span>{ __( 'Suggestions', 'wunderpaint' ) }</span>
+					</div>
+					<div className="layout-tiles">{ tiles( 'ai' ) }</div>
+				</>
+			) }
 			{ hasCloud && (
 				<div className="layout-pop-ai">
 					<div className="layout-pop-ai-head">

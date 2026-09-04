@@ -166,7 +166,8 @@ describe( 'ShapePanel', () => {
 		const depth = editorRef.state.history.past.length;
 
 		const radius = [ ...panel.querySelectorAll( '.ssd-dial' ) ].find(
-			( row ) => 'Radius' === row.querySelector( '.dsm-label' ).textContent
+			( row ) =>
+				'Radius' === row.querySelector( '.dsm-label' ).textContent
 		);
 		const slider = radius.querySelector( 'input[type=range]' );
 		typeInto( slider, '24' );
@@ -177,8 +178,6 @@ describe( 'ShapePanel', () => {
 				new MouseEvent( 'mouseup', { bubbles: true } )
 			)
 		);
-		expect( editorRef.state.history.past.length ).toBeGreaterThan(
-			depth
-		);
+		expect( editorRef.state.history.past.length ).toBeGreaterThan( depth );
 	} );
 } );

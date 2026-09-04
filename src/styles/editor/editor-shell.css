@@ -169,7 +169,6 @@
 #wpie-root .ed-menubar .ed-tool-opts {
 	display: flex;
 	align-items: center;
-	gap: 8px;
 	margin-left: 12px;
 	flex: 1;
 	min-width: 0;
@@ -183,11 +182,14 @@
 	letter-spacing: 0.5px;
 }
 
+/* The separator sits between equal paddings (v1.429, user report): the
+   old flex gap of 8px landed AFTER the line only, so a control had 10px
+   to its left rule and 18px to its right one. */
 #wpie-root .ed-tool-opts .group {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	padding: 0 10px;
+	padding: 0 9px;
 	border-right: 1px solid var(--ed-border);
 	height: 28px;
 }
@@ -1764,16 +1766,20 @@
 /* Text style preset picker (v1.248): toolbar popover with live previews. */
 #wpie-root .text-style-picker { position: relative; }
 
-#wpie-root .text-style-picker .tsp-btn {
+#wpie-root .text-style-picker .tsp-btn,
+#wpie-root .shape-style-picker .tsp-btn {
 	display: inline-flex; gap: 6px; align-items: center; height: 24px; padding: 0 10px;
 	border: 1px solid var(--ed-border); border-radius: var(--r-sm);
 	background: var(--surface-input); color: var(--ed-text); font-size: 12px; cursor: pointer;
 }
 
 #wpie-root .text-style-picker .tsp-btn:hover,
-#wpie-root .text-style-picker .tsp-btn[aria-expanded='true'] { border-color: var(--accent); }
+#wpie-root .text-style-picker .tsp-btn[aria-expanded='true'],
+#wpie-root .shape-style-picker .tsp-btn:hover,
+#wpie-root .shape-style-picker .tsp-btn[aria-expanded='true'] { border-color: var(--accent); }
 
-#wpie-root .text-style-picker .tsp-btn .chev { font-size: 9px; opacity: 0.7; }
+#wpie-root .text-style-picker .tsp-btn .chev,
+#wpie-root .shape-style-picker .tsp-btn .chev { font-size: 9px; opacity: 0.7; }
 
 #wpie-root .tsp-pop {
 	position: fixed; z-index: 80;
@@ -2670,14 +2676,37 @@
 	font-size: 12px;
 }
 
-#wpie-root .create-open .open-hint {
-	margin: 10px 0 0;
+/* The field holds the words too: card on top, one line of text and one
+   dim line under it, all centred in the same dark panel the other tabs
+   use for their preview. While empty the card is a small square target;
+   with a file in it the card grows to the preview size. */
+#wpie-root .create-open .open-wrap {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+}
+#wpie-root .create-open .open-drop:not( .has-file ) {
+	width: 84px;
+	height: 84px;
+}
+#wpie-root .create-open .open-text {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
 	max-width: 34em;
+	padding: 0 16px;
 	text-align: center;
-	font-size: 12.5px;
-	line-height: 1.5;
-	color: var( --ed-text-dim );
+	font-size: 13px;
+	line-height: 1.4;
+	color: var( --ed-text );
 	overflow-wrap: anywhere;
+}
+#wpie-root .create-open .open-text small {
+	font-size: 12px;
+	color: var( --ed-text-dim );
 }
 
 #wpie-root .create-preview-wrap .preview-card {
@@ -3294,6 +3323,42 @@
 	margin: 4px 0;
 }
 
+/* Sectioned canvas menu (v1.429): small headlines instead of dividers,
+   icon rows for the moves that read better as pictures. */
+#wpie-root .ctx-menu .ctx-head {
+	padding: 5px 10px 2px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	color: var(--ed-text-dim);
+	text-transform: uppercase;
+}
+
+#wpie-root .ctx-menu .ctx-head:not(:first-child) {
+	margin-top: 4px;
+	padding-top: 7px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .ctx-menu .ctx-row {
+	display: flex;
+	gap: 2px;
+	padding: 2px 6px;
+}
+
+#wpie-root .ctx-menu button.is-current {
+	color: var(--accent, #3b66ff);
+}
+
+#wpie-root .ctx-menu .ctx-row button {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	color: var(--ed-text);
+}
+
 /* Floating canvas create button */
 #wpie-root .fab-hint {
 	position: absolute;
@@ -3306,4 +3371,26 @@
 	color: var(--ed-text-dim);
 	pointer-events: none;
 	z-index: 10;
+}
+
+/* A panel that threw: its boundary shows this instead of a white page. */
+.ed-crash-box {
+	margin: 12px;
+	padding: 12px;
+	border: 1px solid var(--ed-border);
+	border-radius: 8px;
+	background: var(--ed-panel-alt);
+	color: var(--ed-text);
+	font-size: 13px;
+}
+.ed-crash-box p {
+	margin: 0 0 8px;
+}
+.ed-crash-box code {
+	display: block;
+	margin: 0 0 10px;
+	font-size: 11px;
+	color: var(--ed-text-dim);
+	white-space: pre-wrap;
+	word-break: break-word;
 }

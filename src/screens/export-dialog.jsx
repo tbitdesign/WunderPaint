@@ -30,12 +30,14 @@ import {
 import { SUPPORTED_MIME, blobWithSourceType } from '../lib/image-metadata';
 import { promptDialog as promptDialogRef } from '../lib/dialogs';
 import {
+	layerOvershoot,
 	renderToBlob,
 	renderToDataURL,
 	renderToCanvas as renderToCanvasHelper,
 	sharedImageCache,
 } from '../lib/raster';
 import { resolveBindings } from '../lib/dynamic-content';
+import { selectionUnits } from '../lib/selection-units';
 import {
 	prepareGeneratorLayers,
 	needsGeneratorPrepare,
@@ -130,8 +132,67 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	const transparentDoc = ! doc.bg || 'transparent' === doc.bg;
 	const needsFlatten =
 		transparentDoc && ( 'jpeg' === format || 'pdf' === format );
-	const outDoc = needsFlatten ? { ...doc, bg: flattenBg } : doc;
 	const [ scale, setScale ] = useState( 1 );
+	// Export only the selection (v1.429): the selected units in a tight
+	// box (strokes, shadows and glyph overshoot included), the rest of the
+	// document left out, transparent unless the format has to flatten.
+	// Raster formats only; PDF, PSD and the animations stay whole-page.
+	const [ scope, setScope ] = useState( 'document' );
+	const selectionView = useMemo( () => {
+		const units = selectionUnits( {
+			layers: state.layers,
+			selectedIds: state.selectedIds,
+			activeId: state.activeId,
+		} );
+		if ( ! units.length ) {
+			return null;
+		}
+		const ids = new Set( units.flatMap( ( u ) => u.ids ) );
+		let x0 = Infinity;
+		let y0 = Infinity;
+		let x1 = -Infinity;
+		let y1 = -Infinity;
+		for ( const u of units ) {
+			const pad = Math.max(
+				0,
+				...u.ids.map( ( id ) => {
+					const l = state.layers.find( ( m ) => m.id === id );
+					return l && 'group' !== l.type ? layerOvershoot( l ) : 0;
+				} )
+			);
+			x0 = Math.min( x0, u.box.x - pad );
+			y0 = Math.min( y0, u.box.y - pad );
+			x1 = Math.max( x1, u.box.x + u.box.w + pad );
+			y1 = Math.max( y1, u.box.y + u.box.h + pad );
+		}
+		const x = Math.floor( x0 );
+		const y = Math.floor( y0 );
+		return {
+			ids,
+			box: {
+				x,
+				y,
+				w: Math.max( 1, Math.ceil( x1 ) - x ),
+				h: Math.max( 1, Math.ceil( y1 ) - y ),
+			},
+		};
+	}, [ state.layers, state.selectedIds, state.activeId ] );
+	const canScope =
+		'export' === mode &&
+		!! selectionView &&
+		[ 'png', 'jpeg', 'webp', 'avif' ].includes( format );
+	const useSelection = canScope && 'selection' === scope;
+	const outLayers = useSelection
+		? layers.filter( ( l ) => selectionView.ids.has( l.id ) )
+		: layers;
+	const viewport = useSelection ? selectionView.box : undefined;
+	const outW = useSelection ? selectionView.box.w : doc.w;
+	const outH = useSelection ? selectionView.box.h : doc.h;
+	const outDoc = needsFlatten
+		? { ...doc, bg: flattenBg }
+		: useSelection
+		? { ...doc, bg: 'transparent' }
+		: doc;
 	// Multi-page designs (v1.11) download in one go: raster pages as a
 	// ZIP, PDF as ONE multi-page file. The exotic encoders (PSD,
 	// animations, favicon sets, extension formats) stay single-page.
@@ -330,7 +391,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	// the preview or a 16px inset reads as a huge gap at thumbnail size.
 	useEffect( () => {
 		let cancelled = false;
-		const previewScale = Math.min( 220 / doc.w, 220 / doc.h, 1 );
+		const previewScale = Math.min( 220 / outW, 220 / outH, 1 );
 		const inset = ( px ) => Math.max( 1, Math.round( px * previewScale ) );
 		const steps = [];
 		if ( applyWm && wmImg ) {
@@ -350,9 +411,10 @@ export function ExportDialog( { mode, onClose, extras } ) {
 				} )
 			);
 		}
-		renderToCanvasHelper( doc, layers, {
+		renderToCanvasHelper( outDoc, outLayers, {
 			scale: previewScale,
 			cache: sharedImageCache,
+			viewport,
 		} )
 			.then( ( canvas ) => {
 				steps.forEach( ( step ) => step( canvas ) );
@@ -363,9 +425,12 @@ export function ExportDialog( { mode, onClose, extras } ) {
 		return () => {
 			cancelled = true;
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		doc,
 		layers,
+		useSelection,
+		selectionView,
 		applyWm,
 		wmImg,
 		wmPlacement,
@@ -394,7 +459,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	}, [] );
 
 	const estimatedMb = (
-		( ( doc.w * scale * doc.h * scale * 4 ) / 1024 / 1024 ) *
+		( ( outW * scale * outH * scale * 4 ) / 1024 / 1024 ) *
 		( 'png' === format
 			? 0.15
 			: 'jpeg' === format
@@ -482,12 +547,13 @@ export function ExportDialog( { mode, onClose, extras } ) {
 					} ),
 			} );
 		}
-		return renderToBlob( outDoc, layers, {
+		return renderToBlob( outDoc, outLayers, {
 			scale,
 			format,
 			quality,
 			cache: sharedImageCache,
 			postProcess,
+			viewport,
 		} );
 	};
 
@@ -1009,6 +1075,39 @@ export function ExportDialog( { mode, onClose, extras } ) {
 							) ) }
 						</div>
 					</div>
+					{ canScope && (
+						<div>
+							<div
+								style={ {
+									fontSize: 11,
+									color: 'var(--ed-text-muted)',
+									textTransform: 'uppercase',
+									letterSpacing: 0.5,
+									marginBottom: 6,
+								} }
+							>
+								{ __( 'Area', 'wunderpaint' ) }
+							</div>
+							<div className="seg-row">
+								<button
+									className={
+										'selection' !== scope ? 'active' : ''
+									}
+									onClick={ () => setScope( 'document' ) }
+								>
+									{ __( 'Whole document', 'wunderpaint' ) }
+								</button>
+								<button
+									className={
+										'selection' === scope ? 'active' : ''
+									}
+									onClick={ () => setScope( 'selection' ) }
+								>
+									{ __( 'Selection only', 'wunderpaint' ) }
+								</button>
+							</div>
+						</div>
+					) }
 					{ ( 'jpeg' === format ||
 						'webp' === format ||
 						'avif' === format ||
@@ -1164,8 +1263,8 @@ export function ExportDialog( { mode, onClose, extras } ) {
 					<div className="file-size">
 						<span>
 							{ __( 'Output:', 'wunderpaint' ) }{ ' ' }
-							{ Math.round( doc.w * scale ) } ×{ ' ' }
-							{ Math.round( doc.h * scale ) } px
+							{ Math.round( outW * scale ) } ×{ ' ' }
+							{ Math.round( outH * scale ) } px
 						</span>
 						<span>
 							{ sprintf(

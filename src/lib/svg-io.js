@@ -11,11 +11,12 @@ import { makeShape, makeText, uid } from '../store/document';
 import { scalePathD, offsetPathD } from '../store/doc-ops';
 import { hasTokens } from './dynamic-content';
 import { arrowHeadSpec, ARROW_KINDS } from './line-geometry';
-import { withTextTransform } from './rich-text';
+import { withTextFit } from './text-fit';
 import { tightenPathLayer } from './path-edit';
 import { dashPattern } from './raster';
 import { isUniform, cornerRadii } from './corner-radii';
 import { shapeToPathD } from './shape-path';
+import { strokeAlignOf, strokeCapOf, strokeJoinOf } from './stroke-align';
 
 const KAPPA = 0.5522847498;
 
@@ -52,7 +53,41 @@ const STYLE_PROPS = [
 	'opacity',
 	'font-size',
 	'font-family',
+	'font-weight',
+	'font-style',
 ];
+
+/**
+ * CSS font-weight to the numeric weight a text layer stores (04.09.2026).
+ * SVG text is regular unless it says otherwise, so no value means 400 -
+ * makeText's own default of 700 must not leak into imported lyrics.
+ *
+ * @param {string|undefined} v Raw font-weight value.
+ * @return {number} 100..900.
+ */
+const fontWeightOf = ( v ) => {
+	const s = String( v ?? '' )
+		.trim()
+		.toLowerCase();
+	if ( ! s || 'normal' === s ) {
+		return 400;
+	}
+	if ( 'bold' === s || 'bolder' === s ) {
+		return 700;
+	}
+	if ( 'lighter' === s ) {
+		return 300;
+	}
+	const n = parseInt( s, 10 );
+	return Number.isNaN( n ) ? 400 : Math.min( 900, Math.max( 100, n ) );
+};
+
+const isItalic = ( v ) =>
+	/^(italic|oblique)/.test(
+		String( v ?? '' )
+			.trim()
+			.toLowerCase()
+	);
 
 /**
  * Class rules from <style> blocks (v1.70.1). Illustrator/Figma/Inkscape
@@ -408,9 +443,15 @@ export function importSvg( text ) {
 								x: Math.round(
 									num( child, 'x' ) * ct.sx + ct.dx
 								),
+								// y is the baseline in local units; size is
+								// already scaled, so the ascent comes off
+								// AFTER the transform (v1.431: it was
+								// subtracted before and scaled again, which
+								// pushed scaled text off its line).
 								y: Math.round(
-									( num( child, 'y' ) - size * 0.8 ) * ct.sy +
-										ct.dy
+									num( child, 'y' ) * ct.sy +
+										ct.dy -
+										size * 0.8
 								),
 								w: Math.round(
 									Math.max( 60, content.length * size * 0.6 )
@@ -422,6 +463,8 @@ export function importSvg( text ) {
 								)
 									.replace( /['"]/g, '' )
 									.split( ',' )[ 0 ],
+								weight: fontWeightOf( style[ 'font-weight' ] ),
+								italic: isItalic( style[ 'font-style' ] ),
 								color:
 									style.fill && 'none' !== style.fill
 										? resolvePaint( style.fill )
@@ -489,11 +532,20 @@ const dashAttr = ( layer, width ) => {
 function shapeToSvg( layer, defs ) {
 	const fillAttr =
 		layer.fill && 'transparent' !== layer.fill ? layer.fill : 'none';
+	// Caps and joins travel only when the layer set them (v1.429), so
+	// older exports stay byte-identical.
+	const capJoinAttr =
+		( layer.strokeCap
+			? ` stroke-linecap="${ strokeCapOf( layer ) }"`
+			: '' ) +
+		( layer.strokeJoin
+			? ` stroke-linejoin="${ strokeJoinOf( layer ) }"`
+			: '' );
 	const strokeAttr =
 		layer.stroke && layer.strokeW
 			? ` stroke="${ esc( layer.stroke ) }" stroke-width="${
 					layer.strokeW
-			  }"${ dashAttr( layer, layer.strokeW ) }`
+			  }"${ dashAttr( layer, layer.strokeW ) }${ capJoinAttr }`
 			: '';
 	const common = `fill="${ esc( fillAttr ) }"${ strokeAttr }`;
 	const tx = ` transform="translate(${ layer.x },${ layer.y })${
@@ -501,6 +553,51 @@ function shapeToSvg( layer, defs ) {
 			? ` rotate(${ layer.rot } ${ layer.w / 2 } ${ layer.h / 2 })`
 			: ''
 	}"`;
+	const align = strokeAlignOf( layer );
+	if ( 'center' !== align && strokeAttr ) {
+		// Stroke position (v1.430): SVG has no such attribute, so the
+		// stroke travels at double width and a clipPath (inside) or a mask
+		// (outside) keeps the half that shows - the same construction the
+		// canvas paints.
+		const d = shapeToPathD( layer );
+		if ( d ) {
+			const id = `wpie-sa${ defs.items.length + 1 }`;
+			const sw = layer.strokeW;
+			const outline = `<path d="${ esc( d ) }" fill="none" stroke="${ esc(
+				layer.stroke
+			) }" stroke-width="${ sw * 2 }" stroke-linejoin="${ strokeJoinOf(
+				layer
+			) }" stroke-linecap="${ strokeCapOf( layer ) }"${ dashAttr(
+				layer,
+				sw
+			) }`;
+			if ( 'inside' === align ) {
+				defs.items.push(
+					`<clipPath id="${ id }"><path d="${ esc(
+						d
+					) }"/></clipPath>`
+				);
+				return `<g${ tx }><path d="${ esc( d ) }" fill="${ esc(
+					fillAttr
+				) }"/>${ outline } clip-path="url(#${ id })"/></g>`;
+			}
+			const m = sw * 2;
+			defs.items.push(
+				`<mask id="${ id }" maskUnits="userSpaceOnUse" x="${ -m }" y="${ -m }" width="${
+					layer.w + 2 * m
+				}" height="${
+					layer.h + 2 * m
+				}"><rect x="${ -m }" y="${ -m }" width="${
+					layer.w + 2 * m
+				}" height="${ layer.h + 2 * m }" fill="#fff"/><path d="${ esc(
+					d
+				) }" fill="#000"/></mask>`
+			);
+			return `<g${ tx }><path d="${ esc( d ) }" fill="${ esc(
+				fillAttr
+			) }"/>${ outline } mask="url(#${ id })"/></g>`;
+		}
+	}
 	if ( layer.pathD ) {
 		return `<path d="${ esc( layer.pathD ) }" ${ common }${ tx }/>`;
 	}
@@ -616,7 +713,10 @@ function shapeToSvg( layer, defs ) {
 
 function textToSvg( layer ) {
 	// Same non-destructive transforms as the raster painter (v1.301).
-	layer = withTextTransform( layer );
+	layer = withTextFit( layer );
+	if ( layer.textFitView ) {
+		return fluidTextToSvg( layer );
+	}
 	const lines = String( layer.text || '' ).split( '\n' );
 	const size = layer.fontSize || 16;
 	const lineHeight = ( layer.lineHeight || 1.05 ) * size;
@@ -628,12 +728,15 @@ function textToSvg( layer ) {
 			: 'start';
 	const ax =
 		'middle' === anchor ? layer.w / 2 : 'end' === anchor ? layer.w : 0;
+	// Every authored line is a paragraph here (the export does not wrap),
+	// so the paragraph spacing (v1.429) adds up per line.
+	const ps = Number( layer.paragraphSpacing ) || 0;
 	const spans = lines
 		.map(
 			( line, i ) =>
-				`<tspan x="${ ax }" y="${ size * 0.8 + i * lineHeight }">${ esc(
-					line
-				) }</tspan>`
+				`<tspan x="${ ax }" y="${
+					size * 0.8 + i * ( lineHeight + ps )
+				}">${ esc( line ) }</tspan>`
 		)
 		.join( '' );
 	// Dynamic binding marker (v1.157.0): server-side consumers (Pro live
@@ -676,11 +779,63 @@ function textToSvg( layer ) {
 		layer.y
 	})" font-family="${ esc(
 		layer.fontFamily || 'Inter'
-	) }" font-size="${ size }" font-weight="${
-		layer.weight || 400
-	}" text-anchor="${ anchor }" fill="${ esc(
+	) }" font-size="${ size }" font-weight="${ layer.weight || 400 }"${
+		layer.italic ? ' font-style="italic"' : ''
+	} text-anchor="${ anchor }" fill="${ esc(
 		layer.color || '#000'
 	) }">${ spans }</text>`;
+}
+
+/**
+ * Fluid Text (v1.429): one tspan per fitted line, each with its own size;
+ * a line's leading is its runs' lh × size. Character colours are not
+ * carried (the plain path drops them too).
+ *
+ * @param {Object} layer Paint view of a fluid text layer.
+ * @return {string} SVG text element.
+ */
+function fluidTextToSvg( layer ) {
+	const rows = [];
+	let row = { size: 0, lh: 0, text: '' };
+	for ( const run of layer.spans || [] ) {
+		const parts = String( run.text ).split( '\n' );
+		parts.forEach( ( part, i ) => {
+			if ( i ) {
+				rows.push( row );
+				row = { size: 0, lh: 0, text: '' };
+			}
+			row.size = row.size || run.s?.size || layer.fontSize || 16;
+			row.lh = row.lh || run.s?.lh || layer.lineHeight || 1.05;
+			row.text += part;
+		} );
+	}
+	rows.push( row );
+	const r2 = ( v ) => Math.round( v * 100 ) / 100;
+	let y = 0;
+	const tspans = rows
+		.map( ( r, i ) => {
+			y += i ? r.lh * r.size : r.size * 0.8;
+			return `<tspan x="${ r2( layer.w / 2 ) }" y="${ r2(
+				y
+			) }" font-size="${ r2( r.size ) }">${ esc( r.text ) }</tspan>`;
+		} )
+		.join( '' );
+	const deco = [
+		layer.underline ? 'underline' : '',
+		layer.strike ? 'line-through' : '',
+	]
+		.filter( Boolean )
+		.join( ' ' );
+	const decoAttr = deco ? ` text-decoration="${ deco }"` : '';
+	return `<text${ decoAttr } transform="translate(${ layer.x },${
+		layer.y
+	})" font-family="${ esc( layer.fontFamily || 'Inter' ) }" font-size="${ r2(
+		rows[ 0 ]?.size || 16
+	) }" font-weight="${ layer.weight || 400 }"${
+		layer.italic ? ' font-style="italic"' : ''
+	} text-anchor="middle" fill="${ esc(
+		layer.color || '#000'
+	) }">${ tspans }</text>`;
 }
 
 function gradientToSvg( layer, defs ) {

@@ -85,6 +85,10 @@ export const autosaveStorage = indexedDbAdapter;
  * @param {Object}   [options.adapter]  Storage adapter override.
  * @param {number}   [options.interval] Throttle ms.
  * @param {Function} [options.now]      Clock (tests).
+ * @param {Function} [options.onError]  Called ONCE with the first write
+ *                                       failure (storage blocked, quota).
+ *                                       A silent autosave is worse than
+ *                                       none: the user trusts it.
  */
 export function createAutosave( {
 	attachmentId,
@@ -92,18 +96,28 @@ export function createAutosave( {
 	adapter = null,
 	interval = AUTOSAVE_INTERVAL,
 	now = () => Date.now(),
+	onError = null,
 } ) {
 	const storage = adapter || indexedDbAdapter;
 	const key = sessionKey( attachmentId );
 	let timer = null;
 	let lastWrite = 0;
+	let warned = false;
 
 	const write = async () => {
 		const snapshot = getSnapshot();
 		if ( ! snapshot ) {
 			return false;
 		}
-		await storage.set( key, { ts: now(), ...snapshot } );
+		try {
+			await storage.set( key, { ts: now(), ...snapshot } );
+		} catch ( err ) {
+			if ( ! warned && 'function' === typeof onError ) {
+				warned = true;
+				onError( err );
+			}
+			return false;
+		}
 		lastWrite = now();
 		return true;
 	};

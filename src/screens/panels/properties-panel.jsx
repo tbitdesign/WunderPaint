@@ -4,6 +4,31 @@
  */
 
 import { ROUNDABLE_SHAPES } from '../../lib/corner-geometry';
+import { cornerRadii } from '../../lib/corner-radii';
+import { NumExprInput } from '../../components/num-expr-input';
+import {
+	strokeAlignOf,
+	strokeCapOf,
+	strokeJoinOf,
+} from '../../lib/stroke-align';
+
+/**
+ * Which cap/join a shape paints when it has not chosen one: the legacy
+ * maths shapes keep mitred corners and flat ends, every path shape
+ * paints round (raster/shapes.js).
+ */
+const LEGACY_STROKE_SHAPES = [
+	'rect',
+	'ellipse',
+	'polygon',
+	'star',
+	'badge',
+	'line',
+];
+const roundStrokeDefault = ( layer ) =>
+	!! layer.pathD ||
+	!! DYNAMIC_SHAPE_MAP[ layer.shape ] ||
+	! LEGACY_STROKE_SHAPES.includes( layer.shape );
 import {
 	DYNAMIC_SHAPE_MAP,
 	pathPolygonRings,
@@ -26,7 +51,11 @@ import { FontPicker } from '../../components/font-picker';
 import { EFFECTS, effectById, defaultParamsFor } from '../../lib/effects';
 import { bindingGroups, hasTokens } from '../../lib/dynamic-content';
 import { VarButton } from '../../components/var-picker';
-import { unitFor } from '../../lib/selection-units';
+import {
+	unitFor,
+	scaleStrokesEnabled,
+	setScaleStrokes,
+} from '../../lib/selection-units';
 import {
 	listExtensionEffects,
 	listExtensionPanelSections,
@@ -37,6 +66,7 @@ import {
 	activeLayerOf,
 	withDescendants,
 } from '../../store/editor-context';
+import { canFluidText, toggleFluidTextOp } from '../../lib/text-fit-ops';
 import { ScrubLabel } from '../../components/scrub-label';
 import { SwatchButton } from '../../components/color-popover';
 import { useSelectionStyle } from '../../components/use-selection-style';
@@ -47,6 +77,106 @@ import { SnapSlider } from '../../components/snap-slider';
 import * as Ops from '../../store/ops';
 
 const num = ( v ) => ( Number.isFinite( +v ) ? +v : 0 );
+
+/**
+ * Every selected layer of the active layer's type (v1.429): appearance
+ * edits in the panel hit the whole selection, the way Figma's do. Groups
+ * stay out, a lone layer comes back as itself.
+ */
+const sameTypeSelection = ( state, layer ) => {
+	const ids = new Set( state.selectedIds || [] );
+	if ( state.activeId ) {
+		ids.add( state.activeId );
+	}
+	const list = state.layers.filter(
+		( l ) => ids.has( l.id ) && l.type === layer.type && ! l.locked
+	);
+	return list.length ? list.map( ( l ) => l.id ) : [ layer.id ];
+};
+
+/** The four corners of a rectangle, in corner-radii.js order. */
+const CORNER_NAMES = [
+	() => __( 'Top left', 'wunderpaint' ),
+	() => __( 'Top right', 'wunderpaint' ),
+	() => __( 'Bottom right', 'wunderpaint' ),
+	() => __( 'Bottom left', 'wunderpaint' ),
+];
+
+/**
+ * Per-corner radius for rectangles (v1.430). `layer.radius` has taken an
+ * [ tl, tr, br, bl ] array since v1.367 and the canvas and both exports
+ * read it through corner-radii.js; this is the first control that writes
+ * one. The stored value stays an array for as long as the box is ticked,
+ * so the four fields do not fold away the moment two corners agree; the
+ * Radius field above sets all four and folds them back into a number.
+ *
+ * @param {Object}   props       Component props.
+ * @param {Object}   props.layer The rectangle layer.
+ * @param {Function} props.up    Patch + commit.
+ * @return {Object} The rows.
+ */
+function CornerRadiiRows( { layer, up } ) {
+	const each = Array.isArray( layer.radius );
+	const radii = cornerRadii( layer.radius, layer.w, layer.h );
+	const setCorner = ( index, value ) => {
+		const next = radii.slice();
+		next[ index ] = Math.max( 0, num( value ) );
+		up( { radius: next } );
+	};
+	return (
+		<>
+			<Field label={ __( 'Corners', 'wunderpaint' ) }>
+				<label
+					style={ {
+						display: 'flex',
+						gap: 6,
+						alignItems: 'center',
+						fontSize: 11,
+						color: 'var(--ed-text-dim)',
+					} }
+				>
+					<input
+						type="checkbox"
+						checked={ each }
+						onChange={ ( e ) =>
+							up( {
+								radius: e.target.checked
+									? radii.slice()
+									: radii[ 0 ],
+							} )
+						}
+					/>
+					{ __( 'Each corner on its own', 'wunderpaint' ) }
+				</label>
+			</Field>
+			{ each && (
+				<Field label="">
+					<div
+						style={ {
+							display: 'grid',
+							gridTemplateColumns: '1fr 1fr',
+							gap: 6,
+						} }
+					>
+						{ CORNER_NAMES.map( ( name, i ) => (
+							<input
+								key={ i }
+								type="number"
+								min="0"
+								title={ name() }
+								aria-label={ name() }
+								value={ Math.round( radii[ i ] ) }
+								onChange={ ( e ) =>
+									setCorner( i, e.target.value )
+								}
+							/>
+						) ) }
+					</div>
+				</Field>
+			) }
+		</>
+	);
+}
 
 /** Square icon-box toggle button (matches Align & Distribute), v1.23. */
 const fmtBtn = ( active ) => ( {
@@ -328,6 +458,9 @@ function ScaleRow( { layer } ) {
 	const { state, dispatch, commit } = useEditor();
 	const base = useRef( null );
 	const [ pct, setPct ] = useState( 100 );
+	// Strokes follow the scale when the preference says so (v1.429); the
+	// same preference drives the group corner handles.
+	const [ strokesToo, setStrokesToo ] = useState( scaleStrokesEnabled );
 
 	// Snapshot the geometry the scale is measured from (captured on grab).
 	const grab = () => {
@@ -356,6 +489,7 @@ function ScaleRow( { layer } ) {
 					fontSize: l.fontSize,
 					spans: l.spans || null,
 					isText: 'text' === l.type,
+					strokeW: 'shape' === l.type ? l.strokeW || 0 : 0,
 				} ) ),
 			};
 		}
@@ -367,6 +501,7 @@ function ScaleRow( { layer } ) {
 			cy: layer.y + layer.h / 2,
 			fontSize: layer.fontSize,
 			spans: layer.spans || null,
+			strokeW: 'shape' === layer.type ? layer.strokeW || 0 : 0,
 		};
 	};
 
@@ -377,6 +512,9 @@ function ScaleRow( { layer } ) {
 		const ncx = cx + ( lf.x + lf.w / 2 - cx ) * f;
 		const ncy = cy + ( lf.y + lf.h / 2 - cy ) * f;
 		const patch = { w: nw, h: nh, x: ncx - nw / 2, y: ncy - nh / 2 };
+		if ( lf.strokeW && strokesToo ) {
+			patch.strokeW = Math.max( 0.5, lf.strokeW * f );
+		}
 		if ( lf.isText && lf.fontSize ) {
 			patch.fontSize = Math.max( 4, lf.fontSize * f );
 			// Rich spans (v1.46) carry their own sizes — scale them along.
@@ -418,6 +556,7 @@ function ScaleRow( { layer } ) {
 					fontSize: b.fontSize,
 					spans: b.spans,
 					isText: 'text' === layer.type,
+					strokeW: b.strokeW,
 				},
 				f,
 				b.cx,
@@ -427,31 +566,70 @@ function ScaleRow( { layer } ) {
 	};
 
 	return (
-		<SliderRow
-			label={ __( 'Scale', 'wunderpaint' ) }
-			min={ 10 }
-			max={ 300 }
-			value={ pct }
-			def={ 100 }
-			display={ `${ Math.round( pct ) }%` }
-			onChange={ ( v ) => {
-				if ( ! base.current ) {
-					base.current = grab();
-				}
-				setPct( v );
-				apply( v );
-			} }
-			onCommit={ () => {
-				base.current = null;
-				setPct( 100 );
-				commit( __( 'Scale layer', 'wunderpaint' ) );
-			} }
-		/>
+		<>
+			<SliderRow
+				label={ __( 'Scale', 'wunderpaint' ) }
+				min={ 10 }
+				max={ 300 }
+				value={ pct }
+				def={ 100 }
+				display={ `${ Math.round( pct ) }%` }
+				onChange={ ( v ) => {
+					if ( ! base.current ) {
+						base.current = grab();
+					}
+					setPct( v );
+					apply( v );
+				} }
+				onCommit={ () => {
+					base.current = null;
+					setPct( 100 );
+					commit( __( 'Scale layer', 'wunderpaint' ) );
+				} }
+			/>
+			<label
+				style={ {
+					display: 'flex',
+					gap: 6,
+					alignItems: 'center',
+					fontSize: 11,
+					color: 'var(--ed-text-dim)',
+					marginTop: -2,
+				} }
+			>
+				<input
+					type="checkbox"
+					checked={ strokesToo }
+					onChange={ ( e ) => {
+						setStrokesToo( e.target.checked );
+						setScaleStrokes( e.target.checked );
+					} }
+				/>
+				{ __( 'Scale strokes too', 'wunderpaint' ) }
+			</label>
+		</>
 	);
 }
 
+const RATIO_KEY = 'wpie-ratio-lock';
+
 function TransformSection( { layer } ) {
 	const { state, dispatch, commit } = useEditor();
+	// W and H chained (v1.429): typing one keeps the proportion.
+	const [ lockRatio, setLockRatio ] = useState( () => {
+		try {
+			return '1' === window.localStorage?.getItem( RATIO_KEY );
+		} catch ( e ) {
+			return false;
+		}
+	} );
+	const toggleRatio = () => {
+		const next = ! lockRatio;
+		setLockRatio( next );
+		try {
+			window.localStorage?.setItem( RATIO_KEY, next ? '1' : '0' );
+		} catch ( e ) {}
+	};
 	const up = ( patch, label ) => {
 		dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch } );
 		if ( label ) {
@@ -532,11 +710,10 @@ function TransformSection( { layer } ) {
 							commit( __( 'Move layer', 'wunderpaint' ) ),
 					} }
 				>
-					<input
-						type="number"
+					<NumExprInput
 						value={ Math.round( box.x ) }
-						onChange={ ( e ) => setX( num( e.target.value ) ) }
-						onBlur={ () =>
+						onChange={ ( v ) => setX( v ) }
+						onCommit={ () =>
 							commit( __( 'Move layer', 'wunderpaint' ) )
 						}
 					/>
@@ -551,11 +728,10 @@ function TransformSection( { layer } ) {
 							commit( __( 'Move layer', 'wunderpaint' ) ),
 					} }
 				>
-					<input
-						type="number"
+					<NumExprInput
 						value={ Math.round( box.y ) }
-						onChange={ ( e ) => setY( num( e.target.value ) ) }
-						onBlur={ () =>
+						onChange={ ( v ) => setY( v ) }
+						onCommit={ () =>
 							commit( __( 'Move layer', 'wunderpaint' ) )
 						}
 					/>
@@ -579,9 +755,9 @@ function TransformSection( { layer } ) {
 							  }
 					}
 				>
-					<input
-						type="number"
+					<NumExprInput
 						value={ Math.round( box.w ) }
+						min={ 1 }
 						disabled={ isGroup }
 						title={
 							isGroup
@@ -591,11 +767,26 @@ function TransformSection( { layer } ) {
 								  )
 								: undefined
 						}
-						onChange={ ( e ) =>
-							! isGroup &&
-							up( { w: Math.max( 1, num( e.target.value ) ) } )
-						}
-						onBlur={ () =>
+						onChange={ ( v ) => {
+							if ( isGroup ) {
+								return;
+							}
+							const w = Math.max( 1, v );
+							up(
+								lockRatio && layer.w
+									? {
+											w,
+											h: Math.max(
+												1,
+												Math.round(
+													( w * layer.h ) / layer.w
+												)
+											),
+									  }
+									: { w }
+							);
+						} }
+						onCommit={ () =>
 							! isGroup &&
 							commit( __( 'Resize layer', 'wunderpaint' ) )
 						}
@@ -618,27 +809,74 @@ function TransformSection( { layer } ) {
 							  }
 					}
 				>
-					<input
-						type="number"
-						value={ Math.round( box.h ) }
-						disabled={ isGroup }
-						title={
-							isGroup
-								? __(
-										'Use the Scale slider to resize a group',
-										'wunderpaint'
-								  )
-								: undefined
-						}
-						onChange={ ( e ) =>
-							! isGroup &&
-							up( { h: Math.max( 1, num( e.target.value ) ) } )
-						}
-						onBlur={ () =>
-							! isGroup &&
-							commit( __( 'Resize layer', 'wunderpaint' ) )
-						}
-					/>
+					<div
+						style={ {
+							display: 'flex',
+							gap: 4,
+							alignItems: 'center',
+						} }
+					>
+						<NumExprInput
+							value={ Math.round( box.h ) }
+							min={ 1 }
+							disabled={ isGroup }
+							style={ { flex: 1, minWidth: 0 } }
+							title={
+								isGroup
+									? __(
+											'Use the Scale slider to resize a group',
+											'wunderpaint'
+									  )
+									: undefined
+							}
+							onChange={ ( v ) => {
+								if ( isGroup ) {
+									return;
+								}
+								const h = Math.max( 1, v );
+								up(
+									lockRatio && layer.h
+										? {
+												h,
+												w: Math.max(
+													1,
+													Math.round(
+														( h * layer.w ) /
+															layer.h
+													)
+												),
+										  }
+										: { h }
+								);
+							} }
+							onCommit={ () =>
+								! isGroup &&
+								commit( __( 'Resize layer', 'wunderpaint' ) )
+							}
+						/>
+						<button
+							type="button"
+							className="icon-btn"
+							style={ { width: 22, height: 22, flex: 'none' } }
+							aria-pressed={ lockRatio }
+							title={
+								lockRatio
+									? __(
+											'Keep proportions: on',
+											'wunderpaint'
+									  )
+									: __(
+											'Keep proportions: off',
+											'wunderpaint'
+									  )
+							}
+							onClick={ toggleRatio }
+						>
+							{ lockRatio
+								? I.link( { size: 12 } )
+								: I.unlink( { size: 12 } ) }
+						</button>
+					</div>
 				</Field>
 			</div>
 			<RotateRow layer={ layer } />
@@ -1114,9 +1352,15 @@ function ImageFitSection( { layer } ) {
 }
 
 function AppearanceSection( { layer, extras } ) {
-	const { dispatch, commit } = useEditor();
+	const editor = useEditor();
+	const { dispatch, commit } = editor;
 	const up = ( patch, label ) => {
-		dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch } );
+		const ids = sameTypeSelection( editor.state, layer );
+		if ( ids.length > 1 ) {
+			dispatch( { type: 'UPDATE_LAYERS', ids, patch } );
+		} else {
+			dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch } );
+		}
 		commit( label || __( 'Edit shape', 'wunderpaint' ) );
 	};
 	const ft =
@@ -1281,6 +1525,78 @@ function AppearanceSection( { layer, extras } ) {
 						}
 					/>
 				</Field>
+				{ 'line' !== layer.shape && (
+					<Field label={ __( 'Position', 'wunderpaint' ) }>
+						<SegToggle
+							value={ strokeAlignOf( layer ) }
+							options={ [
+								[
+									'center',
+									_x(
+										'Center',
+										'stroke position',
+										'wunderpaint'
+									),
+								],
+								[ 'inside', __( 'Inside', 'wunderpaint' ) ],
+								[ 'outside', __( 'Outside', 'wunderpaint' ) ],
+							] }
+							onChange={ ( id ) =>
+								up( {
+									strokeAlign: 'center' === id ? null : id,
+								} )
+							}
+						/>
+					</Field>
+				) }
+				{ 'line' !== layer.shape && (
+					<Field label={ __( 'Joins', 'wunderpaint' ) }>
+						<SegToggle
+							value={ strokeJoinOf(
+								layer,
+								roundStrokeDefault( layer ) ? 'round' : 'miter'
+							) }
+							options={ [
+								[
+									'miter',
+									_x( 'Miter', 'stroke join', 'wunderpaint' ),
+								],
+								[
+									'round',
+									_x( 'Round', 'stroke join', 'wunderpaint' ),
+								],
+								[
+									'bevel',
+									_x( 'Bevel', 'stroke join', 'wunderpaint' ),
+								],
+							] }
+							onChange={ ( id ) => up( { strokeJoin: id } ) }
+						/>
+					</Field>
+				) }
+				<Field label={ __( 'Ends', 'wunderpaint' ) }>
+					<SegToggle
+						value={ strokeCapOf(
+							layer,
+							roundStrokeDefault( layer ) ? 'round' : 'butt'
+						) }
+						options={ [
+							[
+								'butt',
+								_x( 'Flat', 'stroke cap', 'wunderpaint' ),
+							],
+							[
+								'round',
+								_x( 'Round', 'stroke cap', 'wunderpaint' ),
+							],
+							[
+								'square',
+								_x( 'Square', 'stroke cap', 'wunderpaint' ),
+							],
+						] }
+						onChange={ ( id ) => up( { strokeCap: id } ) }
+					/>
+				</Field>
 				<Field label={ __( 'Style', 'wunderpaint' ) }>
 					<div
 						style={ {
@@ -1358,6 +1674,20 @@ function AppearanceSection( { layer, extras } ) {
 						) }
 					</div>
 				</Field>
+				{ Ops.canOutlineStroke( layer ) && (
+					<Field label="">
+						<button
+							type="button"
+							className="ai-btn secondary"
+							style={ { width: '100%' } }
+							onClick={ () =>
+								Ops.outlineStrokeOp( editor, layer.id )
+							}
+						>
+							{ __( 'Outline Stroke', 'wunderpaint' ) }
+						</button>
+					</Field>
+				) }
 			</PanelGroup>
 			{ ( 'line' === layer.shape ||
 				( layer.pathD
@@ -1458,6 +1788,9 @@ function AppearanceSection( { layer, extras } ) {
 								}
 							/>
 						</Field>
+					) }
+					{ 'rect' === layer.shape && ! layer.pathD && (
+						<CornerRadiiRows layer={ layer } up={ up } />
 					) }
 					{ ( layer.pathD
 						? !! pathPolygonRings( layer.pathD )
@@ -1581,7 +1914,8 @@ const CHAR_SELECTION_KEYS = {
 };
 
 function CharacterSection( { layer, extras } ) {
-	const { dispatch, commit } = useEditor();
+	const editor = useEditor();
+	const { dispatch, commit } = editor;
 	const selStyle = useSelectionStyle( extras );
 	const up = ( patch ) => {
 		const rt = extras?.richText?.current;
@@ -1598,7 +1932,15 @@ function CharacterSection( { layer, extras } ) {
 			rt.applyStyle( sp );
 			return;
 		}
-		dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch } );
+		{
+			// Whole selection of text layers (v1.429).
+			const ids = sameTypeSelection( editor.state, layer );
+			if ( ids.length > 1 ) {
+				dispatch( { type: 'UPDATE_LAYERS', ids, patch } );
+			} else {
+				dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch } );
+			}
+		}
 		commit( __( 'Edit text style', 'wunderpaint' ) );
 	};
 	// While editing, the controls mirror the selection's style.
@@ -1646,23 +1988,25 @@ function CharacterSection( { layer, extras } ) {
 					<Field
 						label={ __( 'Size', 'wunderpaint' ) }
 						cols="70px 1fr"
-						scrub={ {
-							value: Math.round( eff.fontSize ),
-							min: 4,
-							max: 800,
-							onScrub: ( v ) => up( { fontSize: v } ),
-						} }
+						scrub={
+							// Fluid Text (v1.429): the box sets the size.
+							layer.textFit
+								? undefined
+								: {
+										value: Math.round( eff.fontSize ),
+										min: 4,
+										max: 800,
+										onScrub: ( v ) => up( { fontSize: v } ),
+								  }
+						}
 					>
-						<input
-							type="number"
+						<NumExprInput
+							disabled={ !! layer.textFit }
 							value={ Math.round( eff.fontSize ) }
-							onChange={ ( e ) =>
-								up( {
-									fontSize: Math.max(
-										4,
-										num( e.target.value )
-									),
-								} )
+							min={ 4 }
+							max={ 800 }
+							onChange={ ( v ) =>
+								up( { fontSize: Math.max( 4, v ) } )
 							}
 						/>
 					</Field>
@@ -1718,6 +2062,13 @@ function CharacterSection( { layer, extras } ) {
 								() => up( { underline: ! layer.underline } ),
 							],
 							[
+								'strike',
+								__( 'Strikethrough', 'wunderpaint' ),
+								I.strikethrough,
+								!! layer.strike,
+								() => up( { strike: ! layer.strike } ),
+							],
+							[
 								'uppercase',
 								__( 'Uppercase', 'wunderpaint' ),
 								I.caseUpper,
@@ -1742,6 +2093,27 @@ function CharacterSection( { layer, extras } ) {
 							</button>
 						) ) }
 					</div>
+				</Field>
+				<Field label={ __( 'Case', 'wunderpaint' ) }>
+					<select
+						value={ layer.textTransform || '' }
+						onChange={ ( e ) =>
+							up( { textTransform: e.target.value || '' } )
+						}
+					>
+						<option value="">
+							{ __( 'As typed', 'wunderpaint' ) }
+						</option>
+						<option value="uppercase">
+							{ __( 'Uppercase', 'wunderpaint' ) }
+						</option>
+						<option value="lowercase">
+							{ __( 'Lowercase', 'wunderpaint' ) }
+						</option>
+						<option value="capitalize">
+							{ __( 'Capitalize Words', 'wunderpaint' ) }
+						</option>
+					</select>
 				</Field>
 				<Field label={ __( 'Alignment', 'wunderpaint' ) }>
 					<div style={ { display: 'flex', gap: 6 } }>
@@ -1836,6 +2208,29 @@ function CharacterSection( { layer, extras } ) {
 						</div>
 					</div>
 				</Field>
+				{ canFluidText( layer ) && (
+					<Field label={ __( 'Fluid Text', 'wunderpaint' ) }>
+						<label
+							style={ {
+								display: 'flex',
+								gap: 6,
+								alignItems: 'center',
+								fontSize: 11,
+								color: 'var(--ed-text-dim)',
+							} }
+						>
+							<input
+								type="checkbox"
+								checked={ !! layer.textFit }
+								onChange={ () => toggleFluidTextOp( editor ) }
+							/>
+							{ __(
+								'The text fills the box, line by line.',
+								'wunderpaint'
+							) }
+						</label>
+					</Field>
+				) }
 				<Field label={ __( 'List', 'wunderpaint' ) }>
 					<div
 						style={ {
@@ -1989,6 +2384,17 @@ function CharacterSection( { layer, extras } ) {
 					step={ 0.05 }
 					value={ layer.lineHeight || 1.05 }
 					onChange={ ( v ) => up( { lineHeight: v } ) }
+				/>
+				<SliderRow
+					label={ __( 'Paragraph spacing', 'wunderpaint' ) }
+					min={ 0 }
+					max={ 200 }
+					def={ 0 }
+					value={ Math.round( layer.paragraphSpacing || 0 ) }
+					display={ `${ Math.round(
+						layer.paragraphSpacing || 0
+					) } px` }
+					onChange={ ( v ) => up( { paragraphSpacing: v } ) }
 				/>
 			</PanelGroup>
 			<PanelGroup title={ __( 'Curve & Path', 'wunderpaint' ) }>

@@ -7,7 +7,14 @@
  */
 
 import { request } from './api';
-import { apiSatisfies, recordExtensionIssue } from './extensions';
+import {
+	API_VERSION,
+	apiSatisfies,
+	recordExtensionIssue,
+	watchInventory,
+	installPlaceholders,
+	retirePlaceholders,
+} from './extensions';
 
 export const listExtensions = () => request( { path: '/extensions' } );
 
@@ -43,6 +50,12 @@ const slugFromUrl = ( url ) => {
 
 const injected = new Set();
 
+/** Append ?ver=<version> unless the URL already carries a query or hash. */
+export const versioned = ( url, version ) =>
+	version && ! /[?#]/.test( String( url ) )
+		? `${ url }?ver=${ encodeURIComponent( version ) }`
+		: url;
+
 /**
  * Load a freshly installed package into the RUNNING editor: script (and
  * optional style) tags are appended, the extension registers through
@@ -53,7 +66,7 @@ const injected = new Set();
  * @param {Object} ext Package descriptor from the REST API.
  * @return {boolean} False when the slug is already live (reload needed).
  */
-export function injectExtension( ext ) {
+export function injectExtension( ext, { onLoad, onError } = {} ) {
 	const live =
 		injected.has( ext.slug ) ||
 		// Covers both enqueued (PHP) and previously injected scripts.
@@ -71,25 +84,188 @@ export function injectExtension( ext ) {
 			ext.slug,
 			`Needs editor API ${ ext.requiresApi }`
 		);
+		if ( onError ) {
+			onError();
+		}
 		return false;
 	}
 	injected.add( ext.slug );
+	// The version rides along as ?ver=, exactly as wp_enqueue_script used
+	// to send it: browser and CDN caches are keyed by the full URL, so an
+	// updated package must ask for a new one. Without it the edge served
+	// the bundle a previous version had left there (found 2026-09-02).
 	if ( ext.style ) {
 		const link = document.createElement( 'link' );
 		link.rel = 'stylesheet';
-		link.href = ext.style;
+		link.href = versioned( ext.style, ext.version );
 		document.head.appendChild( link );
 	}
 	const script = document.createElement( 'script' );
-	script.src = ext.main;
+	script.src = versioned( ext.main, ext.version );
+	// Dynamically inserted scripts run in whatever order they arrive;
+	// registration order is menu order, so keep the list's order.
+	script.async = false;
 	script.dataset.wpieExt = ext.slug;
-	script.onerror = () =>
+	script.onerror = () => {
 		recordExtensionIssue(
 			ext.slug,
 			`Failed to load ${ ext.main.split( '/' ).pop() }`
 		);
+		if ( onError ) {
+			onError();
+		}
+	};
+	if ( onLoad ) {
+		script.onload = onLoad;
+	}
 	document.body.appendChild( script );
 	return true;
+}
+
+/* ------------------------------ lazy loading ----------------------------- */
+
+/*
+ * The boot used to load every package's bundle so its menu entries could
+ * exist. Now each package's INVENTORY (what it registered: kinds, generator
+ * ids and labels, menu items - see lib/extensions.js) is kept in
+ * localStorage per package version, editor locale and API version. A
+ * package whose inventory holds only generators and menu items gets
+ * placeholders at boot and its bundle on first use; everything else, and
+ * every package without a matching inventory (first boot, an update, a
+ * language switch, a blocked store), loads as before. The cache is
+ * self-healing: it is rewritten on every registration, so a package that
+ * turns out to register a library section later is eager from then on.
+ */
+const INVENTORY_PREFIX = 'wpie-ext-inv:';
+const LAZY_KINDS = new Set( [ 'generator', 'menuItem' ] );
+
+const storage = () => {
+	try {
+		return window.localStorage;
+	} catch ( e ) {
+		return null;
+	}
+};
+
+export const inventoryKey = ( slug ) => INVENTORY_PREFIX + slug;
+
+/** The stored inventory of a package, or null when absent or stale. */
+export function readInventory( ext, locale ) {
+	const st = storage();
+	if ( ! st ) {
+		return null;
+	}
+	try {
+		const raw = st.getItem( inventoryKey( ext.slug ) );
+		const v = raw ? JSON.parse( raw ) : null;
+		if (
+			! v ||
+			v.version !== ext.version ||
+			v.locale !== locale ||
+			v.api !== API_VERSION
+		) {
+			return null;
+		}
+		return v;
+	} catch ( e ) {
+		return null;
+	}
+}
+
+export function writeInventory( ext, locale, snap ) {
+	const st = storage();
+	if ( ! st || ! snap ) {
+		return;
+	}
+	try {
+		st.setItem(
+			inventoryKey( ext.slug ),
+			JSON.stringify( {
+				version: ext.version,
+				locale,
+				api: API_VERSION,
+				...snap,
+			} )
+		);
+	} catch ( e ) {
+		// A full or blocked store means "eager next time", nothing more.
+	}
+}
+
+/** Only generators and menu items have placeholders. */
+export const canBeLazy = ( inv ) =>
+	!! inv &&
+	Array.isArray( inv.kinds ) &&
+	inv.kinds.length > 0 &&
+	inv.kinds.every( ( k ) => LAZY_KINDS.has( k ) ) &&
+	( inv.generators || [] ).length + ( inv.menuItems || [] ).length > 0;
+
+const pending = new Map(); // slug → Promise<boolean>
+
+/**
+ * Load one package now (idempotent). Resolves true once its script ran,
+ * false when it failed; either way its placeholders are gone afterwards.
+ *
+ * @param {Object} ext Package descriptor (window.WPIE.extensions entry).
+ * @return {Promise<boolean>} Loaded.
+ */
+export function loadExtension( ext ) {
+	if ( pending.has( ext.slug ) ) {
+		return pending.get( ext.slug );
+	}
+	const p = new Promise( ( resolve ) => {
+		const done = ( ok ) => {
+			retirePlaceholders( ext.slug );
+			resolve( ok );
+		};
+		const started = injectExtension( ext, {
+			onLoad: () => done( true ),
+			onError: () => done( false ),
+		} );
+		if ( ! started ) {
+			// Already on the page (PHP fallback, or an earlier injection):
+			// nothing to wait for.
+			done( true );
+		}
+	} );
+	pending.set( ext.slug, p );
+	return p;
+}
+
+/**
+ * Boot every enabled package: placeholders for the ones the inventory
+ * vouches for, scripts for the rest.
+ *
+ * @param {Array}  list             window.WPIE.extensions.
+ * @param {Object} [options]        Options.
+ * @param {string} [options.locale] Editor locale (labels are localised).
+ * @return {{eager: string[], lazy: string[]}} What happened, for the log.
+ */
+export function bootExtensions( list, { locale = '' } = {} ) {
+	const packages = ( Array.isArray( list ) ? list : [] ).filter(
+		( e ) => e && e.slug && e.main && false !== e.enabled && ! e.apiBlocked
+	);
+	const bySlug = new Map( packages.map( ( e ) => [ e.slug, e ] ) );
+	watchInventory( ( slug, snap ) => {
+		const ext = bySlug.get( slug );
+		if ( ext ) {
+			writeInventory( ext, locale, snap );
+		}
+	} );
+	const report = { eager: [], lazy: [] };
+	for ( const ext of packages ) {
+		const inv = readInventory( ext, locale );
+		if ( canBeLazy( inv ) ) {
+			installPlaceholders( ext.slug, inv, () => loadExtension( ext ) );
+			report.lazy.push( ext.slug );
+		} else {
+			report.eager.push( ext.slug );
+		}
+	}
+	for ( const slug of report.eager ) {
+		loadExtension( bySlug.get( slug ) );
+	}
+	return report;
 }
 
 /**

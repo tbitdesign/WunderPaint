@@ -14,8 +14,10 @@ import {
 	serializeLayers,
 } from '../store/document';
 import { renderToCanvas, sharedImageCache } from '../lib/raster';
-import { importPsdFileOp } from '../store/ops';
+import { importPsdFileOp, downloadProjectOp } from '../store/ops';
 import { createAutosave } from '../lib/autosave';
+import { registerLastResort } from '../lib/last-resort';
+import { ErrorBoundary } from '../components/error-boundary';
 import { offerRestore } from '../lib/restore-offer';
 import { StatusDialog } from './status-dialog';
 import {
@@ -930,12 +932,29 @@ export function EditorScreen( {
 					layers: serializeLayers( current.state.layers ),
 				};
 			},
+			// Once, on the first failed write: a blocked store (private
+			// mode, quota) used to fail in silence while the user trusted
+			// the safety net (found 2026-09-02).
+			onError: () =>
+				toasts.error(
+					__(
+						'Autosave is not available in this browser, its storage is blocked. Save to the Media Library regularly.',
+						'wunderpaint'
+					),
+					{ duration: 12000 }
+				),
 		} );
 		autosave.start();
 
 		// The language switch reloads and needs a snapshot beforehand, not
 		// whichever tick happens to land in up to 30 seconds.
 		autosaveRef.current = autosave;
+		// The crash screen's last resort: snapshot while the tree is still
+		// up, and the project as a download afterwards (lib/last-resort.js).
+		registerLastResort( {
+			snapshot: () => autosave.writeNow(),
+			download: () => downloadProjectOp( ctxRef.current.editor ),
+		} );
 
 		// Read (and clear) the intentional-reload marker right here, once
 		// per page load, regardless of whether load() below actually
@@ -1225,11 +1244,19 @@ export function EditorScreen( {
 			) }
 			{ easyMode ? <EasyToolbar extras={ extras } /> : <EditorToolbar /> }
 			<EditorCanvas viewApi={ viewApi } extras={ extras } />
-			{ easyMode ? (
-				<EasyPanel extras={ extras } />
-			) : (
-				<RightPanel extras={ extras } />
-			) }
+			<ErrorBoundary
+				source="panel"
+				label={ __(
+					'The side panel ran into a problem.',
+					'wunderpaint'
+				) }
+			>
+				{ easyMode ? (
+					<EasyPanel extras={ extras } />
+				) : (
+					<RightPanel extras={ extras } />
+				) }
+			</ErrorBoundary>
 			<div className="ed-docks">
 				{ editor.state.timeline?.on && (
 					<TimelineBar extras={ extras } />
@@ -1238,7 +1265,15 @@ export function EditorScreen( {
 					<PagesBar extras={ extras } />
 				) }
 				{ ! editor.state.libraryHidden && (
-					<LibraryTray extras={ extras } />
+					<ErrorBoundary
+						source="library"
+						label={ __(
+							'The library ran into a problem.',
+							'wunderpaint'
+						) }
+					>
+						<LibraryTray extras={ extras } />
+					</ErrorBoundary>
 				) }
 			</div>
 			<EditorStatusBar onFit={ () => viewApi.current?.fit() } />

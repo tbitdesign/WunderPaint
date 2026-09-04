@@ -159,10 +159,11 @@
 }
 
 #wpie-root .layout-tile {
-	display: grid;
-	place-items: center;
-	height: 96px;
-	padding: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	height: auto;
+	padding: 0 0 3px;
 	overflow: hidden;
 	cursor: pointer;
 	background: #f0f0f1;
@@ -190,6 +191,46 @@
 }
 
 /* AI suggestions section in the layout popover (E2) */
+
+/* Text Looks (v1.430): sections, tiles in the layer's own box shape, names. */
+#wpie-root .layout-pop-section {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 2px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .layout-pop-section span {
+	flex: 1;
+}
+
+#wpie-root .layout-tile-img {
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	background: transparent;
+}
+
+#wpie-root .layout-tile-img.checker {
+	background-image: conic-gradient(#d0d0d0 25%, #f4f4f4 0 50%, #d0d0d0 0 75%, #f4f4f4 0);
+	background-size: 12px 12px;
+}
+
+#wpie-root .layout-tile-name {
+	padding-top: 3px;
+	overflow: hidden;
+	font-size: 10px;
+	text-align: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--ed-text-muted);
+}
+
 #wpie-root .layout-pop-ai {
 	padding-top: 8px;
 	border-top: 1px solid var(--ed-border);

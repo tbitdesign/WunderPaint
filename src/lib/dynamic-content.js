@@ -694,8 +694,9 @@ export function resolveBindings( layers, ctx ) {
 					? { ...layer, visible: false }
 					: {
 							...layer,
-							// Path text follows its path, boxes auto-fit.
-							...( layer.textPath?.d
+							// Path text follows its path, Fluid Text fits at
+							// paint time (v1.429), boxes auto-fit.
+							...( layer.textPath?.d || layer.textFit
 								? { text }
 								: fitTextToBox( layer, text ) ),
 							spans: null,
@@ -718,7 +719,11 @@ export function resolveBindings( layers, ctx ) {
 			res = v
 				? {
 						...layer,
-						...fitTextToBox( layer, v ),
+						// Fluid Text (v1.429) sizes the swapped text per
+						// post at paint time; the box keeps its mode.
+						...( layer.textFit
+							? { text: v }
+							: fitTextToBox( layer, v ) ),
 						spans: null,
 						lineStyles: null,
 				  }

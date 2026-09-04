@@ -20,6 +20,7 @@ import {
 	gradientAxis,
 	gradientStopPoints,
 } from '../../lib/gradient-axis';
+import { ellipsePoints } from '../../lib/ellipse-points';
 import { pivotLocal, hasPivot } from '../../lib/pivot';
 import { textGrips } from '../../lib/text-grips';
 
@@ -855,20 +856,38 @@ export function MarchingAnts( { selection, draft, zoom, pan, tint } ) {
 
 	// In-progress marquee/lasso drafts get ants too.
 	if ( draft && 'marquee' === draft.kind && draft.rect.w > 1 ) {
-		const a = toScreen( draft.rect );
-		shapes.push( {
-			type: 'rect',
-			x: a.x,
-			y: a.y,
-			w: draft.rect.w,
-			h: draft.rect.h,
-			draft: true,
-		} );
+		if ( 'ellipse' === draft.shape ) {
+			shapes.push( {
+				type: 'poly',
+				points: ellipsePoints( draft.rect ).map( toScreen ),
+				draft: true,
+			} );
+		} else {
+			const a = toScreen( draft.rect );
+			shapes.push( {
+				type: 'rect',
+				x: a.x,
+				y: a.y,
+				w: draft.rect.w,
+				h: draft.rect.h,
+				draft: true,
+			} );
+		}
 	}
 	if ( draft && 'lasso' === draft.kind && draft.points.length > 1 ) {
 		shapes.push( {
 			type: 'poly',
 			points: draft.points.map( toScreen ),
+			draft: true,
+		} );
+	}
+	if ( draft && 'lassoPoly' === draft.kind ) {
+		// The corners so far plus the rubber line to the cursor (v1.429).
+		shapes.push( {
+			type: 'poly',
+			points: [ ...draft.points, draft.cursor || draft.points[ 0 ] ].map(
+				toScreen
+			),
 			draft: true,
 		} );
 	}
@@ -1106,6 +1125,22 @@ export function CropOverlay( {
 /* ------------------------------ Pen overlay ----------------------------- */
 
 export function PenOverlay( { draft, zoom, pan, onFinalize } ) {
+	if ( draft && 'penFree' === draft.kind ) {
+		// Freehand pen (v1.429): the raw stroke while the pointer is down;
+		// the fitted anchors appear on release.
+		const pts = draft.points.map( ( p ) => docToScreen( p, pan, zoom ) );
+		return (
+			<svg className="ed-overlay" width="100%" height="100%">
+				<polyline
+					className="pen-path"
+					fill="none"
+					points={ pts
+						.map( ( p ) => `${ p.x },${ p.y }` )
+						.join( ' ' ) }
+				/>
+			</svg>
+		);
+	}
 	if ( ! draft || 'pen' !== draft.kind || ! draft.anchors.length ) {
 		return null;
 	}

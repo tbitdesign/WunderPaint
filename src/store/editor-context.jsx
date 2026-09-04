@@ -77,6 +77,7 @@ function patchLayer( layer, patch ) {
 	// width change re-FITS the type proportionally instead of overflowing.
 	if (
 		'text' === layer.type &&
+		! layer.textFit &&
 		layer.textLayout &&
 		Array.isArray( layer.spans ) &&
 		'w' in patch &&
@@ -118,8 +119,10 @@ function patchLayer( layer, patch ) {
 		// height follows the reflowed text instead of clipping it. Patches
 		// with their own fontSize (corner scale) already fit by construction.
 		// Path text and shape text are exempt: their box frames the OUTLINE
-		// (v1.156.2 / v1.210.0), which scales below.
+		// (v1.156.2 / v1.210.0), which scales below. Fluid Text (v1.429)
+		// owns the box: never auto-size it.
 		'text' === layer.type &&
+		! layer.textFit &&
 		layer.fixedWidth &&
 		! layer.textPath &&
 		! layer.shapeBox &&
@@ -132,6 +135,26 @@ function patchLayer( layer, patch ) {
 			next.h = measureTextHeight( next );
 		} catch ( e ) {
 			// Headless without a canvas: keep the requested height.
+		}
+	} else if (
+		// Leading, paragraph spacing or new text from the panel (v1.429):
+		// the box follows the content, or lines fall out of the buffer.
+		// Point text hugs; a drawn box only grows. A patch that brings its
+		// own height (the edit overlay) is left alone.
+		'text' === layer.type &&
+		! layer.textFit &&
+		! layer.textPath &&
+		! layer.shapeBox &&
+		! ( 'h' in patch ) &&
+		( 'paragraphSpacing' in patch ||
+			'lineHeight' in patch ||
+			( 'text' in patch && ! layer.fixedWidth ) )
+	) {
+		try {
+			const need = measureTextHeight( next );
+			next.h = layer.fixedWidth ? Math.max( next.h, need ) : need;
+		} catch ( e ) {
+			// Headless without a canvas: keep the height.
 		}
 	}
 	if (
@@ -409,7 +432,9 @@ export function reducer( state, action ) {
 		// in the right rail - that grid is three over three and every
 		// tutorial video is built on it.
 		case 'TOGGLE_BRUSH_PANEL': {
-			const showBrushPanel = ! state.showBrushPanel;
+			// `show` makes it an ENSURE (v1.429): the slider button in the
+			// paint bars must end with the panel up, never close it.
+			const showBrushPanel = action.show ?? ! state.showBrushPanel;
 			try {
 				window.localStorage?.setItem(
 					'wpie-brush-panel',

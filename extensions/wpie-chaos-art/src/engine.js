@@ -33,7 +33,6 @@ const PUFF_CAP = 16000;
 const SHARD_CAP = 26000;
 const SNAP_EVERY = 2.5; // wall seconds
 const SNAP_EDGE = 1280; // long edge of a ring snapshot
-const RECORD_CAP = 360; // seconds of process film, then the tape ends
 
 /* ------------------------------ trail stores ------------------------------ */
 
@@ -758,12 +757,6 @@ export class ChaosEngine {
 		this._dpr = Math.min( window.devicePixelRatio || 1, 1.75 );
 		this._ema = 16;
 		this._manualUntil = 0;
-		this._recorder = null;
-		this._recChunks = [];
-		this._recBlob = null;
-		this._recStopAt = 0;
-		this._recLeft = RECORD_CAP * 1000;
-		this._recArmedAt = 0;
 		this._painted = 0;
 	}
 
@@ -988,9 +981,6 @@ export class ChaosEngine {
 		this.strokes.clear();
 		this.ring.clear();
 		this._painted = 0;
-		// A new piece gets a new film; whatever the old recorder held is
-		// the previous piece and dies with it.
-		this.resetRecorder();
 		this.drawMoods();
 		this.applyLook(
 			settings.style,
@@ -1069,21 +1059,10 @@ export class ChaosEngine {
 			return;
 		}
 		this.running = true;
-		this.startRecorder();
 	}
 
 	stop() {
 		this.running = false;
-		if ( this._recorder && 'recording' === this._recorder.state ) {
-			try {
-				this._recorder.pause();
-			} catch ( e ) {}
-			// The cap measures FILM, not the sitting. A paused tape records
-			// nothing, so its alarm has to hold its breath too - otherwise a
-			// long browse through the moment strip ends a film that never got
-			// another frame. What is left of the cap waits for resume().
-			this.holdRecStop();
-		}
 	}
 
 	resume() {
@@ -1091,19 +1070,6 @@ export class ChaosEngine {
 			return;
 		}
 		this.running = true;
-		if ( this._recorder && 'paused' === this._recorder.state ) {
-			try {
-				this._recorder.resume();
-			} catch ( e ) {}
-			// The tape rolls again, so the alarm is set anew - with the rest
-			// of the cap, never with the full one: pausing must not buy film.
-			this.armRecStop( this._recLeft );
-		} else if ( ! this._recorder ) {
-			this.startRecorder();
-		}
-		// A recorder that is already 'inactive' has spent the whole cap on
-		// real film; the painting goes on, the tape stays finished. Starting
-		// a new one here would throw the recorded piece away.
 	}
 
 	/**
@@ -1641,143 +1607,6 @@ export class ChaosEngine {
 		return { url, w, h };
 	}
 
-	/* ------------------------------ recorder ------------------------------ */
-
-	/** Throw the current tape away, silently. */
-	resetRecorder() {
-		this.clearRecStop();
-		const rec = this._recorder;
-		if ( rec ) {
-			rec.ondataavailable = null;
-			rec.onstop = null;
-			if ( 'inactive' !== rec.state ) {
-				try {
-					rec.stop();
-				} catch ( e ) {}
-			}
-		}
-		this._recorder = null;
-		this._recChunks = [];
-		this._recBlob = null;
-	}
-
-	startRecorder() {
-		if (
-			this.embed ||
-			this._recorder ||
-			! window.MediaRecorder ||
-			! this.canvas.captureStream
-		) {
-			return;
-		}
-		this._recBlob = null;
-		try {
-			const stream = this.canvas.captureStream( 30 );
-			const mime = window.MediaRecorder.isTypeSupported(
-				'video/webm;codecs=vp9'
-			)
-				? 'video/webm;codecs=vp9'
-				: 'video/webm';
-			this._recorder = new window.MediaRecorder( stream, {
-				mimeType: mime,
-				videoBitsPerSecond: 9000000,
-			} );
-			this._recChunks = [];
-			this._recorder.ondataavailable = ( e ) => {
-				if ( e.data && e.data.size ) {
-					this._recChunks.push( e.data );
-				}
-			};
-			this._recorder.start( 1000 );
-			this.armRecStop( RECORD_CAP * 1000 );
-		} catch ( e ) {
-			this._recorder = null;
-		}
-	}
-
-	/**
-	 * The tape's alarm. It is armed only while the tape actually rolls, and
-	 * it always carries the REST of the cap, so that the length it limits is
-	 * the length of the film - pauses cost nothing.
-	 *
-	 * @param {number} ms Milliseconds of film still allowed.
-	 */
-	armRecStop( ms ) {
-		this.clearRecStop();
-		this._recLeft = Math.max( 0, ms );
-		this._recArmedAt = Date.now();
-		this._recStopAt = window.setTimeout( () => {
-			this._recStopAt = 0;
-			this._recArmedAt = 0;
-			this._recLeft = 0;
-			// The tape has an end; the painting does not.
-			if ( this._recorder && 'inactive' !== this._recorder.state ) {
-				this._recorder.stop();
-			}
-		}, this._recLeft );
-	}
-
-	/** Stop the alarm and book the film that has run since it was armed. */
-	holdRecStop() {
-		const armedAt = this._recArmedAt;
-		this.clearRecStop();
-		if ( armedAt ) {
-			this._recLeft = Math.max(
-				0,
-				this._recLeft - ( Date.now() - armedAt )
-			);
-		}
-	}
-
-	/** Drop the alarm without touching the rest of the cap. */
-	clearRecStop() {
-		if ( this._recStopAt ) {
-			window.clearTimeout( this._recStopAt );
-		}
-		this._recStopAt = 0;
-		this._recArmedAt = 0;
-	}
-
-	/** Finalize and hand over the film. The next start records anew. */
-	getRecording() {
-		return new Promise( ( resolve ) => {
-			if ( this._recBlob ) {
-				resolve( this._recBlob );
-				return;
-			}
-			const rec = this._recorder;
-			if ( ! rec || 'inactive' === rec.state ) {
-				resolve(
-					this._recChunks.length
-						? new Blob( this._recChunks, { type: 'video/webm' } )
-						: null
-				);
-				return;
-			}
-			rec.onstop = () => {
-				this._recBlob = this._recChunks.length
-					? new Blob( this._recChunks, { type: 'video/webm' } )
-					: null;
-				this._recorder = null;
-				resolve( this._recBlob );
-			};
-			try {
-				rec.stop();
-			} catch ( e ) {
-				this._recorder = null;
-				resolve( null );
-			}
-		} );
-	}
-
-	hasRecording() {
-		return !! (
-			this._recBlob ||
-			this._recChunks.length ||
-			( this._recorder && 'inactive' !== this._recorder.state )
-		);
-	}
-
 	painted() {
 		return this._painted;
 	}
@@ -1826,13 +1655,6 @@ export class ChaosEngine {
 	dispose() {
 		cancelAnimationFrame( this._raf );
 		this.running = false;
-		this.clearRecStop();
-		if ( this._recorder && 'inactive' !== this._recorder.state ) {
-			try {
-				this._recorder.stop();
-			} catch ( e ) {}
-		}
-		this._recorder = null;
 		if ( this._ro ) {
 			this._ro.disconnect();
 		}

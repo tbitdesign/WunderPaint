@@ -19,6 +19,7 @@ import {
 	unitRoots,
 	unitsBounds,
 	effectiveIds,
+	unitFor,
 } from '../../lib/selection-units';
 
 /** Index of the active layer in the flat array (or -1). */
@@ -635,6 +636,126 @@ export function radialRepeat( editor, count, span, upright ) {
 	dispatch( { type: 'SET_SELECTED', ids: [ root.id, ...made ] } );
 	commit( __( 'Radial repeat', 'wunderpaint' ) );
 	return made.length;
+}
+
+/**
+ * Grid Repeat (v1.429): copies of the selected unit in rows and columns
+ * with a gap, the original top left. Groups repeat as a whole.
+ *
+ * @param {Object} editor Editor context.
+ * @param {number} cols   Columns (>= 1).
+ * @param {number} rows   Rows (>= 1).
+ * @param {number} gapX   Horizontal gap in px.
+ * @param {number} gapY   Vertical gap in px.
+ * @return {number} How many copies were made.
+ */
+export function gridRepeat( editor, cols, rows, gapX, gapY ) {
+	const { state, dispatch, commit } = editor;
+	const roots = unitRoots( state.layers, effectiveIds( state ) );
+	const root = roots[ 0 ];
+	if ( ! root ) {
+		return 0;
+	}
+	const nx = Math.max( 1, Math.min( 50, Math.round( cols ) || 1 ) );
+	const ny = Math.max( 1, Math.min( 50, Math.round( rows ) || 1 ) );
+	if ( nx * ny < 2 ) {
+		return 0;
+	}
+	const box = unitFor( state.layers, root ).box;
+	const stepX = box.w + ( Number( gapX ) || 0 );
+	const stepY = box.h + ( Number( gapY ) || 0 );
+	let layers = [ ...state.layers ];
+	const made = [];
+	let n = 2;
+	for ( let row = 0; row < ny; row++ ) {
+		for ( let col = 0; col < nx; col++ ) {
+			if ( ! row && ! col ) {
+				continue;
+			}
+			const { copies, idMap } = DocOps.cloneLayerTree( layers, [
+				root.id,
+			] );
+			const rootId = idMap.get( root.id );
+			const placed = copies.map( ( c ) => {
+				const moved = DocOps.offsetLayer( c, col * stepX, row * stepY );
+				return c.id === rootId
+					? { ...moved, name: `${ root.name } ${ n }` }
+					: moved;
+			} );
+			n++;
+			let insertAt = layers.findIndex( ( l ) => l.id === root.id );
+			layers.forEach( ( l, k ) => {
+				if ( idMap.has( l.id ) ) {
+					insertAt = Math.max( insertAt, k );
+				}
+			} );
+			layers.splice( insertAt + 1, 0, ...placed );
+			if ( root.parent ) {
+				layers = layers.map( ( l ) =>
+					l.id === root.parent && 'group' === l.type
+						? {
+								...l,
+								children: [ ...( l.children || [] ), rootId ],
+						  }
+						: l
+				);
+			}
+			made.push( rootId );
+		}
+	}
+	dispatch( { type: 'SET_LAYERS', layers } );
+	dispatch( { type: 'SET_SELECTED', ids: [ root.id, ...made ] } );
+	commit( __( 'Grid repeat', 'wunderpaint' ) );
+	return made.length;
+}
+
+/**
+ * Ask for columns, rows and gaps, then repeat.
+ *
+ * @param {Object} editor Editor context.
+ */
+export async function gridRepeatPrompt( editor ) {
+	const answer = await promptDialog( {
+		title: __( 'Grid Repeat', 'wunderpaint' ),
+		fields: [
+			{
+				key: 'cols',
+				label: __( 'Columns', 'wunderpaint' ),
+				type: 'number',
+				defaultValue: '3',
+			},
+			{
+				key: 'rows',
+				label: __( 'Rows', 'wunderpaint' ),
+				type: 'number',
+				defaultValue: '3',
+			},
+			{
+				key: 'gapX',
+				label: __( 'Horizontal gap (px)', 'wunderpaint' ),
+				type: 'number',
+				defaultValue: '20',
+			},
+			{
+				key: 'gapY',
+				label: __( 'Vertical gap (px)', 'wunderpaint' ),
+				type: 'number',
+				defaultValue: '20',
+			},
+		],
+		confirmLabel: __( 'Repeat', 'wunderpaint' ),
+	} );
+	if ( ! answer || ! answer.fields ) {
+		return;
+	}
+	const f = answer.fields;
+	gridRepeat(
+		editor,
+		parseInt( f.cols, 10 ) || 1,
+		parseInt( f.rows, 10 ) || 1,
+		parseFloat( f.gapX ) || 0,
+		parseFloat( f.gapY ) || 0
+	);
 }
 
 /**

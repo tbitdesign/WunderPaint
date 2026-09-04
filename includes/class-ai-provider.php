@@ -2557,12 +2557,32 @@ class AI_Provider {
 		$n     = max( 1, min( 4, $n ? $n : 4 ) );
 		$fonts = 'Inter, Playfair Display, DM Serif Display, Bebas Neue, Anton, Archivo, Barlow Condensed, Bitter, Montserrat, Lora, Oswald, Poppins, Space Grotesk, Caveat, Amatic SC, Cormorant Garamond, Abril Fatface, Permanent Marker';
 
-		$schema = '{"items":[{"fit":"block"|"scale","lines":[{"text":"string","role":"eyebrow"|"hero"|"sub"|"detail","fontFamily":"one allowed font","weight":100-900,"italic":true|false,"upper":true|false,"rel":number,"ls":number,"gapAfter":number,"color":"accent"|"#rrggbb","emph":{"wordIndex":int,"style":{"relSize":number,"family":"one allowed font","weight":int,"italic":true|false,"underline":true|false,"color":"accent"|"#rrggbb"}}}]}]}';
-		$rules  = 'You are an expert typographic art director designing text lockups. Re-flow the given wording into 2 to 6 display lines: you may put single important words on their own line and split sentences, but keep EVERY word of the wording in order and do not invent new wording. '
-			. 'Roles: exactly the punchy short lines are "hero" (at least one), a short opening kicker may be "eyebrow", longer sentences are "sub", a short closing line "detail". '
-			. '"rel" is the type size relative to the hero (hero 1, eyebrow 0.2-0.4, sub 0.35-0.8, detail 0.25-0.5; ignored when fit is "block"). "ls" is letter-spacing in em (0 to 0.45, higher only for small uppercase eyebrows). "gapAfter" is the gap below a line in em (0.1 to 0.8). '
-			. 'Colour: the token "accent" marks THE single emphasis colour of the design; use it on ONE line, or better on one key word via "emph" ("wordIndex" counts that line\'s words from 0). Prices, percentages, dates and power words deserve the emph. Everything else inherits the base colour, so omit "color" for normal lines. '
-			. 'Use fit "block" for stacked poster looks where every line should fill the same width (short lines only), otherwise "scale". Pair fonts tastefully within one design (a display face for the hero, a clean sans for support lines) and vary weight, casing ("upper") and italics. '
+		$segments = $request->get_param( 'segments' );
+		$segments = is_array( $segments ) ? array_values( array_filter( array_map( 'sanitize_text_field', array_map( 'strval', $segments ) ), 'strlen' ) ) : array();
+		$seg_list = '';
+		foreach ( $segments as $i => $seg ) {
+			$seg_list .= "\n" . $i . ': ' . $seg;
+		}
+		// The client sends the families its site can show (v1.430); the
+		// fixed list above stays the fallback for older clients.
+		$allowed = $request->get_param( 'fonts' );
+		if ( is_array( $allowed ) ) {
+			$allowed = array_values( array_unique( array_filter( array_map( 'sanitize_text_field', array_map( 'strval', $allowed ) ), 'strlen' ) ) );
+			$allowed = array_slice( $allowed, 0, 400 );
+			if ( count( $allowed ) >= 3 ) {
+				$fonts = implode( ', ', $allowed );
+			}
+		}
+
+		// Text Looks (v1.430): the model designs a LOOK (roles and their
+		// styles), the Fluid Text engine breaks and sizes the lines from
+		// the box. Nothing about line breaks or absolute sizes is asked.
+		$schema = '{"items":[{"assign":"auto"|"stack","segmentRoles":["eyebrow"|"hero"|"sub"|"detail"],"roles":{"hero":{"family":"one allowed font","weight":100-900,"italic":true|false,"upper":true|false,"ls":number,"share":0.3-1,"gapAfter":number,"color":"accent"|"#rrggbb"},"eyebrow":{same keys},"sub":{same keys},"detail":{same keys}},"stripe":true|false,"emph":{"rule":"number"|"longest"|"none","seg":int,"word":int,"style":{"relSize":1-2,"family":"one allowed font","weight":int,"italic":true|false,"underline":true|false,"color":"accent"|"#rrggbb"}}}]}';
+		$rules  = 'You are an expert typographic art director designing text lockups. The wording is already split into numbered SEGMENTS (sentences); the layout engine fills the text box from these segments and sets every size itself, so you design the LOOK only. '
+			. '"segmentRoles" gives one role per segment in order (exactly as many entries as segments): the punchy short segments are "hero" (at least one), a short opening kicker may be "eyebrow", longer sentences are "sub", a short closing line "detail". "assign":"stack" makes every segment a hero (poster stack of short lines only), otherwise "auto". '
+			. 'Each role in "roles" carries its face, weight, casing ("upper"), letter-spacing "ls" in em (0 to 0.45, higher only for small uppercase eyebrows), the air after its lines "gapAfter" in em (0 to 0.6) and "share": the fraction of the box width its lines fill (hero 1, eyebrow 0.35-0.55, sub 0.6-0.9, detail 0.4-0.6). '
+			. 'Colour: the token "accent" marks THE single emphasis colour of the design; use it on ONE role, or better on one key word via "emph" ("seg" counts segments from 0, "word" counts that segment\'s words from 0; rule "number" for prices, percentages and dates, "longest" otherwise, "none" without emphasis). "stripe":true colours every second line instead (stacked posters only). Everything else inherits the base colour, so omit "color" for normal roles. '
+			. 'Pair fonts tastefully within one design (a display face for the hero, a clean sans or serif for the other roles) and vary weight, casing and italics. '
 			. 'Make the ' . $n . ' options genuinely DIFFERENT in structure, typography and mood.'
 			. ( '' !== trim( $style ) ? ' Desired style/mood: ' . $style . '.' : '' )
 			. ( $box_w > 0 && $box_h > 0 ? ' The text box is about ' . $box_w . 'x' . $box_h . ' px.' : '' )
@@ -2580,7 +2600,7 @@ class AI_Provider {
 			array(
 				array(
 					'type' => 'text',
-					'text' => "Wording:\n" . $text,
+					'text' => "Wording:\n" . $text . ( '' !== $seg_list ? "\n\nSegments (numbered from 0):" . $seg_list : '' ),
 				),
 			),
 			6000

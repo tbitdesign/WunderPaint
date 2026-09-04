@@ -182,6 +182,132 @@ const DE = {
 	'They chose:': 'Ihre Wahl:',
 	upheavals: 'Umbrüche',
 	moves: 'Umzüge',
+	Expressionism: 'Expressionismus',
+	Fauvism: 'Fauvismus',
+	Classicism: 'Klassizismus',
+	Suprematism: 'Suprematismus',
+	'De Stijl': 'De Stijl',
+	'Action painting': 'Action Painting',
+	'Color Field': 'Farbfeldmalerei',
+	'Ink wash': 'Tuschmalerei',
+	'Art Informel': 'Informel',
+	Biomorphic: 'Biomorph',
+	Collage: 'Collage',
+	'Broken color in soft light, laid on in short dabs of oil.':
+		'Gebrochene Farbe in weichem Licht, in kurzen Öltupfern gesetzt.',
+	'Loud color, thick paint, black contours that will not sit still.':
+		'Laute Farbe, dicke Paste, schwarze Konturen, die nicht stillhalten.',
+	'Pure color in flat patches, and the white between them left alone.':
+		'Reine Farbe in flachen Flecken, das Weiß dazwischen bleibt stehen.',
+	'One thing seen from many sides at once, in planes of umber and gray.':
+		'Ein Ding von vielen Seiten zugleich gesehen, in Flächen aus Umbra und Grau.',
+	'Golden proportion, warm shadow, light that arrives from one side.':
+		'Goldener Schnitt, warmer Schatten, Licht, das von einer Seite kommt.',
+	'Circle, bar and triangle in primary colors, balanced on a diagonal.':
+		'Kreis, Balken und Dreieck in Grundfarben, auf einer Diagonale ausbalanciert.',
+	'Black and red forms floating on white, weightless and tilted.':
+		'Schwarze und rote Formen, die auf Weiß schweben, schwerelos und gekippt.',
+	'Black rules dividing white, a few cells in red, yellow and blue.':
+		'Schwarze Linien teilen Weiß, ein paar Felder in Rot, Gelb und Blau.',
+	'The whole arm in every stroke, drips and splatter where it ended.':
+		'Der ganze Arm in jedem Strich, Tropfen und Spritzer, wo er endete.',
+	'Bands of luminous color, breathing at their edges.':
+		'Bänder leuchtender Farbe, die an ihren Rändern atmen.',
+	'One shape, one line, and the room around them.':
+		'Eine Form, eine Linie und der Raum um sie herum.',
+	'Black lines that bend the eye, drawn one after another.':
+		'Schwarze Linien, die das Auge verbiegen, eine nach der anderen gezogen.',
+	'A few decisive strokes of black ink, and the paper left to breathe.':
+		'Ein paar entschiedene Striche schwarzer Tusche, und das Papier darf atmen.',
+	'Stains, crusts and scratches; the matter is the subject.':
+		'Flecken, Krusten und Kratzer; die Materie ist das Motiv.',
+	'Playful organisms, black threads and stars on a tinted ground.':
+		'Verspielte Organismen, schwarze Fäden und Sterne auf getöntem Grund.',
+	'Torn paper, printed matter and a red circle, pasted where they landed.':
+		'Gerissenes Papier, Gedrucktes und ein roter Kreis, geklebt, wo sie landeten.',
+	'Lines of force, forms repeated as they move, speed made visible.':
+		'Kraftlinien, Formen, die sich in der Bewegung wiederholen, sichtbar gemachte Geschwindigkeit.',
+	Schools: 'Schulen',
+	'In space (3D)': 'Im Raum (3D)',
+	'Move your pointer as randomly as possible inside this field until the bar is full. Your movement becomes this artwork - it can never be painted again.':
+		'Bewege den Zeiger so zufällig wie möglich in diesem Feld, bis der Balken voll ist. Deine Bewegung wird zu diesem Kunstwerk - es kann nie wieder gemalt werden.',
+	'Charged - start painting whenever you like.':
+		'Aufgeladen - starte das Malen, wann du willst.',
+	'Your pointer stirs the paint · click for an impulse':
+		'Dein Zeiger rührt die Farbe auf · Klick für einen Impuls',
+	'Charge the field until the bar is full, then start painting.':
+		'Lade das Feld auf, bis der Balken voll ist, dann starte das Malen.',
+	'with a guest from': 'mit einem Gast aus',
+	Motif: 'Motiv',
+	'Paint after': 'Malen nach',
+	None: 'Keins',
+	'The picture on the canvas': 'Das Bild auf der Leinwand',
+	'A picture of your own': 'Ein eigenes Bild',
+	'A text': 'Ein Text',
+	'Choose a picture': 'Bild wählen',
+	'No picture yet': 'Noch kein Bild',
+	'That picture could not be read.': 'Dieses Bild ließ sich nicht lesen.',
+	'Your text': 'Dein Text',
+	Font: 'Schrift',
+	Reading: 'Lesart',
+	Abstract: 'Abstrakt',
+	Underpainting: 'Untermalung',
+	Contours: 'Konturen',
+	'Fill the letters': 'Buchstaben füllen',
+	'Keep the letters clear': 'Buchstaben freilassen',
+	'Outline the letters': 'Buchstaben umreißen',
+	'Reading the motif…': 'Motiv wird gelesen…',
+	'The canvas is empty - the motif needs a picture.':
+		'Die Leinwand ist leer - das Motiv braucht ein Bild.',
+	'Choose a picture first.': 'Wähle zuerst ein Bild.',
+	'Type a text first.': 'Gib zuerst einen Text ein.',
+	'after a picture': 'nach einem Bild',
+	'after a text': 'nach einem Text',
+	'Post-Impressionism': 'Postimpressionismus',
+	'Thick directional strokes that swirl around every form, color as feeling.':
+		'Dicke, gerichtete Striche, die jede Form umwirbeln, Farbe als Gefühl.',
+	Orphism: 'Orphismus',
+	'Discs of pure color in concentric rings, light turning into rhythm.':
+		'Scheiben reiner Farbe in konzentrischen Ringen, Licht wird Rhythmus.',
+	'Pop Art': 'Pop Art',
+	'Flat color, a black keyline, a screen of dots - printed, not painted.':
+		'Flache Farbe, schwarze Kontur, ein Punktraster - gedruckt, nicht gemalt.',
+	'Street Art': 'Street Art',
+	'Spray and drip on a dark wall, a stencil, a quick tag in ink.':
+		'Sprühnebel und Tropfen auf dunkler Wand, eine Schablone, ein schneller Tag in Tinte.',
+	'Art Nouveau': 'Jugendstil',
+	'Whiplash curves, tendrils and flat pale shapes in a dark contour.':
+		'Peitschenhieb-Kurven, Ranken und flache blasse Formen in dunkler Kontur.',
+	Mosaic: 'Mosaik',
+	'Little stones in rows that follow the form, gold among them.':
+		'Kleine Steine in Reihen, die der Form folgen, Gold dazwischen.',
+	'Stained Glass': 'Glasmalerei',
+	'Cells of glowing color in a net of black lead.':
+		'Zellen leuchtender Farbe in einem Netz aus schwarzem Blei.',
+	Woodcut: 'Holzschnitt',
+	'Black carved marks on white paper, one color allowed.':
+		'Schwarze geschnittene Marken auf weißem Papier, eine Farbe erlaubt.',
+	Constructivism: 'Konstruktivismus',
+	'Red and black bars on a diagonal, a circle, the picture as a machine.':
+		'Rote und schwarze Balken auf der Diagonale, ein Kreis, das Bild als Maschine.',
+	'Ukiyo-e': 'Ukiyo-e',
+	'Flat planes of color in a fine black keyline, a wave that curls.':
+		'Flache Farbflächen in feiner schwarzer Kontur, eine Welle, die sich kräuselt.',
+	'Line art and paint': 'Lineart und Farbe',
+	'Flat planes and paint': 'Flächen und Farbe',
+	Likeness: 'Ähnlichkeit',
+	'Your pointer stirs the paint · click for an impulse · draw a stroke and they answer it':
+		'Dein Zeiger rührt die Farbe auf · Klick für einen Impuls · zieh einen Strich, und sie antworten darauf',
+	'Cut into pieces': 'In Stücke geschnitten',
+	'Letters as cut-outs': 'Buchstaben als Ausschnitte',
+	'Burst of color': 'Farbstoß',
+	'A burst of color somewhere on the sheet. Click the sheet for one where you point.':
+		'Ein Farbstoß irgendwo auf dem Blatt. Klick aufs Blatt für einen Stoß genau dort.',
+	'Your hand over the sheet draws the painters · click for a burst of color · drag a stroke and they answer it':
+		'Deine Hand über dem Blatt zieht die Maler an · Klick für einen Farbstoß · zieh einen Strich, und sie antworten darauf',
+	'All schools at once, each painter in another.':
+		'Alle Schulen zugleich, jeder Maler in einer anderen.',
+	'Now painting as': 'Malt jetzt als',
 };
 
 const ES = {
@@ -355,6 +481,132 @@ const ES = {
 	'They chose:': 'Eligieron:',
 	upheavals: 'convulsiones',
 	moves: 'mudanzas',
+	Expressionism: 'Expresionismo',
+	Fauvism: 'Fauvismo',
+	Classicism: 'Clasicismo',
+	Suprematism: 'Suprematismo',
+	'De Stijl': 'De Stijl',
+	'Action painting': 'Action painting',
+	'Color Field': 'Campos de color',
+	'Ink wash': 'Tinta aguada',
+	'Art Informel': 'Informalismo',
+	Biomorphic: 'Biomórfico',
+	Collage: 'Collage',
+	'Broken color in soft light, laid on in short dabs of oil.':
+		'Color quebrado en luz suave, puesto en toques cortos de óleo.',
+	'Loud color, thick paint, black contours that will not sit still.':
+		'Color estridente, pintura espesa, contornos negros que no se quedan quietos.',
+	'Pure color in flat patches, and the white between them left alone.':
+		'Color puro en manchas planas, y el blanco entre ellas sin tocar.',
+	'One thing seen from many sides at once, in planes of umber and gray.':
+		'Una cosa vista desde muchos lados a la vez, en planos de sombra y gris.',
+	'Golden proportion, warm shadow, light that arrives from one side.':
+		'Proporción áurea, sombra cálida, luz que llega desde un lado.',
+	'Circle, bar and triangle in primary colors, balanced on a diagonal.':
+		'Círculo, barra y triángulo en colores primarios, equilibrados sobre una diagonal.',
+	'Black and red forms floating on white, weightless and tilted.':
+		'Formas negras y rojas flotando sobre blanco, ingrávidas e inclinadas.',
+	'Black rules dividing white, a few cells in red, yellow and blue.':
+		'Líneas negras que dividen el blanco, unas pocas celdas en rojo, amarillo y azul.',
+	'The whole arm in every stroke, drips and splatter where it ended.':
+		'Todo el brazo en cada trazo, goteos y salpicaduras donde terminó.',
+	'Bands of luminous color, breathing at their edges.':
+		'Bandas de color luminoso que respiran en sus bordes.',
+	'One shape, one line, and the room around them.':
+		'Una forma, una línea y el espacio a su alrededor.',
+	'Black lines that bend the eye, drawn one after another.':
+		'Líneas negras que doblan la vista, trazadas una tras otra.',
+	'A few decisive strokes of black ink, and the paper left to breathe.':
+		'Unos pocos trazos decididos de tinta negra, y el papel que respira.',
+	'Stains, crusts and scratches; the matter is the subject.':
+		'Manchas, costras y arañazos; la materia es el tema.',
+	'Playful organisms, black threads and stars on a tinted ground.':
+		'Organismos juguetones, hilos negros y estrellas sobre un fondo teñido.',
+	'Torn paper, printed matter and a red circle, pasted where they landed.':
+		'Papel rasgado, impresos y un círculo rojo, pegados donde cayeron.',
+	'Lines of force, forms repeated as they move, speed made visible.':
+		'Líneas de fuerza, formas repetidas en movimiento, la velocidad hecha visible.',
+	Schools: 'Escuelas',
+	'In space (3D)': 'En el espacio (3D)',
+	'Move your pointer as randomly as possible inside this field until the bar is full. Your movement becomes this artwork - it can never be painted again.':
+		'Mueve el puntero lo más aleatoriamente posible dentro de este campo hasta que la barra esté llena. Tu movimiento se convierte en esta obra - nunca podrá pintarse otra vez.',
+	'Charged - start painting whenever you like.':
+		'Cargado - empieza a pintar cuando quieras.',
+	'Your pointer stirs the paint · click for an impulse':
+		'Tu puntero remueve la pintura · clic para un impulso',
+	'Charge the field until the bar is full, then start painting.':
+		'Carga el campo hasta que la barra esté llena y luego empieza a pintar.',
+	'with a guest from': 'con un invitado de',
+	Motif: 'Motivo',
+	'Paint after': 'Pintar según',
+	None: 'Ninguno',
+	'The picture on the canvas': 'La imagen del lienzo',
+	'A picture of your own': 'Una imagen propia',
+	'A text': 'Un texto',
+	'Choose a picture': 'Elegir imagen',
+	'No picture yet': 'Aún sin imagen',
+	'That picture could not be read.': 'No se pudo leer esa imagen.',
+	'Your text': 'Tu texto',
+	Font: 'Fuente',
+	Reading: 'Lectura',
+	Abstract: 'Abstracto',
+	Underpainting: 'Base pintada',
+	Contours: 'Contornos',
+	'Fill the letters': 'Rellenar las letras',
+	'Keep the letters clear': 'Dejar las letras libres',
+	'Outline the letters': 'Contornear las letras',
+	'Reading the motif…': 'Leyendo el motivo…',
+	'The canvas is empty - the motif needs a picture.':
+		'El lienzo está vacío - el motivo necesita una imagen.',
+	'Choose a picture first.': 'Elige primero una imagen.',
+	'Type a text first.': 'Escribe primero un texto.',
+	'after a picture': 'según una imagen',
+	'after a text': 'según un texto',
+	'Post-Impressionism': 'Posimpresionismo',
+	'Thick directional strokes that swirl around every form, color as feeling.':
+		'Trazos gruesos y direccionales que giran alrededor de cada forma, el color como sentimiento.',
+	Orphism: 'Orfismo',
+	'Discs of pure color in concentric rings, light turning into rhythm.':
+		'Discos de color puro en anillos concéntricos, la luz hecha ritmo.',
+	'Pop Art': 'Pop art',
+	'Flat color, a black keyline, a screen of dots - printed, not painted.':
+		'Color plano, contorno negro, una trama de puntos - impreso, no pintado.',
+	'Street Art': 'Arte urbano',
+	'Spray and drip on a dark wall, a stencil, a quick tag in ink.':
+		'Aerosol y goteos sobre un muro oscuro, una plantilla, un tag rápido en tinta.',
+	'Art Nouveau': 'Art nouveau',
+	'Whiplash curves, tendrils and flat pale shapes in a dark contour.':
+		'Curvas de látigo, zarcillos y formas planas y pálidas en un contorno oscuro.',
+	Mosaic: 'Mosaico',
+	'Little stones in rows that follow the form, gold among them.':
+		'Piedrecitas en hileras que siguen la forma, oro entre ellas.',
+	'Stained Glass': 'Vidriera',
+	'Cells of glowing color in a net of black lead.':
+		'Celdas de color luminoso en una red de plomo negro.',
+	Woodcut: 'Xilografía',
+	'Black carved marks on white paper, one color allowed.':
+		'Marcas negras talladas sobre papel blanco, un solo color permitido.',
+	Constructivism: 'Constructivismo',
+	'Red and black bars on a diagonal, a circle, the picture as a machine.':
+		'Barras rojas y negras en diagonal, un círculo, el cuadro como máquina.',
+	'Ukiyo-e': 'Ukiyo-e',
+	'Flat planes of color in a fine black keyline, a wave that curls.':
+		'Planos de color en un fino contorno negro, una ola que se riza.',
+	'Line art and paint': 'Líneas y pintura',
+	'Flat planes and paint': 'Planos y pintura',
+	Likeness: 'Parecido',
+	'Your pointer stirs the paint · click for an impulse · draw a stroke and they answer it':
+		'Tu puntero remueve la pintura · clic para un impulso · dibuja un trazo y ellos responden',
+	'Cut into pieces': 'Cortado en piezas',
+	'Letters as cut-outs': 'Letras recortadas',
+	'Burst of color': 'Estallido de color',
+	'A burst of color somewhere on the sheet. Click the sheet for one where you point.':
+		'Un estallido de color en algún lugar de la hoja. Haz clic en la hoja para uno justo ahí.',
+	'Your hand over the sheet draws the painters · click for a burst of color · drag a stroke and they answer it':
+		'Tu mano sobre la hoja atrae a los pintores · clic para un estallido de color · dibuja un trazo y ellos responden',
+	'All schools at once, each painter in another.':
+		'Todas las escuelas a la vez, cada pintor en otra.',
+	'Now painting as': 'Ahora pinta como',
 };
 
 const FR = {
@@ -527,6 +779,132 @@ const FR = {
 	'They chose:': 'Leur choix :',
 	upheavals: 'bouleversements',
 	moves: 'déménagements',
+	Expressionism: 'Expressionnisme',
+	Fauvism: 'Fauvisme',
+	Classicism: 'Classicisme',
+	Suprematism: 'Suprématisme',
+	'De Stijl': 'De Stijl',
+	'Action painting': 'Action painting',
+	'Color Field': 'Color Field',
+	'Ink wash': "Lavis d'encre",
+	'Art Informel': 'Art informel',
+	Biomorphic: 'Biomorphique',
+	Collage: 'Collage',
+	'Broken color in soft light, laid on in short dabs of oil.':
+		"Couleur rompue dans une lumière douce, posée en courtes touches d'huile.",
+	'Loud color, thick paint, black contours that will not sit still.':
+		'Couleur criarde, pâte épaisse, contours noirs qui ne tiennent pas en place.',
+	'Pure color in flat patches, and the white between them left alone.':
+		'Couleur pure en aplats, et le blanc entre eux laissé tel quel.',
+	'One thing seen from many sides at once, in planes of umber and gray.':
+		"Une chose vue de plusieurs côtés à la fois, en plans de terre d'ombre et de gris.",
+	'Golden proportion, warm shadow, light that arrives from one side.':
+		"Nombre d'or, ombre chaude, lumière qui vient d'un seul côté.",
+	'Circle, bar and triangle in primary colors, balanced on a diagonal.':
+		'Cercle, barre et triangle en couleurs primaires, en équilibre sur une diagonale.',
+	'Black and red forms floating on white, weightless and tilted.':
+		'Formes noires et rouges flottant sur le blanc, sans poids et inclinées.',
+	'Black rules dividing white, a few cells in red, yellow and blue.':
+		'Des lignes noires divisent le blanc, quelques cases en rouge, jaune et bleu.',
+	'The whole arm in every stroke, drips and splatter where it ended.':
+		"Tout le bras dans chaque geste, coulures et éclaboussures là où il s'est arrêté.",
+	'Bands of luminous color, breathing at their edges.':
+		'Des bandes de couleur lumineuse qui respirent sur leurs bords.',
+	'One shape, one line, and the room around them.':
+		"Une forme, une ligne, et l'espace autour d'elles.",
+	'Black lines that bend the eye, drawn one after another.':
+		"Des lignes noires qui trompent l'œil, tracées l'une après l'autre.",
+	'A few decisive strokes of black ink, and the paper left to breathe.':
+		"Quelques traits décidés d'encre noire, et le papier laissé respirer.",
+	'Stains, crusts and scratches; the matter is the subject.':
+		'Taches, croûtes et griffures ; la matière est le sujet.',
+	'Playful organisms, black threads and stars on a tinted ground.':
+		'Organismes joueurs, fils noirs et étoiles sur un fond teinté.',
+	'Torn paper, printed matter and a red circle, pasted where they landed.':
+		'Papier déchiré, imprimés et un cercle rouge, collés là où ils sont tombés.',
+	'Lines of force, forms repeated as they move, speed made visible.':
+		'Lignes de force, formes répétées dans le mouvement, la vitesse rendue visible.',
+	Schools: 'Écoles',
+	'In space (3D)': "Dans l'espace (3D)",
+	'Move your pointer as randomly as possible inside this field until the bar is full. Your movement becomes this artwork - it can never be painted again.':
+		"Déplacez le pointeur aussi aléatoirement que possible dans ce champ jusqu'à ce que la barre soit pleine. Votre mouvement devient cette œuvre - elle ne pourra jamais être repeinte.",
+	'Charged - start painting whenever you like.':
+		'Chargé - commencez à peindre quand vous voulez.',
+	'Your pointer stirs the paint · click for an impulse':
+		'Votre pointeur remue la peinture · cliquez pour une impulsion',
+	'Charge the field until the bar is full, then start painting.':
+		"Chargez le champ jusqu'à ce que la barre soit pleine, puis commencez à peindre.",
+	'with a guest from': 'avec un invité de',
+	Motif: 'Motif',
+	'Paint after': "Peindre d'après",
+	None: 'Aucun',
+	'The picture on the canvas': "L'image sur la toile",
+	'A picture of your own': 'Une image à vous',
+	'A text': 'Un texte',
+	'Choose a picture': 'Choisir une image',
+	'No picture yet': "Pas encore d'image",
+	'That picture could not be read.': "Cette image n'a pas pu être lue.",
+	'Your text': 'Votre texte',
+	Font: 'Police',
+	Reading: 'Lecture',
+	Abstract: 'Abstrait',
+	Underpainting: 'Sous-couche',
+	Contours: 'Contours',
+	'Fill the letters': 'Remplir les lettres',
+	'Keep the letters clear': 'Laisser les lettres vides',
+	'Outline the letters': 'Cerner les lettres',
+	'Reading the motif…': 'Lecture du motif…',
+	'The canvas is empty - the motif needs a picture.':
+		"La toile est vide - le motif a besoin d'une image.",
+	'Choose a picture first.': "Choisissez d'abord une image.",
+	'Type a text first.': "Saisissez d'abord un texte.",
+	'after a picture': "d'après une image",
+	'after a text': "d'après un texte",
+	'Post-Impressionism': 'Post-impressionnisme',
+	'Thick directional strokes that swirl around every form, color as feeling.':
+		'Des touches épaisses et orientées qui tourbillonnent autour de chaque forme, la couleur comme sentiment.',
+	Orphism: 'Orphisme',
+	'Discs of pure color in concentric rings, light turning into rhythm.':
+		'Des disques de couleur pure en anneaux concentriques, la lumière devenue rythme.',
+	'Pop Art': 'Pop art',
+	'Flat color, a black keyline, a screen of dots - printed, not painted.':
+		'Couleur plate, contour noir, une trame de points - imprimé, pas peint.',
+	'Street Art': 'Street art',
+	'Spray and drip on a dark wall, a stencil, a quick tag in ink.':
+		"Bombe et coulures sur un mur sombre, un pochoir, un tag rapide à l'encre.",
+	'Art Nouveau': 'Art nouveau',
+	'Whiplash curves, tendrils and flat pale shapes in a dark contour.':
+		'Courbes en coup de fouet, vrilles et formes plates et pâles dans un contour sombre.',
+	Mosaic: 'Mosaïque',
+	'Little stones in rows that follow the form, gold among them.':
+		"De petites pierres en rangs qui suivent la forme, de l'or parmi elles.",
+	'Stained Glass': 'Vitrail',
+	'Cells of glowing color in a net of black lead.':
+		'Des cellules de couleur lumineuse dans un réseau de plomb noir.',
+	Woodcut: 'Gravure sur bois',
+	'Black carved marks on white paper, one color allowed.':
+		'Des marques noires taillées sur papier blanc, une seule couleur permise.',
+	Constructivism: 'Constructivisme',
+	'Red and black bars on a diagonal, a circle, the picture as a machine.':
+		'Des barres rouges et noires en diagonale, un cercle, le tableau comme machine.',
+	'Ukiyo-e': 'Ukiyo-e',
+	'Flat planes of color in a fine black keyline, a wave that curls.':
+		"Des aplats de couleur dans un fin contour noir, une vague qui s'enroule.",
+	'Line art and paint': 'Trait et peinture',
+	'Flat planes and paint': 'Aplats et peinture',
+	Likeness: 'Ressemblance',
+	'Your pointer stirs the paint · click for an impulse · draw a stroke and they answer it':
+		'Votre pointeur remue la peinture · cliquez pour une impulsion · tracez un trait et ils y répondent',
+	'Cut into pieces': 'Découpé en morceaux',
+	'Letters as cut-outs': 'Lettres découpées',
+	'Burst of color': 'Éclat de couleur',
+	'A burst of color somewhere on the sheet. Click the sheet for one where you point.':
+		'Un éclat de couleur quelque part sur la feuille. Cliquez sur la feuille pour un éclat là où vous pointez.',
+	'Your hand over the sheet draws the painters · click for a burst of color · drag a stroke and they answer it':
+		'Votre main sur la feuille attire les peintres · cliquez pour un éclat de couleur · tracez un trait et ils y répondent',
+	'All schools at once, each painter in another.':
+		'Toutes les écoles à la fois, chaque peintre dans une autre.',
+	'Now painting as': 'Peint maintenant en',
 };
 
 const PT = {
@@ -698,6 +1076,132 @@ const PT = {
 	'They chose:': 'Escolheram:',
 	upheavals: 'convulsões',
 	moves: 'mudanças',
+	Expressionism: 'Expressionismo',
+	Fauvism: 'Fauvismo',
+	Classicism: 'Classicismo',
+	Suprematism: 'Suprematismo',
+	'De Stijl': 'De Stijl',
+	'Action painting': 'Action painting',
+	'Color Field': 'Campos de cor',
+	'Ink wash': 'Aguada de tinta',
+	'Art Informel': 'Informalismo',
+	Biomorphic: 'Biomórfico',
+	Collage: 'Colagem',
+	'Broken color in soft light, laid on in short dabs of oil.':
+		'Cor quebrada em luz suave, aplicada em toques curtos de óleo.',
+	'Loud color, thick paint, black contours that will not sit still.':
+		'Cor estridente, tinta espessa, contornos pretos que não param quietos.',
+	'Pure color in flat patches, and the white between them left alone.':
+		'Cor pura em manchas planas, e o branco entre elas deixado em paz.',
+	'One thing seen from many sides at once, in planes of umber and gray.':
+		'Uma coisa vista de muitos lados ao mesmo tempo, em planos de sombra e cinza.',
+	'Golden proportion, warm shadow, light that arrives from one side.':
+		'Proporção áurea, sombra quente, luz que chega de um só lado.',
+	'Circle, bar and triangle in primary colors, balanced on a diagonal.':
+		'Círculo, barra e triângulo em cores primárias, equilibrados numa diagonal.',
+	'Black and red forms floating on white, weightless and tilted.':
+		'Formas pretas e vermelhas a flutuar sobre branco, sem peso e inclinadas.',
+	'Black rules dividing white, a few cells in red, yellow and blue.':
+		'Linhas pretas a dividir o branco, algumas células em vermelho, amarelo e azul.',
+	'The whole arm in every stroke, drips and splatter where it ended.':
+		'O braço inteiro em cada traço, pingos e salpicos onde terminou.',
+	'Bands of luminous color, breathing at their edges.':
+		'Faixas de cor luminosa que respiram nas suas margens.',
+	'One shape, one line, and the room around them.':
+		'Uma forma, uma linha e o espaço à sua volta.',
+	'Black lines that bend the eye, drawn one after another.':
+		'Linhas pretas que dobram o olhar, traçadas uma após outra.',
+	'A few decisive strokes of black ink, and the paper left to breathe.':
+		'Alguns traços decididos de tinta preta, e o papel deixado a respirar.',
+	'Stains, crusts and scratches; the matter is the subject.':
+		'Manchas, crostas e riscos; a matéria é o tema.',
+	'Playful organisms, black threads and stars on a tinted ground.':
+		'Organismos brincalhões, fios pretos e estrelas sobre um fundo tingido.',
+	'Torn paper, printed matter and a red circle, pasted where they landed.':
+		'Papel rasgado, impressos e um círculo vermelho, colados onde caíram.',
+	'Lines of force, forms repeated as they move, speed made visible.':
+		'Linhas de força, formas repetidas em movimento, a velocidade tornada visível.',
+	Schools: 'Escolas',
+	'In space (3D)': 'No espaço (3D)',
+	'Move your pointer as randomly as possible inside this field until the bar is full. Your movement becomes this artwork - it can never be painted again.':
+		'Move o ponteiro o mais aleatoriamente possível dentro deste campo até a barra estar cheia. O teu movimento torna-se esta obra - nunca mais poderá ser pintada.',
+	'Charged - start painting whenever you like.':
+		'Carregado - começa a pintar quando quiseres.',
+	'Your pointer stirs the paint · click for an impulse':
+		'O teu ponteiro mexe na tinta · clica para um impulso',
+	'Charge the field until the bar is full, then start painting.':
+		'Carrega o campo até a barra estar cheia e depois começa a pintar.',
+	'with a guest from': 'com um convidado de',
+	Motif: 'Motivo',
+	'Paint after': 'Pintar a partir de',
+	None: 'Nenhum',
+	'The picture on the canvas': 'A imagem na tela',
+	'A picture of your own': 'Uma imagem tua',
+	'A text': 'Um texto',
+	'Choose a picture': 'Escolher imagem',
+	'No picture yet': 'Ainda sem imagem',
+	'That picture could not be read.': 'Não foi possível ler essa imagem.',
+	'Your text': 'O teu texto',
+	Font: 'Fonte',
+	Reading: 'Leitura',
+	Abstract: 'Abstrato',
+	Underpainting: 'Base pintada',
+	Contours: 'Contornos',
+	'Fill the letters': 'Preencher as letras',
+	'Keep the letters clear': 'Deixar as letras livres',
+	'Outline the letters': 'Contornar as letras',
+	'Reading the motif…': 'A ler o motivo…',
+	'The canvas is empty - the motif needs a picture.':
+		'A tela está vazia - o motivo precisa de uma imagem.',
+	'Choose a picture first.': 'Escolhe primeiro uma imagem.',
+	'Type a text first.': 'Escreve primeiro um texto.',
+	'after a picture': 'a partir de uma imagem',
+	'after a text': 'a partir de um texto',
+	'Post-Impressionism': 'Pós-impressionismo',
+	'Thick directional strokes that swirl around every form, color as feeling.':
+		'Pinceladas grossas e direcionadas que rodopiam em volta de cada forma, a cor como sentimento.',
+	Orphism: 'Orfismo',
+	'Discs of pure color in concentric rings, light turning into rhythm.':
+		'Discos de cor pura em anéis concêntricos, a luz tornada ritmo.',
+	'Pop Art': 'Pop art',
+	'Flat color, a black keyline, a screen of dots - printed, not painted.':
+		'Cor plana, contorno preto, uma trama de pontos - impresso, não pintado.',
+	'Street Art': 'Arte urbana',
+	'Spray and drip on a dark wall, a stencil, a quick tag in ink.':
+		'Spray e escorridos numa parede escura, um stencil, um tag rápido a tinta.',
+	'Art Nouveau': 'Arte nova',
+	'Whiplash curves, tendrils and flat pale shapes in a dark contour.':
+		'Curvas de chicote, gavinhas e formas planas e pálidas num contorno escuro.',
+	Mosaic: 'Mosaico',
+	'Little stones in rows that follow the form, gold among them.':
+		'Pedrinhas em fileiras que seguem a forma, ouro entre elas.',
+	'Stained Glass': 'Vitral',
+	'Cells of glowing color in a net of black lead.':
+		'Células de cor luminosa numa rede de chumbo preto.',
+	Woodcut: 'Xilogravura',
+	'Black carved marks on white paper, one color allowed.':
+		'Marcas pretas entalhadas em papel branco, uma só cor permitida.',
+	Constructivism: 'Construtivismo',
+	'Red and black bars on a diagonal, a circle, the picture as a machine.':
+		'Barras vermelhas e pretas na diagonal, um círculo, o quadro como máquina.',
+	'Ukiyo-e': 'Ukiyo-e',
+	'Flat planes of color in a fine black keyline, a wave that curls.':
+		'Planos de cor num fino contorno preto, uma onda que se encaracola.',
+	'Line art and paint': 'Traço e tinta',
+	'Flat planes and paint': 'Planos e tinta',
+	Likeness: 'Semelhança',
+	'Your pointer stirs the paint · click for an impulse · draw a stroke and they answer it':
+		'O teu ponteiro mexe na tinta · clica para um impulso · traça um risco e eles respondem',
+	'Cut into pieces': 'Cortado em pedaços',
+	'Letters as cut-outs': 'Letras recortadas',
+	'Burst of color': 'Explosão de cor',
+	'A burst of color somewhere on the sheet. Click the sheet for one where you point.':
+		'Uma explosão de cor algures na folha. Clica na folha para uma exatamente aí.',
+	'Your hand over the sheet draws the painters · click for a burst of color · drag a stroke and they answer it':
+		'A tua mão sobre a folha atrai os pintores · clica para uma explosão de cor · traça um risco e eles respondem',
+	'All schools at once, each painter in another.':
+		'Todas as escolas ao mesmo tempo, cada pintor numa outra.',
+	'Now painting as': 'Pinta agora como',
 };
 
 const IT = {
@@ -871,6 +1375,132 @@ const IT = {
 	'They chose:': 'Hanno scelto:',
 	upheavals: 'sconvolgimenti',
 	moves: 'traslochi',
+	Expressionism: 'Espressionismo',
+	Fauvism: 'Fauvismo',
+	Classicism: 'Classicismo',
+	Suprematism: 'Suprematismo',
+	'De Stijl': 'De Stijl',
+	'Action painting': 'Action painting',
+	'Color Field': 'Color Field',
+	'Ink wash': 'Pittura a inchiostro',
+	'Art Informel': 'Informale',
+	Biomorphic: 'Biomorfico',
+	Collage: 'Collage',
+	'Broken color in soft light, laid on in short dabs of oil.':
+		"Colore spezzato in luce morbida, steso a brevi tocchi d'olio.",
+	'Loud color, thick paint, black contours that will not sit still.':
+		'Colore urlato, pasta densa, contorni neri che non stanno fermi.',
+	'Pure color in flat patches, and the white between them left alone.':
+		'Colore puro in campiture piatte, e il bianco fra loro lasciato stare.',
+	'One thing seen from many sides at once, in planes of umber and gray.':
+		"Una cosa vista da molti lati insieme, in piani di terra d'ombra e grigio.",
+	'Golden proportion, warm shadow, light that arrives from one side.':
+		'Sezione aurea, ombra calda, luce che arriva da un solo lato.',
+	'Circle, bar and triangle in primary colors, balanced on a diagonal.':
+		'Cerchio, barra e triangolo in colori primari, in equilibrio su una diagonale.',
+	'Black and red forms floating on white, weightless and tilted.':
+		'Forme nere e rosse che galleggiano sul bianco, senza peso e inclinate.',
+	'Black rules dividing white, a few cells in red, yellow and blue.':
+		'Linee nere che dividono il bianco, poche celle in rosso, giallo e blu.',
+	'The whole arm in every stroke, drips and splatter where it ended.':
+		'Tutto il braccio in ogni tratto, colature e schizzi dove è finito.',
+	'Bands of luminous color, breathing at their edges.':
+		'Bande di colore luminoso che respirano ai bordi.',
+	'One shape, one line, and the room around them.':
+		'Una forma, una linea e lo spazio intorno a loro.',
+	'Black lines that bend the eye, drawn one after another.':
+		"Linee nere che piegano lo sguardo, tracciate una dopo l'altra.",
+	'A few decisive strokes of black ink, and the paper left to breathe.':
+		"Pochi tratti decisi d'inchiostro nero, e la carta lasciata respirare.",
+	'Stains, crusts and scratches; the matter is the subject.':
+		'Macchie, croste e graffi; la materia è il soggetto.',
+	'Playful organisms, black threads and stars on a tinted ground.':
+		'Organismi giocosi, fili neri e stelle su un fondo tinto.',
+	'Torn paper, printed matter and a red circle, pasted where they landed.':
+		'Carta strappata, stampati e un cerchio rosso, incollati dove sono caduti.',
+	'Lines of force, forms repeated as they move, speed made visible.':
+		'Linee di forza, forme ripetute nel movimento, la velocità resa visibile.',
+	Schools: 'Scuole',
+	'In space (3D)': 'Nello spazio (3D)',
+	'Move your pointer as randomly as possible inside this field until the bar is full. Your movement becomes this artwork - it can never be painted again.':
+		"Muovi il puntatore nel modo più casuale possibile dentro questo campo finché la barra è piena. Il tuo movimento diventa quest'opera - non potrà mai essere dipinta di nuovo.",
+	'Charged - start painting whenever you like.':
+		'Carico - inizia a dipingere quando vuoi.',
+	'Your pointer stirs the paint · click for an impulse':
+		'Il tuo puntatore smuove il colore · clic per un impulso',
+	'Charge the field until the bar is full, then start painting.':
+		'Carica il campo finché la barra è piena, poi inizia a dipingere.',
+	'with a guest from': 'con un ospite da',
+	Motif: 'Motivo',
+	'Paint after': 'Dipingere da',
+	None: 'Nessuno',
+	'The picture on the canvas': "L'immagine sulla tela",
+	'A picture of your own': "Un'immagine tua",
+	'A text': 'Un testo',
+	'Choose a picture': 'Scegli immagine',
+	'No picture yet': 'Ancora nessuna immagine',
+	'That picture could not be read.': "Impossibile leggere quell'immagine.",
+	'Your text': 'Il tuo testo',
+	Font: 'Carattere',
+	Reading: 'Lettura',
+	Abstract: 'Astratto',
+	Underpainting: 'Sottopittura',
+	Contours: 'Contorni',
+	'Fill the letters': 'Riempire le lettere',
+	'Keep the letters clear': 'Lasciare libere le lettere',
+	'Outline the letters': 'Contornare le lettere',
+	'Reading the motif…': 'Lettura del motivo…',
+	'The canvas is empty - the motif needs a picture.':
+		"La tela è vuota - il motivo ha bisogno di un'immagine.",
+	'Choose a picture first.': "Scegli prima un'immagine.",
+	'Type a text first.': 'Scrivi prima un testo.',
+	'after a picture': "da un'immagine",
+	'after a text': 'da un testo',
+	'Post-Impressionism': 'Postimpressionismo',
+	'Thick directional strokes that swirl around every form, color as feeling.':
+		'Pennellate spesse e direzionali che vorticano attorno a ogni forma, il colore come sentimento.',
+	Orphism: 'Orfismo',
+	'Discs of pure color in concentric rings, light turning into rhythm.':
+		'Dischi di colore puro in anelli concentrici, la luce che diventa ritmo.',
+	'Pop Art': 'Pop art',
+	'Flat color, a black keyline, a screen of dots - printed, not painted.':
+		'Colore piatto, contorno nero, un retino di punti - stampato, non dipinto.',
+	'Street Art': 'Street art',
+	'Spray and drip on a dark wall, a stencil, a quick tag in ink.':
+		'Spray e colature su un muro scuro, uno stencil, una tag veloce a inchiostro.',
+	'Art Nouveau': 'Art nouveau',
+	'Whiplash curves, tendrils and flat pale shapes in a dark contour.':
+		'Curve a colpo di frusta, viticci e forme piatte e pallide in un contorno scuro.',
+	Mosaic: 'Mosaico',
+	'Little stones in rows that follow the form, gold among them.':
+		'Piccole pietre in file che seguono la forma, oro fra loro.',
+	'Stained Glass': 'Vetrata',
+	'Cells of glowing color in a net of black lead.':
+		'Celle di colore luminoso in una rete di piombo nero.',
+	Woodcut: 'Xilografia',
+	'Black carved marks on white paper, one color allowed.':
+		'Segni neri intagliati su carta bianca, un solo colore ammesso.',
+	Constructivism: 'Costruttivismo',
+	'Red and black bars on a diagonal, a circle, the picture as a machine.':
+		'Barre rosse e nere in diagonale, un cerchio, il quadro come macchina.',
+	'Ukiyo-e': 'Ukiyo-e',
+	'Flat planes of color in a fine black keyline, a wave that curls.':
+		"Campiture di colore in un fine contorno nero, un'onda che si arriccia.",
+	'Line art and paint': 'Linee e colore',
+	'Flat planes and paint': 'Campiture e colore',
+	Likeness: 'Somiglianza',
+	'Your pointer stirs the paint · click for an impulse · draw a stroke and they answer it':
+		'Il tuo puntatore smuove il colore · clic per un impulso · traccia un segno e loro rispondono',
+	'Cut into pieces': 'Tagliato a pezzi',
+	'Letters as cut-outs': 'Lettere ritagliate',
+	'Burst of color': 'Scoppio di colore',
+	'A burst of color somewhere on the sheet. Click the sheet for one where you point.':
+		'Uno scoppio di colore da qualche parte sul foglio. Clicca sul foglio per averne uno proprio lì.',
+	'Your hand over the sheet draws the painters · click for a burst of color · drag a stroke and they answer it':
+		'La tua mano sul foglio attira i pittori · clic per uno scoppio di colore · traccia un segno e loro rispondono',
+	'All schools at once, each painter in another.':
+		"Tutte le scuole insieme, ogni pittore in un'altra.",
+	'Now painting as': 'Ora dipinge come',
 };
 
 export const TABLES = { de: DE, es: ES, fr: FR, pt: PT, it: IT };

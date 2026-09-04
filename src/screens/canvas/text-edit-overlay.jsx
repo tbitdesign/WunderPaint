@@ -15,6 +15,7 @@ import { useRef, useEffect } from '@wordpress/element';
 
 import { docToScreen } from './use-viewport';
 import { textEditOffset } from '../../lib/raster';
+import { withTextFitForEdit } from '../../lib/text-fit';
 
 /**
  * The selection of the document the node actually lives in (v1.342.0).
@@ -37,6 +38,7 @@ import {
 	selectionStyle,
 	nodeStyle,
 	hasSpans,
+	caseOf,
 } from '../../lib/rich-text';
 
 // While editing, pointerdowns inside these containers must NOT commit the
@@ -52,6 +54,18 @@ export function TextEditOverlay( {
 	onCancel,
 	richTextRef,
 } ) {
+	// Fluid Text (v1.429): the overlay edits the fitted lines and sizes,
+	// with the stored characters (no baked uppercase or list markers).
+	const view = withTextFitForEdit( layer );
+	// The container's own font sets the CSS strut on EVERY line box. With
+	// per-run sizes (Fluid Text, its baked look, layout lockups) a big first
+	// line would inflate every small line below it, so the strut takes the
+	// smallest run; the baseline offset below still reads the first line.
+	const runSizes =
+		hasSpans( view ) && view.spans.every( ( r ) => r.s?.size )
+			? view.spans.map( ( r ) => r.s.size )
+			: null;
+	const domFontSize = runSizes ? Math.min( ...runSizes ) : view.fontSize;
 	const ref = useRef( null );
 	// Sizes in the DOM are scaled by the zoom at populate time; keep that
 	// zoom for parsing back so a mid-edit zoom change cannot skew values.
@@ -65,10 +79,10 @@ export function TextEditOverlay( {
 			return;
 		}
 		zoomRef.current = zoom;
-		if ( hasSpans( layer ) || Array.isArray( layer.lineStyles ) ) {
-			el.innerHTML = spansToHtml( layer, zoomRef.current );
+		if ( hasSpans( view ) || Array.isArray( view.lineStyles ) ) {
+			el.innerHTML = spansToHtml( view, zoomRef.current );
 		} else {
-			el.textContent = layer.text || '';
+			el.textContent = view.text || '';
 		}
 		el.focus();
 		// Select all so typing replaces the placeholder immediately.
@@ -220,7 +234,7 @@ export function TextEditOverlay( {
 	// mode never shifts the text: the offset aligns the contentEditable's first
 	// baseline (CSS half-leading) with the canvas baseline (topPad + ascent).
 	// Applied to the box top because it can be negative for tight line-heights.
-	const yOffset = textEditOffset( layer ) * zoom;
+	const yOffset = textEditOffset( view ) * zoom;
 
 	return (
 		<div
@@ -236,7 +250,11 @@ export function TextEditOverlay( {
 				left: screen.x,
 				top: screen.y + yOffset,
 				minWidth: Math.max( 40, layer.w * zoom ),
-				width: layer.fixedWidth ? layer.w * zoom : 'auto',
+				width:
+					layer.textFit || layer.fixedWidth ? layer.w * zoom : 'auto',
+				// Fluid lines are explicit <br>s; the DOM must not re-wrap
+				// a line the canvas measured to the exact box width.
+				whiteSpace: layer.textFit ? 'pre' : undefined,
 				minHeight: layer.h * zoom,
 				boxSizing: 'border-box',
 				paddingTop: 0,
@@ -245,15 +263,20 @@ export function TextEditOverlay( {
 				fontFamily: `"${ layer.fontFamily }", sans-serif`,
 				fontWeight: layer.weight,
 				fontStyle: layer.italic ? 'italic' : 'normal',
-				fontSize: layer.fontSize * zoom,
+				fontSize: domFontSize * zoom,
 				lineHeight: layer.lineHeight || 1.05,
 				letterSpacing: ( layer.letterSpacing || 0 ) * zoom,
-				textAlign: layer.align,
-				textDecoration: layer.underline ? 'underline' : 'none',
+				textAlign: layer.textFit ? 'center' : layer.align,
+				textDecoration:
+					[
+						layer.underline ? 'underline' : '',
+						layer.strike ? 'line-through' : '',
+					]
+						.filter( Boolean )
+						.join( ' ' ) || 'none',
 				// CSS mirrors the non-destructive all-caps: the DOM keeps
 				// the raw text, so caret offsets stay valid (v1.300).
-				textTransform:
-					'uppercase' === layer.textTransform ? 'uppercase' : 'none',
+				textTransform: caseOf( layer.textTransform ) || 'none',
 				color: layer.color,
 			} }
 			onKeyDown={ ( e ) => {

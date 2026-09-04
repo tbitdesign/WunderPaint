@@ -359,6 +359,12 @@
 	color: var(--ed-text);
 }
 
+/* A latched switch in the bar (Fluid Text, v1.429). */
+#wpie-root .ed-context-bar > button.is-on {
+	background: var(--ed-panel-alt);
+	color: var(--accent);
+}
+
 /* Align & distribute flyout in the context bar (v1.24.13) */
 #wpie-root .cb-align {
 	position: relative;
@@ -396,6 +402,11 @@
 	display: grid;
 	grid-template-columns: repeat( 6, 1fr );
 	gap: 3px;
+}
+
+/* Boolean operations (v1.430): four modes in one row. */
+#wpie-root .cb-combine-grid {
+	grid-template-columns: repeat( 4, 1fr );
 }
 
 #wpie-root .cb-align-dist {

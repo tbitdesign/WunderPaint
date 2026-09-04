@@ -17,7 +17,6 @@ import { listRecentFiles } from '../lib/recent-files';
 import { listMacros, listActions, runMacro } from '../lib/macros';
 import { ACTION_CATEGORIES } from '../lib/bundled-actions';
 import { PROOF_MODES } from '../lib/proof';
-import { PatternSelect } from '../components/pattern-select';
 import {
 	listUserGradients,
 	saveUserGradient,
@@ -25,9 +24,10 @@ import {
 } from '../lib/gradient-presets';
 import { useGradients } from '../content/use-content';
 import { BRUSH_TIPS, isStampTip, getTip } from '../lib/brush-tips';
-import { dashDefaults } from '../lib/raster';
+import { canFluidText, toggleFluidTextOp } from '../lib/text-fit-ops';
 import { EFFECTS } from '../lib/effects';
 import { TextStylePicker } from './text-style-picker';
+import { ShapeStylePicker } from './shape-style-picker';
 import { useSelectionStyle } from '../components/use-selection-style';
 import { useEditor, activeLayerOf } from '../store/editor-context';
 import { selectionBounds } from './canvas/overlays';
@@ -319,6 +319,12 @@ function buildMenus( editor, extras ) {
 					when: () => !! state.clipboard?.length,
 				},
 				{
+					label: __( 'Paste in Place', 'wunderpaint' ),
+					kbd: '⇧⌘V',
+					run: () => Ops.pasteInPlaceOp( editor ),
+					when: () => !! state.clipboard?.length,
+				},
+				{
 					label: __( 'Duplicate', 'wunderpaint' ),
 					kbd: '⌘J',
 					run: () => Ops.duplicateLayer( editor ),
@@ -554,6 +560,11 @@ function buildMenus( editor, extras ) {
 					when: () => hasActive,
 				},
 				{
+					label: __( 'Grid Repeat…', 'wunderpaint' ),
+					run: () => Ops.gridRepeatPrompt( editor ),
+					when: () => hasActive,
+				},
+				{
 					label: __( 'Delete', 'wunderpaint' ),
 					run: () => Ops.deleteLayers( editor ),
 					when: () => hasActive,
@@ -621,6 +632,36 @@ function buildMenus( editor, extras ) {
 					run: () => Ops.sendBackwardOp( editor ),
 					when: () => hasActive,
 				},
+				{
+					label: __( 'Bring to Front', 'wunderpaint' ),
+					kbd: '⇧⌘]',
+					run: () => Ops.bringToFrontOp( editor ),
+					when: () => hasActive,
+				},
+				{
+					label: __( 'Send to Back', 'wunderpaint' ),
+					kbd: '⇧⌘[',
+					run: () => Ops.sendToBackOp( editor ),
+					when: () => hasActive,
+				},
+				{ divider: true },
+				{
+					label: __( 'Rename layer', 'wunderpaint' ),
+					run: () => Ops.renameLayerOp( editor ),
+					when: () => hasActive,
+				},
+				{
+					label: __( 'Hide layer', 'wunderpaint' ),
+					kbd: '⇧⌘H',
+					run: () => Ops.hideLayersOp( editor ),
+					when: () => hasActive,
+				},
+				{
+					label: __( 'Lock or unlock layer', 'wunderpaint' ),
+					kbd: '⌘2',
+					run: () => Ops.toggleLockOp( editor ),
+					when: () => hasActive,
+				},
 			],
 		},
 		{
@@ -642,6 +683,16 @@ function buildMenus( editor, extras ) {
 					label: __( 'Inverse', 'wunderpaint' ),
 					kbd: '⇧⌘I',
 					run: () => Ops.inverseSelectionOp( editor ),
+				},
+				{
+					// Select Same (v1.429): every layer that shares the
+					// active layer's fill, stroke, font or type.
+					label: __( 'Select Same', 'wunderpaint' ),
+					children: Ops.SELECT_SAME_CRITERIA.map( ( c ) => ( {
+						label: c.label(),
+						run: () => Ops.selectSameOp( editor, c.id ),
+						when: () => hasActive,
+					} ) ),
 				},
 				{ divider: true },
 				{
@@ -674,6 +725,19 @@ function buildMenus( editor, extras ) {
 					label: __( 'Feather', 'wunderpaint' ),
 					run: () => Ops.featherSelectionOp( editor, extras ),
 					when: () => hasSelection,
+				},
+				{
+					// Modify (v1.429): expand, contract, smooth and border
+					// for any selection, on the mask morphology.
+					label: __( 'Modify', 'wunderpaint' ),
+					children: Object.keys( Ops.MODIFY_KINDS ).map(
+						( kind ) => ( {
+							label: Ops.MODIFY_KINDS[ kind ].label(),
+							run: () =>
+								Ops.modifySelectionPrompt( editor, kind ),
+							when: () => hasSelection,
+						} )
+					),
 				},
 				{
 					label: __( 'Save Selection', 'wunderpaint' ),
@@ -1820,7 +1884,7 @@ function NumberOpt( { label, value, onChange, width = 56, suffix, min, max } ) {
  */
 const TIP_PANEL_W = 202;
 
-function BrushTipPicker( { value, onChange } ) {
+function BrushTipPicker( { value, onChange, children } ) {
 	const [ open, setOpen ] = useState( null );
 	const panelRef = useRef( null );
 	useEffect( () => {
@@ -1890,6 +1954,7 @@ function BrushTipPicker( { value, onChange } ) {
 					) ) }
 				</div>
 			) }
+			{ children }
 		</div>
 	);
 }
@@ -1992,6 +2057,23 @@ function ToolOptions( { extras, compact } ) {
 	const selStyle = useSelectionStyle( extras );
 
 	if ( [ 'brush', 'pencil', 'eraser', 'stamp' ].includes( tool ) ) {
+		// The door to the brush panel (v1.429, user request), inside the
+		// tip picker's group the way the shape bar keeps its studio button
+		// beside the picker: who hid the panel under View found no way back.
+		const panelButton = (
+			<div className="seg">
+				<button
+					type="button"
+					title={ __( 'Brush Panel', 'wunderpaint' ) }
+					aria-label={ __( 'Brush Panel', 'wunderpaint' ) }
+					onClick={ () =>
+						dispatch( { type: 'TOGGLE_BRUSH_PANEL', show: true } )
+					}
+				>
+					{ I.sliders( { size: 13 } ) }
+				</button>
+			</div>
+		);
 		return (
 			<>
 				<NumberOpt
@@ -2014,13 +2096,16 @@ function ToolOptions( { extras, compact } ) {
 								dispatch( { type: 'SET_FG', color: c } )
 							}
 						/>
+						{ 'pencil' === tool && panelButton }
 					</div>
 				) }
 				{ 'brush' === tool && (
 					<BrushTipPicker
 						value={ opts.tip || 'round' }
 						onChange={ ( v ) => set( 'tip', v ) }
-					/>
+					>
+						{ panelButton }
+					</BrushTipPicker>
 				) }
 				<div className="group">
 					<span className="label">
@@ -2037,6 +2122,7 @@ function ToolOptions( { extras, compact } ) {
 					<span className="label" style={ { width: 30 } }>
 						{ opts.opacity }%
 					</span>
+					{ 'eraser' === tool && panelButton }
 				</div>
 				{ /* Flow lives in the brush panel now (Thomas): the bar
 				     keeps colour, size, opacity, symmetry - and the paper. */ }
@@ -2131,6 +2217,29 @@ function ToolOptions( { extras, compact } ) {
 								{ __( 'Laid paper', 'wunderpaint' ) }
 							</option>
 						</select>
+					</div>
+				) }
+				{ 'stamp' === tool && (
+					// Aligned (v1.429): keep the distance to the source
+					// across strokes; off, every stroke restarts at the
+					// source. Alt-click sets the source (see the handbook).
+					<div className="group">
+						<div className="seg">
+							<button
+								className={
+									false !== opts.aligned ? 'active' : ''
+								}
+								title={ __(
+									'Keep the distance to the source across strokes',
+									'wunderpaint'
+								) }
+								onClick={ () =>
+									set( 'aligned', false === opts.aligned )
+								}
+							>
+								{ __( 'Aligned', 'wunderpaint' ) }
+							</button>
+						</div>
 					</div>
 				) }
 			</>
@@ -2275,6 +2384,15 @@ function ToolOptions( { extras, compact } ) {
 							}
 						>
 							{ I.underline( { size: 13 } ) }
+						</button>
+						<button
+							className={ value( 'strike' ) ? 'active' : '' }
+							title={ __( 'Strikethrough', 'wunderpaint' ) }
+							onClick={ () =>
+								update( 'strike', ! value( 'strike' ) )
+							}
+						>
+							{ I.strikethrough( { size: 13 } ) }
 						</button>
 						<button
 							className={
@@ -2441,10 +2559,28 @@ function ToolOptions( { extras, compact } ) {
 				{ /* Light tail (Thomas): one divider after the curve icon,
 				     color and the annotate picker flow without bars. */ }
 				<div className="group">
-					<CurvePopover
-						value={ +value( 'curve' ) || 0 }
-						onChange={ ( v ) => update( 'curve', v ) }
-					/>
+					{ /* Fluid Text (v1.429) and curve exclude each other:
+					     the fitted lines have no arc, so the curve popover
+					     steps aside while the mode is on. */ }
+					{ ! target?.textFit && (
+						<CurvePopover
+							value={ +value( 'curve' ) || 0 }
+							onChange={ ( v ) => update( 'curve', v ) }
+						/>
+					) }
+					{ canFluidText( target ) && (
+						<div className="seg">
+							<button
+								className={ target.textFit ? 'active' : '' }
+								title={ __( 'Fluid Text', 'wunderpaint' ) }
+								aria-label={ __( 'Fluid Text', 'wunderpaint' ) }
+								aria-pressed={ !! target.textFit }
+								onClick={ () => toggleFluidTextOp( editor ) }
+							>
+								{ I.fluidText( { size: 13 } ) }
+							</button>
+						</div>
+					) }
 				</div>
 				<div className="group nb">
 					{ ! compact && (
@@ -2471,6 +2607,11 @@ function ToolOptions( { extras, compact } ) {
 	}
 
 	if ( 'shape' === tool ) {
+		// Slimmed (v1.430): pattern, stroke style, radius and sides left
+		// the bar - all of them live in the properties panel and the
+		// studio, and the bar clipped "Radius" and showed a "Pattern"
+		// label in front of a fill select. What stays is what you need
+		// BEFORE drawing: the shape, the two colours and a style.
 		return (
 			<>
 				<div className="group">
@@ -2480,6 +2621,7 @@ function ToolOptions( { extras, compact } ) {
 					<ShapePicker
 						value={ opts.shape }
 						onChange={ ( id ) => set( 'shape', id ) }
+						onMore={ () => extras?.openShapeStudio?.() }
 					/>
 					<div className="seg">
 						<button
@@ -2491,19 +2633,6 @@ function ToolOptions( { extras, compact } ) {
 							{ I.sliders( { size: 13 } ) }
 						</button>
 					</div>
-					<span className="label">
-						{ __( 'Fill', 'wunderpaint' ) }
-					</span>
-					<PatternSelect
-						value={ opts.pattern }
-						patternData={ opts.patternData }
-						style={ { width: 110 } }
-						extras={ extras }
-						onChange={ ( pattern, patternData ) => {
-							set( 'pattern', pattern );
-							set( 'patternData', patternData );
-						} }
-					/>
 				</div>
 				<div className="group">
 					<span className="label">
@@ -2531,76 +2660,217 @@ function ToolOptions( { extras, compact } ) {
 						min={ 0 }
 						onChange={ ( v ) => set( 'strokeW', v ) }
 					/>
-					<select
-						title={ __( 'Stroke style', 'wunderpaint' ) }
-						value={ opts.strokeDash || 'solid' }
-						style={ { width: 86 } }
-						onChange={ ( e ) =>
-							set(
-								'strokeDash',
-								'solid' === e.target.value
-									? null
-									: e.target.value
-							)
-						}
-					>
-						<option value="solid">
-							{ _x( 'Solid', 'stroke style', 'wunderpaint' ) }
-						</option>
-						<option value="dashed">
-							{ __( 'Dashed', 'wunderpaint' ) }
-						</option>
-						<option value="dotted">
-							{ __( 'Dotted', 'wunderpaint' ) }
-						</option>
-					</select>
 				</div>
-				<NumberOpt
-					label={ __( 'Radius', 'wunderpaint' ) }
-					value={ opts.radius }
-					width={ 48 }
-					min={ 0 }
-					onChange={ ( v ) => set( 'radius', v ) }
-				/>
-				{ 'polygon' === opts.shape && (
-					<NumberOpt
-						label={ __( 'Sides', 'wunderpaint' ) }
-						value={ opts.sides }
-						width={ 44 }
-						min={ 3 }
-						max={ 24 }
-						onChange={ ( v ) => set( 'sides', Math.max( 3, v ) ) }
-					/>
-				) }
+				<ShapeStylePicker />
 			</>
 		);
 	}
 
-	if ( 'fxbrush' === tool ) {
+	// Selection modes as buttons (v1.429): Shift and Alt still work, the
+	// bar gives touch users the same three choices.
+	const combineSeg = (
+		<div className="group">
+			<div className="seg">
+				{ [
+					[ 'replace', __( 'New', 'wunderpaint' ) ],
+					[ 'add', _x( 'Add', 'selection mode', 'wunderpaint' ) ],
+					[ 'subtract', __( 'Subtract', 'wunderpaint' ) ],
+				].map( ( [ id, label ] ) => (
+					<button
+						key={ id }
+						className={
+							id === ( opts.combine || 'replace' ) ? 'active' : ''
+						}
+						onClick={ () => set( 'combine', id ) }
+					>
+						{ label }
+					</button>
+				) ) }
+			</div>
+		</div>
+	);
+	const featherOpt = (
+		<NumberOpt
+			label={ __( 'Feather', 'wunderpaint' ) }
+			value={ opts.feather || 0 }
+			suffix="px"
+			min={ 0 }
+			max={ 250 }
+			width={ 44 }
+			onChange={ ( v ) => set( 'feather', Math.max( 0, v ) ) }
+		/>
+	);
+	if ( 'marquee' === tool ) {
 		return (
 			<>
 				<div className="group">
 					<div className="seg">
 						<button
 							className={
-								'blur' === ( opts.mode || 'blur' )
-									? 'active'
-									: ''
+								'ellipse' !== opts.shape ? 'active' : ''
 							}
-							onClick={ () => set( 'mode', 'blur' ) }
+							onClick={ () => set( 'shape', 'rect' ) }
 						>
-							{ __( 'Blur', 'wunderpaint' ) }
+							{ __( 'Rectangle', 'wunderpaint' ) }
 						</button>
 						<button
 							className={
-								'sharpen' === opts.mode ? 'active' : ''
+								'ellipse' === opts.shape ? 'active' : ''
 							}
-							onClick={ () => set( 'mode', 'sharpen' ) }
+							onClick={ () => set( 'shape', 'ellipse' ) }
 						>
-							{ __( 'Sharpen', 'wunderpaint' ) }
+							{ __( 'Ellipse', 'wunderpaint' ) }
 						</button>
 					</div>
 				</div>
+				{ combineSeg }
+				{ featherOpt }
+			</>
+		);
+	}
+	if ( 'lasso' === tool ) {
+		return (
+			<>
+				<div className="group">
+					<div className="seg">
+						<button
+							className={
+								'polygon' !== opts.mode ? 'active' : ''
+							}
+							onClick={ () => set( 'mode', 'freehand' ) }
+						>
+							{ __( 'Freehand', 'wunderpaint' ) }
+						</button>
+						<button
+							className={
+								'polygon' === opts.mode ? 'active' : ''
+							}
+							onClick={ () => set( 'mode', 'polygon' ) }
+						>
+							{ __( 'Polygon', 'wunderpaint' ) }
+						</button>
+					</div>
+				</div>
+				{ combineSeg }
+				{ featherOpt }
+			</>
+		);
+	}
+	if ( 'eyedropper' === tool ) {
+		return (
+			<div className="group">
+				<span className="label">{ __( 'Sample', 'wunderpaint' ) }</span>
+				<div className="seg">
+					{ [
+						[ 1, __( 'Point', 'wunderpaint' ) ],
+						[ 3, '3×3' ],
+						[ 5, '5×5' ],
+					].map( ( [ n, label ] ) => (
+						<button
+							key={ n }
+							className={
+								n === ( opts.sample || 1 ) ? 'active' : ''
+							}
+							onClick={ () => set( 'sample', n ) }
+						>
+							{ label }
+						</button>
+					) ) }
+				</div>
+			</div>
+		);
+	}
+	if ( 'pen' === tool ) {
+		return (
+			<>
+				<div className="group">
+					<div className="seg">
+						<button
+							className={
+								'freehand' !== opts.mode ? 'active' : ''
+							}
+							onClick={ () => set( 'mode', 'pen' ) }
+						>
+							{ __( 'Anchors', 'wunderpaint' ) }
+						</button>
+						<button
+							className={
+								'freehand' === opts.mode ? 'active' : ''
+							}
+							onClick={ () => set( 'mode', 'freehand' ) }
+						>
+							{ __( 'Freehand', 'wunderpaint' ) }
+						</button>
+					</div>
+				</div>
+				{ 'freehand' === opts.mode && (
+					<NumberOpt
+						label={ __( 'Fidelity', 'wunderpaint' ) }
+						value={ opts.fidelity ?? 50 }
+						suffix="%"
+						min={ 0 }
+						max={ 100 }
+						width={ 44 }
+						onChange={ ( v ) =>
+							set( 'fidelity', Math.min( 100, Math.max( 0, v ) ) )
+						}
+					/>
+				) }
+			</>
+		);
+	}
+	if ( 'fxbrush' === tool ) {
+		// Six modes (v1.429): the retouching classics beside blur and
+		// sharpen. Sponge carries its own direction.
+		const fxModes = [
+			[ 'blur', __( 'Blur', 'wunderpaint' ) ],
+			[ 'sharpen', __( 'Sharpen', 'wunderpaint' ) ],
+			[ 'smudge', __( 'Smudge', 'wunderpaint' ) ],
+			[ 'dodge', __( 'Dodge', 'wunderpaint' ) ],
+			[ 'burn', __( 'Burn', 'wunderpaint' ) ],
+			[ 'sponge', __( 'Sponge', 'wunderpaint' ) ],
+		];
+		return (
+			<>
+				<div className="group">
+					<div className="seg">
+						{ fxModes.map( ( [ id, label ] ) => (
+							<button
+								key={ id }
+								className={
+									id === ( opts.mode || 'blur' )
+										? 'active'
+										: ''
+								}
+								onClick={ () => set( 'mode', id ) }
+							>
+								{ label }
+							</button>
+						) ) }
+					</div>
+				</div>
+				{ 'sponge' === opts.mode && (
+					<div className="group">
+						<div className="seg">
+							<button
+								className={
+									'saturate' === opts.sponge ? 'active' : ''
+								}
+								onClick={ () => set( 'sponge', 'saturate' ) }
+							>
+								{ __( 'Saturate', 'wunderpaint' ) }
+							</button>
+							<button
+								className={
+									'saturate' !== opts.sponge ? 'active' : ''
+								}
+								onClick={ () => set( 'sponge', 'desaturate' ) }
+							>
+								{ __( 'Desaturate', 'wunderpaint' ) }
+							</button>
+						</div>
+					</div>
+				) }
 				<NumberOpt
 					label={ __( 'Size', 'wunderpaint' ) }
 					value={ opts.size }
@@ -2882,10 +3152,26 @@ function ToolOptions( { extras, compact } ) {
 	// most-used controls live in the bar, the old static hint is gone
 	// (the tip box bottom-left still teaches shortcuts).
 	if ( 'move' === tool && active && 'shape' === active.type ) {
+		// Every selected shape follows (v1.429), the way the text bar
+		// already treats a selection of text layers.
+		const shapeIds = [
+			...new Set( [ active.id, ...( state.selectedIds || [] ) ] ),
+		].filter( ( id ) =>
+			state.layers.some(
+				( l ) => l.id === id && 'shape' === l.type && ! l.locked
+			)
+		);
 		const up = ( patch, label ) => {
-			dispatch( { type: 'UPDATE_LAYER', id: active.id, patch } );
+			if ( shapeIds.length > 1 ) {
+				dispatch( { type: 'UPDATE_LAYERS', ids: shapeIds, patch } );
+			} else {
+				dispatch( { type: 'UPDATE_LAYER', id: active.id, patch } );
+			}
 			commit( label || __( 'Edit shape', 'wunderpaint' ) );
 		};
+		// Slimmed (v1.430): stroke style, dash, gap and pattern are in the
+		// properties panel; the bar keeps the colours, the width, a style
+		// and the door to the studio.
 		return (
 			<>
 				<div className="group">
@@ -2917,78 +3203,19 @@ function ToolOptions( { extras, compact } ) {
 					width={ 48 }
 					onChange={ ( v ) => up( { strokeW: Math.max( 0, v ) } ) }
 				/>
-				<div className="group">
-					<select
-						title={ __( 'Stroke style', 'wunderpaint' ) }
-						value={ active.strokeDash || 'solid' }
-						style={ { width: 86 } }
-						onChange={ ( e ) =>
-							up( {
-								strokeDash:
-									'solid' === e.target.value
-										? null
-										: e.target.value,
-							} )
-						}
-					>
-						<option value="solid">
-							{ _x( 'Solid', 'stroke style', 'wunderpaint' ) }
-						</option>
-						<option value="dashed">
-							{ __( 'Dashed', 'wunderpaint' ) }
-						</option>
-						<option value="dotted">
-							{ __( 'Dotted', 'wunderpaint' ) }
-						</option>
-					</select>
-				</div>
-				{ 'dashed' === active.strokeDash && (
-					<NumberOpt
-						label={ __( 'Dash', 'wunderpaint' ) }
-						value={ Math.round(
-							active.strokeDashLen ??
-								dashDefaults( 'dashed', active.strokeW ).len
-						) }
-						suffix="px"
-						min={ 1 }
-						width={ 40 }
-						onChange={ ( v ) =>
-							up( { strokeDashLen: Math.max( 1, v ) } )
-						}
-					/>
+				<ShapeStylePicker />
+				{ ! active.quad && (
+					<div className="group">
+						<button
+							type="button"
+							onClick={ () =>
+								extras?.openShapeStudio?.( active.id )
+							}
+						>
+							{ __( 'Edit shape', 'wunderpaint' ) }
+						</button>
+					</div>
 				) }
-				{ [ 'dashed', 'dotted' ].includes( active.strokeDash ) && (
-					<NumberOpt
-						label={ __( 'Gap', 'wunderpaint' ) }
-						value={ Math.round(
-							active.strokeDashGap ??
-								dashDefaults(
-									active.strokeDash,
-									active.strokeW
-								).gap
-						) }
-						suffix="px"
-						min={ 1 }
-						width={ 40 }
-						onChange={ ( v ) =>
-							up( { strokeDashGap: Math.max( 1, v ) } )
-						}
-					/>
-				) }
-				<div className="group">
-					<span className="label">
-						{ __( 'Pattern', 'wunderpaint' ) }
-					</span>
-					<PatternSelect
-						value={ active.pattern }
-						patternData={ active.patternData }
-						extras={ extras }
-						style={ { width: 90 } }
-						onChange={ ( pattern, patternData ) =>
-							up( { pattern, patternData } )
-						}
-					/>
-				</div>
 			</>
 		);
 	}

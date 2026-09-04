@@ -4,8 +4,8 @@ import {
 	layoutRichText,
 	maxSpanSize,
 	textTopPad,
-	withTextTransform,
 } from '../rich-text';
+import { withTextFit } from '../text-fit';
 import { createCanvas } from './env';
 import {
 	gradientFillFor,
@@ -155,7 +155,7 @@ export const getMeasureCtx = () => {
  * @return {{ blockH: number, floor: number }} Heights.
  */
 export function textLayoutBlockH( layer ) {
-	layer = withTextTransform( layer );
+	layer = withTextFit( layer );
 	if ( hasSpans( layer ) ) {
 		const { blockH } = layoutRichText( getMeasureCtx(), layer );
 		return { blockH, floor: ( layer.fontSize || 16 ) * 1.3 };
@@ -166,12 +166,29 @@ export function textLayoutBlockH( layer ) {
 	const ctx = getMeasureCtx();
 	ctx.font = base.font;
 	const rawLines = String( layer.text || '' ).split( '\n' );
-	const lines =
-		layer.fixedWidth && ! perLine
-			? rawLines.flatMap( ( line ) =>
-					wrapLine( ctx, line, layer.w, layer.letterSpacing || 0 )
-			  )
-			: rawLines;
+	// Which flattened lines continue a paragraph (soft wraps): those get
+	// no paragraph spacing (v1.429).
+	const soft = [];
+	let lines;
+	if ( layer.fixedWidth && ! perLine ) {
+		lines = [];
+		for ( const raw of rawLines ) {
+			const wrapped = wrapLine(
+				ctx,
+				raw,
+				layer.w,
+				layer.letterSpacing || 0
+			);
+			wrapped.forEach( ( wl, k ) => {
+				lines.push( wl );
+				soft.push( k < wrapped.length - 1 );
+			} );
+		}
+	} else {
+		lines = rawLines;
+		rawLines.forEach( () => soft.push( false ) );
+	}
+	const ps = Number( layer.paragraphSpacing ) || 0;
 	const sty = lines.map( ( _, i ) =>
 		perLine ? textLineStyle( layer, i ) : base
 	);
@@ -187,7 +204,7 @@ export function textLayoutBlockH( layer ) {
 	const last = metric( lines[ lines.length - 1 ], sty[ lines.length - 1 ] );
 	let advances = 0;
 	for ( let i = 1; i < lines.length; i++ ) {
-		advances += sty[ i ].lineHeight;
+		advances += sty[ i ].lineHeight + ( soft[ i - 1 ] ? 0 : ps );
 	}
 	return {
 		blockH: first.a + advances + last.d,
@@ -234,7 +251,7 @@ export function textBlockHeight( layer ) {
  * @return {number} Height in px.
  */
 export function textCommitHeight( layer ) {
-	if ( layer.textPath || layer.shapeBox ) {
+	if ( layer.textPath || layer.shapeBox || layer.textFit ) {
 		return layer.h;
 	}
 	const contentH = measureTextHeight( layer );
@@ -284,7 +301,7 @@ export function textEditOffset( layer ) {
  * @return {number} Widest line width in doc px.
  */
 export function measureTextWidth( layer ) {
-	layer = withTextTransform( layer );
+	layer = withTextFit( layer );
 	if ( hasSpans( layer ) ) {
 		const { lines } = layoutRichText( getMeasureCtx(), {
 			...layer,
@@ -349,7 +366,9 @@ export const hasLineStyles = ( layer ) =>
 
 /** The largest font size a text layer renders with (for buffer padding). */
 export function maxTextSize( layer ) {
-	let m = maxSpanSize( layer );
+	// Fluid Text (v1.429): the fitted lines can be far bigger than the
+	// stored font size, and the buffer padding must know.
+	let m = maxSpanSize( withTextFit( layer ) );
 	if ( Array.isArray( layer.lineStyles ) ) {
 		for ( const s of layer.lineStyles ) {
 			if ( s?.size > m ) {

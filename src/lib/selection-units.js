@@ -171,6 +171,12 @@ export function scaleLeafPatch( lf, f, ax, ay ) {
 	const ncx = ax + ( lf.x + lf.w / 2 - ax ) * f;
 	const ncy = ay + ( lf.y + lf.h / 2 - ay ) * f;
 	const patch = { w: nw, h: nh, x: ncx - nw / 2, y: ncy - nh / 2 };
+	// Strokes scale with the shape when the preference says so (v1.429,
+	// Illustrator's "Scale Strokes & Effects"); off, a stroke keeps its
+	// width the way Figma's does.
+	if ( lf.strokeW && scaleStrokesEnabled() ) {
+		patch.strokeW = Math.max( 0.5, lf.strokeW * f );
+	}
 	if ( lf.isText && lf.fontSize ) {
 		patch.fontSize = Math.max( 4, lf.fontSize * f );
 		// Rich spans (v1.46) carry their own sizes — scale them along.
@@ -191,6 +197,24 @@ export function scaleLeafPatch( lf, f, ax, ay ) {
 	return patch;
 }
 
+const SCALE_STROKES_KEY = 'wpie-scale-strokes';
+
+/** Whether the Scale row and the group handles scale stroke widths too. */
+export function scaleStrokesEnabled() {
+	try {
+		return '1' === window.localStorage?.getItem( SCALE_STROKES_KEY );
+	} catch ( e ) {
+		return false;
+	}
+}
+
+/** Remember the preference. */
+export function setScaleStrokes( on ) {
+	try {
+		window.localStorage?.setItem( SCALE_STROKES_KEY, on ? '1' : '0' );
+	} catch ( e ) {}
+}
+
 /** Leaf snapshot for scaleLeafPatch. */
 export const leafSnapshot = ( l ) => ( {
 	id: l.id,
@@ -198,6 +222,7 @@ export const leafSnapshot = ( l ) => ( {
 	y: l.y,
 	w: l.w,
 	h: l.h,
+	strokeW: 'shape' === l.type ? l.strokeW || 0 : 0,
 	fontSize: l.fontSize,
 	spans: l.spans || null,
 	isText: 'text' === l.type,

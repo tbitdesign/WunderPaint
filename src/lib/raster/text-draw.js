@@ -1,11 +1,7 @@
 import { pathGlyphLayout, sampledPathFor } from '../text-path';
 import { layoutTextInShape, maskSpanFn } from '../text-shape';
-import {
-	hasSpans,
-	layoutRichText,
-	textTopPad,
-	withTextTransform,
-} from '../rich-text';
+import { hasSpans, layoutRichText, textTopPad } from '../rich-text';
+import { withTextFit } from '../text-fit';
 import { createCanvas } from './env';
 import { dashPattern, tracePathD } from './shapes';
 import {
@@ -276,6 +272,16 @@ export function drawRichText( ctx, layer ) {
 					Math.max( 1, st.size / 16 )
 				);
 			}
+			if ( st.strike ) {
+				// Through the x-height, the way CSS line-through sits.
+				ctx.fillStyle = st.color || baseFill;
+				ctx.fillRect(
+					f.x,
+					line.baseline - st.size * 0.3,
+					f.w,
+					Math.max( 1, st.size / 16 )
+				);
+			}
 		}
 	}
 }
@@ -437,9 +443,10 @@ export function drawTextInShape( ctx, layer ) {
 }
 
 export function drawText( ctx, layer ) {
-	// Non-destructive all-caps (v1.300): shadow the layer once here so
-	// every paint path below sees the transformed characters.
-	layer = withTextTransform( layer );
+	// Non-destructive all-caps (v1.300) and Fluid Text (v1.429): shadow the
+	// layer once here so every paint path below sees the transformed
+	// characters and the fitted lines.
+	layer = withTextFit( layer );
 	if ( layer.shapeBox?.d ) {
 		drawTextInShape( ctx, layer );
 		return;
@@ -507,9 +514,12 @@ export function drawText( ctx, layer ) {
 		lines[ lines.length - 1 ],
 		sty[ lines.length - 1 ]
 	);
+	// Paragraph spacing (v1.429) sits above every line that starts a new
+	// paragraph, never above a soft wrap.
+	const ps = Number( layer.paragraphSpacing ) || 0;
 	let blockH = firstM.a + lastM.d;
 	for ( let i = 1; i < lines.length; i++ ) {
-		blockH += sty[ i ].lineHeight;
+		blockH += sty[ i ].lineHeight + ( softWrap[ i - 1 ] ? 0 : ps );
 	}
 	// Vertical anchor honours layer.valign for area text (v1.92.0); the
 	// edit overlay applies the same offset so commits never jump.
@@ -518,7 +528,7 @@ export function drawText( ctx, layer ) {
 	let acc = topPad + firstM.a;
 	for ( let i = 0; i < lines.length; i++ ) {
 		if ( i ) {
-			acc += sty[ i ].lineHeight;
+			acc += sty[ i ].lineHeight + ( softWrap[ i - 1 ] ? 0 : ps );
 		}
 		bases.push( acc );
 	}
@@ -820,6 +830,15 @@ export function drawText( ctx, layer ) {
 			ctx.fillRect(
 				x,
 				y + st.size * 0.08,
+				gapExtra ? layer.w : width,
+				Math.max( 1, st.size / 16 )
+			);
+		}
+		if ( layer.strike ) {
+			ctx.fillStyle = st.color || baseFill;
+			ctx.fillRect(
+				x,
+				y - st.size * 0.3,
 				gapExtra ? layer.w : width,
 				Math.max( 1, st.size / 16 )
 			);

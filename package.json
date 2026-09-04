@@ -1,6 +1,6 @@
 {
 	"name": "wunderpaint",
-	"version": "1.428.0",
+	"version": "1.429.0",
 	"private": true,
 	"description": "A full-featured, Photoshop-class image editor for the WordPress Media Library.",
 	"author": "tbitdesign",
@@ -180,6 +180,7 @@
 		"jsqr": "^1.4.0",
 		"jszip": "^3.10.1",
 		"onnxruntime-web": "1.22.0-dev.20250409-89f8206ba4",
+		"polybooljs": "^1.2.2",
 		"qrcode": "^1.5.4",
 		"upng-js": "^2.1.0",
 		"vtracer-wasm": "^0.1.0"

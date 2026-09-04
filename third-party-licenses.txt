@@ -70,6 +70,10 @@ imagetracerjs — vectorization fallback where WebAssembly is unavailable
   Source: https://github.com/jankovicsandras/imagetracerjs
   Ships as build/imagetracer.<hash>.js
 
+polybooljs — polygon boolean operations
+  MIT License. Copyright (c) 2016 Sean Connelly (@velipso).
+  Source: https://github.com/velipso/polybooljs  Ships as build/polybool.<hash>.js
+
 qrcode — QR-code generation
   MIT License. Copyright (c) 2012 Ryan Day. Includes dijkstrajs (MIT) and
   pngjs (MIT, Copyright (c) 2015 Luke Page & original contributors).
@@ -228,3 +232,20 @@ proxy from OpenFreeMap and the OpenStreetMap Overpass instances, and is
 (c) OpenStreetMap contributors under the Open Database License (ODbL),
 https://www.openstreetmap.org/copyright. One small excerpt does ship with the
 plugin as sample data; it is listed above under the bundled extensions.
+
+- xml2abc 1.68 (Wim Vree, https://wim.vree.org/js/xml2abc-js_index.html)
+  GNU Lesser General Public License v3.0. Bundled UNMODIFIED as
+  extensions/wpie-sheet-music/assets/xml2abc.js (the unminified source of the
+  npm package "xml2abc" 1.68.3), full license text next to it in
+  extensions/wpie-sheet-music/assets/LICENSE-xml2abc.txt. Loaded only when a
+  MusicXML file is imported in the Sheet Music extension.
+
+- abcjs 6.7 (Paul Rosen and Gregory Dyke, https://github.com/paulrosen/abcjs)
+  MIT License. Bundled into extensions/wpie-sheet-music/extension.js (the
+  ABC notation engraver of the Sheet Music extension; no audio parts).
+
+- MathJax 3.2 (The MathJax Consortium, https://www.mathjax.org, npm
+  package "mathjax-full" 3.2.2), Apache License 2.0. Bundled as
+  extensions/wpie-math-figures/assets/mathjax.js (TeX input, SVG output,
+  lite adaptor, TeX font glyph data), loaded only when the Math Figures
+  extension typesets a formula.

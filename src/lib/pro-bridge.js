@@ -57,6 +57,10 @@ import {
 	makeGroup,
 } from '../store/document';
 import { loadTemplate, invalidateTemplate } from './template-cache';
+// paint (API 2.21): the editor's own brush and media engines, assembled
+// in paint-kit.js so this file stays a list and the kit stays testable.
+import { paintKit } from './paint-kit';
+import { effectsKit } from './effects-kit';
 import { PROVIDER_LABELS, hasTextProvider } from './providers';
 import { parseCsv } from './csv';
 import { listActions, createHeadlessEditor, runMacro } from './macros';
@@ -187,6 +191,12 @@ export const proBridge = Object.freeze( {
 		// Art lifts the subject onto its front paper layer with it.
 		// Feature-detect before use; older cores lack it.
 		subjectCutout: removeBackgroundLocal,
+		// effects (API 2.22, additive): the editor's pixel effects on a
+		// { data, width, height } buffer, in place - posterize, threshold,
+		// halftone, duotone, edge detect, pixelate, glitch and the rest,
+		// plus run( img, [ [ name, opts ], ... ] ). Chaos Art treats the
+		// pieces it cuts from a motif with them. See effects-kit.js.
+		effects: effectsKit,
 	},
 	// video (v1.273 / API 2.10, additive): canvas -> video capture with the
 	// mime fallback chain; every motion studio recorded by hand before.
@@ -352,6 +362,27 @@ export const proBridge = Object.freeze( {
 	// editor for these recipes, and `colour: false` / `motion: false` turn
 	// it into the brush-tip variant instead of a second maker.
 	stamps: { ...stampDoc, openStampMaker },
+	// paint (API 2.21, additive): the brush engine itself, for studios
+	// that paint on a surface of their own. Until now an extension could
+	// reach the stamp recipes and the document renderer but not a single
+	// tip, not the media pass, not the pigment mixer and not the wet
+	// islands - so a studio that wanted to paint rebuilt all of it, and
+	// the rebuild was never the brush people had already approved.
+	//
+	//   tips     the 46 tips, the 18 media brushes, the drawn tips of the
+	//            open document, and their groups
+	//   drawStroke( ctx, path, hardness )  lays one path with any tip into
+	//            any 2D context, exactly as the brush draws its draft
+	//   styles   the paint styles and applyPaintStyle(): how a rendered
+	//            stroke meets the pixels beneath it - pigment mixing,
+	//            load, pickup, edge, grain, bleed, body, gloss
+	//   pigment  the spectral mixer (Kubelka-Munk over 38 bands)
+	//   wet      the three physics islands (liquid, paste, dry) with the
+	//            style presets, dial tuning and pigment identities the
+	//            editor's own wet brush uses; available() says whether
+	//            WebGL2 float rendering is there at all
+	//   hand     string-pull smoothing and pen tilt factors
+	paint: paintKit,
 	// shapes (v1.397 / API 2.18, additive): the editor's own shape
 	// geometry as PATH DATA. Every studio that wanted a heart, a shield or
 	// a speech bubble drew its own, slightly different one; the shapes

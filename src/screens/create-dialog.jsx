@@ -19,7 +19,7 @@ import {
 } from '../store/document';
 import { useEditor } from '../store/editor-context';
 import { psdToDocument } from '../lib/psd';
-import { ai, templates as templatesApi } from '../lib/api';
+import { ai, templates as templatesApi, uploadMediaFile } from '../lib/api';
 import { PROVIDER_LABELS } from '../lib/providers';
 import { useTemplates } from '../content/use-content';
 import { StarterPreview, TemplateFilterBar } from './library-dialog';
@@ -125,11 +125,12 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 	const pvScale = Math.min( 220 / Math.max( 1, w ), 130 / Math.max( 1, h ) );
 	const pvW = Math.max( 24, Math.round( w * pvScale ) );
 	const pvH = Math.max( 16, Math.round( h * pvScale ) );
-	/* Opening a file from disk is offered in the studio only. Inside
-	 * WordPress the way in is the media library, and a second door next to it
-	 * would be a second answer to a question that already has one. The gate is
-	 * one line, so it can be opened for both if that ever changes. */
-	const canOpenFile = !! window.WPIE?.standalone;
+	/* Opening a file from disk: born in the studio, wanted in WordPress too
+	 * (Thomas, 02.09.2026) - not everybody starts from a blank canvas, a
+	 * template or a prompt; many start from a picture on their machine. Inside
+	 * WordPress the picture goes into the Media Library on the way in (see
+	 * create()), so the document keeps a durable source. */
+	const canOpenFile = true;
 
 	/* Read what was handed over. A Photoshop file brings its own document with
 	 * its own layers, so it is parsed here and kept whole; a picture only
@@ -163,6 +164,7 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 					kind: 'image',
 					name: f.name,
 					src,
+					file: f,
 					w: img.naturalWidth,
 					h: img.naturalHeight,
 				} );
@@ -232,7 +234,27 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 		}
 
 		if ( 'open' === tab && openFile ) {
-			const img = await loadImage( openFile.src );
+			let src = openFile.src;
+			// Inside WordPress the picture becomes an attachment first: a blob
+			// URL dies with the page, a Media Library file does not - and the
+			// autosave, the tab session and Save Design all keep the URL.
+			if ( ! window.WPIE?.standalone && openFile.file ) {
+				setBusy( true );
+				try {
+					const up = await uploadMediaFile( openFile.file );
+					if ( up && up.url ) {
+						src = up.url;
+					}
+				} catch ( err ) {
+					extras.toasts.error(
+						err.message || __( 'Upload failed.', 'wunderpaint' )
+					);
+					setBusy( false );
+					return;
+				}
+				setBusy( false );
+			}
+			const img = await loadImage( src );
 			layers = [
 				makeImage( {
 					name: openFile.name,
@@ -240,7 +262,7 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 					y: 0,
 					w,
 					h,
-					src: openFile.src,
+					src,
 					naturalW: img.naturalWidth,
 					naturalH: img.naturalHeight,
 				} ),
@@ -474,19 +496,18 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 								     under it, which is two controls for one
 								     action and reads as an afterthought. Drop
 								     onto it or click it, same thing. */ }
-								<div
-									className="create-preview-wrap"
-									data-dim={
-										openFile ? `${ w } × ${ h } px` : ''
-									}
-								>
+								<div className="create-preview-wrap open-wrap">
 									<button
 										type="button"
 										className={
 											'preview-card open-drop' +
 											( openFile ? ' has-file' : '' )
 										}
-										style={ { width: pvW, height: pvH } }
+										style={
+											openFile
+												? { width: pvW, height: pvH }
+												: undefined
+										}
 										disabled={ reading }
 										onClick={ () =>
 											fileInput.current?.click()
@@ -520,20 +541,42 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 											</span>
 										) }
 									</button>
+									{ /* The words live in the field, under the card: an invitation while
+									     it is empty, the file's name and size once it is in. Below the
+									     field they read as a stray caption (Thomas, 02.09.2026). */ }
+									<div className="open-text">
+										{ reading ? (
+											<span>
+												{ __(
+													'Reading the file…',
+													'wunderpaint'
+												) }
+											</span>
+										) : openFile ? (
+											<>
+												<span>{ openFile.name }</span>
+												<small>
+													{ w } × { h } px
+												</small>
+											</>
+										) : (
+											<>
+												<span>
+													{ __(
+														'Drop a picture or a Photoshop file here',
+														'wunderpaint'
+													) }
+												</span>
+												<small>
+													{ __(
+														'or click to choose one',
+														'wunderpaint'
+													) }
+												</small>
+											</>
+										) }
+									</div>
 								</div>
-								<p className="open-hint">
-									{ reading
-										? __(
-												'Reading the file…',
-												'wunderpaint'
-										  )
-										: openFile
-										? openFile.name
-										: __(
-												'Drop a picture or a Photoshop file here, or click to choose one.',
-												'wunderpaint'
-										  ) }
-								</p>
 								<input
 									ref={ fileInput }
 									type="file"

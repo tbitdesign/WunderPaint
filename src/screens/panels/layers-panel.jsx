@@ -577,14 +577,38 @@ export function LayersPanel( { extras } ) {
 				</div>
 			</div>
 
-			<div className="layers-search">
+			<div
+				className="layers-search"
+				style={ { display: 'flex', gap: 4, alignItems: 'center' } }
+			>
 				<input
 					type="search"
 					placeholder={ __( 'Filter layers…', 'wunderpaint' ) }
 					value={ layerQuery }
 					onChange={ ( e ) => setLayerQuery( e.target.value ) }
 					aria-label={ __( 'Filter layers', 'wunderpaint' ) }
+					style={ { flex: 1, minWidth: 0 } }
 				/>
+				{ state.layers.some( ( l ) => 'group' === l.type ) && (
+					<button
+						type="button"
+						className="icon-btn"
+						style={ { width: 24, height: 24, flex: 'none' } }
+						title={ __(
+							'Collapse or expand all groups',
+							'wunderpaint'
+						) }
+						aria-label={ __(
+							'Collapse or expand all groups',
+							'wunderpaint'
+						) }
+						onClick={ () =>
+							Ops.toggleAllGroupsOp( { state, dispatch, commit } )
+						}
+					>
+						{ I.folder( { size: 13 } ) }
+					</button>
+				) }
 			</div>
 			<CompsSection />
 			<div
@@ -756,6 +780,15 @@ export function LayersPanel( { extras } ) {
 							}
 							onClick={ ( e ) => {
 								e.stopPropagation();
+								if ( e.altKey ) {
+									// Solo (v1.429): only this one, again
+									// to bring the others back.
+									Ops.soloLayerOp(
+										{ state, dispatch, commit },
+										layer.id
+									);
+									return;
+								}
 								update( layer.id, {
 									visible: ! layer.visible,
 								} );

@@ -16,6 +16,8 @@ import {
 } from './patterns';
 import { extraShapePath } from '../shape-library';
 import { dynamicShapeCommands, roundedPathCommands } from '../shape-dynamics';
+import { strokeAlignOf, strokeCapOf, strokeJoinOf } from '../stroke-align';
+import { createCanvas } from './env';
 
 /**
  * Default dash/gap for a stroke style, derived from the stroke width so the
@@ -211,148 +213,120 @@ function drawArrowHead( ctx, tip, angle, kind, lw, color ) {
 	ctx.restore();
 }
 
-export function drawShape( ctx, layer ) {
-	const { w, h } = layer;
+/**
+ * Stroke the current path in the layer's stroke colour.
+ *
+ * @param {CanvasRenderingContext2D} ctx   Target context.
+ * @param {Object}                   layer Shape layer.
+ * @param {number}                   width Line width to use.
+ * @param {boolean}                  round Round joins and caps.
+ */
+function strokeOutline( ctx, layer, width, round ) {
+	ctx.strokeStyle = layer.stroke;
+	ctx.lineWidth = width;
+	// Caps and joins (v1.429): the layer's own when set, else round for
+	// path shapes and mitred/flat for the legacy maths shapes.
+	ctx.lineJoin = strokeJoinOf( layer, round ? 'round' : 'miter' );
+	ctx.lineCap = strokeCapOf( layer, round ? 'round' : 'butt' );
+	const dashed = applyStrokeDash( ctx, layer );
+	ctx.stroke();
+	if ( dashed ) {
+		ctx.setLineDash( [] );
+	}
+}
+
+/**
+ * The outer half of a double-width stroke (v1.430): painted on a scratch
+ * canvas at the context's resolution, the shape punched out of it, the
+ * rest drawn over the fill. A destination-out on the target context
+ * itself would take the layers below with it, which is why the scratch
+ * exists. Returns false when the scratch would be absurd; the caller then
+ * strokes centred.
+ *
+ * @param {CanvasRenderingContext2D} ctx   Target context.
+ * @param {Object}                   layer Shape layer.
+ * @param {Function}                 trace Traces the outline on a context.
+ * @param {boolean}                  round Round joins and caps.
+ * @return {boolean} Whether the stroke was painted.
+ */
+function paintOutsideStroke( ctx, layer, trace, round ) {
+	const sw = layer.strokeW;
+	const t = ctx.getTransform ? ctx.getTransform() : null;
+	const res = t ? Math.max( 0.25, Math.hypot( t.a, t.b ) ) : 1;
+	const pad = Math.ceil( sw ) + 2;
+	const W = Math.ceil( ( layer.w + 2 * pad ) * res );
+	const H = Math.ceil( ( layer.h + 2 * pad ) * res );
+	if ( ! ( W > 0 && H > 0 ) || W * H > 16e6 ) {
+		return false;
+	}
+	const scratch = createCanvas( W, H );
+	const sc = scratch.getContext( '2d' );
+	sc.scale( res, res );
+	sc.translate( pad, pad );
+	sc.beginPath();
+	trace( sc );
+	strokeOutline( sc, layer, sw * 2, round );
+	sc.globalCompositeOperation = 'destination-out';
+	sc.fillStyle = '#000';
+	sc.fill();
+	ctx.drawImage( scratch, -pad, -pad, layer.w + 2 * pad, layer.h + 2 * pad );
+	return true;
+}
+
+/**
+ * Fill and stroke one traced outline in the layer's colours (v1.430): the
+ * one place that knows where the stroke sits. `trace( c )` draws the
+ * outline onto whichever context it is handed, because an outside stroke
+ * is painted on a scratch canvas first. Centred strokes paint exactly as
+ * they always did.
+ *
+ * @param {CanvasRenderingContext2D} ctx   Target context.
+ * @param {Object}                   layer Shape layer.
+ * @param {Function}                 trace Traces the outline on a context.
+ * @param {boolean}                  round Round joins and caps.
+ */
+function paintPath( ctx, layer, trace, round ) {
 	ctx.beginPath();
-	// Dynamic (parametric) shapes trace the same command list the vector
-	// export reads, so canvas and export cannot drift. A null means the
-	// shape defers to its legacy path below (unsliced ellipse).
-	const dyn = layer.pathD ? null : dynamicShapeCommands( layer );
-	if ( dyn ) {
-		traceCommands( ctx, dyn );
-		if ( layer.fill && 'transparent' !== layer.fill ) {
-			ctx.fillStyle = shapeFillStyle( ctx, layer );
-			ctx.fill();
-		}
-		if ( layer.stroke && layer.strokeW ) {
-			ctx.strokeStyle = layer.stroke;
-			ctx.lineWidth = layer.strokeW;
-			ctx.lineJoin = 'round';
-			ctx.lineCap = 'round';
-			const dashed = applyStrokeDash( ctx, layer );
-			ctx.stroke();
-			if ( dashed ) {
-				ctx.setLineDash( [] );
-			}
-		}
+	trace( ctx );
+	if ( layer.fill && 'transparent' !== layer.fill ) {
+		ctx.fillStyle = shapeFillStyle( ctx, layer );
+		ctx.fill();
+	}
+	if ( ! layer.stroke || ! layer.strokeW ) {
 		return;
 	}
-	// A shape from the path library draws itself: the same string the
-	// exporter hands out is what lands on the canvas, so the two cannot
-	// drift the way the nine hand-written ones can. A PURE-POLYGON path
-	// with a radius runs through the corner engine first (v1.427) - that
-	// is what makes the element catalog's arrows and banners dialable.
-	const libD = layer.pathD ? null : extraShapePath( layer.shape, w, h );
-	const roundedPath =
-		layer.pathD && layer.radius
-			? roundedPathCommands(
-					layer.pathD,
-					layer.radius,
-					layer.cornerSmoothing
-			  )
-			: null;
-	if ( roundedPath ) {
-		traceCommands( ctx, roundedPath );
-		if ( layer.fill && 'transparent' !== layer.fill ) {
-			ctx.fillStyle = shapeFillStyle( ctx, layer );
-			ctx.fill();
-		}
-		if ( layer.stroke && layer.strokeW ) {
-			ctx.strokeStyle = layer.stroke;
-			ctx.lineWidth = layer.strokeW;
-			ctx.lineJoin = 'round';
-			ctx.lineCap = 'round';
-			const dashed = applyStrokeDash( ctx, layer );
-			ctx.stroke();
-			if ( dashed ) {
-				ctx.setLineDash( [] );
-			}
-		}
+	const align = strokeAlignOf( layer );
+	if ( 'inside' === align ) {
+		// Half of a double-width stroke lies inside the outline; the
+		// clip keeps that half.
+		ctx.save();
+		ctx.clip();
+		strokeOutline( ctx, layer, layer.strokeW * 2, round );
+		ctx.restore();
 		return;
 	}
-	if ( layer.pathD || libD ) {
-		tracePathD( ctx, layer.pathD || libD );
-		if ( layer.fill && 'transparent' !== layer.fill ) {
-			ctx.fillStyle = shapeFillStyle( ctx, layer );
-			ctx.fill();
-		}
-		if ( layer.stroke && layer.strokeW ) {
-			ctx.strokeStyle = layer.stroke;
-			ctx.lineWidth = layer.strokeW;
-			ctx.lineJoin = 'round';
-			ctx.lineCap = 'round';
-			const dashed = applyStrokeDash( ctx, layer );
-			ctx.stroke();
-			if ( dashed ) {
-				ctx.setLineDash( [] );
-			}
-		}
+	if (
+		'outside' === align &&
+		paintOutsideStroke( ctx, layer, trace, round )
+	) {
 		return;
 	}
+	strokeOutline( ctx, layer, layer.strokeW, round );
+}
+
+/**
+ * The shapes still defined as maths here (ellipse, polygon, star, badge,
+ * rectangle), traced without filling.
+ *
+ * @param {CanvasRenderingContext2D} ctx   Target context.
+ * @param {Object}                   layer Shape layer.
+ */
+function traceLegacyShape( ctx, layer ) {
+	const { w, h } = layer;
 	switch ( layer.shape ) {
 		case 'ellipse':
 			ctx.ellipse( w / 2, h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI );
 			break;
-		case 'line': {
-			// lineFlip: the stroke runs along the anti-diagonal (bottom-left to
-			// top-right), so lines match the direction they were drawn in.
-			const a = layer.lineFlip ? { x: 0, y: h } : { x: 0, y: 0 };
-			const b = layer.lineFlip ? { x: w, y: 0 } : { x: w, y: h };
-			const lw = Math.max( 2, layer.strokeW || 0 );
-			const color = layer.fill || layer.stroke || '#000';
-			const dx = b.x - a.x;
-			const dy = b.y - a.y;
-			const len = Math.hypot( dx, dy ) || 1;
-			const ux = dx / len;
-			const uy = dy / len;
-			const startKind = ARROW_KINDS.includes( layer.arrowStart )
-				? layer.arrowStart
-				: '';
-			const endKind = ARROW_KINDS.includes( layer.arrowEnd )
-				? layer.arrowEnd
-				: '';
-			// Filled tips pull the shaft back so it never pokes past them
-			// (skipped when the line is too short to trim).
-			let t1 = startKind ? arrowHeadSpec( startKind, lw ).trim : 0;
-			let t2 = endKind ? arrowHeadSpec( endKind, lw ).trim : 0;
-			if ( t1 + t2 >= len ) {
-				t1 = 0;
-				t2 = 0;
-			}
-			ctx.moveTo( a.x + ux * t1, a.y + uy * t1 );
-			ctx.lineTo( b.x - ux * t2, b.y - uy * t2 );
-			ctx.strokeStyle = color;
-			ctx.lineWidth = lw;
-			ctx.lineCap = 'round';
-			{
-				const dashed = applyStrokeDash( ctx, layer, ctx.lineWidth );
-				ctx.stroke();
-				if ( dashed ) {
-					ctx.setLineDash( [] );
-				}
-			}
-			if ( startKind ) {
-				drawArrowHead(
-					ctx,
-					a,
-					Math.atan2( -dy, -dx ),
-					startKind,
-					lw,
-					color
-				);
-			}
-			if ( endKind ) {
-				drawArrowHead(
-					ctx,
-					b,
-					Math.atan2( dy, dx ),
-					endKind,
-					lw,
-					color
-				);
-			}
-			return;
-		}
 		case 'polygon':
 		case 'star': {
 			// Polygons and stars round their corners since v1.368 (and a
@@ -408,19 +382,98 @@ export function drawShape( ctx, layer ) {
 			}
 		}
 	}
-	if ( layer.fill && 'transparent' !== layer.fill ) {
-		ctx.fillStyle = shapeFillStyle( ctx, layer );
-		ctx.fill();
+}
+
+export function drawShape( ctx, layer ) {
+	const { w, h } = layer;
+	// Dynamic (parametric) shapes trace the same command list the vector
+	// export reads, so canvas and export cannot drift. A null means the
+	// shape defers to its legacy path below (unsliced ellipse).
+	const dyn = layer.pathD ? null : dynamicShapeCommands( layer );
+	if ( dyn ) {
+		paintPath( ctx, layer, ( c ) => traceCommands( c, dyn ), true );
+		return;
 	}
-	if ( layer.stroke && layer.strokeW ) {
-		ctx.strokeStyle = layer.stroke;
-		ctx.lineWidth = layer.strokeW;
-		const dashed = applyStrokeDash( ctx, layer );
-		ctx.stroke();
-		if ( dashed ) {
-			ctx.setLineDash( [] );
+	// A shape from the path library draws itself: the same string the
+	// exporter hands out is what lands on the canvas, so the two cannot
+	// drift the way the nine hand-written ones can. A PURE-POLYGON path
+	// with a radius runs through the corner engine first (v1.427) - that
+	// is what makes the element catalog's arrows and banners dialable.
+	const libD = layer.pathD ? null : extraShapePath( layer.shape, w, h );
+	const roundedPath =
+		layer.pathD && layer.radius
+			? roundedPathCommands(
+					layer.pathD,
+					layer.radius,
+					layer.cornerSmoothing
+			  )
+			: null;
+	if ( roundedPath ) {
+		paintPath( ctx, layer, ( c ) => traceCommands( c, roundedPath ), true );
+		return;
+	}
+	if ( layer.pathD || libD ) {
+		const d = layer.pathD || libD;
+		paintPath( ctx, layer, ( c ) => tracePathD( c, d ), true );
+		return;
+	}
+	if ( 'line' === layer.shape ) {
+		ctx.beginPath();
+		// lineFlip: the stroke runs along the anti-diagonal (bottom-left to
+		// top-right), so lines match the direction they were drawn in.
+		const a = layer.lineFlip ? { x: 0, y: h } : { x: 0, y: 0 };
+		const b = layer.lineFlip ? { x: w, y: 0 } : { x: w, y: h };
+		const lw = Math.max( 2, layer.strokeW || 0 );
+		const color = layer.fill || layer.stroke || '#000';
+		const dx = b.x - a.x;
+		const dy = b.y - a.y;
+		const len = Math.hypot( dx, dy ) || 1;
+		const ux = dx / len;
+		const uy = dy / len;
+		const startKind = ARROW_KINDS.includes( layer.arrowStart )
+			? layer.arrowStart
+			: '';
+		const endKind = ARROW_KINDS.includes( layer.arrowEnd )
+			? layer.arrowEnd
+			: '';
+		// Filled tips pull the shaft back so it never pokes past them
+		// (skipped when the line is too short to trim).
+		let t1 = startKind ? arrowHeadSpec( startKind, lw ).trim : 0;
+		let t2 = endKind ? arrowHeadSpec( endKind, lw ).trim : 0;
+		if ( t1 + t2 >= len ) {
+			t1 = 0;
+			t2 = 0;
 		}
+		ctx.moveTo( a.x + ux * t1, a.y + uy * t1 );
+		ctx.lineTo( b.x - ux * t2, b.y - uy * t2 );
+		ctx.strokeStyle = color;
+		ctx.lineWidth = lw;
+		ctx.lineCap = strokeCapOf( layer, 'round' );
+		{
+			const dashed = applyStrokeDash( ctx, layer, ctx.lineWidth );
+			ctx.stroke();
+			if ( dashed ) {
+				ctx.setLineDash( [] );
+			}
+		}
+		if ( startKind ) {
+			drawArrowHead(
+				ctx,
+				a,
+				Math.atan2( -dy, -dx ),
+				startKind,
+				lw,
+				color
+			);
+		}
+		if ( endKind ) {
+			drawArrowHead( ctx, b, Math.atan2( dy, dx ), endKind, lw, color );
+		}
+		return;
 	}
+	// Legacy maths shapes keep their mitred joins and butt caps: an old
+	// document must paint as it always did.
+	paintPath( ctx, layer, ( c ) => traceLegacyShape( c, layer ), false );
 }
 
 export function drawGradient( ctx, layer ) {

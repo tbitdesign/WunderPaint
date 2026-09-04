@@ -48,6 +48,10 @@ export const makeShape = ( opts = {} ) => ( {
 	fill: opts.fill || '#3b66ff',
 	stroke: opts.stroke ?? null,
 	strokeW: opts.strokeW || 0,
+	// Stroke position (v1.430): inside | outside; only stored when set.
+	...( opts.strokeAlign ? { strokeAlign: opts.strokeAlign } : {} ),
+	...( opts.strokeCap ? { strokeCap: opts.strokeCap } : {} ),
+	...( opts.strokeJoin ? { strokeJoin: opts.strokeJoin } : {} ),
 	// Stroke style (dashed | dotted), only stored when explicit so plain
 	// solid shapes keep their historic serialized form.
 	...( opts.strokeDash ? { strokeDash: opts.strokeDash } : {} ),
@@ -90,13 +94,19 @@ export const makeText = ( opts = {} ) => ( {
 	...( opts.valign ? { valign: opts.valign } : {} ),
 	letterSpacing: opts.letterSpacing || 0,
 	lineHeight: opts.lineHeight || 1.05,
+	...( opts.paragraphSpacing
+		? { paragraphSpacing: opts.paragraphSpacing }
+		: {} ),
 	curve: opts.curve || 0,
 	italic: !! opts.italic,
 	underline: !! opts.underline,
+	...( opts.strike ? { strike: true } : {} ),
 	// Non-destructive all-caps (v1.300); only stored when set.
 	...( opts.textTransform ? { textTransform: opts.textTransform } : {} ),
 	// Non-destructive list markers (v1.301): bullet | number.
 	...( opts.listStyle ? { listStyle: opts.listStyle } : {} ),
+	// Fluid Text (v1.429): the box sets line breaks and sizes; only stored when on.
+	...( opts.textFit ? { textFit: opts.textFit } : {} ),
 	fixedWidth: !! opts.fixedWidth,
 	outlineColor: opts.outlineColor || null,
 	outlineW: opts.outlineW || 0,

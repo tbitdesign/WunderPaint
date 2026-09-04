@@ -48,6 +48,7 @@ import {
 	placeImageIntoShape,
 } from '../lib/asset-insert';
 import { resolveBindings, bindingLabel } from '../lib/dynamic-content';
+import { stripFitStyles } from '../lib/text-fit';
 import {
 	prepareGeneratorLayers,
 	needsGeneratorPrepare,
@@ -74,6 +75,7 @@ import {
 	insertPathText,
 	shapeTextSource,
 	insertShapeText,
+	finishPolygonLasso,
 } from './canvas/tool-handlers';
 import { isParametricShape } from '../lib/shape-path';
 import {
@@ -971,6 +973,11 @@ export function EditorCanvas( { viewApi, extras } ) {
 					current.anchors.length > 1
 				) {
 					setDraft( { ...current, finalizing: true } );
+					return true;
+				}
+				if ( current && 'lassoPoly' === current.kind ) {
+					// Enter closes the polygon lasso (v1.429).
+					finishPolygonLasso( buildToolCtx() );
 					return true;
 				}
 				if ( editorRef.current.state.crop ) {
@@ -2014,8 +2021,13 @@ export function EditorCanvas( { viewApi, extras } ) {
 							} );
 							return;
 						}
+						// Fluid Text (v1.429): the overlay showed derived
+						// sizes; only character styles are committed.
+						const kept = editingLayer.textFit
+							? stripFitStyles( spans )
+							: spans;
 						const spansChanged =
-							JSON.stringify( spans || null ) !==
+							JSON.stringify( kept || null ) !==
 							JSON.stringify( editingLayer.spans || null );
 						if (
 							text !== editingLayer.text ||
@@ -2028,7 +2040,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 							const h = textCommitHeight( {
 								...editingLayer,
 								text,
-								spans,
+								spans: kept,
 								lineStyles: null,
 							} );
 							dispatch( {
@@ -2036,7 +2048,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 								id: editingLayer.id,
 								patch: {
 									text,
-									spans,
+									spans: kept,
 									lineStyles: null,
 									name:
 										text.slice( 0, 24 ) ||
@@ -2288,9 +2300,24 @@ export function EditorCanvas( { viewApi, extras } ) {
 					className="ctx-menu"
 					style={ {
 						position: 'fixed',
-						left: Math.min( canvasMenu.x, window.innerWidth - 200 ),
-						top: Math.min( canvasMenu.y, window.innerHeight - 320 ),
+						left: Math.min( canvasMenu.x, window.innerWidth - 240 ),
+						top: Math.max( 8, canvasMenu.y ),
 						zIndex: 650,
+					} }
+					// The menu's height depends on the layer under the
+					// cursor, so it is measured once mounted and lifted
+					// until its bottom edge is on screen.
+					ref={ ( el ) => {
+						if ( ! el ) {
+							return;
+						}
+						const r = el.getBoundingClientRect();
+						if ( r.bottom > window.innerHeight - 8 ) {
+							el.style.top = `${ Math.max(
+								8,
+								window.innerHeight - 8 - r.height
+							) }px`;
+						}
 					} }
 					onPointerDown={ ( e ) => e.stopPropagation() }
 					onMouseDown={ ( e ) => e.stopPropagation() }
@@ -2347,454 +2374,678 @@ export function EditorCanvas( { viewApi, extras } ) {
 							fn();
 							setCanvasMenu( null );
 						};
+						// Sectioned menu (v1.429, user request): headlines
+						// instead of a long ribbon, icon rows for the moves
+						// that read better as pictures, and only entries that
+						// apply. The panel shortcuts (Layers, Properties, ...)
+						// left: the dock is one click away.
 						const items = [];
 						const add = ( icon, label, fn, opts = {} ) =>
 							items.push( { icon, label, fn, ...opts } );
-						const rule = () => items.push( { divider: true } );
+						const row = ( buttons ) =>
+							items.push( { row: buttons } );
+						// A headline appears only when its section has entries.
+						const section = ( label, fill ) => {
+							const start = items.length;
+							items.push( { head: label } );
+							fill();
+							if ( items.length === start + 1 ) {
+								items.pop();
+							}
+						};
+						const selectedShapes = target
+							? Ops.selectedShapeLayers( editor.state )
+							: [];
 						if ( target ) {
-							if ( 'text' === target.type ) {
-								add(
-									'text',
-									__( 'Edit Text', 'wunderpaint' ),
-									() => setEditingTextId( target.id )
+							if ( canvasMenu.hits.length > 1 ) {
+								// Stacked layers (v1.429): every layer under
+								// the cursor, top first, the active one lit.
+								section(
+									__( 'Under the cursor', 'wunderpaint' ),
+									() => {
+										canvasMenu.hits
+											.slice( 0, 8 )
+											.forEach( ( h ) =>
+												add(
+													'text' === h.type
+														? 'text'
+														: 'shape' === h.type
+														? 'shape'
+														: 'group' === h.type
+														? 'folder'
+														: 'image',
+													h.name || h.type,
+													() =>
+														dispatch( {
+															type: 'SET_ACTIVE',
+															id: h.id,
+														} ),
+													{
+														current:
+															h.id === target.id,
+													}
+												)
+											);
+									}
 								);
-							} else {
-								// Masked/framed text: the text frame sits UNDER
-								// the clipped image (or whatever covers it) in the
-								// same spot, so a plain double-click reaches the
-								// cover, never the text. Offer it here directly
-								// from the hit stack under the cursor (v1.179.0).
-								const textHit = canvasMenu.hits.find(
-									( l ) => 'text' === l.type
-								);
-								if ( textHit ) {
+							}
+							section( __( 'Edit', 'wunderpaint' ), () => {
+								if ( 'text' === target.type ) {
 									add(
 										'text',
 										__( 'Edit Text', 'wunderpaint' ),
-										() => {
-											dispatch( {
-												type: 'SET_ACTIVE',
-												id: textHit.id,
-											} );
-											setEditingTextId( textHit.id );
-										}
+										() => setEditingTextId( target.id )
+									);
+								} else {
+									// Masked/framed text: the text frame sits
+									// UNDER the clipped image in the same
+									// spot, so a plain double-click reaches
+									// the cover, never the text. Offer it
+									// from the hit stack (v1.179.0).
+									const textHit = canvasMenu.hits.find(
+										( l ) => 'text' === l.type
+									);
+									if ( textHit ) {
+										add(
+											'text',
+											__( 'Edit Text', 'wunderpaint' ),
+											() => {
+												dispatch( {
+													type: 'SET_ACTIVE',
+													id: textHit.id,
+												} );
+												setEditingTextId( textHit.id );
+											}
+										);
+									}
+								}
+								if ( target.qr ) {
+									add(
+										'qr',
+										__( 'Edit QR Code', 'wunderpaint' ),
+										() => extras.openQr( target.id )
 									);
 								}
-							}
-							if ( target.qr ) {
-								add(
-									'qr',
-									__( 'Edit QR Code', 'wunderpaint' ),
-									() => extras.openQr( target.id )
-								);
-							}
-							if ( target.bg ) {
-								add(
-									'palette',
-									__( 'Edit Background', 'wunderpaint' ),
-									() =>
-										extras.openBackgroundStudio( target.id )
-								);
-							}
-							if ( target.mockup ) {
-								add(
-									'image',
-									__( 'Edit Mockup', 'wunderpaint' ),
-									() => extras.openMockup( target.id )
-								);
-							}
-							{
-								// Extension-generated layers (v1.119): the
-								// generator stores { id, params } on the
-								// layer (or its group) and gets an edit
-								// re-entry here.
-								const genLayer = hitOwner(
-									( l ) => l.generator
-								);
-								const gen =
-									genLayer &&
-									getExtensionGenerator(
-										genLayer.generator.id
-									);
-								if ( gen && ( gen.edit || gen.run ) ) {
+								if ( target.bg ) {
 									add(
-										'sparkles',
-										sprintf(
-											/* translators: %s: generator name. */
-											__( 'Edit %s', 'wunderpaint' ),
-											gen.label
-										),
+										'palette',
+										__( 'Edit Background', 'wunderpaint' ),
 										() =>
-											( gen.edit || gen.run )( {
-												editor,
-												extras,
-												layer: genLayer,
-											} )
-									);
-								}
-								// Data-bound generator groups re-pull their
-								// records in place (v1.276).
-								if (
-									gen &&
-									'function' === typeof gen.resolve &&
-									'group' === genLayer.type
-								) {
-									add(
-										'refresh',
-										sprintf(
-											/* translators: %s: generator name. */
-											__( 'Refresh %s', 'wunderpaint' ),
-											gen.label
-										),
-										() =>
-											refreshGeneratorLayer(
-												editor,
-												genLayer
+											extras.openBackgroundStudio(
+												target.id
 											)
 									);
 								}
-							}
-							if (
-								'shape' === target.type &&
-								target.pathD &&
-								! target.quad
-							) {
-								add(
-									'pen',
-									__( 'Edit Path', 'wunderpaint' ),
-									() => setPathEditId( target.id )
-								);
-							}
-							if (
-								'text' === target.type &&
-								target.textPath?.d
-							) {
-								// Reshape a text-on-path curve directly; the
-								// text follows live (v1.212.0).
-								add(
-									'pen',
-									__( 'Edit Path', 'wunderpaint' ),
-									() => setPathEditId( target.id )
-								);
-							}
-							if (
-								isParametricShape( target ) ||
-								( 'shape' === target.type &&
-									target.pathD &&
-									! target.quad )
-							) {
-								// The Shape Studio with this layer's dials -
-								// the same door the double-click opens.
-								// Polygon paths round their corners there;
-								// free-form paths still get fill and stroke.
-								add(
-									'sliders',
-									__( 'Edit Shape', 'wunderpaint' ),
-									() => extras?.openShapeStudio?.( target.id )
-								);
-							}
-							if ( isParametricShape( target ) ) {
-								// Expand a primitive (ellipse/star/...) into an
-								// editable path, then drop straight into anchor
-								// editing (v1.210.0).
-								add(
-									'pen',
-									__( 'Convert to Path', 'wunderpaint' ),
-									() => {
-										if (
-											Ops.convertShapeToPathOp(
+								if ( target.mockup ) {
+									add(
+										'image',
+										__( 'Edit Mockup', 'wunderpaint' ),
+										() => extras.openMockup( target.id )
+									);
+								}
+								{
+									// Extension-generated layers (v1.119): the
+									// generator stores { id, params } on the
+									// layer (or its group) and gets an edit
+									// re-entry here.
+									const genLayer = hitOwner(
+										( l ) => l.generator
+									);
+									const gen =
+										genLayer &&
+										getExtensionGenerator(
+											genLayer.generator.id
+										);
+									if ( gen && ( gen.edit || gen.run ) ) {
+										add(
+											'sparkles',
+											sprintf(
+												/* translators: %s: generator name. */
+												__( 'Edit %s', 'wunderpaint' ),
+												gen.label
+											),
+											() =>
+												( gen.edit || gen.run )( {
+													editor,
+													extras,
+													layer: genLayer,
+												} )
+										);
+									}
+									// Data-bound generator groups re-pull
+									// their records in place (v1.276).
+									if (
+										gen &&
+										'function' === typeof gen.resolve &&
+										'group' === genLayer.type
+									) {
+										add(
+											'refresh',
+											sprintf(
+												/* translators: %s: generator name. */
+												__(
+													'Refresh %s',
+													'wunderpaint'
+												),
+												gen.label
+											),
+											() =>
+												refreshGeneratorLayer(
+													editor,
+													genLayer
+												)
+										);
+									}
+								}
+								if (
+									( 'shape' === target.type &&
+										target.pathD &&
+										! target.quad ) ||
+									( 'text' === target.type &&
+										target.textPath?.d )
+								) {
+									// Anchor editing for a path shape, or the
+									// curve of a text on path (v1.212.0).
+									add(
+										'pen',
+										__( 'Edit Path', 'wunderpaint' ),
+										() => setPathEditId( target.id )
+									);
+								}
+								if (
+									isParametricShape( target ) ||
+									( 'shape' === target.type &&
+										target.pathD &&
+										! target.quad )
+								) {
+									// The Shape Studio with this layer's dials,
+									// the same door the double-click opens.
+									add(
+										'sliders',
+										__( 'Edit Shape', 'wunderpaint' ),
+										() =>
+											extras?.openShapeStudio?.(
+												target.id
+											)
+									);
+								}
+								if ( 'smart' === target.type ) {
+									add(
+										'smart',
+										__(
+											'Edit Smart Object',
+											'wunderpaint'
+										),
+										() =>
+											extras.smartObject?.editContents?.(
+												target
+											)
+									);
+								}
+								{
+									// Charts: the hit is usually a child
+									// bar/slice, the params live on the group.
+									const chartGroup = hitOwner(
+										( l ) => l.chart
+									);
+									if ( chartGroup ) {
+										const isTbl = String(
+											chartGroup.chart?.type || ''
+										).startsWith( 'table' );
+										add(
+											'sliders',
+											isTbl
+												? __(
+														'Edit Table',
+														'wunderpaint'
+												  )
+												: __(
+														'Edit Chart',
+														'wunderpaint'
+												  ),
+											() =>
+												extras.openChart(
+													chartGroup.id
+												)
+										);
+									}
+								}
+								if (
+									[
+										'image',
+										'raster',
+										'smart',
+										'text',
+										'shape',
+										'gradient',
+									].includes( target.type )
+								) {
+									add(
+										'move',
+										__( 'Free Transform', 'wunderpaint' ),
+										() =>
+											Ops.freeTransformOp(
+												editor,
+												extras
+											)
+									);
+								}
+							} );
+							section( __( 'Convert', 'wunderpaint' ), () => {
+								if ( isParametricShape( target ) ) {
+									// Expand a primitive into an editable
+									// path, then drop into anchor editing.
+									add(
+										'pen',
+										__( 'Convert to Path', 'wunderpaint' ),
+										() => {
+											if (
+												Ops.convertShapeToPathOp(
+													editor,
+													target.id
+												)
+											) {
+												setPathEditId( target.id );
+											}
+										}
+									);
+								}
+								if ( Ops.canOutlineStroke( target ) ) {
+									add(
+										'shape',
+										__( 'Outline Stroke', 'wunderpaint' ),
+										() =>
+											Ops.outlineStrokeOp(
 												editor,
 												target.id
 											)
-										) {
-											setPathEditId( target.id );
-										}
-									}
-								);
-							}
-							if ( pathTextSource( target ) ) {
-								// Text on Path without switching tools
-								// (v1.156.1) - covers pen strokes too.
-								add(
-									'text',
-									__( 'Text on Path', 'wunderpaint' ),
-									() =>
-										insertPathText( buildToolCtx(), target )
-								);
-							}
-							if ( shapeTextSource( target ) ) {
-								// Flow text INSIDE the shape's silhouette
-								// (area text, v1.210.0).
-								add(
-									'text',
-									__( 'Text in Shape', 'wunderpaint' ),
-									() =>
-										insertShapeText(
-											buildToolCtx(),
-											target
-										)
-								);
-							}
-							if ( 'smart' === target.type ) {
-								add(
-									'smart',
-									__( 'Edit Smart Object', 'wunderpaint' ),
-									() =>
-										extras.smartObject?.editContents?.(
-											target
-										)
-								);
-							}
-							{
-								// Charts: the hit is usually a child bar/slice,
-								// the params live on the group (v1.114).
-								const chartGroup = hitOwner( ( l ) => l.chart );
-								if ( chartGroup ) {
-									const isTbl = String(
-										chartGroup.chart?.type || ''
-									).startsWith( 'table' );
-									add(
-										'sliders',
-										isTbl
-											? __( 'Edit Table', 'wunderpaint' )
-											: __( 'Edit Chart', 'wunderpaint' ),
-										() => extras.openChart( chartGroup.id )
 									);
 								}
-							}
-							if (
-								[
-									'image',
-									'raster',
-									'smart',
-									'text',
-									'shape',
-									'gradient',
-								].includes( target.type )
-							) {
-								add(
-									'move',
-									__( 'Free Transform', 'wunderpaint' ),
-									() => Ops.freeTransformOp( editor, extras )
-								);
-							}
-							if ( hasPivot( target ) ) {
-								add(
-									'rotateCw',
-									__( 'Radial Repeat…', 'wunderpaint' ),
-									() => Ops.radialRepeatPrompt( editor )
-								);
-							}
-							if (
-								[
-									'shape',
-									'text',
-									'stroke',
-									'gradient',
-								].includes( target.type )
-							) {
-								add(
-									'image',
-									__( 'Rasterize', 'wunderpaint' ),
-									() => Ops.rasterizeLayerOp( editor )
-								);
-							}
-							if (
-								[ 'image', 'raster', 'smart' ].includes(
-									target.type
-								)
-							) {
-								// Vectorize where the pixels are (v1.127.0):
-								// same tracer as the AI panel button.
-								add(
-									'pen',
-									__( 'Vectorize', 'wunderpaint' ),
-									async () => {
-										const tid = extras.toasts.toast(
-											__( 'Vectorizing…', 'wunderpaint' ),
-											{ duration: 0 }
-										);
-										try {
-											const parsed =
-												await vectorizeActiveLayer(
-													editor
-												);
-											Ops.placeSvgLayers(
+								if ( Ops.canOffsetPath( target ) ) {
+									add(
+										'shape',
+										__( 'Offset Path…', 'wunderpaint' ),
+										() =>
+											Ops.offsetPathPrompt(
 												editor,
-												parsed,
-												`${ parsed.name } ${ __(
-													'vector',
+												target.id
+											)
+									);
+								}
+								if ( pathTextSource( target ) ) {
+									add(
+										'text',
+										__( 'Text on Path', 'wunderpaint' ),
+										() =>
+											insertPathText(
+												buildToolCtx(),
+												target
+											)
+									);
+								}
+								if ( shapeTextSource( target ) ) {
+									add(
+										'text',
+										__( 'Text in Shape', 'wunderpaint' ),
+										() =>
+											insertShapeText(
+												buildToolCtx(),
+												target
+											)
+									);
+								}
+								if (
+									[
+										'shape',
+										'text',
+										'stroke',
+										'gradient',
+									].includes( target.type )
+								) {
+									add(
+										'image',
+										__( 'Rasterize', 'wunderpaint' ),
+										() => Ops.rasterizeLayerOp( editor )
+									);
+								}
+								if (
+									[ 'image', 'raster', 'smart' ].includes(
+										target.type
+									)
+								) {
+									// Vectorize where the pixels are
+									// (v1.127.0): same tracer as the AI panel.
+									add(
+										'pen',
+										__( 'Vectorize', 'wunderpaint' ),
+										async () => {
+											const tid = extras.toasts.toast(
+												__(
+													'Vectorizing…',
 													'wunderpaint'
-												) }`,
-												__( 'Vectorize', 'wunderpaint' )
+												),
+												{ duration: 0 }
 											);
-											extras.toasts.success(
-												sprintf(
-													/* translators: %d: shape count. */
-													__(
-														'Traced into %d editable vector shapes.',
+											try {
+												const parsed =
+													await vectorizeActiveLayer(
+														editor
+													);
+												Ops.placeSvgLayers(
+													editor,
+													parsed,
+													`${ parsed.name } ${ __(
+														'vector',
 														'wunderpaint'
-													),
-													parsed.layers.length
-												)
-											);
-										} catch ( err ) {
-											extras.toasts.error( err.message );
-										} finally {
-											extras.toasts.remove( tid );
+													) }`,
+													__(
+														'Vectorize',
+														'wunderpaint'
+													)
+												);
+												extras.toasts.success(
+													sprintf(
+														/* translators: %d: shape count. */
+														__(
+															'Traced into %d editable vector shapes.',
+															'wunderpaint'
+														),
+														parsed.layers.length
+													)
+												);
+											} catch ( err ) {
+												extras.toasts.error(
+													err.message
+												);
+											} finally {
+												extras.toasts.remove( tid );
+											}
 										}
+									);
+								}
+								add(
+									'sparkles',
+									__(
+										'Convert to Smart Object',
+										'wunderpaint'
+									),
+									() => Ops.convertToSmartOp( editor )
+								);
+							} );
+							if ( selectedShapes.length >= 2 ) {
+								// Boolean operations (v1.430): the bottom-most
+								// selected shape is the base.
+								section( __( 'Combine', 'wunderpaint' ), () => {
+									const boolIcons = {
+										unite: 'boolUnite',
+										subtract: 'boolSubtract',
+										intersect: 'boolIntersect',
+										exclude: 'boolExclude',
+									};
+									row(
+										Ops.COMBINE_MODES.map( ( mode ) => ( {
+											icon: boolIcons[ mode.id ],
+											label: mode.label(),
+											fn: () =>
+												Ops.combineShapesOp(
+													editor,
+													mode.id
+												),
+										} ) )
+									);
+								} );
+							}
+							section( __( 'Arrange', 'wunderpaint' ), () => {
+								row( [
+									{
+										icon: 'toFront',
+										label: __(
+											'Bring to Front',
+											'wunderpaint'
+										),
+										fn: () => Ops.bringToFrontOp( editor ),
+									},
+									{
+										icon: 'arrUp',
+										label: __(
+											'Bring Forward',
+											'wunderpaint'
+										),
+										fn: () => Ops.bringForwardOp( editor ),
+									},
+									{
+										icon: 'arrDown',
+										label: __(
+											'Send Backward',
+											'wunderpaint'
+										),
+										fn: () => Ops.sendBackwardOp( editor ),
+									},
+									{
+										icon: 'toBack',
+										label: __(
+											'Send to Back',
+											'wunderpaint'
+										),
+										fn: () => Ops.sendToBackOp( editor ),
+									},
+									{
+										icon: 'flipH',
+										label: __(
+											'Flip Horizontal',
+											'wunderpaint'
+										),
+										fn: () =>
+											Ops.flipLayersOp( editor, false ),
+									},
+									{
+										icon: 'flipV',
+										label: __(
+											'Flip Vertical',
+											'wunderpaint'
+										),
+										fn: () =>
+											Ops.flipLayersOp( editor, true ),
+									},
+									{
+										icon: 'rotateCw',
+										label: __(
+											'Rotate 90° CW',
+											'wunderpaint'
+										),
+										fn: () =>
+											Ops.rotateLayersOp( editor, 90 ),
+									},
+									{
+										icon: 'rotateCcw',
+										label: __(
+											'Rotate 90° CCW',
+											'wunderpaint'
+										),
+										fn: () =>
+											Ops.rotateLayersOp( editor, -90 ),
+									},
+								] );
+								if ( hasPivot( target ) ) {
+									add(
+										'rotateCw',
+										__( 'Radial Repeat…', 'wunderpaint' ),
+										() => Ops.radialRepeatPrompt( editor )
+									);
+								}
+								add(
+									'grid',
+									__( 'Grid Repeat…', 'wunderpaint' ),
+									() => Ops.gridRepeatPrompt( editor )
+								);
+							} );
+							section(
+								__( 'Group & Mask', 'wunderpaint' ),
+								() => {
+									if ( 'group' === target.type ) {
+										add(
+											'folder',
+											__( 'Ungroup', 'wunderpaint' ),
+											() => Ops.ungroupOp( editor )
+										);
+									} else {
+										add(
+											'folder',
+											__( 'Group', 'wunderpaint' ),
+											() => Ops.newGroupOp( editor )
+										);
 									}
-								);
-							}
-							if ( items.length ) {
-								rule();
-							}
-							if ( 'group' === target.type ) {
+									add(
+										'mask',
+										__( 'Add Layer Mask', 'wunderpaint' ),
+										() => Ops.addMaskOp( editor )
+									);
+									if ( 'group' !== target.type ) {
+										add(
+											'crop',
+											target.clipped
+												? __(
+														'Release Clipping Mask',
+														'wunderpaint'
+												  )
+												: __(
+														'Create Clipping Mask',
+														'wunderpaint'
+												  ),
+											() => Ops.clippingMaskOp( editor )
+										);
+									}
+								}
+							);
+							section( __( 'Layer', 'wunderpaint' ), () => {
+								// Copy the layer's whole look (effects, blend,
+								// filter, paint) and stamp it onto other
+								// layers (v1.226.0).
 								add(
-									'folder',
-									__( 'Ungroup', 'wunderpaint' ),
-									() => Ops.ungroupOp( editor )
+									'fx',
+									__( 'Copy Styles', 'wunderpaint' ),
+									() => Ops.copyLayerStyles( editor )
 								);
-							} else {
+								if ( state.styleClipboard ) {
+									add(
+										'stamp',
+										__( 'Paste Styles', 'wunderpaint' ),
+										() => Ops.pasteLayerStyles( editor )
+									);
+								}
 								add(
-									'folder',
-									__( 'Group', 'wunderpaint' ),
-									() => Ops.newGroupOp( editor )
+									'pencil',
+									__( 'Rename layer', 'wunderpaint' ),
+									() => Ops.renameLayerOp( editor, target.id )
 								);
-							}
-							add(
-								'mask',
-								__( 'Add Layer Mask', 'wunderpaint' ),
-								() => Ops.addMaskOp( editor )
-							);
-							if ( 'group' !== target.type ) {
 								add(
-									'crop',
-									target.clipped
-										? __(
-												'Release Clipping Mask',
-												'wunderpaint'
-										  )
-										: __(
-												'Create Clipping Mask',
-												'wunderpaint'
-										  ),
-									() => Ops.clippingMaskOp( editor )
+									'eyeOff',
+									__( 'Hide layer', 'wunderpaint' ),
+									() => Ops.hideLayersOp( editor )
 								);
-							}
-							add(
-								'sparkles',
-								__( 'Convert to Smart Object', 'wunderpaint' ),
-								() => Ops.convertToSmartOp( editor )
-							);
-							rule();
-							// Copy the layer's whole look (effects, blend, filter, paint) and
-							// stamp it onto other layers (v1.226.0).
-							add( 'fx', __( 'Copy Styles', 'wunderpaint' ), () =>
-								Ops.copyLayerStyles( editor )
-							);
-							if ( state.styleClipboard ) {
 								add(
-									'stamp',
-									__( 'Paste Styles', 'wunderpaint' ),
-									() => Ops.pasteLayerStyles( editor )
+									target.locked ? 'unlock' : 'lock',
+									target.locked
+										? __( 'Unlock layer', 'wunderpaint' )
+										: __( 'Lock layer', 'wunderpaint' ),
+									() => Ops.toggleLockOp( editor )
 								);
-							}
-							rule();
-							// Panel shortcuts (v1.111.1): duplicate/bring/send
-							// live in the mini context bar already; the menu
-							// jumps straight into the editing panels instead.
-							add( 'layers', __( 'Layers', 'wunderpaint' ), () =>
-								dispatch( {
-									type: 'SET_RIGHT_TAB',
-									tab: 'layers',
-								} )
-							);
-							add(
-								'sliders',
-								__( 'Properties', 'wunderpaint' ),
-								() =>
-									dispatch( {
-										type: 'SET_RIGHT_TAB',
-										tab: 'props',
-									} )
-							);
-							add( 'fx', __( 'Effects', 'wunderpaint' ), () =>
-								dispatch( {
-									type: 'SET_RIGHT_TAB',
-									tab: 'effects',
-								} )
-							);
-							add( 'adjust', __( 'Adjust', 'wunderpaint' ), () =>
-								dispatch( {
-									type: 'SET_RIGHT_TAB',
-									tab: 'adjust',
-								} )
-							);
-							add(
-								'sparkAI',
-								__( 'AI Studio', 'wunderpaint' ),
-								() =>
-									dispatch( {
-										type: 'SET_RIGHT_TAB',
-										tab: 'ai',
-									} )
-							);
-							rule();
-							add(
-								'trash',
-								__( 'Delete', 'wunderpaint' ),
-								() => Ops.deleteLayers( editor ),
-								{ danger: true }
-							);
+								add(
+									'trash',
+									__( 'Delete', 'wunderpaint' ),
+									() => Ops.deleteLayers( editor ),
+									{ danger: true }
+								);
+							} );
 						} else {
 							// Empty canvas: only things that make sense with
-							// nothing under the cursor. Every label reuses an
-							// existing menubar msgid, so this menu costs the
-							// translation tables nothing (v1.373.2).
-							add( 'plus', __( 'New Layer', 'wunderpaint' ), () =>
-								Ops.newLayerOp( editor )
-							);
-							if ( state.clipboard?.length ) {
+							// nothing under the cursor.
+							section( __( 'Layer', 'wunderpaint' ), () => {
 								add(
-									'duplicate',
-									__( 'Paste Layer', 'wunderpaint' ),
-									() => Ops.pasteLayers( editor )
+									'plus',
+									__( 'New Layer', 'wunderpaint' ),
+									() => Ops.newLayerOp( editor )
 								);
-							}
-							rule();
-							add(
-								'marquee',
-								__( 'Select All', 'wunderpaint' ),
-								() => Ops.selectAllOp( editor )
-							);
-							if ( state.selection ) {
+								if ( state.clipboard?.length ) {
+									add(
+										'duplicate',
+										__( 'Paste Layer', 'wunderpaint' ),
+										() => Ops.pasteLayers( editor )
+									);
+									add(
+										'duplicate',
+										__( 'Paste in Place', 'wunderpaint' ),
+										() => Ops.pasteInPlaceOp( editor )
+									);
+								}
+							} );
+							section( __( 'Select', 'wunderpaint' ), () => {
 								add(
-									'close',
-									__( 'Deselect', 'wunderpaint' ),
-									() => Ops.deselectOp( editor )
+									'marquee',
+									__( 'Select All', 'wunderpaint' ),
+									() => Ops.selectAllOp( editor )
 								);
-							}
-							rule();
-							add( 'zoom', __( 'Fit', 'wunderpaint' ), () =>
-								fit()
-							);
-							add( 'zoom', __( '100%', 'wunderpaint' ), () =>
-								viewApi.current?.zoomTo( 1 )
-							);
-							add(
-								'grid',
-								__( 'Guides & Grid', 'wunderpaint' ),
-								() => extras.openGuides()
-							);
+								if ( state.selection ) {
+									add(
+										'close',
+										__( 'Deselect', 'wunderpaint' ),
+										() => Ops.deselectOp( editor )
+									);
+								}
+							} );
+							section( __( 'View', 'wunderpaint' ), () => {
+								add( 'zoom', __( 'Fit', 'wunderpaint' ), () =>
+									fit()
+								);
+								add( 'zoom', __( '100%', 'wunderpaint' ), () =>
+									viewApi.current?.zoomTo( 1 )
+								);
+								add(
+									'grid',
+									__( 'Guides & Grid', 'wunderpaint' ),
+									() => extras.openGuides()
+								);
+							} );
 						}
-						return items.map( ( item, i ) =>
-							item.divider ? (
-								<div key={ i } className="divider" />
-							) : (
+						return items.map( ( item, i ) => {
+							if ( item.head ) {
+								return (
+									<div key={ i } className="ctx-head">
+										{ item.head }
+									</div>
+								);
+							}
+							if ( item.row ) {
+								return (
+									<div key={ i } className="ctx-row">
+										{ item.row.map( ( b, j ) => (
+											<button
+												key={ j }
+												type="button"
+												title={ b.label }
+												aria-label={ b.label }
+												onClick={ close( b.fn ) }
+											>
+												{ I[ b.icon ]
+													? I[ b.icon ]( {
+															size: 14,
+													  } )
+													: null }
+											</button>
+										) ) }
+									</div>
+								);
+							}
+							if ( item.divider ) {
+								return <div key={ i } className="divider" />;
+							}
+							return (
 								<button
 									key={ i }
-									className={ item.danger ? 'danger' : '' }
+									className={
+										( item.danger ? 'danger' : '' ) +
+										( item.current ? ' is-current' : '' )
+									}
 									onClick={ close( item.fn ) }
 								>
 									<span className="ctx-ic">
@@ -2804,8 +3055,8 @@ export function EditorCanvas( { viewApi, extras } ) {
 									</span>
 									{ item.label }
 								</button>
-							)
-						);
+							);
+						} );
 					} )() }
 				</div>
 			) }

@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.428.0
+Stable tag: 1.429.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,7 +45,7 @@ This is the heart of WunderPaint. Text and image layers can be bound to live Wor
 
 = Real typography =
 
-Style single letters inside one layer, choose from one-click text styles and combinable text effects, bend text with warp presets or a free arc, run it along any path, flow it into a shape, or place an editable headline behind the subject of a photo. Area text wraps automatically, marker-style hand-drawn highlights decorate single passages, drag handles adjust tracking and leading directly on the canvas, and a WCAG contrast check warns you before your caption becomes unreadable. Fonts come from bundled families, from a catalog your server downloads and self-hosts, from your own uploaded font files, from fonts your site already provides - and from Google's CDN only if you explicitly opt in.
+Style single letters inside one layer, choose from one-click text styles and combinable text effects, bend text with warp presets or a free arc, run it along any path, flow it into a shape, or place an editable headline behind the subject of a photo. Fluid Text lets the box set the type: every line grows to the width of the frame and the words spread over as many lines as the height allows, so a headline re-flows while you drag. Layouts put a look on top, from stacked poster capitals to an editorial lockup with kicker and detail line, and the look re-flows with the box too. Area text wraps automatically, marker-style hand-drawn highlights decorate single passages, drag handles adjust tracking and leading directly on the canvas, and a WCAG contrast check warns you before your caption becomes unreadable. Fonts come from bundled families, from a catalog your server downloads and self-hosts, from your own uploaded font files, from fonts your site already provides - and from Google's CDN only if you explicitly opt in.
 
 = Charts, tables and data =
 
@@ -176,6 +176,7 @@ Each library below is bundled into its own file under build/, named after the li
 * ag-psd — MIT License (PSD read/write). Source: https://github.com/Agamnentzar/ag-psd — build/agpsd.<hash>.js
 * Tabler Icons — MIT License (icon library). Source: https://github.com/tabler/tabler-icons — build/icons-lib.<hash>.js and assets/ui-icons/
 * qrcode — MIT License (QR-code generation). Source: https://github.com/soldair/node-qrcode — build/qrcode.<hash>.js
+* polybooljs — MIT License (polygon boolean operations behind the shape tool's Unite/Subtract/Intersect/Exclude and Outline Stroke). Source: https://github.com/velipso/polybooljs — build/polybool.<hash>.js
 * jsQR — Apache License 2.0 (the in-dialog scan check that decodes the rendered code). Source: https://github.com/cozmo/jsQR — build/jsqr.<hash>.js
 * jszip — MIT License (ZIP reading and writing for project files and exports; dual-licensed MIT or GPL-3.0-or-later, used here under MIT). Source: https://github.com/Stuk/jszip — build/jszip.<hash>.js
 * vtracer-wasm — MIT License (colour image vectorization; a WebAssembly build of VTracer by Vision Cortex, also MIT). Source: https://github.com/jsscheller/vtracer-wasm and https://github.com/visioncortex/vtracer — build/vtracer.<hash>.wasm
@@ -253,6 +254,30 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+
+= 1.429.0 =
+* Fluid Text: a switch on the text layer (context bar, options bar next to the curve, Character section) that lets the box set the type. Every line is sized to fill the frame's width, the words are spread over as many lines as the height allows, and the stack fills the box; dragging any handle re-flows it live. Enter still breaks a line by hand. Character colours and faces survive, the font size and leading belong to the box while the switch is on, and switching it off freezes the current look into the layer. Bound text and variables keep the mode, so a post title fills its frame line by line for every post.
+* Layouts are looks on Fluid Text now. A look is a recipe of roles (kicker, hero, sub, detail) with face, weight, casing, tracking, colour, width share and air; the sentences of your text become segments, each gets a role, and the box breaks and sizes the lines. Nothing is baked into the text any more, casing stays non-destructive, and editing a word keeps the look. The popover shows all ten classics, four generated rolls and the cloud suggestions, each rendered in the layer's own box on the document's ground, with names. The accent colour comes from the brand kit or a harmony of the text colour. Layers with an old baked layout keep it.
+* Editing text no longer loses the per-line leading of a frozen Fluid Text or a layout lockup: colouring one word used to pull the lines apart or into each other.
+* Shapes combine: Unite, Subtract, Intersect and Exclude for two or more selected shapes (context bar and context menu), with the bottom-most shape as the base. Outline Stroke turns a stroke into its own filled path, dashes and stroke position included.
+* Stroke position for shapes: inside, centre or outside, in the Stroke section, honoured by the canvas and the SVG export.
+* Rectangles round each corner on its own in the Shape section, and the crown starts with five prongs.
+* Shape styles: a Style picker in the options bar with live tiles of the layer's own shape (outlines, dashed, sticker, neon, glass, shadows, gradient, patterns), each a complete look built on the layer's colour.
+* Slimmer shape options bars: the shape picker, colours, stroke width, style and the studio; pattern, stroke style, radius and sides live in the properties panel and the studio. The picker popover shows the basics and opens the studio for everything else, and the context bar has Edit Shape for shapes.
+* The right-click menu on the canvas is grouped under small headlines (Edit, Convert, Combine, Arrange, Group & Mask, Layer) with icon rows for the arrange and boolean moves, keeps itself on screen, and no longer lists the dock panels.
+* Arrange like a design tool: Bring to Front and Send to Back (Shift+Cmd+] and [), Group and Ungroup on Cmd+G and Shift+Cmd+G, Hide on Shift+Cmd+H, Lock or unlock on Cmd+2 and in the right-click menu, Paste in Place on Shift+Cmd+V, flips and quarter turns of whole groups, Rename from the menu, and Select > Select Same for every layer with the same fill, stroke, font or type.
+* Offset Path grows or shrinks a shape by a distance, as a new layer above it.
+* Strokes choose their joins (miter, round, bevel) and ends (flat, round, square); untouched shapes paint as before.
+* Text takes a strikethrough, and Case offers uppercase, lowercase and capitalized words, all non-destructive.
+* Export exports the selection alone: a tight box around the selected layers, transparent unless the format flattens.
+* Number fields take arithmetic ("100+20", "/2"), W and H can be chained to keep the proportion, and edits to fill, stroke, opacity, font or size hit every selected layer of that kind.
+* Grid Repeat lays copies out in rows and columns with a gap; the right-click menu lists every layer under the cursor where they overlap; Alt-click on an eye in the Layers panel shows that layer alone, and one button collapses all groups.
+* Paragraph spacing for text, and the Scale slider can scale stroke widths along.
+* The marquee, lasso, eyedropper, clone stamp and pen have option bars: rectangle or ellipse marquee, freehand or polygon lasso, the modes New, Add and Subtract with a feather, the eyedropper's sample size, the stamp's size, opacity, hardness and Aligned switch, and a freehand pen that fits smooth anchors to a drawn stroke.
+* The effect brush smudges, dodges, burns and sponges beside blur and sharpen; the bracket keys size the stamp and the effect brush too.
+* Select > Modify expands, contracts, smooths or borders any selection.
+* Free extensions on board: Math Figures is new (formulas, graphs, geometry, number lines and the classroom pictures of primary and secondary school out of blocks), Sheet Music is new (scores, chord sheets, diagrams, manuscript paper, note-reading cards and scale sheets), Party Printables is rebuilt on real sheets with occasions, palettes, patterns and motifs for cards, gifts, decor and games, and Chaos Art paints with its full set of schools.
+* Imported SVG text keeps its baseline when the drawing is scaled, and it arrives with the weight and slant the file says instead of everything bold. Printable sheets and scores used to land with their labels too low.
 
 = 1.428.0 =
 * A pass over what the editor promises against what it actually does, and everything below came out of it. The paint media are the clearest case: with "each stroke on its own layer" left on, a watercolor or charcoal stroke quietly landed as an ordinary one, with no message and no way to tell. It keeps its medium now.

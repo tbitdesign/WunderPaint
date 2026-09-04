@@ -1,4 +1,5 @@
 import { arrowHeadSpec, ARROW_KINDS } from '../line-geometry';
+import { strokeAlignOf } from '../stroke-align';
 import { warpedQuadPoints } from '../quad-warp';
 import { textFxReach } from './text-warp';
 import { maxTextSize } from './text-metrics';
@@ -141,7 +142,14 @@ export function strokePadding( layer ) {
 	}
 	let pad = 0;
 	if ( layer.stroke && 'transparent' !== layer.stroke && layer.strokeW ) {
-		pad = Math.ceil( layer.strokeW / 2 ) + 1;
+		// An outside stroke (v1.430) reaches its whole width past the
+		// outline, a centred one half of it.
+		pad =
+			Math.ceil(
+				'outside' === strokeAlignOf( layer )
+					? layer.strokeW
+					: layer.strokeW / 2
+			) + 1;
 	}
 	// Lines stroke via `fill` (stroke often null): their round caps
 	// overshoot the endpoints and arrowheads (v1.300) reach further out.

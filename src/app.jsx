@@ -429,6 +429,11 @@ function TabbedEditor( { booted, WPIE } ) {
 							attachmentId: t.attachmentId || 0,
 							dirty: !! live.dirty || !! t.dirty,
 							snap: snapshotOf( live ),
+							// The active document is the autosave's business
+							// (screens/editor-main.jsx); the tab record keeps it
+							// only so a tab switch can park it. Marked, so the
+							// restore below does not offer it a second time.
+							active: true,
 						};
 					}
 					return t.snap
@@ -473,9 +478,17 @@ function TabbedEditor( { booted, WPIE } ) {
 		autosaveStorage
 			.get( tabsKey )
 			.then( ( record ) => {
+				// The document that was ACTIVE when the record was written is
+				// never a candidate: the autosave restores it into the current
+				// tab. Filtering by attachment id alone let a freshly created,
+				// never saved document - attachment 0 - stay a candidate
+				// against itself, so "Restore session" brought it back twice:
+				// once from the autosave, once as a second tab (Thomas,
+				// 02.09.2026: "restores two documents").
 				const candidates = ( record?.tabs || [] ).filter(
 					( t ) =>
 						t.snap &&
+						! t.active &&
 						! (
 							WPIE.attachmentId &&
 							t.attachmentId === WPIE.attachmentId

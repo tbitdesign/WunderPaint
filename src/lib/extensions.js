@@ -58,7 +58,7 @@ import { doAction } from '@wordpress/hooks';
  * that wants to slice a picture INTO its depth (Papercut Art) had no way
  * to reach it. Additive and optional: feature-detect and fall back.
  */
-export const API_VERSION = '2.20.0';
+export const API_VERSION = '2.22.0';
 
 const NS_RE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
 
@@ -79,6 +79,193 @@ const registries = {
 
 const listeners = new Set();
 const notify = () => listeners.forEach( ( cb ) => cb() );
+
+/* ----------------------------- lazy packages ---------------------------- */
+
+/*
+ * Packages used to load in full at boot, all of them, so their menu
+ * entries could exist: forty-five bundles, four and a half megabytes,
+ * for a menu (measured 2026-09-02). Now the registry keeps an INVENTORY
+ * of what each package registered - kinds, generator ids and labels,
+ * menu items - and the loader (lib/extension-loader.js) persists it per
+ * package version and locale. On the next boot a package whose inventory
+ * holds nothing but generators and menu items gets PLACEHOLDERS instead
+ * of its script: same ids, same labels, and a `run` that loads the bundle
+ * first and then hands over to the real registration. Anything else a
+ * package registers (an effect, a panel, a library section ...) shows in
+ * core surfaces and has no placeholder, so such a package stays eager.
+ *
+ * A registration is attributed to its package through document.currentScript
+ * (bundles register synchronously while their script runs), falling back
+ * to the id's namespace. Core studios (wpie-core/...) and dev-registered
+ * generators have no package and are simply not persisted.
+ */
+const PACKAGE_URL_RE = /\/(?:wpie-|bundled-)?extensions\/([a-z0-9_-]+)\//;
+
+const currentPackageSlug = () => {
+	const src =
+		'undefined' !== typeof document &&
+		document.currentScript &&
+		document.currentScript.src;
+	const m = src ? PACKAGE_URL_RE.exec( src ) : null;
+	return m ? m[ 1 ] : null;
+};
+
+const inventory = new Map(); // slug → { kinds: Set, generators: Map, menuItems: [] }
+const placeholderSlugs = new Set();
+let inventoryWatcher = null;
+
+/** The loader listens here: ( slug, snapshot ) after every registration. */
+export function watchInventory( fn ) {
+	inventoryWatcher = 'function' === typeof fn ? fn : null;
+}
+
+/** A plain, serialisable copy of one package's inventory, or null. */
+export function snapshotInventory( slug ) {
+	const inv = inventory.get( slug );
+	if ( ! inv ) {
+		return null;
+	}
+	return {
+		kinds: Array.from( inv.kinds ),
+		generators: Array.from( inv.generators.values() ),
+		menuItems: inv.menuItems.slice(),
+	};
+}
+
+function noteRegistration( kind, id, entry ) {
+	const slug =
+		currentPackageSlug() || ( id ? String( id ).split( '/' )[ 0 ] : null );
+	if ( ! slug ) {
+		return;
+	}
+	// The real thing arrived: its placeholders step aside first, so a
+	// stale cache can never leave a ghost entry next to the live one.
+	if ( placeholderSlugs.has( slug ) ) {
+		retirePlaceholders( slug );
+	}
+	let inv = inventory.get( slug );
+	if ( ! inv ) {
+		inv = { kinds: new Set(), generators: new Map(), menuItems: [] };
+		inventory.set( slug, inv );
+	}
+	inv.kinds.add( kind );
+	if ( 'generator' === kind ) {
+		inv.generators.set( id, entry );
+	} else if ( 'menuItem' === kind ) {
+		inv.menuItems.push( entry );
+	}
+	if ( inventoryWatcher ) {
+		inventoryWatcher( slug, snapshotInventory( slug ) );
+	}
+}
+
+/**
+ * Stand-ins for a package that is not loaded: generators and menu items
+ * with the cached ids and labels, whose callbacks load the bundle and then
+ * call the real registration. Entries that already exist are left alone.
+ *
+ * @param {string}   slug     Package slug.
+ * @param {Object}   snap     Inventory snapshot ({ generators, menuItems }).
+ * @param {Function} load     () → Promise, resolved once the bundle ran.
+ */
+export function installPlaceholders( slug, snap, load ) {
+	const real = ( id ) => {
+		const g = registries.generators.get( id );
+		return g && ! g.lazy ? g : null;
+	};
+	for ( const g of ( snap && snap.generators ) || [] ) {
+		if ( ! g || ! g.id || registries.generators.has( g.id ) ) {
+			continue;
+		}
+		const ph = {
+			id: g.id,
+			label: g.label,
+			lazy: slug,
+			run: ( args ) =>
+				load().then( () => {
+					const r = real( g.id );
+					return r ? r.run( args ) : undefined;
+				} ),
+		};
+		if ( g.edit ) {
+			ph.edit = ( args ) =>
+				load().then( () => {
+					const r = real( g.id );
+					return r ? ( r.edit || r.run )( args ) : undefined;
+				} );
+		}
+		if ( g.resolve ) {
+			// Returning null keeps the stored layers as they are, which is
+			// what a missing generator does in generator-resolve.js.
+			ph.resolve = async ( args ) => {
+				await load();
+				const r = real( g.id );
+				return r && r.resolve ? r.resolve( args ) : null;
+			};
+		}
+		registries.generators.set( g.id, ph );
+		placeholderSlugs.add( slug );
+	}
+	for ( const m of ( snap && snap.menuItems ) || [] ) {
+		if ( ! m || ! m.menuId || ! m.label ) {
+			continue;
+		}
+		const list = registries.menuItems.get( m.menuId ) || [];
+		if (
+			list.some(
+				( i ) =>
+					i.label === m.label && ( i.id || '' ) === ( m.id || '' )
+			)
+		) {
+			continue;
+		}
+		list.push( {
+			...( m.id ? { id: m.id } : {} ),
+			...( m.category ? { category: m.category } : {} ),
+			label: m.label,
+			lazy: slug,
+			run: ( args ) =>
+				load().then( () => {
+					const r = (
+						registries.menuItems.get( m.menuId ) || []
+					).find(
+						( i ) =>
+							! i.lazy &&
+							i.label === m.label &&
+							( i.id || '' ) === ( m.id || '' )
+					);
+					return r ? r.run( args ) : undefined;
+				} ),
+		} );
+		registries.menuItems.set( m.menuId, list );
+		placeholderSlugs.add( slug );
+	}
+	notify();
+}
+
+/** Drop every placeholder of one package (the real entries stay). */
+export function retirePlaceholders( slug ) {
+	if ( ! placeholderSlugs.has( slug ) ) {
+		return;
+	}
+	placeholderSlugs.delete( slug );
+	for ( const [ id, g ] of Array.from( registries.generators ) ) {
+		if ( g.lazy === slug ) {
+			registries.generators.delete( id );
+		}
+	}
+	for ( const [ menuId, list ] of Array.from( registries.menuItems ) ) {
+		registries.menuItems.set(
+			menuId,
+			list.filter( ( i ) => i.lazy !== slug )
+		);
+	}
+	notify();
+}
+
+/** True while a package is represented by placeholders. */
+export const hasPlaceholders = ( slug ) => placeholderSlugs.has( slug );
 
 /**
  * Subscribe to registry changes (UI refresh).
@@ -190,6 +377,7 @@ function guard( source, fn, fallback, what ) {
  * @param {Object}   [effect.params] Param schemas like the built-ins.
  */
 function registerEffect( effect ) {
+	noteRegistration( 'effect', effect && effect.id );
 	assertId( effect?.id, 'registerEffect' );
 	if ( 'function' !== typeof effect.apply ) {
 		throw new Error( 'WPIE registerEffect: apply must be a function' );
@@ -240,6 +428,12 @@ function registerMenuItem( menuId, item ) {
 	if ( item.id ) {
 		assertId( item.id, 'registerMenuItem' );
 	}
+	noteRegistration( 'menuItem', item.id, {
+		menuId,
+		...( item.id ? { id: item.id } : {} ),
+		...( item.category ? { category: item.category } : {} ),
+		label: item.label,
+	} );
 	const list = registries.menuItems.get( menuId ) || [];
 	list.push( {
 		...item,
@@ -286,6 +480,7 @@ export const listExtensionMenuItems = () => {
  * @param {Function} panel.render ( el, { editor, extras } ) → cleanup?.
  */
 function registerPanel( panel ) {
+	noteRegistration( 'panel', panel && panel.id );
 	assertId( panel?.id, 'registerPanel' );
 	if ( 'function' !== typeof panel.render ) {
 		throw new Error( 'WPIE registerPanel: render must be a function' );
@@ -325,6 +520,7 @@ export function bindToolHandlerSink( map ) {
  * @param {Object} tool.handlers { onDown?, onMove?, onUp? }.
  */
 function registerTool( tool ) {
+	noteRegistration( 'tool', tool && tool.id );
 	assertId( tool?.id, 'registerTool' );
 	if ( ! tool.handlers || 'object' !== typeof tool.handlers ) {
 		throw new Error( 'WPIE registerTool: handlers object is required' );
@@ -351,6 +547,7 @@ export const listExtensionTools = () => Array.from( registries.tools.values() );
  *                                 `render` = (opts) => Promise<canvas>.
  */
 function registerExportFormat( format ) {
+	noteRegistration( 'exportFormat', format && format.id );
 	if ( format && 'function' === typeof format.encode ) {
 		format = {
 			...format,
@@ -382,6 +579,7 @@ export const listExtensionExportFormats = () =>
  * @param {string} preset.css   CSS filter() value.
  */
 function registerFilterPreset( preset ) {
+	noteRegistration( 'filterPreset', preset && preset.id );
 	assertId( preset?.id, 'registerFilterPreset' );
 	if ( ! preset.css || ! preset.label ) {
 		throw new Error(
@@ -428,6 +626,12 @@ function registerGenerator( gen ) {
 	if ( ! gen.label || 'function' !== typeof gen.run ) {
 		throw new Error( 'WPIE registerGenerator: label and run are required' );
 	}
+	noteRegistration( 'generator', gen.id, {
+		id: gen.id,
+		label: gen.label,
+		edit: 'function' === typeof gen.edit,
+		resolve: 'function' === typeof gen.resolve,
+	} );
 	registries.generators.set( gen.id, {
 		...gen,
 		run: guard( gen.id, gen.run, undefined, 'generator run' ),
@@ -535,6 +739,7 @@ export function groupGenerators( generators, installed = [] ) {
  * @param {Array|Function} section.items Items or ( query ) → items|Promise.
  */
 function registerLibrarySection( section ) {
+	noteRegistration( 'librarySection', section && section.id );
 	if ( section && 'function' === typeof section.items ) {
 		section = {
 			...section,
@@ -575,6 +780,7 @@ export const getExtensionLibrarySection = ( id ) =>
  * @param {Function} [section.when] ( layer ) → visible (default: always).
  */
 function registerPanelSection( section ) {
+	noteRegistration( 'panelSection', section && section.id );
 	assertId( section?.id, 'registerPanelSection' );
 	if ( ! section.title || 'function' !== typeof section.render ) {
 		throw new Error(
@@ -626,6 +832,7 @@ const isTemplateDescriptor = ( t ) =>
  *                                        (sale, event, …) work too.
  */
 function registerTemplatePack( pack ) {
+	noteRegistration( 'templatePack', pack && pack.id );
 	if ( pack && 'function' === typeof pack.templates ) {
 		pack = {
 			...pack,
@@ -706,6 +913,7 @@ export { isTemplateDescriptor };
  *                               `layer` is the active layer (may be null).
  */
 function registerAiTool( tool ) {
+	noteRegistration( 'aiTool', tool && tool.id );
 	assertId( tool?.id, 'registerAiTool' );
 	if ( ! tool.label || 'function' !== typeof tool.run ) {
 		throw new Error( 'WPIE registerAiTool: label and run are required' );
@@ -737,6 +945,7 @@ export const listExtensionAiTools = () =>
  *                                   returning nullish degrades to ''.
  */
 function registerBinding( binding ) {
+	noteRegistration( 'binding', binding && binding.id );
 	assertId( binding?.id, 'registerBinding' );
 	if ( ! binding.label || 'function' !== typeof binding.resolve ) {
 		throw new Error(
@@ -811,5 +1020,8 @@ export function __resetExtensions() {
 		registry.clear();
 	}
 	issues.length = 0;
+	inventory.clear();
+	placeholderSlugs.clear();
+	inventoryWatcher = null;
 	notify();
 }

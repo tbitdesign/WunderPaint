@@ -37,7 +37,7 @@ class Extensions {
 	// Mirror of API_VERSION in src/lib/extensions.js (the enqueue gate
 	// runs server-side); tests/php/extensions.php asserts they never
 	// drift.
-	const API_VERSION = '2.20.0';
+	const API_VERSION = '2.22.0';
 
 	/**
 	 * Register hooks.
@@ -292,6 +292,17 @@ class Extensions {
 		// extension bundles (three.js studios and friends, several MB)
 		// would just slow that boot down (v1.245.1).
 		if ( Editor_Page::pick_context() ) {
+			return;
+		}
+		// Since 1.429 the editor loads the packages itself: placeholders
+		// from a per-browser inventory where possible, script tags
+		// otherwise (src/lib/extension-loader.js). Forty-five bundles no
+		// longer travel with every editor page just to fill a menu. The
+		// constant or filter restores the old behaviour, one script tag per
+		// package, should a host ever need it.
+		$eager = ( defined( 'WPIE_EXTENSIONS_EAGER' ) && WPIE_EXTENSIONS_EAGER )
+			|| apply_filters( 'wpie_extensions_eager', false );
+		if ( ! $eager ) {
 			return;
 		}
 		foreach ( self::all() as $ext ) {

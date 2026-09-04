@@ -76,6 +76,8 @@ import { parsePathAnchors, nearestOnPath } from '../../lib/path-edit';
 import { shapeToPathD } from '../../lib/shape-path';
 import { mirrorPts, stampMaxReach } from '../../lib/brush-tips';
 import { pulledString } from '../../lib/stroke-smoothing';
+import { fitToAnchors } from '../../lib/curve-fit';
+import { ellipsePoints } from '../../lib/ellipse-points';
 import { penTilt } from '../../lib/pen-dynamics';
 import { collectTargets, snapRect } from '../../lib/snap';
 import { cropDoc, cloneLayerTree } from '../../store/doc-ops';
@@ -1331,7 +1333,14 @@ export const transformGesture = {
 
 		const patch = { x, y, w, h: hh };
 		// Text: corner resize scales the font size proportionally (spec 05.3).
-		if ( 'text' === layer.type && corner && o.fontSize && o.h ) {
+		// Fluid Text (v1.429) sizes itself from the box, so only the box moves.
+		if (
+			'text' === layer.type &&
+			corner &&
+			o.fontSize &&
+			o.h &&
+			! layer.textFit
+		) {
 			patch.fontSize = Math.max( 4, ( o.fontSize * hh ) / o.h );
 			// Rich spans (v1.46) carry their own sizes — scale them along.
 			if ( o.spans ) {
@@ -1385,8 +1394,20 @@ export const transformGesture = {
 
 /* --------------------------- Marquee & Lasso ---------------------------- */
 
-const selectionOpFromEvent = ( e ) =>
-	e.shiftKey ? 'add' : e.altKey ? 'subtract' : 'replace';
+// Shift adds, Alt subtracts; without a key the bar's mode decides
+// (v1.429, so touch users have the modes too).
+const selectionOpFromEvent = ( e, opts ) =>
+	e.shiftKey
+		? 'add'
+		: e.altKey
+		? 'subtract'
+		: opts?.combine && 'replace' !== opts.combine
+		? opts.combine
+		: 'replace';
+
+/** The bar's feather onto a fresh selection (0 = leave it alone). */
+const withFeather = ( sel, opts ) =>
+	sel && opts?.feather > 0 ? { ...sel, feather: opts.feather } : sel;
 
 export const marqueeTool = {
 	onDown( tc, e, p ) {
@@ -1394,7 +1415,8 @@ export const marqueeTool = {
 			kind: 'marquee',
 			start: p,
 			rect: { x: p.x, y: p.y, w: 0, h: 0 },
-			op: selectionOpFromEvent( e ),
+			op: selectionOpFromEvent( e, tc.opts ),
+			shape: 'ellipse' === tc.opts?.shape ? 'ellipse' : 'rect',
 		} );
 	},
 	onMove( tc, e, p ) {
@@ -1427,26 +1449,86 @@ export const marqueeTool = {
 			}
 			return;
 		}
-		const next = combine(
-			tc.selection,
-			{ kind: 'rect', ...draft.rect },
-			draft.op
+		const next = withFeather(
+			combine(
+				tc.selection,
+				'ellipse' === draft.shape
+					? { kind: 'poly', points: ellipsePoints( draft.rect ) }
+					: { kind: 'rect', ...draft.rect },
+				draft.op
+			),
+			tc.opts
 		);
 		tc.editor.dispatch( { type: 'SET_SELECTION', selection: next } );
 		tc.editor.commit( __( 'Marquee selection', 'wunderpaint' ) );
 	},
 };
 
+/** Close a polygon lasso draft into a selection (v1.429). */
+export function finishPolygonLasso( tc ) {
+	const draft = tc.draft;
+	if ( ! draft || 'lassoPoly' !== draft.kind ) {
+		return false;
+	}
+	tc.setDraft( null );
+	if ( draft.points.length < 3 ) {
+		return true;
+	}
+	const next = withFeather(
+		combine(
+			tc.selection,
+			{ kind: 'poly', points: draft.points },
+			draft.op
+		),
+		tc.opts
+	);
+	tc.editor.dispatch( { type: 'SET_SELECTION', selection: next } );
+	tc.editor.commit( __( 'Polygon lasso selection', 'wunderpaint' ) );
+	return true;
+}
+
 export const lassoTool = {
 	onDown( tc, e, p ) {
+		if ( 'polygon' === tc.opts?.mode ) {
+			// Polygon lasso (v1.429): a click per corner; a click on the
+			// first corner, a double-click or Enter closes.
+			const draft = tc.draft;
+			if ( draft && 'lassoPoly' === draft.kind ) {
+				const first = draft.points[ 0 ];
+				if (
+					draft.points.length > 2 &&
+					Math.hypot( p.x - first.x, p.y - first.y ) < 8 / tc.zoom
+				) {
+					finishPolygonLasso( tc );
+					return;
+				}
+				tc.setDraft( {
+					...draft,
+					points: [ ...draft.points, p ],
+					cursor: p,
+				} );
+				return;
+			}
+			tc.setDraft( {
+				kind: 'lassoPoly',
+				points: [ p ],
+				cursor: p,
+				op: selectionOpFromEvent( e, tc.opts ),
+			} );
+			return;
+		}
 		tc.setDraft( {
 			kind: 'lasso',
 			points: [ p ],
-			op: selectionOpFromEvent( e ),
+			op: selectionOpFromEvent( e, tc.opts ),
 		} );
 	},
 	onMove( tc, e, p ) {
 		const draft = tc.draft;
+		if ( draft && 'lassoPoly' === draft.kind ) {
+			tc.setDraft( { ...draft, cursor: p } );
+			return;
+		}
 		if ( ! draft || 'lasso' !== draft.kind ) {
 			return;
 		}
@@ -1464,13 +1546,19 @@ export const lassoTool = {
 		if ( draft.points.length < 3 ) {
 			return;
 		}
-		const next = combine(
-			tc.selection,
-			{ kind: 'poly', points: draft.points },
-			draft.op
+		const next = withFeather(
+			combine(
+				tc.selection,
+				{ kind: 'poly', points: draft.points },
+				draft.op
+			),
+			tc.opts
 		);
 		tc.editor.dispatch( { type: 'SET_SELECTION', selection: next } );
 		tc.editor.commit( __( 'Lasso selection', 'wunderpaint' ) );
+	},
+	onDblClick( tc ) {
+		finishPolygonLasso( tc );
 	},
 };
 
@@ -3264,6 +3352,12 @@ export function penPathD( anchors, closed ) {
 
 export const penTool = {
 	onDown( tc, e, p ) {
+		if ( 'freehand' === tc.opts?.mode && ! tc.draft ) {
+			// Freehand pen (v1.429): draw like a pencil, the release fits
+			// smooth Bezier anchors to the stroke.
+			tc.setDraft( { kind: 'penFree', points: [ p ] } );
+			return;
+		}
 		const draft =
 			tc.draft && 'pen' === tc.draft.kind
 				? tc.draft
@@ -3292,6 +3386,13 @@ export const penTool = {
 	},
 	onMove( tc, e, p ) {
 		const draft = tc.draft;
+		if ( draft && 'penFree' === draft.kind ) {
+			const last = draft.points[ draft.points.length - 1 ];
+			if ( Math.hypot( p.x - last.x, p.y - last.y ) >= 1.5 / tc.zoom ) {
+				tc.setDraft( { ...draft, points: [ ...draft.points, p ] } );
+			}
+			return;
+		}
 		if (
 			! draft ||
 			'pen' !== draft.kind ||
@@ -3309,8 +3410,35 @@ export const penTool = {
 		tc.setDraft( { ...draft, anchors } );
 	},
 	onUp( tc ) {
-		if ( tc.draft && 'pen' === tc.draft.kind ) {
-			tc.setDraft( { ...tc.draft, dragging: false } );
+		const draft = tc.draft;
+		if ( draft && 'penFree' === draft.kind ) {
+			// Fidelity 0..100 -> allowed error 12..0.5 px of the document.
+			const fidelity = Math.max(
+				0,
+				Math.min( 100, tc.opts?.fidelity ?? 50 )
+			);
+			const err = 0.5 + ( ( 100 - fidelity ) / 100 ) * 11.5;
+			const anchors = fitToAnchors( draft.points, err );
+			if ( anchors.length < 2 ) {
+				tc.setDraft( null );
+				return;
+			}
+			const first = anchors[ 0 ];
+			const last = anchors[ anchors.length - 1 ];
+			const closed =
+				anchors.length > 2 &&
+				Math.hypot( last.x - first.x, last.y - first.y ) < 12 / tc.zoom;
+			tc.setDraft( {
+				kind: 'pen',
+				anchors,
+				closed,
+				finalizing: true,
+				at: last,
+			} );
+			return;
+		}
+		if ( draft && 'pen' === draft.kind ) {
+			tc.setDraft( { ...draft, dragging: false } );
 		}
 	},
 	onDblClick( tc ) {
@@ -3400,18 +3528,23 @@ export function rebasePathD( d, dx, dy ) {
 export const eyedropperTool = {
 	onDown( tc, e, p ) {
 		const alt = e.altKey;
-		samplePixel( tc.doc, tc.layers, p.x, p.y, tc.imageCache ).then(
-			( { r, g, b, a } ) => {
-				if ( ! a ) {
-					return; // fully transparent, nothing to pick
-				}
-				const hex = rgbToHex( r, g, b );
-				tc.editor.dispatch( {
-					type: alt ? 'SET_BG' : 'SET_FG',
-					color: hex,
-				} );
+		samplePixel(
+			tc.doc,
+			tc.layers,
+			p.x,
+			p.y,
+			tc.imageCache,
+			tc.opts?.sample || 1
+		).then( ( { r, g, b, a } ) => {
+			if ( ! a ) {
+				return; // fully transparent, nothing to pick
 			}
-		);
+			const hex = rgbToHex( r, g, b );
+			tc.editor.dispatch( {
+				type: alt ? 'SET_BG' : 'SET_FG',
+				color: hex,
+			} );
+		} );
 	},
 	onMove() {},
 	onUp() {},
@@ -3528,7 +3661,9 @@ export const fxBrushTool = {
 			? layerLocalMask( tc.selection, tc.doc, target )
 			: null;
 		tc.setDraft( { kind: 'fxbrush', layerId: target.id, lastPt: p, mask } );
-		effectStamp( target, p, { ...tc.opts, mask } );
+		if ( 'smudge' !== tc.opts.mode ) {
+			effectStamp( target, p, { ...tc.opts, mask } );
+		}
 		tc.requestRender();
 	},
 	onMove( tc, e, p ) {
@@ -3541,25 +3676,23 @@ export const fxBrushTool = {
 			return;
 		}
 		const opts = tc.opts;
-		const step = Math.max( 2, ( opts.size || 40 ) / 4 );
+		const smudge = 'smudge' === opts.mode;
+		// Smudge drags pixels from the previous step, so it needs fine
+		// steps to read as a continuous smear.
+		const step = Math.max( 2, ( opts.size || 40 ) / ( smudge ? 10 : 4 ) );
 		const dist = Math.hypot( p.x - draft.lastPt.x, p.y - draft.lastPt.y );
 		if ( dist < step / 2 ) {
 			return;
 		}
 		const steps = Math.max( 1, Math.round( dist / step ) );
+		let prev = draft.lastPt;
 		for ( let i = 1; i <= steps; i++ ) {
-			effectStamp(
-				layer,
-				{
-					x:
-						draft.lastPt.x +
-						( ( p.x - draft.lastPt.x ) * i ) / steps,
-					y:
-						draft.lastPt.y +
-						( ( p.y - draft.lastPt.y ) * i ) / steps,
-				},
-				{ ...opts, mask: draft.mask }
-			);
+			const at = {
+				x: draft.lastPt.x + ( ( p.x - draft.lastPt.x ) * i ) / steps,
+				y: draft.lastPt.y + ( ( p.y - draft.lastPt.y ) * i ) / steps,
+			};
+			effectStamp( layer, at, { ...opts, mask: draft.mask, prev } );
+			prev = at;
 		}
 		draft.lastPt = p;
 		tc.requestRender();
@@ -3567,10 +3700,15 @@ export const fxBrushTool = {
 	onUp( tc ) {
 		if ( tc.draft?.kind === 'fxbrush' ) {
 			tc.setDraft( null );
+			const labels = {
+				sharpen: __( 'Sharpen Brush', 'wunderpaint' ),
+				smudge: __( 'Smudge Brush', 'wunderpaint' ),
+				dodge: __( 'Dodge Brush', 'wunderpaint' ),
+				burn: __( 'Burn Brush', 'wunderpaint' ),
+				sponge: __( 'Sponge Brush', 'wunderpaint' ),
+			};
 			tc.editor.commit(
-				'sharpen' === tc.opts.mode
-					? __( 'Sharpen Brush', 'wunderpaint' )
-					: __( 'Blur Brush', 'wunderpaint' )
+				labels[ tc.opts.mode ] || __( 'Blur Brush', 'wunderpaint' )
 			);
 		}
 	},
@@ -3580,11 +3718,12 @@ export const stampTool = {
 	onDown( tc, e, p ) {
 		const opts = tc.opts;
 		if ( e.altKey ) {
-			// Alt-click sets the clone source (v0.2).
+			// Alt-click sets the clone source (v0.2); a new source also
+			// forgets the aligned offset (v1.429).
 			tc.editor.dispatch( {
 				type: 'SET_TOOL_OPTS',
 				tool: 'stamp',
-				patch: { source: { x: p.x, y: p.y } },
+				patch: { source: { x: p.x, y: p.y }, offset: null },
 			} );
 			return;
 		}
@@ -3611,7 +3750,22 @@ export const stampTool = {
 		}
 		// Snapshot at stroke start = clone source pixels stay stable.
 		const snapshot = buildRasterCanvas( target, target.canvas );
-		const offset = { dx: opts.source.x - p.x, dy: opts.source.y - p.y };
+		// Aligned (v1.429, on by default like Photoshop): the first stroke
+		// fixes the distance between source and brush, later strokes keep
+		// it, so a texture continues seamlessly. Off, every stroke starts
+		// again at the source point.
+		const aligned = false !== opts.aligned;
+		const offset =
+			aligned && opts.offset
+				? opts.offset
+				: { dx: opts.source.x - p.x, dy: opts.source.y - p.y };
+		if ( aligned && ! opts.offset ) {
+			tc.editor.dispatch( {
+				type: 'SET_TOOL_OPTS',
+				tool: 'stamp',
+				patch: { offset },
+			} );
+		}
 		const mask = tc.selection
 			? layerLocalMask( tc.selection, tc.doc, target )
 			: null;

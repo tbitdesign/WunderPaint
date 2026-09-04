@@ -226,7 +226,14 @@ export function ResizeDialog( { mode, onClose, extras } ) {
 								aria-pressed={ linked }
 								onClick={ () => setLinked( ! linked ) }
 							>
-								{ linked ? '🔗' : '⛓️‍💥' }
+								{ /* Own icons, never an emoji: wp-emoji swaps
+								   emoji for images from s.w.org (an external
+								   request, blocked under a strict CSP), and
+								   the broken-chain glyph is a 2023 sequence
+								   older systems draw as two characters. */ }
+								{ linked
+									? I.link( { size: 14 } )
+									: I.unlink( { size: 14 } ) }
 							</button>
 						) }
 						{ field(

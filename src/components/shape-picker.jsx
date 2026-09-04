@@ -160,10 +160,43 @@ export const SHAPE_CHOICES = [
 	dyn( 'hatching' ),
 ];
 
-const BOX = 34;
+/** Preview edge, the same 28px the Shape Studio's tiles use. */
+const BOX = 28;
 const COLS = 7;
+/** Tile = preview plus its 1px border; the grid uses this exact width. */
+const TILE = BOX + 2;
+const GAP = 6;
+const PAD = 6;
 /** The bar is 24px tall, so the preview inside the button has to be small. */
 const BTN_BOX = 18;
+/** The "All shapes" footer: a 24px button plus its gap. */
+const MORE_H = 30;
+
+/**
+ * The popover's two rows (v1.430): the basics everyone draws. It used
+ * to be the whole catalog, 117 tiles that scrolled past the screen and
+ * hid the rectangle among generators; the Shape Studio has the whole
+ * catalog with search and previews, so the popover sends you there.
+ */
+const BASIC_IDS = [
+	'rect',
+	'ellipse',
+	'line',
+	'polygon',
+	'star',
+	'triangle',
+	'diamond',
+	'squircle',
+	'pill',
+	'arrow',
+	'speech',
+	'heart',
+	'cross',
+	'ring',
+];
+const BASICS = BASIC_IDS.map( ( id ) =>
+	SHAPE_CHOICES.find( ( s ) => s.id === id )
+).filter( Boolean );
 
 /**
  * Under the button, and kept on screen.
@@ -173,14 +206,17 @@ const BTN_BOX = 18;
  * halfway up the window for no reason.
  *
  * @param {?Object} rect The button's bounding box.
+ * @param {number}  rows Tile rows in the grid.
  * @return {Object} Inline style.
  */
-function popoverStyle( rect ) {
+function popoverStyle( rect, rows ) {
 	if ( ! rect ) {
 		return { position: 'fixed', left: 8, top: 8, zIndex: 700 };
 	}
-	const width = COLS * ( BOX + 6 ) + 12;
-	const height = Math.ceil( SHAPE_CHOICES.length / COLS ) * ( BOX + 6 ) + 12;
+	// Exact: tiles, gaps, padding and the popover's own border. A width
+	// rounded from 1fr columns let the last tile poke out (user report).
+	const width = COLS * TILE + ( COLS - 1 ) * GAP + 2 * PAD + 2;
+	const height = rows * TILE + ( rows - 1 ) * GAP + 2 * PAD + 2 + MORE_H;
 	const left = Math.min(
 		Math.max( 8, rect.left ),
 		window.innerWidth - width - 12
@@ -221,7 +257,7 @@ function Preview( { id, size = BOX } ) {
 			</svg>
 		);
 	}
-	const inset = 4;
+	const inset = 3;
 	const inner = BOX - inset * 2;
 	const d = shapeToPathD( {
 		type: 'shape',
@@ -248,13 +284,19 @@ function Preview( { id, size = BOX } ) {
  * @param {Object}   props          Component props.
  * @param {string}   props.value    The chosen shape keyword.
  * @param {Function} props.onChange Called with the new keyword.
+ * @param {Function} [props.onMore] Opens the whole catalog (the studio).
  * @return {Object} The picker element.
  */
-export function ShapePicker( { value, onChange } ) {
+export function ShapePicker( { value, onChange, onMore } ) {
 	const [ open, setOpen ] = useState( false );
 	const btnRef = useRef( null );
 	const current =
 		SHAPE_CHOICES.find( ( s ) => s.id === value ) || SHAPE_CHOICES[ 0 ];
+	// A shape picked in the studio stays visible (and lit) in the grid.
+	const choices = BASICS.some( ( s ) => s.id === current.id )
+		? BASICS
+		: [ ...BASICS, current ];
+	const rows = Math.ceil( choices.length / COLS );
 
 	return (
 		<div className="shape-picker">
@@ -281,27 +323,48 @@ export function ShapePicker( { value, onChange } ) {
 					<div
 						className="shape-picker-pop"
 						style={ popoverStyle(
-							btnRef.current?.getBoundingClientRect()
+							btnRef.current?.getBoundingClientRect(),
+							rows
 						) }
 					>
-						{ SHAPE_CHOICES.map( ( s ) => (
+						<div
+							className="shape-picker-grid"
+							style={ {
+								gridTemplateColumns: `repeat(${ COLS }, ${ TILE }px)`,
+								gap: GAP,
+							} }
+						>
+							{ choices.map( ( s ) => (
+								<button
+									key={ s.id }
+									type="button"
+									className={
+										'shape-picker-item' +
+										( s.id === value ? ' is-on' : '' )
+									}
+									title={ s.name() }
+									aria-pressed={ s.id === value }
+									onClick={ () => {
+										onChange( s.id );
+										setOpen( false );
+									} }
+								>
+									<Preview id={ s.id } />
+								</button>
+							) ) }
+						</div>
+						{ onMore && (
 							<button
-								key={ s.id }
 								type="button"
-								className={
-									'shape-picker-item' +
-									( s.id === value ? ' is-on' : '' )
-								}
-								title={ s.name() }
-								aria-pressed={ s.id === value }
+								className="shape-picker-more"
 								onClick={ () => {
-									onChange( s.id );
 									setOpen( false );
+									onMore();
 								} }
 							>
-								<Preview id={ s.id } />
+								{ __( 'All shapes', 'wunderpaint' ) }
 							</button>
-						) ) }
+						) }
 					</div>
 				</>
 			) }
