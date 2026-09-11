@@ -49,9 +49,8 @@ await page.waitForFunction(
 );
 const base = await page.evaluate( () => ( {
 	layers: window.__pca.engine.allLayers().length,
-	painted: window.__pca.engine
-		.allLayers()
-		.filter( ( s ) => s.rings.length ).length,
+	painted: window.__pca.engine.allLayers().filter( ( s ) => s.rings.length )
+		.length,
 } ) );
 check( base.layers >= 3, `default scene has layers (${ base.layers })` );
 check(
@@ -79,10 +78,7 @@ await qa.shot( 'qa-2-nightwolf.png' );
 
 /* ------------------------- add an animal via tile ------------------------ */
 
-await page
-	.locator( '.wpiepca-tile', { hasText: 'Fuchs' } )
-	.first()
-	.click();
+await page.locator( '[data-library-key="an:fox"]' ).first().click();
 await page.waitForTimeout( 350 );
 const foxed = await page.evaluate( () => {
 	const objs = window.__pca.params.layers.flatMap( ( s ) => s.objects );
@@ -109,9 +105,10 @@ check(
 // aber mehr auch nicht". A new object lands on a layer of its own, and a
 // punching object on an empty layer cut a hole into nothing.
 const beforeSun = await page.evaluate(
-	() => window.__pca.engine.allLayers().filter( ( s ) => s.rings.length ).length
+	() =>
+		window.__pca.engine.allLayers().filter( ( s ) => s.rings.length ).length
 );
-await page.locator( '.wpiepca-tile', { hasText: 'Sonne' } ).first().click();
+await page.locator( '[data-library-key="sky:orbsun"]' ).first().click();
 await page.waitForTimeout( 400 );
 const sunAdded = await page.evaluate( () => {
 	const o = window.__pca.params.layers
@@ -119,7 +116,9 @@ const sunAdded = await page.evaluate( () => {
 		.find( ( x ) => 'orb' === x.kind );
 	const built = window.__pca.engine
 		.allLayers()
-		.find( ( s ) => s.layer.objects.some( ( x ) => x.id === ( o && o.id ) ) );
+		.find( ( s ) =>
+			s.layer.objects.some( ( x ) => x.id === ( o && o.id ) )
+		);
 	return {
 		cut: !! ( o && o.cut ),
 		rings: built ? built.rings.length : 0,
@@ -192,7 +191,9 @@ await page.mouse.up();
 const lightAfter = await page.evaluate( () => window.__pca.params.lightX );
 check(
 	lightAfter !== lightBefore,
-	`the sun moves the light (${ lightBefore } -> ${ Math.round( lightAfter ) })`
+	`the sun moves the light (${ lightBefore } -> ${ Math.round(
+		lightAfter
+	) })`
 );
 
 /* ------------------------------ object drag ------------------------------ */
@@ -305,10 +306,18 @@ const beforeKeys = await page.evaluate( () => {
 	const o = window.__pca.params.layers
 		.flatMap( ( s ) => s.objects )
 		.find( ( x ) => 'animal' === x.kind );
-	return { id: o.id, x: o.x, objects: window.__pca.params.layers
-		.reduce( ( a, s ) => a + s.objects.length, 0 ) };
+	return {
+		id: o.id,
+		x: o.x,
+		objects: window.__pca.params.layers.reduce(
+			( a, s ) => a + s.objects.length,
+			0
+		),
+	};
 } );
-await page.locator( '.wpiepca-view canvas' ).click( { position: { x: 2, y: 2 } } );
+await page
+	.locator( '.wpiepca-view canvas' )
+	.click( { position: { x: 2, y: 2 } } );
 await page.evaluate( ( id ) => window.__pca.pick( id ), beforeKeys.id );
 await page.keyboard.press( 'ArrowRight' );
 await page.keyboard.press( 'ArrowRight' );
@@ -359,7 +368,7 @@ await page.evaluate( () => {
 	);
 	window.__pca.engine.build( p );
 } );
-await page.locator( '.wpiepca-tile', { hasText: 'Stern' } ).first().click();
+await page.locator( '[data-library-key="win:star"]' ).first().click();
 await page.waitForTimeout( 450 );
 const framed = await page.evaluate( () => {
 	const layers = window.__pca.params.layers;
@@ -443,7 +452,9 @@ const picker = await page.evaluate( () => {
 } );
 check(
 	picker.colors !== pickerBefore &&
-		picker.painted.includes( picker.colors.split( ',' ).filter( Boolean )[ 0 ] ) &&
+		picker.painted.includes(
+			picker.colors.split( ',' ).filter( Boolean )[ 0 ]
+		) &&
 		picker.survives,
 	`the colour picker paints and its host survives a selection (${ picker.colors })`
 );
@@ -553,8 +564,8 @@ const inserted = await page.evaluate( () => {
 		group: !! group,
 		genId: group && group.layer.generator.id,
 		children: children.length,
-		images: children.every(
-			( a ) => ( a.layer.src || '' ).startsWith( 'data:image' )
+		images: children.every( ( a ) =>
+			( a.layer.src || '' ).startsWith( 'data:image' )
 		),
 		active: acts.some( ( a ) => 'SET_ACTIVE' === a.type ),
 	};
@@ -588,7 +599,8 @@ await page.waitForTimeout( 900 );
 const reopened = await page.evaluate( () => ( {
 	layers: window.__pca ? window.__pca.params.layers.length : 0,
 	photo: window.__pca
-		? window.__pca.params.layers.filter( ( s ) => 'photo' === s.source ).length
+		? window.__pca.params.layers.filter( ( s ) => 'photo' === s.source )
+				.length
 		: 0,
 } ) );
 check(
@@ -639,7 +651,9 @@ check(
 		2 === v1.layers &&
 		v1.kinds.includes( 'animal' ) &&
 		v1.kinds.includes( 'orb' ),
-	`a v1 scene reopens with its elements as objects (${ JSON.stringify( v1 ) })`
+	`a v1 scene reopens with its elements as objects (${ JSON.stringify(
+		v1
+	) })`
 );
 await qa.shot( 'qa-4-edit.png' );
 
@@ -785,10 +799,7 @@ await page.evaluate( () => {
 	window.__pca.engine.build( p );
 	window.__pca.rerender();
 } );
-await page
-	.locator( '.wpiepca-tile', { hasText: 'Bergkette' } )
-	.first()
-	.click();
+await page.locator( '[data-library-key="base:ridge"]' ).first().click();
 await page.waitForTimeout( 400 );
 const punchRow = page
 	.locator( '.wpiepca-lage .dsm-checkrow', {
@@ -821,7 +832,7 @@ check( ( await sig() ) !== beforePunch, 'and the picture changes with it' );
 // whole - but no insert point ever asked for it: every tile made a fresh
 // sheet and addObject's `onto` had no caller at all. The switch in the
 // Selection panel is that caller.
-await page.locator( '.wpiepca-tile', { hasText: 'Stern' } ).first().click();
+await page.locator( '[data-library-key="win:star"]' ).first().click();
 await page.waitForTimeout( 400 );
 const shareRow = page
 	.locator( '.wpiepca-lage .dsm-checkrow', {
@@ -833,7 +844,7 @@ check(
 	'a sheet can be told to take the next things'
 );
 await shareRow.click();
-await page.locator( '.wpiepca-tile', { hasText: 'Adler' } ).first().click();
+await page.locator( '[data-library-key="sky:flyereagle"]' ).first().click();
 await page.waitForTimeout( 400 );
 const shared = await page.evaluate( () => {
 	const layers = window.__pca.params.layers;

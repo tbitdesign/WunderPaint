@@ -60,17 +60,16 @@ try {
 	check( 0 === ( await page.locator( '.wpiemf-left .wpiemf-text' ).count() ), 'the left column has no text field any more' );
 	await qa.shot( 'math-figures-dialog.png' );
 
-	// Add a text block through the picker.
-	await page.locator( '.wpiemf-add' ).click();
-	await page.waitForTimeout( 150 );
-	const pick = await page.locator( '.wpiemf-picker' ).boundingBox();
-	const vp = page.viewportSize();
-	check( !! pick && pick.x >= 0 && pick.y >= 0 && pick.x + pick.width <= vp.width && pick.y + pick.height <= vp.height, 'the picker opens inside the viewport (' + ( pick && Math.round( pick.x ) + ',' + Math.round( pick.y ) ) + ')' );
-	check( ( await page.locator( '.wpiemf-picker .wpiemf-tile' ).count() ) === 19, 'nineteen block tiles in the picker' );
+	// Add a text block through the block cards (v0.5: in the column, no
+	// popover any more).
+	check( ( await page.locator( '.wpiemf-type' ).count() ) === 19, 'nineteen block cards in the column' );
+	check( 0 === ( await page.locator( '.wpiemf-picker, .wpiemf-add' ).count() ), 'no popover picker left' );
+	await page.locator( '.wpiemf-chip[data-group="explain"]' ).click();
+	check( ( await page.locator( '.wpiemf-type' ).count() ) < 19, 'a group chip filters the cards' );
+	await page.locator( '.wpiemf-chip[data-group="all"]' ).click();
 	let before = await frames();
-	await page.locator( '.wpiemf-picker .wpiemf-tile[data-type="text"]' ).click();
+	await page.locator( '.wpiemf-type[data-type="text"]' ).click();
 	st = await settled( before );
-	check( await page.locator( '.wpiemf-picker' ).isHidden(), 'the picker closes' );
 	check( 2 === ( await page.locator( '.wpiemf-block' ).count() ) && 'text' === st.blocks[ 1 ], 'a text block joins the figure' );
 	check( ( await page.locator( '.wpiemf-block.is-on' ).getAttribute( 'data-id' ) ) === st.blockId && 'text' === st.params.blocks.find( ( b ) => b.id === st.blockId ).type, 'the new block is selected' );
 	check( st.last.svg.includes( 'quadratic' ), 'the new block starts with its starter text' );
@@ -96,10 +95,8 @@ try {
 	check( st.last.svg.includes( 'font-size="64"' ) && 64 === st.params.typo.title.size, 'the size slider changes the title' );
 
 	// A worked solution block.
-	await page.locator( '.wpiemf-add' ).click();
-	await page.waitForTimeout( 150 );
 	before = await frames();
-	await page.locator( '.wpiemf-picker .wpiemf-tile[data-type="steps"]' ).click();
+	await page.locator( '.wpiemf-type[data-type="steps"]' ).click();
 	st = await settled( before );
 	check( 3 === st.blocks.length && 'steps' === st.blocks[ 2 ] && st.last.svg.includes( '>subtract 5 on both sides<' ), 'a steps block with its starter' );
 	before = await frames();
@@ -117,10 +114,8 @@ try {
 	check( st.last.svg.includes( '>denominator<' ) && st.last.svg.includes( 'fill-opacity="0.25"' ) && 0 === st.last.warnings.length, 'a mark gets its highlight and label (' + st.status + ')' );
 
 	// A primary school block: the clock.
-	await page.locator( '.wpiemf-add' ).click();
-	await page.waitForTimeout( 150 );
 	before = await frames();
-	await page.locator( '.wpiemf-picker .wpiemf-tile[data-type="clock"]' ).click();
+	await page.locator( '.wpiemf-type[data-type="clock"]' ).click();
 	st = await settled( before );
 	check( 'clock' === st.blocks[ st.blocks.length - 1 ] && st.last.svg.includes( '<circle' ) && st.last.svg.includes( 'stroke-linecap="round"' ) && 0 === st.last.warnings.length, 'a clock block renders faces and hands (' + st.status + ')' );
 	before = await frames();
@@ -148,10 +143,8 @@ try {
 	st = await settled( before );
 
 	// A secondary school block: statistics as a bar chart.
-	await page.locator( '.wpiemf-add' ).click();
-	await page.waitForTimeout( 150 );
 	before = await frames();
-	await page.locator( '.wpiemf-picker .wpiemf-tile[data-type="stats"]' ).click();
+	await page.locator( '.wpiemf-type[data-type="stats"]' ).click();
 	st = await settled( before );
 	check( 'stats' === st.blocks[ st.blocks.length - 1 ] && 0 === st.last.warnings.length && st.last.svg.includes( '<circle' ), 'a statistics block renders its dot plot (' + st.status + ')' );
 	before = await frames();

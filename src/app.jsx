@@ -3,6 +3,7 @@
  * (sidecar project → attachment image → blank) and mounts the editor.
  */
 
+import { siteStorage } from './lib/local-storage';
 import { useMemo, useRef, useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
@@ -14,13 +15,19 @@ import {
 	createBlankDoc,
 	createDocFromBootstrap,
 	hydrateLayers,
-	serializeLayers,
+	serializeDocument,
 } from './store/document';
 import { EditorProvider } from './store/editor-context';
 import { renderToCanvas, sharedImageCache } from './lib/raster';
-import { autosaveStorage } from './lib/autosave';
+import { autosaveStorage, tabsKeyFor, windowId } from './lib/autosave';
 import { offerRestore } from './lib/restore-offer';
 import { takeIntentionalReload } from './lib/editor-locale';
+import {
+	orphanSessions,
+	restoreCandidates,
+	takeCandidates,
+	withLeftovers,
+} from './lib/tab-session';
 import { initDebugLog } from './lib/debug-log';
 import { ToastProvider, useToasts } from './components/toasts';
 import { WpieLogo } from './components/logo';
@@ -60,7 +67,7 @@ export default function App() {
 	useEffect( () => {
 		const root = document.getElementById( 'wpie-root' );
 		if ( root ) {
-			const stored = window.localStorage?.getItem( 'wpie-theme' );
+			const stored = siteStorage.getItem( 'wpie-theme' );
 			const theme =
 				stored ||
 				( 'system' === WPIE.theme
@@ -210,6 +217,13 @@ export default function App() {
  * switch. `key={active}` remounts the whole screen per tab, so nothing
  * leaks between documents.
  */
+// Open documents at once. 10 since the tabs collapsed into the flyout (was
+// 5, a limit of the old always-open strip's width, not of the architecture:
+// parked tabs are serialized snapshots, only the active one runs). ONE
+// number for opening and for restoring - the restore kept the old 5 and
+// brought five of seven documents back (Codex F05).
+const MAX_TABS = 10;
+
 function TabbedEditor( { booted, WPIE } ) {
 	const counter = useRef( 1 );
 	const [ tabs, setTabs ] = useState( () => [
@@ -234,12 +248,13 @@ function TabbedEditor( { booted, WPIE } ) {
 	const toasts = useToasts();
 	// Latest tabs/active for the persistence writer (closures go stale).
 	const stateRef = useRef( null );
+	// Parked documents of the previous visit that are not restored (yet):
+	// they ride along in every write of the tabs record until they are.
+	const leftoverRef = useRef( [] );
 
 	const dimsOf = ( doc ) => `${ doc.w }×${ doc.h }`;
-	const snapshotOf = ( live ) => ( {
-		doc: { ...live.state.doc },
-		layers: serializeLayers( live.state.layers ),
-	} );
+	// Pages included: parking a tab used to drop every page but the open one.
+	const snapshotOf = ( live ) => serializeDocument( live.state );
 
 	// Card preview for the tabs flyout, rendered from the live state at
 	// park time (images sit in the shared cache, so the scaled draw is
@@ -298,6 +313,49 @@ function TabbedEditor( { booted, WPIE } ) {
 		}
 		// Hydrate the target FIRST (images/canvases come back from data
 		// URLs); the current tab stays interactive meanwhile.
+		const boot = await wakeTab( target );
+		captureActive();
+		setTabs( ( prev ) =>
+			prev.map( ( t ) => ( t.id === id ? { ...t, boot } : t ) )
+		);
+		setActive( id );
+	};
+
+	// A parked tab back to life: hydrate the open page, carry the other
+	// pages serialized, and arm the one-shot SET_PAGES for the mounted
+	// screen (the provider only takes doc and layers - the same one-shot
+	// the library uses when it opens a design for the first time). ONE
+	// place for both ways a parked tab becomes active, a switch or the
+	// neighbour closing: the close path used to rebuild the boot by hand
+	// and dropped the pages.
+	// The provider only takes doc and layers, so a boot that carries pages
+	// hands them to the mounted screen through the one-shot. ONE helper for
+	// every way a tab comes up with content: a parked tab waking (wakeTab)
+	// and a fresh tab opened with a ready document (openDocInTab). The
+	// second used to build its boot without pages at all, so "Open Project"
+	// on a multi-page file kept one page whenever it went into a new tab -
+	// the in-place path had been fixed the same day and the report said
+	// F02 was closed (Codex C01).
+	const armPages = ( boot, after = null ) => {
+		if ( ! boot || ! boot.pages ) {
+			afterMountRef.current = after;
+			return;
+		}
+		const seiten = boot.pages;
+		const aktuell = boot.currentPage ?? 0;
+		afterMountRef.current = ( mounted ) => {
+			mounted.dispatch( {
+				type: 'SET_PAGES',
+				pages: seiten,
+				current: aktuell,
+			} );
+			if ( after ) {
+				after( mounted );
+			}
+		};
+	};
+
+	const wakeTab = async ( target ) => {
 		let boot = target.boot;
 		if ( ! boot && target.snap ) {
 			boot = {
@@ -305,13 +363,14 @@ function TabbedEditor( { booted, WPIE } ) {
 				layers: await hydrateLayers(
 					JSON.parse( JSON.stringify( target.snap.layers ) )
 				),
+				pages: target.snap.pages || null,
+				currentPage: target.snap.currentPage ?? 0,
 			};
 		}
-		captureActive();
-		setTabs( ( prev ) =>
-			prev.map( ( t ) => ( t.id === id ? { ...t, boot } : t ) )
-		);
-		setActive( id );
+		if ( boot && boot.pages ) {
+			armPages( boot );
+		}
+		return boot;
 	};
 
 	// New tab with a ready document (Create dialog, library opens,
@@ -322,19 +381,21 @@ function TabbedEditor( { booted, WPIE } ) {
 		name,
 		attachmentId = 0,
 		afterMount,
+		pages = null,
+		currentPage = 0,
 	} ) => {
 		// Read the freshest tab count via the ref, never the closed-over
 		// `tabs`: the caller (editor-main `extras`) is memoised and can hand
 		// this a stale closure, which used to keep reporting "full" after tabs
 		// were closed until a full browser reload (v1.226.0 fix).
 		const openTabs = stateRef.current?.tabs || tabs;
-		// 10 since the tabs collapsed into the flyout (was 5, a limit of
-		// the old always-open strip's width, not of the architecture:
-		// parked tabs are serialized snapshots, only the active one runs).
-		if ( openTabs.length >= 10 ) {
+		if ( openTabs.length >= MAX_TABS ) {
 			return 'full';
 		}
-		afterMountRef.current = afterMount || null;
+		const boot = Array.isArray( pages )
+			? { doc, layers, pages, currentPage }
+			: { doc, layers };
+		armPages( boot, afterMount || null );
 		captureActive();
 		counter.current += 1;
 		const id = 'tab' + counter.current;
@@ -346,7 +407,7 @@ function TabbedEditor( { booted, WPIE } ) {
 				attachmentId,
 				isNew: false,
 				dirty: false,
-				boot: { doc, layers },
+				boot,
 				snap: null,
 			},
 		] );
@@ -367,15 +428,7 @@ function TabbedEditor( { booted, WPIE } ) {
 		const rest = curTabs.filter( ( t ) => t.id !== id );
 		if ( id === curActive ) {
 			const next = rest[ Math.max( 0, idx - 1 ) ];
-			let boot = next.boot;
-			if ( ! boot && next.snap ) {
-				boot = {
-					doc: next.snap.doc,
-					layers: await hydrateLayers(
-						JSON.parse( JSON.stringify( next.snap.layers ) )
-					),
-				};
-			}
+			const boot = await wakeTab( next );
 			setTabs(
 				rest.map( ( t ) => ( t.id === next.id ? { ...t, boot } : t ) )
 			);
@@ -411,8 +464,8 @@ function TabbedEditor( { booted, WPIE } ) {
 	 */
 	/* ---------------- reload persistence (v1.110.0, tabs stage 2) -------- */
 	stateRef.current = { tabs, active };
-	const tabsKey = 'wpie-tabs:' + ( WPIE.attachmentId || 'new' );
-	const persistTabs = () => {
+	const tabsKey = tabsKeyFor( WPIE.attachmentId );
+	const persistTabs = ( { closed = false } = {} ) => {
 		const current = stateRef.current;
 		if ( ! current ) {
 			return;
@@ -420,41 +473,95 @@ function TabbedEditor( { booted, WPIE } ) {
 		const live = liveRef.current?.current;
 		const record = {
 			ts: Date.now(),
-			tabs: current.tabs
-				.map( ( t ) => {
-					if ( t.id === current.active && live ) {
-						return {
-							name: live.state.doc.name || t.name,
-							dims: dimsOf( live.state.doc ),
-							attachmentId: t.attachmentId || 0,
-							dirty: !! live.dirty || !! t.dirty,
-							snap: snapshotOf( live ),
-							// The active document is the autosave's business
-							// (screens/editor-main.jsx); the tab record keeps it
-							// only so a tab switch can park it. Marked, so the
-							// restore below does not offer it a second time.
-							active: true,
-						};
-					}
-					return t.snap
-						? {
-								name: t.name,
-								dims: t.dims,
+			// A normal close says so, and the next window on the page may
+			// adopt the record at once; a crash leaves no mark, and the
+			// record has to age out first (orphanSessions).
+			...( closed ? { closed: true } : {} ),
+			tabs: withLeftovers(
+				current.tabs
+					.map( ( t ) => {
+						if ( t.id === current.active && live ) {
+							return {
+								name: live.state.doc.name || t.name,
+								dims: dimsOf( live.state.doc ),
 								attachmentId: t.attachmentId || 0,
-								dirty: !! t.dirty,
-								snap: t.snap,
-						  }
-						: null;
-				} )
-				.filter( Boolean ),
+								dirty: !! live.dirty || !! t.dirty,
+								snap: snapshotOf( live ),
+								// The active document is the autosave's business
+								// (screens/editor-main.jsx); the tab record keeps it
+								// only so a tab switch can park it. Marked, so the
+								// restore below does not offer it a second time.
+								active: true,
+							};
+						}
+						return t.snap
+							? {
+									name: t.name,
+									dims: t.dims,
+									attachmentId: t.attachmentId || 0,
+									dirty: !! t.dirty,
+									snap: t.snap,
+							  }
+							: null;
+					} )
+					.filter( Boolean ),
+				leftoverRef.current
+			),
 		};
 		autosaveStorage.set( tabsKey, record ).catch( () => {} );
 	};
 	useEffect( () => {
 		const iv = setInterval( persistTabs, 20000 );
-		return () => clearInterval( iv );
+		const onHide = () => persistTabs( { closed: true } );
+		window.addEventListener( 'pagehide', onHide );
+		return () => {
+			clearInterval( iv );
+			window.removeEventListener( 'pagehide', onHide );
+		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
+
+	// Records of windows that are gone (crashed, or closed with unsaved
+	// work): every window on the "new document" page keys its records by
+	// its own id since v1.429.1, so what another window left behind has to
+	// be looked for. Adopted records move into THIS window's record right
+	// away and are offered like its own leftovers; the orphan keys go, so
+	// no third window adopts them again.
+	const sweepOrphans = async () => {
+		if ( WPIE.attachmentId || ! autosaveStorage.keys ) {
+			return [];
+		}
+		let keys = [];
+		try {
+			keys = await autosaveStorage.keys();
+		} catch ( e ) {
+			return [];
+		}
+		const relevant = keys.filter( ( k ) =>
+			/^wpie(-tabs)?:new(?::|$)/.test( String( k ) )
+		);
+		const records = {};
+		await Promise.all(
+			relevant.map( async ( k ) => {
+				records[ k ] = await autosaveStorage
+					.get( k )
+					.catch( () => null );
+			} )
+		);
+		const adopted = [];
+		for ( const orphan of orphanSessions( relevant, records, {
+			own: windowId(),
+			now: Date.now(),
+		} ) ) {
+			adopted.push( ...orphan.candidates );
+			await Promise.all(
+				orphan.keys.map( ( k ) =>
+					autosaveStorage.remove( k ).catch( () => {} )
+				)
+			);
+		}
+		return adopted;
+	};
 	useEffect( () => {
 		const timer = setTimeout( persistTabs, 1500 );
 		return () => clearTimeout( timer );
@@ -463,77 +570,72 @@ function TabbedEditor( { booted, WPIE } ) {
 
 	// Offer the parked documents of the previous visit once per load.
 	useEffect( () => {
-		// Not after an intentional language switch: the reload was asked
-		// for, and being asked to restore your own session reads like an
-		// error. The autosave offer in screens/editor-main.jsx skips for
-		// the same reason; this one has to skip too, because its filter
-		// below only drops candidates matching WPIE.attachmentId, so a
-		// document without an attachment (every freshly created image)
-		// stays a candidate against itself. Measured on v1.360.0: a
-		// switch on a blank document offered "restore tabs" 1.5 seconds
-		// later, and accepting it opened the same blank tab twice.
-		if ( takeIntentionalReload() ) {
-			return;
-		}
-		autosaveStorage
-			.get( tabsKey )
-			.then( ( record ) => {
+		const afterLocaleSwitch = takeIntentionalReload();
+		const toTab = ( t ) => {
+			counter.current += 1;
+			return {
+				id: 'tab' + counter.current,
+				name: t.name || __( 'untitled', 'wunderpaint' ),
+				dims: t.dims,
+				attachmentId: t.attachmentId || 0,
+				isNew: false,
+				dirty: !! t.dirty,
+				boot: null,
+				snap: t.snap,
+			};
+		};
+		Promise.all( [ autosaveStorage.get( tabsKey ), sweepOrphans() ] )
+			.then( ( [ record, adopted ] ) => {
 				// The document that was ACTIVE when the record was written is
-				// never a candidate: the autosave restores it into the current
-				// tab. Filtering by attachment id alone let a freshly created,
-				// never saved document - attachment 0 - stay a candidate
-				// against itself, so "Restore session" brought it back twice:
-				// once from the autosave, once as a second tab (Thomas,
-				// 02.09.2026: "restores two documents").
-				const candidates = ( record?.tabs || [] ).filter(
-					( t ) =>
-						t.snap &&
-						! t.active &&
-						! (
-							WPIE.attachmentId &&
-							t.attachmentId === WPIE.attachmentId
-						)
-				);
+				// a candidate only when the autosave will NOT restore it into
+				// the current tab: the autosave reads one key, the page's
+				// attachment or the window's new-document key, so an active
+				// tab of another identity was lost from every offer (Codex
+				// C02). Same identity is still filtered - a freshly created,
+				// never saved document on a page that boots new used to come
+				// back twice (Thomas, 02.09.2026). lib/tab-session.js holds
+				// the rule and its test.
+				const candidates = [
+					...restoreCandidates( record, WPIE.attachmentId ),
+					...adopted,
+				];
 				if ( ! candidates.length ) {
 					return;
 				}
-				// One toast per reload (v1.130.1): merged with the
-				// current document's autosave offer when both exist.
+				// Whatever is not restored stays in the record: the 1.5-second
+				// persist above used to overwrite it with the fresh session
+				// while the offer was still on screen, and whoever did not
+				// click at once lost the parked work. Adopted records are
+				// written into this window's record at once - their old keys
+				// are gone by now.
+				leftoverRef.current = candidates;
+				if ( adopted.length ) {
+					persistTabs();
+				}
+				const restore = () =>
+					setTabs( ( prev ) => {
+						const { taken, leftover } = takeCandidates(
+							candidates,
+							prev,
+							MAX_TABS
+						);
+						leftoverRef.current = leftover;
+						return [ ...prev, ...taken.map( toTab ) ];
+					} );
+				// After an intentional language switch the reload was asked
+				// for, and a question about restoring your own session reads
+				// like an error. So the parked documents simply come back, as
+				// the autosave brings back the active one - only the QUESTION
+				// is skipped. It used to skip the restore too, and every
+				// other document was gone (Codex F04).
+				if ( afterLocaleSwitch ) {
+					restore();
+					return;
+				}
+				// One toast per reload (v1.130.1): merged with the current
+				// document's autosave offer when both exist.
 				offerRestore(
-					{
-						kind: 'tabs',
-						count: candidates.length,
-						restore: () =>
-							setTabs( ( prev ) => [
-								...prev,
-								...candidates
-									// Never duplicate a document that is
-									// already open as a tab (v1.130.2).
-									.filter(
-										( t ) =>
-											! t.attachmentId ||
-											! prev.some(
-												( p ) =>
-													p.attachmentId ===
-													t.attachmentId
-											)
-									)
-									.slice( 0, Math.max( 0, 5 - prev.length ) )
-									.map( ( t ) => {
-										counter.current += 1;
-										return {
-											id: 'tab' + counter.current,
-											name: t.name,
-											dims: t.dims,
-											attachmentId: t.attachmentId || 0,
-											isNew: false,
-											dirty: !! t.dirty,
-											boot: null,
-											snap: t.snap,
-										};
-									} ),
-							] ),
-					},
+					{ kind: 'tabs', count: candidates.length, restore },
 					toasts
 				);
 			} )

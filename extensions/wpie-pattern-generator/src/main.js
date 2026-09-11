@@ -47,7 +47,7 @@ function el( tag, cls, parent ) {
 
 function row( parent, label ) {
 	const r = el( 'div', 'wpiepg-row', parent );
-	const s = el( 'span', 'dsm-label', r );
+	const s = el( 'span', 'dsm-rowline-label', r );
 	s.textContent = label;
 	return r;
 }
@@ -60,7 +60,7 @@ function slider( parent, label, min, max, value, oninput, unit = '' ) {
 	input.min = String( min );
 	input.max = String( max );
 	input.value = String( value );
-	const val = el( 'span', 'wpiepg-val', r );
+	const val = el( 'span', 'dsm-sliderrow-val wpiepg-val', r );
 	val.textContent = input.value + unit;
 	input.oninput = () => {
 		val.textContent = input.value + unit;
@@ -83,10 +83,10 @@ function select( parent, label, options, value, onchange ) {
 }
 
 function section( parent, icon, label ) {
-	const card = el( 'div', 'wpiepg-card', parent );
-	const head = el( 'div', 'wpiepg-card-head', card );
+	const card = el( 'div', 'dsm-card wpiepg-card', parent );
+	const head = el( 'div', 'dsm-card-head wpiepg-card-head', card );
 	head.innerHTML = icon + '<span>' + label + '</span>';
-	return el( 'div', 'wpiepg-card-body', card );
+	return el( 'div', 'dsm-card-body wpiepg-card-body', card );
 }
 
 const tabIcon = ( d, size = 15 ) =>
@@ -97,9 +97,6 @@ const tabIcon = ( d, size = 15 ) =>
 	'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
 	d +
 	'"/></svg>';
-
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03,.14-.09,.17-.17l.91-2.45c.03-.07,.13-.07,.16,0Z"/></svg>';
 
 const ICONS = {
 	presets: tabIcon(
@@ -350,8 +347,8 @@ async function openStudio( { editor, layer } ) {
 	dialog.setAttribute( 'aria-label', 'Seamless Patterns' );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	const titleRow = el( 'div', 'dsm-title-row', titles );
 	el( 'span', 'dsm-title', titleRow ).textContent = 'Seamless Patterns';
@@ -363,9 +360,15 @@ async function openStudio( { editor, layer } ) {
 	closeBtn.setAttribute( 'aria-label', 'Close' );
 	closeBtn.innerHTML = ICON_CLOSE;
 	const body = el( 'div', 'wpiepg-body', dialog );
+	// Three columns like the other studios: the gallery of starting
+	// points on the left, the tile in the middle, the dials on the
+	// right. All six sections used to stand in the one right column,
+	// so the twelve preview tiles were a thumbnail strip on top of the
+	// controls instead of a gallery.
+	const left = el( 'div', 'dsm-col start wpiepg-left', body );
 	const view = el( 'div', 'wpiepg-view', body );
 	const canvas = el( 'canvas', null, view );
-	const side = el( 'div', 'wpiepg-side', body );
+	const side = el( 'div', 'dsm-col end wpiepg-side', body );
 	const controls = el( 'div', 'wpiepg-controls', side );
 
 	const doc = editor.state.doc;
@@ -434,7 +437,7 @@ async function openStudio( { editor, layer } ) {
 
 	/* -------------------------------- presets ------------------------------ */
 
-	const presetBody = section( controls, ICONS.presets, t( 'Presets' ) );
+	const presetBody = section( left, ICONS.presets, t( 'Presets' ) );
 	const presetGrid = el( 'div', 'wpiepg-presets', presetBody );
 
 	// The big, findable randomizer right under the presets - same
@@ -443,18 +446,23 @@ async function openStudio( { editor, layer } ) {
 	rollBtn.type = 'button';
 	rollBtn.innerHTML = ICON_DICE + ' ' + t( 'Surprise me!' );
 
+	// Drawn at the size it is shown at. Still two cells across, so the
+	// picture is the same one as before - only sharper, because the
+	// tiles are bigger in the left-hand gallery than they were in the
+	// strip inside the right column.
+	const MINI = 112;
 	const miniTile = ( P ) => {
 		const c = document.createElement( 'canvas' );
-		c.width = 76;
-		c.height = 76;
+		c.width = MINI;
+		c.height = MINI;
 		const ctx = c.getContext( '2d' );
-		const tile = renderTile( P, 38 );
+		const tile = renderTile( P, MINI / 2 );
 		if ( ! bgColor( P ) ) {
 			ctx.fillStyle = '#20242b';
-			ctx.fillRect( 0, 0, 76, 76 );
+			ctx.fillRect( 0, 0, MINI, MINI );
 		}
 		ctx.fillStyle = ctx.createPattern( tile, 'repeat' );
-		ctx.fillRect( 0, 0, 76, 76 );
+		ctx.fillRect( 0, 0, MINI, MINI );
 		return c;
 	};
 
@@ -469,12 +477,12 @@ async function openStudio( { editor, layer } ) {
 	function renderPresets() {
 		presetGrid.innerHTML = '';
 		for ( const pre of PRESETS ) {
-			const btn = el( 'button', 'wpiepg-preset', presetGrid );
+			const btn = el( 'button', 'dsm-pick wpiepg-preset', presetGrid );
 			btn.type = 'button';
 			btn.appendChild(
 				miniTile( { ...DEFAULTS, ...pre.p, shift: { x: 0, y: 0 }, moved: [], added: [], removed: [] } )
 			);
-			el( 'span', null, btn ).textContent = t( pre.name );
+			el( 'span', 'dsm-pick-label', btn ).textContent = t( pre.name );
 			btn.onclick = () =>
 				applyParams( {
 					...DEFAULTS,
@@ -488,10 +496,10 @@ async function openStudio( { editor, layer } ) {
 		// Four surprises, re-rolled on every open - the gallery of chance.
 		for ( let i = 0; i < 4; i++ ) {
 			const P = curatedRoll();
-			const btn = el( 'button', 'wpiepg-preset', presetGrid );
+			const btn = el( 'button', 'dsm-pick wpiepg-preset', presetGrid );
 			btn.type = 'button';
 			btn.appendChild( miniTile( P ) );
-			el( 'span', null, btn ).textContent = '? ' + ( i + 1 );
+			el( 'span', 'dsm-pick-label', btn ).textContent = '? ' + ( i + 1 );
 			btn.onclick = () => applyParams( { ...P } );
 		}
 	}
@@ -513,7 +521,7 @@ async function openStudio( { editor, layer } ) {
 				window.localStorage.getItem( 'wpiepg-favs' ) || '[]'
 			);
 			store.favs = Array.isArray( legacy ) ? legacy : [];
-			bridge.storage.set( NS, store );
+			bridge.storage.set( NS, store ).catch( () => {} );
 		} catch ( e ) {
 			store.favs = [];
 		}
@@ -522,9 +530,10 @@ async function openStudio( { editor, layer } ) {
 		Array.isArray( store.favs ) ? store.favs : [];
 	const writeFavs = ( list ) => {
 		store.favs = list.slice( -12 );
-		try {
-			bridge.storage.set( NS, store );
-		} catch ( e ) {}
+		// A promise, so try/catch caught nothing (EXTFEHLER-09).
+		bridge.storage.set( NS, store ).catch( () => {
+			libNote.textContent = t( 'Could not save the pattern.' );
+		} );
 	};
 	const favBtn = el( 'button', 'ai-btn secondary wpiepg-favbtn', presetBody );
 	favBtn.type = 'button';
@@ -536,10 +545,10 @@ async function openStudio( { editor, layer } ) {
 		favGrid.innerHTML = '';
 		favGrid.style.display = favs.length ? '' : 'none';
 		favs.forEach( ( fav, idx ) => {
-			const btn = el( 'button', 'wpiepg-preset', favGrid );
+			const btn = el( 'button', 'dsm-pick wpiepg-preset', favGrid );
 			btn.type = 'button';
 			btn.appendChild( miniTile( { ...DEFAULTS, ...fav } ) );
-			el( 'span', null, btn ).textContent = '★ ' + ( idx + 1 );
+			el( 'span', 'dsm-pick-label', btn ).textContent = '★ ' + ( idx + 1 );
 			const x = el( 'span', 'wpiepg-fav-del', btn );
 			x.textContent = '×';
 			x.onclick = ( e ) => {
@@ -632,7 +641,7 @@ async function openStudio( { editor, layer } ) {
 	const stampBtn = el( 'button', 'ai-btn secondary', stampRow );
 	stampBtn.type = 'button';
 	stampBtn.textContent = t( 'Use active layer' );
-	const stampNote = el( 'div', 'wpiepg-note', patternBody );
+	const stampNote = el( 'div', 'dsm-note wpiepg-note', patternBody );
 	stampNote.style.display = 'none';
 
 	async function captureStamp() {
@@ -703,7 +712,7 @@ async function openStudio( { editor, layer } ) {
 	const seedRow = row( patternBody, t( 'Seed' ) );
 	const seedVal = el( 'span', 'wpiepg-seed', seedRow );
 	seedVal.textContent = String( params.seed );
-	const diceBtn = el( 'button', 'wpiepg-dice', seedRow );
+	const diceBtn = el( 'button', 'dsm-mini wpiepg-dice', seedRow );
 	diceBtn.type = 'button';
 	diceBtn.title = t( 'New seed' );
 	diceBtn.innerHTML = ICON_DICE;
@@ -798,7 +807,7 @@ async function openStudio( { editor, layer } ) {
 		},
 		'%'
 	);
-	const frameRow = el( 'label', 'wpiepg-check', rapportBody );
+	const frameRow = el( 'label', 'dsm-checkrow wpiepg-check', rapportBody );
 	const frameCb = el( 'input', null, frameRow );
 	frameCb.type = 'checkbox';
 	frameCb.checked = showFrame;
@@ -863,7 +872,7 @@ async function openStudio( { editor, layer } ) {
 	// Brand color picker in a plain div row (editor rule: never inside
 	// a label row) with a bare input fallback without the bridge.
 	const baseRow = el( 'div', 'wpiepg-row wpiepg-baserow', colorsBody );
-	el( 'span', 'dsm-label', baseRow ).textContent = t( 'Base color' );
+	el( 'span', 'dsm-rowline-label', baseRow ).textContent = t( 'Base color' );
 	const baseHost = el( 'div', 'wpiepg-colorhost', baseRow );
 	let baseHandle = null;
 	const mountColor = ( node, value, onChange ) => {
@@ -886,11 +895,11 @@ async function openStudio( { editor, layer } ) {
 		markDirty();
 		queuePreview();
 	} );
-	const chips = el( 'div', 'wpiepg-chips', colorsBody );
+	const chips = el( 'div', 'dsm-swatches wpiepg-chips', colorsBody );
 	function renderChips() {
 		chips.innerHTML = '';
 		for ( const c of palOf( params ).colors ) {
-			const d = el( 'span', 'wpiepg-chip', chips );
+			const d = el( 'span', 'dsm-swatch wpiepg-chip', chips );
 			d.style.background = c;
 		}
 	}
@@ -903,7 +912,7 @@ async function openStudio( { editor, layer } ) {
 		markDirty();
 		renderPreview();
 	};
-	const revRow = el( 'label', 'wpiepg-check', colorsBody );
+	const revRow = el( 'label', 'dsm-checkrow wpiepg-check', colorsBody );
 	const revCb = el( 'input', null, revRow );
 	revCb.type = 'checkbox';
 	revCb.checked = !! params.reverse;
@@ -932,7 +941,7 @@ async function openStudio( { editor, layer } ) {
 		}
 	);
 	const bgRow = el( 'div', 'wpiepg-row wpiepg-bgrow', colorsBody );
-	el( 'span', 'dsm-label', bgRow ).textContent = t( 'Custom color' );
+	el( 'span', 'dsm-rowline-label', bgRow ).textContent = t( 'Custom color' );
 	const bgHost = el( 'div', 'wpiepg-colorhost', bgRow );
 	const bgHandle = mountColor( bgHost, params.bgCustom, ( c ) => {
 		params.bgCustom = c;
@@ -982,7 +991,7 @@ async function openStudio( { editor, layer } ) {
 	const saveBtn = el( 'button', 'ai-btn secondary', libBody );
 	saveBtn.type = 'button';
 	saveBtn.textContent = t( 'Save as fill pattern' );
-	const libNote = el( 'div', 'wpiepg-note', libBody );
+	const libNote = el( 'div', 'dsm-note wpiepg-note', libBody );
 	libNote.textContent = t(
 		'The tile repeats seamlessly in every direction.'
 	);
@@ -997,24 +1006,18 @@ async function openStudio( { editor, layer } ) {
 			'/library/pattern';
 		saveBtn.disabled = true;
 		try {
-			const res = await window.fetch( url, {
+			// wp.apiFetch carries and refreshes the nonce (BRIDGE-04).
+			await window.wp.apiFetch( {
+				url,
 				method: 'POST',
-				credentials: 'same-origin',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-WP-Nonce': boot.nonce || '',
-				},
-				body: JSON.stringify( {
+				data: {
 					item: {
 						name:
 							( nameInput.value || 'Pattern' ).slice( 0, 24 ),
 						dataUrl: await tileDataUrl(),
 					},
-				} ),
+				},
 			} );
-			if ( ! res.ok ) {
-				throw new Error( 'save' );
-			}
 			libNote.textContent = t(
 				'Saved. The tile is now available as a pattern fill for shapes and text.'
 			);

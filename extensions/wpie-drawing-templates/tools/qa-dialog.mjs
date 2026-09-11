@@ -23,6 +23,10 @@ await baseline( qa, {
 	insert: true,
 	settle: 700,
 	allowInert: 0,
+	// The mock document has no layers, so nudging the Source select lands
+	// on "Media library" and the mock picker then sits over the primary
+	// button. The source is covered by the media pick in the editor tests.
+	skip: [ 'source', 'quelle' ],
 } );
 await qa.shot( 'qa-dialog.png' );
 

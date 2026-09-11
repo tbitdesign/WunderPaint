@@ -201,6 +201,7 @@ export function CommandPalette( { onClose, extras } ) {
 			<div
 				className="quick-insert command-palette"
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Command palette', 'wunderpaint' ) }
 				onClick={ ( e ) => e.stopPropagation() }
 			>

@@ -19,6 +19,15 @@ export function registerUserTile( dataUrl ) {
 	}
 	return new Promise( ( resolve ) => {
 		const img = new window.Image();
+		// crossOrigin ALWAYS, the way ImageCache does it (raster/cache.js).
+		// A tile is drawn into a canvas, and a foreign image loaded without
+		// this taints it: every later toDataURL() throws SecurityError - which
+		// means export and save, and because serializeLayers() runs inside the
+		// reducer, the throw comes out of dispatch() itself. The value need not
+		// be the user's own: the pattern library is a site-wide option that any
+		// editor user may write (class-user-library.php), so one person's tile
+		// could break saving for everyone else.
+		img.crossOrigin = 'anonymous';
 		img.onload = () => {
 			const tile = createCanvas( img.naturalWidth, img.naturalHeight );
 			tile.getContext( '2d' ).drawImage( img, 0, 0 );

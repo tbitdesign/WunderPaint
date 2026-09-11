@@ -150,9 +150,12 @@ function widthAt( c, text, st ) {
 function metricAt( c, text, st ) {
 	c.font = st.font;
 	const m = c.measureText( text || 'Mg' );
+	// The same fallback as rich-text's fragMetric, at the same size: the
+	// exact pass below measures at the final line size, and the two sides
+	// must do the same arithmetic there.
 	return {
-		a: m.actualBoundingBoxAscent || R * 0.8,
-		d: m.actualBoundingBoxDescent || R * 0.2,
+		a: m.actualBoundingBoxAscent || st.size * 0.8,
+		d: m.actualBoundingBoxDescent || st.size * 0.2,
 	};
 }
 
@@ -305,13 +308,12 @@ function measureWords( layer, words, lc ) {
 		}
 		lastPara = w.para;
 		const lsR = w.lsEm * R * rel;
+		// What was measured, kept for the exact pass: the painted text of
+		// each fragment and its style short of size and tracking.
+		w.m = [];
 		w.frags.forEach( ( f, i ) => {
-			const st = styleOf( {
-				...d,
-				...( f.s || {} ),
-				size: R * rel,
-				ls: lsR,
-			} );
+			const spec = { ...d, ...( f.s || {} ) };
+			const st = styleOf( { ...spec, size: R * rel, ls: lsR } );
 			let text = 0 === i ? w.marker + f.text : f.text;
 			if ( lc && w.segEnd && i === w.frags.length - 1 ) {
 				text = text.replace( /\.$/, '' );
@@ -319,6 +321,7 @@ function measureWords( layer, words, lc ) {
 			if ( w.tt ) {
 				text = applyCase( text, w.tt, 0 === i );
 			}
+			w.m.push( { text, spec } );
 			nw += widthAt( c, text, st );
 			const m = metricAt( c, text, st );
 			asc = Math.max( asc, m.a );
@@ -337,7 +340,27 @@ function measureWords( layer, words, lc ) {
 		// letter-spacing boundaries around it.
 		w.gap = widthAt( c, ' ', st ) + 2 * st.ls;
 	}
-	return { lsEm };
+	// Ascent and descent of a run of words at a REAL size, measured the way
+	// the renderer measures its lines.
+	const metricsAt = ( ws, s ) => {
+		let asc = 0;
+		let desc = 0;
+		for ( const w of ws ) {
+			const rel = w.rel || 1;
+			for ( const { text, spec } of w.m ) {
+				const st = styleOf( {
+					...spec,
+					size: s * rel,
+					ls: w.lsEm * s * rel,
+				} );
+				const m = metricAt( c, text, st );
+				asc = Math.max( asc, m.a );
+				desc = Math.max( desc, m.d );
+			}
+		}
+		return { asc, desc };
+	};
+	return { lsEm, metricsAt };
 }
 
 /* --------------------------- line breaking --------------------------- */
@@ -478,7 +501,7 @@ export function fitTextLayout( layer, ctx = null ) {
 	const lh = layer.lineHeight || 1.05;
 	const lc = ctx?.lc || lookContext( layer, ctx );
 	const words = wordsOf( layer, !! lc );
-	const { lsEm } = measureWords( layer, words, lc );
+	const { lsEm, metricsAt } = measureWords( layer, words, lc );
 	const N = words.length;
 	const look = lc ? { roles: lc.roles, accent: lc.accent } : null;
 	if ( ! N ) {
@@ -627,24 +650,59 @@ export function fitTextLayout( layer, ctx = null ) {
 		} );
 		scaled = true;
 	}
-	const block = lines.reduce(
-		( acc, ln, k ) => acc + costOf( ln, k ? lines[ k - 1 ] : null ),
-		0
-	);
+	const stackOf = () =>
+		lines.reduce(
+			( acc, ln, k ) => acc + costOf( ln, k ? lines[ k - 1 ] : null ),
+			0
+		);
+	// The plan: the stack as the search sized it, on metrics measured once
+	// at the reference size and scaled. `block` and `residual` report THIS
+	// stack - measure.js sizes boxes by it and the verifier holds it
+	// against the box - and it never exceeds the box.
+	const block = stackOf();
 	const residual = Math.max( 0, H - block );
+	// The paint: the renderer measures every line at its OWN size, and the
+	// two do not agree to the pixel - some backends round ink extents, a
+	// descent of exactly zero falls back to a fifth of the size, hinting
+	// moves the rest. Each line was off by a fraction, the stack added the
+	// fractions up, and the painted block left the box the plan had sized
+	// it for (408.58 in a box of 400 with the shipped faces). So the chosen
+	// lines are measured once more at their final size with the renderer's
+	// arithmetic, and the leading is set from THAT stack: what is left goes
+	// into the gaps, what is missing comes out of them, each gap giving in
+	// proportion to its air. The sizes, and with them the width every line
+	// fills, never move - that is the promise of the mode, the height is
+	// the soft one. Only where the air does not cover the rounding does the
+	// paint stay past the box, by that rounding.
+	for ( const ln of lines ) {
+		const m = metricsAt( words.slice( ln.i, ln.j + 1 ), ln.s );
+		ln.asc = m.asc;
+		ln.desc = m.desc;
+	}
+	const left = H - stackOf();
+	const air = lines.map( ( ln, k ) =>
+		k ? airOf( lines[ k - 1 ], ln ) : 0
+	);
+	const airSum = air.reduce( ( acc, v ) => acc + v, 0 );
+	const give = left < 0 ? Math.max( left, -airSum ) : 0;
 	const gaps = lines.length - 1;
 	const soft = [];
 	lines.forEach( ( ln, k ) => {
 		ln.words = words.slice( ln.i, ln.j + 1 );
 		ln.hard =
 			0 === k || words[ ln.i ].para !== words[ lines[ k - 1 ].j ].para;
-		ln.extra =
-			k > 0 && ! scaled
-				? Math.min(
-						residual / gaps,
-						GAP_CAP * Math.min( lines[ k - 1 ].s, ln.s )
-				  )
-				: 0;
+		if ( 0 === k ) {
+			ln.extra = 0;
+		} else if ( give < 0 ) {
+			ln.extra = ( give * air[ k ] ) / airSum;
+		} else if ( scaled ) {
+			ln.extra = 0;
+		} else {
+			ln.extra = Math.min(
+				left / gaps,
+				GAP_CAP * Math.min( lines[ k - 1 ].s, ln.s )
+			);
+		}
 		// The advance the renderer must reproduce for this line (k > 0):
 		// previous descent + air + extra leading + own ascent.
 		ln.adv = k

@@ -12,11 +12,11 @@
 
 import { FlatSession } from './flat/session.js';
 import { makeRing } from './core/ring.js';
+import { aspectOf, frameSize } from './core/frame.js';
 import { makeCast, mixedVoice } from './flat/casting.js';
 
 const SNAP_EVERY = 2.5; // wall seconds
 const SNAP_EDGE = 1280;
-const ART_HEIGHT = 1400; // px, the surface is the picture
 // The society's clock against the wall clock. Thomas on the first
 // evening (02.09.): the old 300 % should be the new normal, nobody
 // wants to wait for a picture - so a sitting of a hundred world seconds
@@ -86,7 +86,7 @@ export class FlatEngine {
 
 	mount( host, aspect ) {
 		this.host = host;
-		this.aspect = aspect || 1.5;
+		this.aspect = aspectOf( aspect );
 		this.canvas = createCanvas( 2, 2 );
 		this.canvas.className = 'wpiechaos-flat';
 		this.canvas.style.display = 'block';
@@ -132,18 +132,21 @@ export class FlatEngine {
 		if ( this.session ) {
 			this.session.stage.dispose();
 		}
+		const frame = frameSize( this.aspect );
 		this.session = new FlatSession( {
 			createCanvas,
 			kit: this.kit,
 			effects: this.effects,
 			aspect: this.aspect,
-			height: ART_HEIGHT,
+			height: frame.h,
+			width: frame.w,
 			school: settings.school,
 			params: settings.params,
 			words: pool.words,
 			recent: readRecent( settings.school.id ),
 			motif: settings.motif || null,
 			mixed: !! settings.mixed,
+			ensemble: settings.ensemble || [],
 			colors:
 				settings.params.colors &&
 				settings.params.colors.length > 1 &&
@@ -168,7 +171,7 @@ export class FlatEngine {
 	 * the next mark on, plan, palette and ground stay. With `mixed`
 	 * every second painter takes a school of their own instead.
 	 */
-	switchSchool( school, { mixed = false } = {} ) {
+	switchSchool( school, { mixed = false, ensemble = [] } = {} ) {
 		const w = this.world;
 		if ( ! w || ! this.session ) {
 			return false;
@@ -177,10 +180,14 @@ export class FlatEngine {
 		if ( school ) {
 			w.voice = school;
 		}
+		w.setEnsemble( ensemble );
+		let painterIndex = 0;
 		for ( const a of this.session.actors ) {
 			if ( a.isPainter ) {
-				a.voice = mixed ? mixedVoice( w, school || w.school ) : null;
-				if ( mixed && w.rng() < 0.4 ) {
+				a.voice =
+					w.ensembleSchools[ painterIndex++ ] ||
+					( mixed ? mixedVoice( w, w.voice ) : null );
+				if ( mixed && ! w.ensembleSchools.length && w.rng() < 0.4 ) {
 					a.voice = null;
 				}
 			}
@@ -188,11 +195,32 @@ export class FlatEngine {
 		w.chronicle.push( {
 			e: 'school',
 			t: w.time,
-			id: mixed ? 'all' : ( school || w.school ).id,
+			id: w.ensembleSchools.length
+				? 'custom-ensemble'
+				: mixed
+				? 'all'
+				: ( school || w.school ).id,
 		} );
+		if ( w.ensembleSchools.length ) {
+			this.recast();
+		}
 		// A change of mind wakes the piece and opens a new sitting's worth of marks.
 		w.phaseFloorUntil = Math.max( w.phaseFloorUntil, w.time + 8 );
 		return true;
+	}
+
+	/** A palette change affects the next marks, preserving everything already painted. */
+	setColors( colors ) {
+		if ( this.world ) {
+			this.world.setColors( colors );
+			this.world.colorMasses();
+		}
+	}
+
+	setLikeness( value ) {
+		if ( this.world ) {
+			this.world.motifLikeness = Math.max( 0, Math.min( 1, value ) );
+		}
 	}
 
 	/** The look dials of the stage in space have no meaning here; the finish is the school's. */
@@ -485,13 +513,12 @@ export class FlatEngine {
 		} );
 	}
 
-	/** The picture at its own resolution: everything wet settled first. */
+	/** Copy the visible picture. Pending strokes belong to its future. */
 	renderStill() {
 		if ( ! this.session ) {
 			return { url: '', w: 0, h: 0 };
 		}
 		const st = this.session.stage;
-		st.settle();
 		const c = createCanvas( st.W, st.H );
 		st.render( c.getContext( '2d' ), st.W, st.H, this.finishSpec );
 		return { url: c.toDataURL( 'image/png' ), w: st.W, h: st.H };

@@ -25,6 +25,8 @@ class User_Library {
 	// Pattern tiles are real PNGs (grainy backgrounds compress badly),
 	// they need far more room than the small item descriptors (v1.110.1).
 	const MAX_PATTERN = 2000000;
+	// The whole option: the per-item caps bound one item, not the table row.
+	const MAX_TOTAL = 8000000;
 
 	/**
 	 * Register hooks.
@@ -168,7 +170,10 @@ class User_Library {
 		} else {
 			return new \WP_Error( 'wpie_bad_action', __( 'Unknown category action.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
-		update_option( self::OPTION, $data, false );
+		$saved = self::save( $data );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
 		return array( 'categories' => array_values( $data['categories'] ) );
 	}
 
@@ -264,9 +269,47 @@ class User_Library {
 				);
 			}
 		}
-		update_option( self::OPTION, $data, false );
+		$saved = self::save( $data );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
 
 		return $item;
+	}
+
+	/**
+	 * Write the store, and say when it did not happen.
+	 *
+	 * update_option() answers false both for "nothing changed" and for "the
+	 * write failed"; only a read-back tells the two apart, and a failed save
+	 * used to answer 200 with the item. And the option has a ceiling: the
+	 * per-item caps bound one item, not the whole row in the options table.
+	 *
+	 * @param array $data  The full store.
+	 * @param bool  $grows Whether this write can make the store larger.
+	 * @return true|\WP_Error
+	 */
+	private static function save( $data, $grows = true ) {
+		if ( $grows ) {
+			$bytes = strlen( (string) maybe_serialize( $data ) );
+			$max   = (int) apply_filters( 'wpie_user_library_max_bytes', self::MAX_TOTAL );
+			if ( $bytes > $max ) {
+				return new \WP_Error(
+					'wpie_library_full',
+					sprintf(
+						/* translators: 1: current size, 2: maximum size. */
+						__( 'The library store is full (%1$s of %2$s). Delete some items first.', 'wunderpaint' ),
+						size_format( $bytes ),
+						size_format( $max )
+					),
+					array( 'status' => 413 )
+				);
+			}
+		}
+		if ( ! update_option( self::OPTION, $data, false ) && get_option( self::OPTION ) !== $data ) {
+			return new \WP_Error( 'wpie_library_write_failed', __( 'The library could not be saved.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
+		return true;
 	}
 
 	/**
@@ -297,7 +340,10 @@ class User_Library {
 		}
 		if ( $removed ) {
 			$data[ $kind ] = array_values( $kept );
-			update_option( self::OPTION, $data, false );
+			$saved         = self::save( $data, false );
+			if ( is_wp_error( $saved ) ) {
+				return $saved;
+			}
 		}
 		return array( 'deleted' => $id );
 	}

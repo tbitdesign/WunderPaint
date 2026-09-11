@@ -1,0 +1,178 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-color-outside-the-everyday-lines",
+	"label": "Color outside the everyday lines",
+	"category": "wordart",
+	"w": 624,
+	"h": 578,
+	"layers": [
+		{
+			"id": "waf-color-outside-the-everyday-lines-0",
+			"type": "text",
+			"name": "COLOR OUTSIDE THE EVERYDAY LINES",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 32,
+			"y": 33,
+			"w": 560,
+			"h": 460,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#365e91",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "COLOR OUTSIDE\nTHE EVERYDAY\nLINES",
+			"fontSize": 100,
+			"fontFamily": "Audiowide",
+			"weight": 400,
+			"color": "#4fc8db",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "COLOR OUTSIDE\n",
+					"s": {
+						"color": "#4fc8db"
+					}
+				},
+				{
+					"text": "THE EVERYDAY\n",
+					"s": {
+						"color": "#d46caf"
+					}
+				},
+				{
+					"text": "LINES",
+					"s": {
+						"color": "#a598df"
+					}
+				}
+			],
+			"textFX": {
+				"glow": {
+					"color": "#5b86d1",
+					"size": 7
+				},
+				"chromatic": {
+					"offset": 2,
+					"angle": 0
+				}
+			}
+		},
+		{
+			"id": "waf-color-outside-the-everyday-lines-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 275,
+			"y": 544,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#5b9d7a",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-color-outside-the-everyday-lines-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 303,
+			"y": 544,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#cf8a56",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-color-outside-the-everyday-lines-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 331,
+			"y": 544,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#bcc75e",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

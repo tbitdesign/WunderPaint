@@ -33,6 +33,9 @@ import {
 	ringWindow,
 	twinRingWindow,
 } from './generators.js';
+import { extraWindow } from './paper-windows.js';
+import { botanicalCluster, isExtraBotanical } from './botanical.js';
+import { landmarkStamps } from './paper-landmarks.js';
 import { bandMask } from './photo.js';
 import { lookById, sheetColor, isCutObject } from './model.js';
 
@@ -74,6 +77,8 @@ const FULL_PAGE = [ 'backdrop', 'terrain', 'border', 'frame' ];
  * @return {Array} Stamps, or [] for a letter (handled as a mask).
  */
 export function windowStamps( obj, ctx, w, h ) {
+	const extra = extraWindow( obj, w, h );
+	if ( extra ) return extra.apertures;
 	const inset = obj.inset / 100;
 	const cx = w / 2;
 	const cy = h / 2;
@@ -217,6 +222,13 @@ export function objectStamps( obj, ctx ) {
 			],
 		];
 	}
+	if ( 'landform' === obj.kind || 'decoration' === obj.kind )
+		return landmarkStamps( obj, w, h );
+	if (
+		( obj.kind === 'trees' || obj.kind === 'plants' ) &&
+		isExtraBotanical( obj )
+	)
+		return botanicalCluster( obj, w, h );
 	if ( 'animal' === obj.kind ) {
 		return silhouetteStamp(
 			obj.species,
@@ -554,6 +566,8 @@ export function buildScene( params, ctx ) {
 				continue;
 			}
 			paintStamps( g, windowStamps( obj, ctx, w, h ), 0 );
+			const extra = extraWindow( obj, w, h );
+			if ( extra ) paintStamps( g, extra.ornaments, 1 );
 		}
 		for ( const obj of layer.objects ) {
 			// With nothing behind it and no paper of its own, a hole has

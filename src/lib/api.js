@@ -50,8 +50,15 @@ const toApiError = ( err ) =>
 export function initApi( WPIE ) {
 	restRoot = ( WPIE.restUrl || '' ).replace( /\/$/, '' );
 	ajaxUrl = WPIE.ajaxUrl || '';
-	apiFetch.nonceMiddleware = apiFetch.createNonceMiddleware( WPIE.nonce );
-	apiFetch.use( apiFetch.nonceMiddleware );
+	// A second init (a remount, a nested editor) used to add a second nonce
+	// middleware; the older one ran last and overwrote every refreshed
+	// nonce with the stale one. One middleware, its nonce updated.
+	if ( apiFetch.nonceMiddleware ) {
+		apiFetch.nonceMiddleware.nonce = WPIE.nonce;
+	} else {
+		apiFetch.nonceMiddleware = apiFetch.createNonceMiddleware( WPIE.nonce );
+		apiFetch.use( apiFetch.nonceMiddleware );
+	}
 	apiFetch.nonceEndpoint = ajaxUrl
 		? `${ ajaxUrl }?action=rest-nonce`
 		: undefined;
@@ -78,6 +85,18 @@ async function refreshNonce() {
 		);
 	}
 	const nonce = ( await response.text() ).trim();
+	// A nonce is ten hex characters. A 200 with anything else in the body
+	// (a login page, a challenge page) used to become "the nonce", and every
+	// call after it failed with 403 until a reload.
+	if ( ! /^[a-f0-9]{10}$/i.test( nonce ) ) {
+		throw new ApiError(
+			__(
+				'Could not refresh the session, please reload the editor.',
+				'wunderpaint'
+			),
+			{ status: 403 }
+		);
+	}
 	if ( apiFetch.nonceMiddleware ) {
 		apiFetch.nonceMiddleware.nonce = nonce;
 	}
@@ -108,7 +127,17 @@ export async function request( options ) {
 		...options,
 		url: `${ restRoot }${ path }`,
 		path: undefined,
+		timeout: undefined,
 	};
+	// `timeout` (ms): abort the fetch itself. A stalled connection used to
+	// hang a call forever; the job poller checked its deadline only between
+	// two polls, and never inside one.
+	let timer = null;
+	if ( options.timeout > 0 && 'function' === typeof AbortController ) {
+		const ctrl = new AbortController();
+		finalOptions.signal = ctrl.signal;
+		timer = setTimeout( () => ctrl.abort(), options.timeout );
+	}
 	try {
 		return await apiFetch( finalOptions );
 	} catch ( err ) {
@@ -135,6 +164,10 @@ export async function request( options ) {
 			err?.message
 		);
 		throw toApiError( err );
+	} finally {
+		if ( timer ) {
+			clearTimeout( timer );
+		}
 	}
 }
 
@@ -413,17 +446,40 @@ export async function updateMedia( id, fields ) {
 /** Core-REST fetch relative to wp/v2 (plain-permalink safe, v1.0). */
 async function coreRest( path, { method = 'GET', data } = {} ) {
 	const root = restRoot.replace( 'wpie/v1', `wp/v2/${ path }` );
-	const response = await window.fetch( root, {
-		method,
-		credentials: 'same-origin',
-		headers: {
-			'X-WP-Nonce': apiFetch.nonceMiddleware?.nonce || '',
-			...( data ? { 'Content-Type': 'application/json' } : {} ),
-		},
-		...( data ? { body: JSON.stringify( data ) } : {} ),
-	} );
+	const send = () =>
+		window.fetch( root, {
+			method,
+			credentials: 'same-origin',
+			headers: {
+				'X-WP-Nonce': apiFetch.nonceMiddleware?.nonce || '',
+				...( data ? { 'Content-Type': 'application/json' } : {} ),
+			},
+			...( data ? { body: JSON.stringify( data ) } : {} ),
+		} );
+	let response = await send();
+	// One nonce refresh, as request() gets: a session that idled past the
+	// nonce lifetime used to fail here with a bare "HTTP 403" while every
+	// wpie/v1 call next to it healed itself.
+	if ( 403 === response.status ) {
+		try {
+			await refreshNonce();
+			response = await send();
+		} catch ( e ) {
+			// The message below says it.
+		}
+	}
 	if ( ! response.ok ) {
-		throw new Error( `HTTP ${ response.status }` );
+		throw new ApiError(
+			sprintf(
+				/* translators: %d: HTTP status code. */
+				__(
+					'WordPress did not answer (HTTP %d). Reload the editor and try again.',
+					'wunderpaint'
+				),
+				response.status
+			),
+			{ status: response.status }
+		);
 	}
 	return response.json();
 }
@@ -761,6 +817,9 @@ const AI_ASYNC_ACTIONS = [
 	'outpaint',
 	'variations',
 	'design',
+	// Design Markup (stage 2a): the model composes whole markups, up to four
+	// of them; that is minutes, not seconds.
+	'design_markup',
 	// Schema completions can think for minutes (v1.273.0).
 	'complete',
 ];
@@ -771,6 +830,27 @@ const JOB_POLL_FIRST_MS = 1000;
 const JOB_POLL_MAX_MS = 5000;
 const JOB_POLL_GROWTH = 1.6;
 const JOB_DEADLINE_MS = 5 * 60 * 1000;
+
+/**
+ * Den Fehlercode mit in die Meldung nehmen. Eine Zeile wie "The AI did not
+ * return a usable structured result (Gemini stopped: MAX_TOKENS).
+ * (wpie_ai_structured)" sagt dem, der sie in der Konsole liest, sofort, wo
+ * er nachsehen muss - der Code allein steht sonst in einer Eigenschaft, die
+ * niemand ausklappt.
+ *
+ * @param {Object} err Fehler.
+ * @return {Object} Derselbe Fehler, Meldung um den Code ergaenzt.
+ */
+const withCode = ( err ) => {
+	const code = err?.code;
+	if ( ! code || String( err.message || '' ).includes( code ) ) {
+		return err;
+	}
+	return new ApiError( `${ err.message } (${ code })`, {
+		code,
+		status: err.status || 0,
+	} );
+};
 
 const mapGatewayError = ( err ) => {
 	if ( 'invalid_json' === err?.code ) {
@@ -807,10 +887,21 @@ const aiPost = async ( action, data ) => {
 	for (;;) {
 		await sleep( wait );
 		wait = Math.min( JOB_POLL_MAX_MS, wait * JOB_POLL_GROWTH );
-		const job = await request( {
-			path: `/ai/job/${ first.jobId }`,
-			method: 'GET',
-		} );
+		let job;
+		try {
+			job = await request( {
+				path: `/ai/job/${ first.jobId }`,
+				method: 'GET',
+				timeout: 30000,
+			} );
+		} catch ( err ) {
+			// The job route is where a FAILED generation comes back, and
+			// that error used to arrive here unmapped and uncoded: the
+			// caller saw the generic "Request failed." and the provider's
+			// own sentence was gone (stage 2i, a whole Gemini debugging
+			// round spent on a message the server had already written).
+			throw withCode( mapGatewayError( err ) );
+		}
 		if ( 'pending' !== job?.status ) {
 			return job?.result;
 		}
@@ -904,6 +995,40 @@ export const ai = {
 		aiPost( 'caption', { image, provider, lang } ),
 	design: ( { brief, w, h, brand, product, image, variation } ) =>
 		aiPost( 'design', { brief, w, h, brand, product, image, variation } ),
+	// Design Markup (stage 2a): the model composes k complete designs in the
+	// markup language; `bindings` is the contract that each of those ids sits
+	// on exactly one element. Answer: { designs: [ Markup, … ] }.
+	//
+	// `provider` is not decoration (stage 2b): without it the server takes
+	// the default text provider, and if that one's key is bound to other IPs
+	// the whole run dies on a 401 that reads like a model failure. Naming
+	// the provider is the difference between "no designs" and designs.
+	designMarkup: ( {
+		brief,
+		w,
+		h,
+		k,
+		brand,
+		product,
+		lang,
+		bindings,
+		image,
+		variation,
+		provider,
+	} ) =>
+		aiPost( 'design_markup', {
+			brief,
+			w,
+			h,
+			k,
+			brand,
+			product,
+			lang,
+			bindings,
+			image,
+			variation,
+			provider,
+		} ),
 	template: ( { kind, prompt, text, n, brand } ) =>
 		aiPost( 'template', { kind, prompt, text, n, brand } ),
 	svg: ( { prompt, provider, brand } ) =>

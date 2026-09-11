@@ -126,7 +126,11 @@ class Extension_Store {
 		 * @param string $ns  The namespace being written.
 		 */
 		$max = (int) apply_filters( 'wpie_ext_store_max_bytes', self::MAX_BYTES, $ns );
-		if ( strlen( (string) wp_json_encode( $value ) ) > $max ) {
+		// Measured AFTER the cleaning: sanitizing can grow a string (`<` to
+		// `&lt;`), so a value under the cap on the way in could be four
+		// times it in the row.
+		$clean = self::sanitize_value( $value );
+		if ( strlen( (string) wp_json_encode( $clean ) ) > $max ) {
 			return new \WP_Error(
 				'wpie_store_size',
 				sprintf(
@@ -155,16 +159,42 @@ class Extension_Store {
 				return new \WP_Error( 'wpie_store_namespaces', __( 'Too many extension storage namespaces for this account.', 'wunderpaint' ), array( 'status' => 429 ) );
 			}
 		}
-		// Sanitized wholesale: values are extension-defined JSON; strings
-		// are cleaned recursively, structure is preserved.
-		$clean = self::sanitize_value( $value );
-		update_user_meta( $uid, $key, $clean );
+		// Sanitized wholesale above: values are extension-defined JSON;
+		// strings are cleaned recursively, structure is preserved.
+		//
+		// wp_slash() because update_metadata() runs wp_unslash() on whatever it
+		// is given, and REST parameters are not slashed. Without it every
+		// backslash in the value disappeared on the way in, and the next save
+		// ate the next one: a Windows path, a regular expression or a literal
+		// \n lost a level per round trip, silently.
+		update_user_meta( $uid, $key, wp_slash( $clean ) );
 		return rest_ensure_response( array( 'value' => empty( $clean ) ? (object) array() : $clean ) );
 	}
 
 	/**
-	 * Recursive scalar sanitation: strings through sanitize_textarea_field,
-	 * numbers/bools pass, everything else drops.
+	 * The store's own cleaning, for a caller that writes a value by another
+	 * road than the REST route (the backup restore, F17).
+	 *
+	 * @param mixed $value Raw decoded JSON.
+	 * @return mixed Clean value.
+	 */
+	public static function clean( $value ) {
+		return self::sanitize_value( $value );
+	}
+
+	/**
+	 * Byte cap of one namespace, filterable per namespace.
+	 *
+	 * @param string $ns Namespace.
+	 * @return int
+	 */
+	public static function max_bytes( $ns ) {
+		return (int) apply_filters( 'wpie_ext_store_max_bytes', self::MAX_BYTES, $ns );
+	}
+
+	/**
+	 * Recursive scalar sanitation: strings kept as text (valid UTF-8, no
+	 * control characters), numbers/bools pass, everything else drops.
 	 *
 	 * @param mixed $value Raw decoded JSON.
 	 * @param int   $depth Recursion guard.
@@ -186,7 +216,31 @@ class Extension_Store {
 			return $out;
 		}
 		if ( is_string( $value ) ) {
-			return sanitize_textarea_field( $value );
+			/*
+			 * NOT sanitize_textarea_field(). This store holds what a studio
+			 * saves for its user - and for Type Flow that is the user's own
+			 * text. sanitize_textarea_field() strips tags, turns `<` into
+			 * `&lt;` and removes percent sequences, so "Sale < 50 %" came back
+			 * as "Sale &lt;50" after one round trip. Silent damage to the one
+			 * thing the user typed, and it needed no attacker.
+			 *
+			 * EXTPHP-08 of the 10.09.2026 audit was closed by writing the
+			 * behaviour down in docs/extending.md rather than changing it, on
+			 * the grounds that no caller stored such text. The same report
+			 * names one two pages later (EXTZUSTAND-05, Type Flow).
+			 *
+			 * What is needed here is storage safety, not display safety: this
+			 * value goes into user meta and comes back out as JSON, and every
+			 * consumer escapes at the point of use. So: valid UTF-8, no
+			 * control characters that break JSON, and a ceiling. The overall
+			 * byte cap per namespace stays where it is (MAX_BYTES).
+			 */
+			$clean = wp_check_invalid_utf8( $value, true );
+			// Strip C0 control characters except tab, newline and carriage
+			// return, plus the C1 range: none of them can be typed on purpose
+			// and each is a way to make stored text unreadable later.
+			$clean = (string) preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/u', '', $clean );
+			return $clean;
 		}
 		if ( is_int( $value ) || is_float( $value ) || is_bool( $value ) || null === $value ) {
 			return $value;

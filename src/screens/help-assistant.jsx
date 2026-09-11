@@ -25,10 +25,15 @@ const SUGGESTIONS = [
 	__( 'How do actions and batch processing work?', 'wunderpaint' ),
 ];
 
-/** Whether any text-capable AI provider is configured. */
+/**
+ * Whether any text-capable AI provider is available: a configured key, or
+ * WordPress' own AI client (`providers.core`), which the assistant's route
+ * falls back to since v1.392 - the panel used to lock itself out on exactly
+ * those sites (HILFE-04).
+ */
 const hasTextProviderKey = () => {
 	const p = window.WPIE?.providers || {};
-	return !! ( p.anthropic || p.openai || p.gemini );
+	return !! ( p.anthropic || p.openai || p.gemini || p.core );
 };
 
 export function HelpAssistant( { open, onClose, extras } ) {
@@ -116,6 +121,7 @@ export function HelpAssistant( { open, onClose, extras } ) {
 		<div
 			className="wpie-helpbot"
 			role="dialog"
+			aria-modal="true"
 			aria-label={ __( 'Help Assistant', 'wunderpaint' ) }
 		>
 			<div className="wpie-helpbot-head">

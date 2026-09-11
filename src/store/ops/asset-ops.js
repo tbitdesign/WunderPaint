@@ -14,6 +14,7 @@ import {
 	makeShape,
 	makeGradient,
 	serializeLayers,
+	PROJECT_FORMAT,
 } from '../document';
 import { activeLayerOf } from '../editor-context';
 import {
@@ -408,6 +409,9 @@ export async function applyPaletteOp( editor, extras, source ) {
  */
 export async function saveDesignOp( editor, extras, saveAs = false ) {
 	const { state, dispatch } = editor;
+	// What this save uploads. The response marks THIS snapshot saved, not
+	// whatever is present by then.
+	const uploaded = state.history?.present || null;
 	const existingId = ! saveAs && state.doc.source?.designId;
 	let name = state.doc.name || '';
 	if ( ! existingId ) {
@@ -440,6 +444,7 @@ export async function saveDesignOp( editor, extras, saveAs = false ) {
 			};
 		}
 		const projectJson = JSON.stringify( {
+			wpie: PROJECT_FORMAT,
 			doc: { ...state.doc, name },
 			layers: serializeLayers( state.layers ),
 			...( pages ? { pages, currentPage: state.pages.current } : {} ),
@@ -459,7 +464,7 @@ export async function saveDesignOp( editor, extras, saveAs = false ) {
 			type: 'SET_DOC',
 			doc: { name, source: { ...state.doc.source, designId: id } },
 		} );
-		dispatch( { type: 'MARK_SAVED' } );
+		dispatch( { type: 'MARK_SAVED', snapshot: uploaded } );
 		extras?.toasts?.success?.(
 			__(
 				'Design saved, find it under Assets → Asset Library → Designs.',

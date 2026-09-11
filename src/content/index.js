@@ -28,10 +28,19 @@ const memo = {};
 
 const load = ( key, factory ) => {
 	if ( ! memo[ key ] ) {
-		memo[ key ] = factory().then( ( resolved ) => {
-			value[ key ] = resolved;
-			return resolved;
-		} );
+		memo[ key ] = factory()
+			.then( ( resolved ) => {
+				value[ key ] = resolved;
+				return resolved;
+			} )
+			.catch( ( err ) => {
+				// A failed fetch (a 502 from the edge, a dropped connection)
+				// used to be memoised like a result: the pack stayed locked
+				// for the whole session, and the library stayed empty
+				// without a word. Forget the attempt; the next call asks again.
+				memo[ key ] = null;
+				throw err;
+			} );
 	}
 	return memo[ key ];
 };

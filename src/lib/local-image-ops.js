@@ -418,6 +418,7 @@ function removeBgViaWorker( img ) {
 						bitmap,
 						wasmPath: ortBase(),
 						modelUrl: assetUrl( 'assets/models/u2netp.onnx' ),
+						version: window.WPIE?.version || '',
 					},
 					[ bitmap ]
 				)
@@ -434,7 +435,10 @@ async function removeBgOnMainThread( img ) {
 	// Same Cache API treatment as the worker path (v1.298.1): ORT
 	// fetches the wasm itself when this returns null.
 	try {
-		const buf = await cachedRuntimeBuffer( ortBase() + ORT_WASM_FILE );
+		const buf = await cachedRuntimeBuffer(
+			ortBase() + ORT_WASM_FILE,
+			window.WPIE?.version || ''
+		);
 		if ( buf ) {
 			ort.env.wasm.wasmBinary = buf;
 		}

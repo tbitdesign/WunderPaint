@@ -91,12 +91,12 @@ const SEC_ICONS = {
 	dot: svgIc( '<circle cx="12" cy="12" r="7"/>' ),
 };
 function section( parent, label, iconKey ) {
-	const card = el( 'div', 'wpiesnd-card', parent );
+	const card = el( 'div', 'dsm-card wpiesnd-card', parent );
 	if ( label ) {
-		const head = el( 'div', 'wpiesnd-card-head', card );
+		const head = el( 'div', 'dsm-card-head wpiesnd-card-head', card );
 		head.innerHTML = ( SEC_ICONS[ iconKey ] || SEC_ICONS.dot ) + '<span>' + label + '</span>';
 	}
-	return el( 'div', 'wpiesnd-card-body', card );
+	return el( 'div', 'dsm-card-body wpiesnd-card-body', card );
 }
 
 /** "3:42" */
@@ -183,20 +183,18 @@ async function openStudio( { editor, extras, layer } ) {
 
 	/* ------------------------------ overlay ------------------------------ */
 
-	const ICON_BRAND =
-		'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
 	const ICON_CLOSE =
 		'<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>';
 
-	const host = document.getElementById( 'wpie-root' ) || document.body;
+		const host = document.getElementById( 'wpie-root' ) || document.body;
 	const backdrop = el( 'div', 'modal-backdrop', host );
 	const dialog = el( 'div', 'dsm wpiesnd-dialog', backdrop );
 	dialog.setAttribute( 'role', 'dialog' );
 	dialog.setAttribute( 'aria-label', 'Soundwave Art' );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	const headTitleRow = el( 'div', 'dsm-title-row', titles );
 	const title = el( 'span', 'dsm-title', headTitleRow );
@@ -217,11 +215,11 @@ async function openStudio( { editor, extras, layer } ) {
 	empty.textContent = t(
 		'Pick an audio file from the media library to start.'
 	);
-	const status = el( 'div', 'wpiesnd-status', view );
+	const status = el( 'div', 'dsm-viewhint wpiesnd-status', view );
 	const setStatus = ( text, isError ) => {
 		status.textContent = text || '';
 		status.className =
-			'wpiesnd-status' +
+			'dsm-viewhint wpiesnd-status' +
 			( text ? ' on' : '' ) +
 			( isError ? ' err' : '' );
 	};
@@ -233,7 +231,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const pickBtn = el( 'button', 'ai-btn secondary', audioSec );
 	pickBtn.style.width = '100%';
 	pickBtn.textContent = t( 'Choose audio' );
-	const audioInfo = el( 'div', 'wpiesnd-coords', audioSec );
+	const audioInfo = el( 'div', 'dsm-note wpiesnd-coords', audioSec );
 
 	const syncAudioInfo = () => {
 		audioInfo.textContent = params.audio
@@ -245,13 +243,13 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const trimRow = ( key, label ) => {
 		const row = el( 'label', 'wpiesnd-row', audioSec );
-		el( 'span', null, row ).textContent = label;
-		const input = el( 'input', null, row );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const input = el( 'input', 'dsm-range', row );
 		input.type = 'range';
 		input.min = '0';
 		input.max = '100';
 		input.value = String( params[ key ] );
-		const out = el( 'output', null, row );
+		const out = el( 'output', 'dsm-sliderrow-val', row );
 		const sync = () => {
 			out.textContent = durationText(
 				( params.duration * params[ key ] ) / 100
@@ -461,7 +459,7 @@ async function openStudio( { editor, extras, layer } ) {
 		[ 'heart', t( 'Heartbeat' ) ],
 		[ 'hexagon', t( 'Hexagon' ) ],
 	] ) {
-		const tile = el( 'button', 'wpiesnd-shape', styleGrid );
+		const tile = el( 'button', 'dsm-mini wpiesnd-shape', styleGrid );
 		tile.title = label;
 		tile.setAttribute( 'aria-label', label );
 		tile.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${ STYLE_ICONS[ value ] }</svg>`;
@@ -480,13 +478,13 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const sliderRow = ( parent, label, min, max, get, set, fmt ) => {
 		const row = el( 'label', 'wpiesnd-row', parent );
-		el( 'span', null, row ).textContent = label;
-		const input = el( 'input', null, row );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const input = el( 'input', 'dsm-range', row );
 		input.type = 'range';
 		input.min = String( min );
 		input.max = String( max );
 		input.value = String( get() );
-		const out = el( 'output', null, row );
+		const out = el( 'output', 'dsm-sliderrow-val', row );
 		out.textContent = fmt ? fmt( get() ) : String( get() );
 		input.oninput = () => {
 			set( parseInt( input.value, 10 ) );
@@ -528,7 +526,7 @@ async function openStudio( { editor, extras, layer } ) {
 	);
 
 	const checkRow = ( parent, get, set, label ) => {
-		const row = el( 'label', 'wpiesnd-check', parent );
+		const row = el( 'label', 'dsm-checkrow wpiesnd-check', parent );
 		const input = el( 'input', null, row );
 		input.type = 'checkbox';
 		input.checked = get();
@@ -580,7 +578,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const mountSwatch = bridge.components && bridge.components.mountColorButton;
 	const colorRow = ( key, label ) => {
 		const row = el( 'div', 'wpiesnd-row', colorSec );
-		el( 'span', null, row ).textContent = label;
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
 		const slot = el( 'span', 'wpiesnd-swatch', row );
 		const onChange = ( c ) => {
 			params.overrides[ key ] = c;
@@ -603,7 +601,7 @@ async function openStudio( { editor, extras, layer } ) {
 				},
 			};
 		}
-		const reset = el( 'button', 'wpiesnd-reset', row );
+		const reset = el( 'button', 'ai-btn secondary wpiesnd-reset', row );
 		reset.textContent = t( 'Auto' );
 		reset.title = t( 'Back to the theme color' );
 		reset.onclick = ( e ) => {
@@ -622,7 +620,7 @@ async function openStudio( { editor, extras, layer } ) {
 
 	// Solid | curated gradient (incl. metallic foils) | spectral (the
 	// zero-crossing brightness of the sound picks the color).
-	const cmodeRow = el( 'div', 'wpiesnd-seg', colorSec );
+	const cmodeRow = el( 'div', 'dsm-seg wpiesnd-seg', colorSec );
 	const modeBtns = new Map();
 	for ( const [ value, label ] of [
 		[ 'solid', t( 'Solid' ) ],
@@ -642,7 +640,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const gradWrap = el( 'div', 'wpiesnd-grads', colorSec );
 	const gradBtns = new Map();
 	for ( const g of GRADIENTS ) {
-		const b = el( 'button', 'wpiesnd-grad', gradWrap );
+		const b = el( 'button', 'dsm-strip wpiesnd-grad', gradWrap );
 		b.type = 'button';
 		b.title = g.label;
 		b.setAttribute( 'aria-label', g.label );
@@ -658,7 +656,7 @@ async function openStudio( { editor, extras, layer } ) {
 		gradBtns.set( g.id, b );
 	}
 	const dirRow = el( 'label', 'wpiesnd-row', colorSec );
-	el( 'span', null, dirRow ).textContent = t( 'Color flow' );
+	el( 'span', 'dsm-rowline-label', dirRow ).textContent = t( 'Color flow' );
 	dirRow.style.gridTemplateColumns = '78px 1fr';
 	const dirSel = el( 'select', 'dsm-select', dirRow );
 	for ( const [ value, label ] of [
@@ -687,7 +685,7 @@ async function openStudio( { editor, extras, layer } ) {
 		( v ) => ( params.reflect = v ),
 		t( 'Mirror reflection' )
 	);
-	const stereoLbl = el( 'label', 'wpiesnd-check', colorSec );
+	const stereoLbl = el( 'label', 'dsm-checkrow wpiesnd-check', colorSec );
 	const stereoCb = el( 'input', null, stereoLbl );
 	stereoCb.type = 'checkbox';
 	stereoCb.checked = !! params.stereo;
@@ -752,7 +750,7 @@ async function openStudio( { editor, extras, layer } ) {
 		} );
 	};
 	if ( brandKits.length || ( ( window.WPIE.brand && window.WPIE.brand.colors ) || [] ).length ) {
-		const brandLbl = el( 'label', 'wpiesnd-check', colorSec );
+		const brandLbl = el( 'label', 'dsm-checkrow wpiesnd-check', colorSec );
 		const brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
 		brandCb.checked = params.useBrand;
@@ -864,7 +862,7 @@ async function openStudio( { editor, extras, layer } ) {
 		[ 'heart', t( 'Heart' ) ],
 		[ 'hex', t( 'Hexagon' ) ],
 	] ) {
-		const tile = el( 'button', 'wpiesnd-shape', shapeGrid );
+		const tile = el( 'button', 'dsm-mini wpiesnd-shape', shapeGrid );
 		tile.title = label;
 		tile.setAttribute( 'aria-label', label );
 		tile.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${ SHAPE_ICONS[ value ] }</svg>`;
@@ -891,7 +889,7 @@ async function openStudio( { editor, extras, layer } ) {
 	if ( ! editing ) {
 		const textSec = section( side, t( 'Text block' ), 'text' );
 		const layoutRow = el( 'label', 'wpiesnd-row', textSec );
-		el( 'span', null, layoutRow ).textContent = t( 'Layout' );
+		el( 'span', 'dsm-rowline-label', layoutRow ).textContent = t( 'Layout' );
 		layoutRow.style.gridTemplateColumns = '78px 1fr';
 		layoutSelect = el( 'select', 'dsm-select', layoutRow );
 		for ( const [ value, label ] of [
@@ -910,8 +908,8 @@ async function openStudio( { editor, extras, layer } ) {
 		};
 
 		const titleRow = el( 'label', 'wpiesnd-text-row', textSec );
-		el( 'span', null, titleRow ).textContent = t( 'Title' );
-		titleInput = el( 'input', null, titleRow );
+		el( 'span', 'dsm-fieldlabel', titleRow ).textContent = t( 'Title' );
+		titleInput = el( 'input', 'dsm-input', titleRow );
 		titleInput.type = 'text';
 		titleInput.oninput = () => {
 			titleDirty = true;
@@ -919,20 +917,20 @@ async function openStudio( { editor, extras, layer } ) {
 		};
 
 		const subtitleRow = el( 'label', 'wpiesnd-text-row', textSec );
-		el( 'span', null, subtitleRow ).textContent = t( 'Subtitle' );
-		subtitleInput = el( 'input', null, subtitleRow );
+		el( 'span', 'dsm-fieldlabel', subtitleRow ).textContent = t( 'Subtitle' );
+		subtitleInput = el( 'input', 'dsm-input', subtitleRow );
 		subtitleInput.type = 'text';
 		subtitleInput.placeholder = t( 'e.g. Our song' );
 		subtitleInput.oninput = () => paint();
 
 		const sizeRow2 = el( 'label', 'wpiesnd-row', textSec );
-		el( 'span', null, sizeRow2 ).textContent = t( 'Text size' );
-		const sizeInput2 = el( 'input', null, sizeRow2 );
+		el( 'span', 'dsm-rowline-label', sizeRow2 ).textContent = t( 'Text size' );
+		const sizeInput2 = el( 'input', 'dsm-range', sizeRow2 );
 		sizeInput2.type = 'range';
 		sizeInput2.min = '60';
 		sizeInput2.max = '160';
 		sizeInput2.value = String( Math.round( params.textScale * 100 ) );
-		const sizeOut2 = el( 'output', null, sizeRow2 );
+		const sizeOut2 = el( 'output', 'dsm-sliderrow-val', sizeRow2 );
 		sizeOut2.textContent = `${ sizeInput2.value }%`;
 		sizeInput2.oninput = () => {
 			params.textScale = parseInt( sizeInput2.value, 10 ) / 100;
@@ -940,7 +938,7 @@ async function openStudio( { editor, extras, layer } ) {
 			paint();
 		};
 
-		const durRow = el( 'label', 'wpiesnd-check', textSec );
+		const durRow = el( 'label', 'dsm-checkrow wpiesnd-check', textSec );
 		durationCheck = el( 'input', null, durRow );
 		durationCheck.type = 'checkbox';
 		durationCheck.checked = true;
@@ -952,7 +950,7 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const videoSec = section( side, t( 'Video' ), 'video' );
 	const resRow = el( 'label', 'wpiesnd-row', videoSec );
-	el( 'span', null, resRow ).textContent = t( 'Format' );
+	el( 'span', 'dsm-rowline-label', resRow ).textContent = t( 'Format' );
 	resRow.style.gridTemplateColumns = '78px 1fr';
 	const resSelect = el( 'select', 'dsm-select', resRow );
 	for ( const [ value, label ] of [
@@ -969,7 +967,7 @@ async function openStudio( { editor, extras, layer } ) {
 		params.videoRes = resSelect.value;
 	};
 	const modeRow = el( 'label', 'wpiesnd-row', videoSec );
-	el( 'span', null, modeRow ).textContent = t( 'Animation' );
+	el( 'span', 'dsm-rowline-label', modeRow ).textContent = t( 'Animation' );
 	modeRow.style.gridTemplateColumns = '78px 1fr';
 	const modeSelect = el( 'select', 'dsm-select', modeRow );
 	for ( const [ value, label ] of [
@@ -985,7 +983,7 @@ async function openStudio( { editor, extras, layer } ) {
 	modeSelect.onchange = () => {
 		params.videoMode = modeSelect.value;
 	};
-	const vidTextRow = el( 'label', 'wpiesnd-check', videoSec );
+	const vidTextRow = el( 'label', 'dsm-checkrow wpiesnd-check', videoSec );
 	const vidTextCheck = el( 'input', null, vidTextRow );
 	vidTextCheck.type = 'checkbox';
 	vidTextCheck.checked = !! params.videoText;
@@ -994,7 +992,7 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 	el( 'span', null, vidTextRow ).textContent = t( 'Include title text' );
 	const vidBgRow = el( 'div', 'wpiesnd-row', videoSec );
-	el( 'span', null, vidBgRow ).textContent = t( 'Video background' );
+	el( 'span', 'dsm-rowline-label', vidBgRow ).textContent = t( 'Video background' );
 	const vidBgSlot = el( 'span', 'wpiesnd-swatch', vidBgRow );
 	let vidBgCtl = null;
 	const resolvedVideoBg = () => {
@@ -1031,7 +1029,7 @@ async function openStudio( { editor, extras, layer } ) {
 		};
 	}
 	syncVideoBg();
-	const vidBgReset = el( 'button', 'wpiesnd-reset', vidBgRow );
+	const vidBgReset = el( 'button', 'ai-btn secondary wpiesnd-reset', vidBgRow );
 	vidBgReset.textContent = t( 'Auto' );
 	vidBgReset.onclick = ( e ) => {
 		e.preventDefault();
@@ -1047,10 +1045,10 @@ async function openStudio( { editor, extras, layer } ) {
 	exportBtn.style.width = '100%';
 	exportBtn.textContent = t( 'Export video' );
 	exportBtn.disabled = true;
-	const exportCancelBtn = el( 'button', 'wpiesnd-reset', videoSec );
+	const exportCancelBtn = el( 'button', 'ai-btn secondary wpiesnd-reset', videoSec );
 	exportCancelBtn.textContent = t( 'Cancel export' );
 	exportCancelBtn.style.display = 'none';
-	const vidNote = el( 'div', 'wpiesnd-coords', videoSec );
+	const vidNote = el( 'div', 'dsm-note wpiesnd-coords', videoSec );
 	vidNote.textContent = t(
 		'Keep this tab in the foreground while recording.'
 	);
@@ -1548,7 +1546,36 @@ async function openStudio( { editor, extras, layer } ) {
 			}
 			const blob = new window.Blob( chunks, { type: mime } );
 			setStatus( t( 'Rendering the wave' ) );
-			const saved = await uploadVideo( blob, mime );
+			// Three minutes of recording must never be lost to a failed
+			// upload: over the site's limit it goes to the computer, and a
+			// refused upload falls back to the same download (EXPORT-1).
+			const maxMb = Number( ( window.WPIE || {} ).maxUploadMb ) || 0;
+			const download = () =>
+				bridge.util.downloadBlob(
+					blob,
+					`${ slugOf() }.${ mime.indexOf( 'mp4' ) > -1 ? 'mp4' : 'webm' }`
+				);
+			if ( maxMb && blob.size > maxMb * 1024 * 1024 ) {
+				download();
+				setStatus(
+					t(
+						'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.'
+					).replace( '%s', String( maxMb ) ),
+					true
+				);
+				return null;
+			}
+			let saved;
+			try {
+				saved = await uploadVideo( blob, mime );
+			} catch ( err ) {
+				download();
+				setStatus(
+					t( 'Could not save the video. It was downloaded instead.' ),
+					true
+				);
+				return null;
+			}
 			setStatus( t( 'Video saved to the media library.' ) );
 			if ( extras && extras.toasts && extras.toasts.success ) {
 				extras.toasts.success(
@@ -1577,12 +1604,20 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 	};
 
-	async function uploadVideo( blob, mime ) {
-		const boot = window.WPIE || {};
-		const mediaUrl = String( boot.restUrl || '' ).replace(
-			/wpie\/v1\/?$/,
-			'wp/v2/media'
+	function slugOf() {
+		const titleText =
+			( titleInput && titleInput.value.trim() ) ||
+			( params.audio && params.audio.title ) ||
+			'audiogram';
+		return (
+			titleText
+				.toLowerCase()
+				.replace( /[^a-z0-9]+/g, '-' )
+				.replace( /^-+|-+$/g, '' ) || 'audiogram'
 		);
+	}
+
+	async function uploadVideo( blob, mime ) {
 		const titleText =
 			( titleInput && titleInput.value.trim() ) ||
 			( params.audio && params.audio.title ) ||
@@ -1599,16 +1634,14 @@ async function openStudio( { editor, extras, layer } ) {
 			new window.File( [ blob ], `${ slug }.${ ext }`, { type: mime } )
 		);
 		fd.append( 'title', titleText );
-		const res = await window.fetch( mediaUrl, {
+		// wp.apiFetch carries and refreshes the nonce; a hand-built fetch
+		// with the boot nonce failed after the first nonce rotation
+		// (BRIDGE-04, 10.09.2026).
+		return window.wp.apiFetch( {
+			path: '/wp/v2/media',
 			method: 'POST',
-			credentials: 'same-origin',
-			headers: { 'X-WP-Nonce': boot.nonce || '' },
 			body: fd,
 		} );
-		if ( ! res.ok ) {
-			throw new Error( t( 'Could not save the video.' ) );
-		}
-		return res.json();
 	}
 
 	/* ------------------------------- footer ------------------------------ */

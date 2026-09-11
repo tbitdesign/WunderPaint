@@ -46,6 +46,58 @@ class Settings {
 	 * value being replaced and puts it in the shadow. One more click swaps
 	 * back, which makes this safe to try.
 	 */
+	/**
+	 * Turn a stored settings array back into something update_option() may be
+	 * handed.
+	 *
+	 * update_option() runs the registered sanitize callback, and its secret
+	 * handling treats any input that is neither empty nor the mask as a NEW
+	 * plaintext key. The shadow row holds CIPHERTEXT. Feeding it straight back
+	 * obfuscated every key a second time and destroyed all of them at once,
+	 * silently: the card kept showing a mask, every provider call failed with
+	 * 401 afterwards, and nothing short of typing the keys in again brought
+	 * them back. Backup::import() already solves exactly this problem; this is
+	 * the same treatment, in one place both callers can use.
+	 *
+	 * Each secret is handed over as plaintext, so sanitize obfuscates it
+	 * exactly once. A secret the shadow holds EMPTY has to be cleared on
+	 * purpose, because sanitize keeps the stored value for an empty field -
+	 * that is what the `_remove` flag exists for.
+	 *
+	 * @param array $settings A stored settings array (secrets obfuscated).
+	 * @return array Safe to hand to update_option().
+	 */
+	private static function shadow_to_input( $settings ) {
+		foreach ( Helpers::secret_fields() as $field ) {
+			$plain = Helpers::deobfuscate( isset( $settings[ $field ] ) ? $settings[ $field ] : '' );
+			if ( '' === $plain ) {
+				unset( $settings[ $field ] );
+				$settings[ $field . '_remove' ] = 1;
+				continue;
+			}
+			$settings[ $field ] = $plain;
+		}
+		// See the brand_kits branch in sanitize(): that field is unslashed
+		// there, so it has to arrive slashed, exactly as $_POST would deliver
+		// it. The shadow holds the plain database value.
+		if ( isset( $settings['brand_kits'] ) && is_string( $settings['brand_kits'] ) ) {
+			$settings['brand_kits'] = wp_slash( $settings['brand_kits'] );
+		}
+		return $settings;
+	}
+
+	/**
+	 * The settings page. Kept in one place: the restore used to send the
+	 * admin to `options-general.php?page=wpie-editor-settings`, a page that
+	 * does not exist (the real slug is WPIE_SETTINGS_SLUG), so the success
+	 * notice landed on "Sorry, you are not allowed to access this page."
+	 *
+	 * @return string Admin URL.
+	 */
+	public static function page_url() {
+		return add_query_arg( 'page', WPIE_SETTINGS_SLUG, admin_url( 'options-general.php' ) );
+	}
+
 	public static function restore_shadow() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You are not allowed to do that.', 'wunderpaint' ), '', array( 'response' => 403 ) );
@@ -53,7 +105,7 @@ class Settings {
 		check_admin_referer( 'wpie_settings_restore_prev' );
 
 		$prev = get_option( WPIE_OPTION . '_prev' );
-		$back = admin_url( 'options-general.php?page=' . WPIE_SLUG . '-settings' );
+		$back = self::page_url();
 		if ( ! is_array( $prev ) || ! $prev ) {
 			wp_safe_redirect(
 				add_query_arg(
@@ -66,7 +118,7 @@ class Settings {
 			);
 			exit;
 		}
-		update_option( WPIE_OPTION, $prev );
+		update_option( WPIE_OPTION, self::shadow_to_input( $prev ) );
 		wp_safe_redirect(
 			add_query_arg(
 				array(
@@ -514,6 +566,15 @@ class Settings {
 			$out['brand_logo'] = max( 0, (int) $input['brand_logo'] );
 		}
 		if ( isset( $input['brand_kits'] ) ) {
+			// brand_kits is a JSON string, so its quotes arrive escaped the way
+			// $_POST delivers them - hence the unslash. That makes SLASHED the
+			// contract of this field, and every caller that does not come from
+			// the form has to meet it: the rollback and the backup import used
+			// to hand over the plain value from the database, so stripslashes
+			// ran a second time. A kit whose text holds a quote (Format 5"
+			// Display) came back mangled, and json_decode could fail outright -
+			// then sanitize_brand_kits returns nothing and the kit is gone.
+			// shadow_to_input() and Backup::import() slash it now.
 			$out['brand_kits'] = self::sanitize_brand_kits( (string) wp_unslash( $input['brand_kits'] ) );
 		}
 		if ( isset( $input['ai_prices'] ) && is_array( $input['ai_prices'] ) ) {
@@ -566,6 +627,72 @@ class Settings {
 		}
 		if ( isset( $input['watermark_margin'] ) ) {
 			$out['watermark_margin'] = min( 200, max( 0, (int) $input['watermark_margin'] ) );
+		}
+
+		/*
+		 * The font library. Every ordinary font operation goes through REST
+		 * (Fonts hooks rest_api_init only), and a REST request never fires
+		 * admin_init, so register_setting has not run and this sanitizer is
+		 * not even attached - which is why uploading a font works despite
+		 * there being no branch here for years.
+		 *
+		 * The admin_post paths are the exception: the settings form, the
+		 * backup import and the shadow rollback all run after admin_init. For
+		 * them $out starts from the STORED settings, so a font list arriving
+		 * in $input was silently replaced by whatever was already there.
+		 * Restoring a backup wrote the woff2 files into uploads and then threw
+		 * their entries away - the files sat on disk as orphans and no font
+		 * appeared in the editor. The rollback lost them the same way.
+		 */
+		if ( isset( $input['custom_fonts'] ) ) {
+			$fonts = array();
+			foreach ( (array) $input['custom_fonts'] as $font ) {
+				if ( ! is_array( $font ) ) {
+					continue;
+				}
+				$id     = sanitize_key( (string) ( $font['id'] ?? '' ) );
+				$family = sanitize_text_field( (string) ( $font['family'] ?? '' ) );
+				// The file name lands in a path in Fonts::dir(); a slash or a
+				// .. in it would leave that directory.
+				$file   = sanitize_file_name( wp_basename( (string) ( $font['file'] ?? '' ) ) );
+				$format = sanitize_key( (string) ( $font['format'] ?? '' ) );
+				// The extension has to MATCH the declared format, not merely be
+				// some known format: checking the format alone let an entry
+				// named evil.php through with format woff2, and that name would
+				// have gone into an @font-face src.
+				$ext = strtolower( (string) pathinfo( $file, PATHINFO_EXTENSION ) );
+				if ( '' === $id || '' === $family || '' === $file ) {
+					continue;
+				}
+				if ( ! isset( Fonts::ALLOWED[ $ext ] ) || Fonts::ALLOWED[ $ext ] !== $format ) {
+					continue;
+				}
+				$fonts[] = array(
+					'id'     => $id,
+					'family' => $family,
+					'file'   => $file,
+					'format' => $format,
+				);
+			}
+			$out['custom_fonts'] = $fonts;
+		}
+		if ( isset( $input['downloaded_fonts'] ) ) {
+			$out['downloaded_fonts'] = array_values(
+				array_unique(
+					array_filter(
+						array_map(
+							static function ( $name ) {
+								return sanitize_text_field( (string) $name );
+							},
+							(array) $input['downloaded_fonts']
+						)
+					)
+				)
+			);
+		}
+		if ( isset( $input['fonts_choice'] ) ) {
+			$choice               = sanitize_key( (string) $input['fonts_choice'] );
+			$out['fonts_choice']  = in_array( $choice, array( 'download', 'google', 'skip' ), true ) ? $choice : 'skip';
 		}
 
 		return $out;
@@ -1297,7 +1424,7 @@ class Settings {
 
 				<div id="wpie-tab-integrations" class="wpie-tab-panel" hidden>
 					<h2><?php esc_html_e( 'Stock Images', 'wunderpaint' ); ?></h2>
-					<p><?php esc_html_e( 'Free API keys enable searching Pexels, Pixabay and Unsplash directly from the editor (File → Stock Images). Images are fetched through your server, never from the browser.', 'wunderpaint' ); ?></p>
+					<p><?php esc_html_e( 'Free API keys enable searching Pexels, Pixabay and Unsplash directly from the editor (Assets → Asset Library → Photos). Images are fetched through your server, never from the browser.', 'wunderpaint' ); ?></p>
 					<div class="wpie-provider-cards">
 						<?php
 						$stock_meta = array(
@@ -1655,7 +1782,18 @@ class Settings {
 			<?php
 			return;
 		}
-		$plain = Helpers::deobfuscate( isset( $s[ $field ] ) ? $s[ $field ] : '' );
+		$stored = isset( $s[ $field ] ) ? (string) $s[ $field ] : '';
+		$plain  = Helpers::deobfuscate( $stored );
+		// A stored key that no longer reads back (the salts changed, the site
+		// moved) used to look like "no key": an empty field, no Remove
+		// button, and the dead ciphertext stayed forever. Say so, and let it
+		// be removed.
+		$dead = '' !== $stored && '' === $plain;
+		if ( $dead ) {
+			?>
+			<p class="description" style="color:#b32d2e"><?php esc_html_e( 'The stored key can no longer be read (the security salts or the site changed). Enter it again, or remove it.', 'wunderpaint' ); ?></p>
+			<?php
+		}
 		?>
 		<label class="screen-reader-text" for="wpie-key-<?php echo esc_attr( $provider ); ?>">
 			<?php
@@ -1671,7 +1809,7 @@ class Settings {
 				value="<?php echo esc_attr( '' !== $plain ? Helpers::mask_key( $plain ) : '' ); ?>"
 				autocomplete="off">
 			<button type="button" class="button wpie-key-toggle" aria-label="<?php esc_attr_e( 'Show or hide key', 'wunderpaint' ); ?>">👁</button>
-			<?php if ( '' !== $plain ) : ?>
+			<?php if ( '' !== $plain || $dead ) : ?>
 				<button type="button" class="button wpie-key-remove"><?php esc_html_e( 'Remove', 'wunderpaint' ); ?></button>
 			<?php endif; ?>
 		</div>

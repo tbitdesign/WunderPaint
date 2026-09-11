@@ -95,6 +95,16 @@ class Search_Index {
 	public function pending( \WP_REST_Request $req ) {
 		$per  = min( 20, max( 1, (int) ( $req->get_param( 'per' ) ?: 8 ) ) );
 		$args = self::image_query_args();
+		// Only offer what the caller may actually write. save() below requires
+		// edit_post on the attachment, but this list did not care: an author
+		// was handed everybody's images, could not store an embedding for a
+		// single foreign one and could not tombstone it either. The client
+		// asks for the next page, gets the SAME eight back, and its for(;;)
+		// never ends - one editor session hammering the server until the tab
+		// is closed. (2026-09-10 audit)
+		if ( ! current_user_can( 'edit_others_posts' ) ) {
+			$args['author'] = get_current_user_id();
+		}
 
 		$total_q = new \WP_Query( array_merge( $args, array( 'posts_per_page' => 1 ) ) );
 		$total   = (int) $total_q->found_posts;
@@ -216,6 +226,12 @@ class Search_Index {
 			)
 		);
 
+		// 'fields' => 'ids' skips the cache priming WP_Query would do, and
+		// the loop below then paid one meta query and one post query per
+		// image - about 800 for a page. Prime both once.
+		if ( $q->posts ) {
+			_prime_post_caches( array_map( 'intval', $q->posts ), false, true );
+		}
 		$items = array();
 		foreach ( $q->posts as $id ) {
 			$meta = get_post_meta( $id, self::META_KEY, true );

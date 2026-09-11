@@ -132,8 +132,6 @@ class Media_Orphans {
 	 * @return array{files:array[],capped:bool}
 	 */
 	public static function scan_dir( $rel ) {
-		global $wpdb;
-
 		$base = trailingslashit( wp_get_upload_dir()['basedir'] );
 		$dir  = $base . ( '' === $rel ? '' : trailingslashit( $rel ) );
 		$out  = array();
@@ -146,29 +144,17 @@ class Media_Orphans {
 			);
 		}
 
-		// Originals the database knows about in exactly this directory.
-		$like             = '' === $rel ? '%' : $wpdb->esc_like( $rel . '/' ) . '%';
-		$wpdb->last_error = '';
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded to one directory, values prepared.
-		$rows = $wpdb->get_col( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value LIKE %s", $like ) );
-		// This list is what makes a file NOT an orphan. If the query failed it
-		// comes back empty, and every single file in the directory would then
-		// be offered as unreferenced. Report nothing rather than everything.
-		if ( '' !== (string) $wpdb->last_error ) {
+		// Everything in this directory that belongs to an attachment. This set
+		// is what makes a file NOT an orphan; null means the database did not
+		// answer, and then every single file here would look unreferenced.
+		// Report nothing rather than everything.
+		$known = self::known_files( $rel );
+		if ( null === $known ) {
 			return array(
 				'files'  => array(),
 				'capped' => false,
 				'error'  => true,
 			);
-		}
-		$known = array();
-		foreach ( $rows as $stored ) {
-			// A LIKE on `2026/%` also catches `2026/07/x.jpg`, so compare the
-			// directory part rather than trusting the pattern.
-			if ( ltrim( (string) dirname( '/' . $stored ), '/' ) !== $rel ) {
-				continue;
-			}
-			$known[ strtolower( wp_basename( (string) $stored ) ) ] = true;
 		}
 
 		// Files core generated from those originals: every registered size, plus
@@ -232,35 +218,128 @@ class Media_Orphans {
 	}
 
 	/**
+	 * Every file in one uploads directory that belongs to an attachment.
+	 *
+	 * This is THE definition of "not an orphan", and it used to be spelled out
+	 * twice - once in scan_dir(), once in is_referenced() - out of
+	 * `_wp_attached_file` alone. That is wrong for every upload WordPress
+	 * scales down. Since WP 5.3 `_wp_attached_file` names `foo-scaled.jpg`,
+	 * while the retained original is `foo.jpg` and every generated size is
+	 * `foo-300x200.jpg`. None of those is the stored name, and stripping the
+	 * size off a candidate yields `foo.jpg`, which the stored name never
+	 * matched either. Original and all sizes were therefore offered for
+	 * deletion, and the recheck before hold() repeated the same mistake
+	 * instead of catching it.
+	 *
+	 * So the set is built from what the attachment itself claims: the stored
+	 * path, plus `file`, `original_image` and every `sizes[*]` entry of
+	 * `_wp_attachment_metadata`, plus whatever an edit left behind in
+	 * `_wp_attachment_backup_sizes`. The size-stripped stored name stays in as
+	 * a fallback for attachments whose metadata is missing or damaged.
+	 *
+	 * @param string $dir Uploads-relative directory, '' for the root.
+	 * @return array<string,true>|null Lowercased basenames, null on a database error.
+	 */
+	private static function known_files( $dir ) {
+		global $wpdb;
+
+		$like             = '' === $dir ? '%' : $wpdb->esc_like( $dir . '/' ) . '%';
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded to one directory, values prepared.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value LIKE %s", $like ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			return null;
+		}
+
+		$known    = array();
+		$ids      = array();
+		$resolver = Media_Usage::resolver();
+		foreach ( (array) $rows as $row ) {
+			$stored = (string) $row->meta_value;
+			// A LIKE on `2026/%` also catches `2026/07/x.jpg`, so compare the
+			// directory part rather than trusting the pattern.
+			if ( ltrim( (string) dirname( '/' . $stored ), '/' ) !== $dir ) {
+				continue;
+			}
+			$known[ strtolower( wp_basename( $stored ) ) ]                         = true;
+			$known[ strtolower( wp_basename( $resolver->strip_size( $stored ) ) ) ] = true;
+			$ids[] = (int) $row->post_id;
+		}
+		if ( ! $ids ) {
+			return $known;
+		}
+
+		$placeholders     = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$wpdb->last_error = '';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one read per scan over postmeta, no WP API covers it; the placeholder list is generated (%d each), the values are prepared.
+		$meta             = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key IN ( '_wp_attachment_metadata', '_wp_attachment_backup_sizes' ) AND post_id IN ( $placeholders )", // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded to the attachments of one directory.
+				$ids
+			)
+		);
+		// phpcs:enable
+		if ( '' !== (string) $wpdb->last_error ) {
+			return null;
+		}
+		foreach ( (array) $meta as $raw ) {
+			$data = maybe_unserialize( $raw );
+			if ( is_array( $data ) ) {
+				self::collect_files( $data, $known );
+			}
+		}
+		return $known;
+	}
+
+	/**
+	 * Collect every file name an attachment metadata array claims.
+	 *
+	 * `_wp_attachment_metadata` carries `file` (directory-relative),
+	 * `original_image` (bare) and `sizes[*]['file']` (bare);
+	 * `_wp_attachment_backup_sizes` carries `[*]['file']`. Rather than reaching
+	 * into each shape by name, walk the array: a `file` or `original_image`
+	 * string anywhere in it names a file that belongs to the attachment, and a
+	 * future WordPress key of the same kind is picked up for free.
+	 *
+	 * @param array $data  Metadata array.
+	 * @param array $known Set being filled, by reference.
+	 * @param int   $depth Recursion guard.
+	 * @return void
+	 */
+	private static function collect_files( $data, &$known, $depth = 0 ) {
+		if ( $depth > 4 ) {
+			return;
+		}
+		foreach ( $data as $key => $value ) {
+			if ( is_array( $value ) ) {
+				self::collect_files( $value, $known, $depth + 1 );
+				continue;
+			}
+			if ( ( 'file' === $key || 'original_image' === $key ) && is_string( $value ) && '' !== $value ) {
+				$known[ strtolower( wp_basename( $value ) ) ] = true;
+			}
+		}
+	}
+
+	/**
 	 * Whether an uploads-relative path is an attachment's file, and so NOT an
-	 * orphan. Mirrors scan_dir()'s definition exactly: a match is either the
-	 * stored original (_wp_attached_file) or a generated size of one (the
-	 * size-stripped basename resolves to a known original). Any database error
-	 * returns true, so a file is kept rather than moved on incomplete data.
+	 * orphan. Uses the SAME protection set as scan_dir(), through the same
+	 * helper: spelling the definition out twice is exactly how the scaled-upload
+	 * hole came to exist in both places at once. Any database error returns
+	 * true, so a file is kept rather than moved on incomplete data.
 	 *
 	 * @param string $rel Uploads-relative path.
 	 * @return bool True when the file is referenced (in use).
 	 */
 	private static function is_referenced( $rel ) {
-		global $wpdb;
 		$rel = ltrim( str_replace( '\\', '/', (string) $rel ), '/' );
 		if ( '' === $rel ) {
 			return true;
 		}
-		$dir = ltrim( (string) dirname( '/' . $rel ), '/' );
-		$like             = '' === $dir ? '%' : $wpdb->esc_like( $dir . '/' ) . '%';
-		$wpdb->last_error = '';
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded to one directory, value prepared.
-		$rows = $wpdb->get_col( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value LIKE %s", $like ) );
-		if ( '' !== (string) $wpdb->last_error ) {
+		$dir   = ltrim( (string) dirname( '/' . $rel ), '/' );
+		$known = self::known_files( $dir );
+		if ( null === $known ) {
 			return true; // Fail closed: do not move on an incomplete answer.
-		}
-		$known = array();
-		foreach ( $rows as $stored ) {
-			if ( ltrim( (string) dirname( '/' . $stored ), '/' ) !== $dir ) {
-				continue;
-			}
-			$known[ strtolower( wp_basename( (string) $stored ) ) ] = true;
 		}
 		$entry = wp_basename( $rel );
 		if ( isset( $known[ strtolower( $entry ) ] ) ) {
@@ -303,6 +382,16 @@ class Media_Orphans {
 			if ( ! is_file( $src ) ) {
 				continue;
 			}
+			// The scan's own rules, enforced here as well: only the file
+			// types it reports, never a guard file, never a skipped root
+			// entry. A caller could otherwise hold index.php or .htaccess.
+			$ext = strtolower( (string) pathinfo( $rel, PATHINFO_EXTENSION ) );
+			if ( ! in_array( $ext, self::EXT, true ) ) {
+				continue;
+			}
+			if ( false === strpos( $rel, '/' ) && self::skipped( $rel ) ) {
+				continue;
+			}
 			// Only genuine orphans may move, whatever the caller sent. The
 			// scan is what decides orphan status, but nothing forced a caller
 			// to have run it, so re-check here against the same definition:
@@ -342,9 +431,10 @@ class Media_Orphans {
 		$base  = trailingslashit( wp_get_upload_dir()['basedir'] );
 		$hold  = $base . self::HOLD_DIR . '/';
 		$index = (array) get_option( self::HOLD_OPTION, array() );
-		$want  = array_flip( array_map( 'strval', (array) $paths ) );
-		$back  = array();
-		$keep  = array();
+		$want    = array_flip( array_map( 'strval', (array) $paths ) );
+		$back    = array();
+		$keep    = array();
+		$missing = array();
 
 		foreach ( $index as $rec ) {
 			$rel = (string) ( $rec['rel'] ?? '' );
@@ -355,6 +445,10 @@ class Media_Orphans {
 			$src = $hold . (string) ( $rec['file'] ?? '' );
 			$dst = $base . $rel;
 			if ( ! is_file( $src ) ) {
+				// The held copy is gone (deleted by hand, a moved site). The
+				// index entry goes, but the caller is told which file is not
+				// coming back instead of the entry vanishing in silence.
+				$missing[] = $rel;
 				continue;
 			}
 			wp_mkdir_p( dirname( $dst ) );
@@ -369,6 +463,7 @@ class Media_Orphans {
 		return array(
 			'ok'       => true,
 			'restored' => $back,
+			'missing'  => $missing,
 		);
 	}
 

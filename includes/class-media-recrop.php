@@ -188,9 +188,12 @@ class Media_Recrop {
 				array( 'status' => 400 )
 			);
 		}
+		// Not sanitize_key: it lowercases, and a size registered as "Thumb-2X"
+		// could then never be cropped. Letters, digits, dash, underscore, as
+		// add_image_size() accepts them.
 		$result = $this->recrop(
 			(int) $request['id'],
-			sanitize_key( $request['size'] ),
+			preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $request['size'] ),
 			$rect
 		);
 		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );

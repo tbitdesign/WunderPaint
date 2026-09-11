@@ -108,6 +108,175 @@ export function isBackgroundUnit( unit, doc, index ) {
 }
 
 /**
+ * Where the subject sits, from a cutout's alpha: the same local model the
+ * editor's own Smart Recrop uses for thumbnails (bridge.raster.
+ * subjectCutout -> u2netp), so Reformat frames a picture the way the
+ * Media Library Manager already does. Nothing leaves the browser and
+ * nothing is billed.
+ *
+ * The centre of the subject's BOX, not of its mass: a person with an
+ * outstretched arm should stay whole, and the box is what has to survive
+ * the crop.
+ *
+ * @param {Uint8ClampedArray} data RGBA of the cutout, row-major.
+ * @param {number}            w    Width.
+ * @param {number}            h    Height.
+ * @param {number}            cut  Alpha cutoff, 0..255.
+ * @return {Object|null} { x, y } in 0..1, or null when nothing was cut out.
+ */
+export function focusFromCutout( data, w, h, cut = 102 ) {
+	if ( ! data || ! w || ! h || data.length < w * h * 4 ) {
+		return null;
+	}
+	let x0 = w;
+	let y0 = h;
+	let x1 = -1;
+	let y1 = -1;
+	let on = 0;
+	for ( let y = 0; y < h; y++ ) {
+		for ( let x = 0; x < w; x++ ) {
+			if ( data[ ( y * w + x ) * 4 + 3 ] < cut ) {
+				continue;
+			}
+			on++;
+			if ( x < x0 ) {
+				x0 = x;
+			}
+			if ( x > x1 ) {
+				x1 = x;
+			}
+			if ( y < y0 ) {
+				y0 = y;
+			}
+			if ( y > y1 ) {
+				y1 = y;
+			}
+		}
+	}
+	// Nothing, or nearly everything: both mean the cutout says nothing
+	// useful about where to crop.
+	if ( x1 < 0 || on < w * h * 0.004 || on > w * h * 0.94 ) {
+		return null;
+	}
+	return {
+		x: ( x0 + x1 + 1 ) / 2 / w,
+		y: ( y0 + y1 + 1 ) / 2 / h,
+	};
+}
+
+/**
+ * Where the subject sits, from a depth map: 0 is far, 255 is near, and
+ * what is near is what the picture is about. The centroid of the nearest
+ * band is a better crop anchor than the middle of the frame, and it costs
+ * one pass over a small buffer.
+ *
+ * Everything below the threshold is ignored, so a busy background cannot
+ * drag the point back to the centre. A flat map (no depth at all, or a
+ * model that never ran) has no nearest band and returns null - the caller
+ * then keeps the middle.
+ *
+ * @param {Uint8Array|Array} depth One byte per pixel, row-major.
+ * @param {number}           w     Map width.
+ * @param {number}           h     Map height.
+ * @return {Object|null} { x, y } in 0..1, or null when there is no subject.
+ */
+export function focusFromDepth( depth, w, h ) {
+	if ( ! depth || ! w || ! h || depth.length < w * h ) {
+		return null;
+	}
+	let lo = 255;
+	let hi = 0;
+	for ( let i = 0; i < w * h; i++ ) {
+		const v = depth[ i ];
+		if ( v < lo ) {
+			lo = v;
+		}
+		if ( v > hi ) {
+			hi = v;
+		}
+	}
+	// A map with almost no range is a flat wall: there is no subject to
+	// find, and pretending otherwise would move the crop at random.
+	if ( hi - lo < 24 ) {
+		return null;
+	}
+	const cut = lo + ( hi - lo ) * 0.62;
+	let sum = 0;
+	let sx = 0;
+	let sy = 0;
+	for ( let y = 0; y < h; y++ ) {
+		for ( let x = 0; x < w; x++ ) {
+			const v = depth[ y * w + x ];
+			if ( v < cut ) {
+				continue;
+			}
+			// Weighted by how near it is, so the nose beats the shoulder.
+			const k = ( v - cut ) / ( hi - cut || 1 );
+			sum += k;
+			sx += k * ( x + 0.5 );
+			sy += k * ( y + 0.5 );
+		}
+	}
+	if ( sum <= 0 ) {
+		return null;
+	}
+	return { x: sx / sum / w, y: sy / sum / h };
+}
+
+/** A number in 0..1, or the fallback when it is not one. */
+function clamp01( v, fallback ) {
+	return 'number' === typeof v && isFinite( v )
+		? Math.min( 1, Math.max( 0, v ) )
+		: fallback;
+}
+
+/**
+ * Cover-fill one background unit so that the FOCUS point of the document
+ * lands in the middle of the target frame - and then slide back just far
+ * enough that no edge of the frame runs empty.
+ *
+ * Centre-cropping is what makes a reformat look careless: a portrait cut
+ * out of a landscape keeps the middle, which is usually the gap between
+ * the two things that mattered. With a focus the same cover-fill keeps
+ * the subject.
+ *
+ * @param {Object} b      Unit bounds in document units.
+ * @param {Object} doc    Source document { w, h }.
+ * @param {Object} target Target frame { w, h }.
+ * @param {number} s      Cover scale.
+ * @param {Object} focus  { x, y } in 0..1 of the document.
+ * @return {Object} { s, dx, dy }.
+ */
+export function coverAffine( b, doc, target, s, focus ) {
+	const f = {
+		x: clamp01( focus && focus.x, 0.5 ),
+		y: clamp01( focus && focus.y, 0.5 ),
+	};
+	const axis = ( x0, x1, docSize, targetSize, fr ) => {
+		// Put the focus in the middle of the frame ...
+		let d = targetSize / 2 - docSize * fr * s;
+		// ... then pull it back inside: the unit must still cover the
+		// frame on both sides, which is what stops a bright edge of
+		// nothing appearing at the top or the left.
+		const lo = targetSize - x1 * s;
+		const hi = -x0 * s;
+		if ( lo <= hi ) {
+			d = Math.min( hi, Math.max( lo, d ) );
+		} else {
+			// The unit is smaller than the frame on this axis: centre it,
+			// there is nothing to choose.
+			d = ( targetSize - ( x1 - x0 ) * s ) / 2 - x0 * s;
+		}
+		return d;
+	};
+	return {
+		s,
+		dx: axis( b.x0, b.x1, doc.w, target.w, f.x ),
+		dy: axis( b.y0, b.y1, doc.h, target.h, f.y ),
+	};
+}
+
+/**
  * One axis of the anchor mapping: preserve the smaller edge margin
  * (scaled), else stay proportionally centered; clamp into the safe
  * band when the unit fits inside it.
@@ -210,6 +379,12 @@ export function transformLayers( layers, doc, target, opts = {} ) {
 		  }
 		: { top: 0, right: 0, bottom: 0, left: 0 };
 	const sCover = Math.max( target.w / doc.w, target.h / doc.h );
+	// The point that must survive the crop, in 0..1 of the document.
+	// Half/half is the old behaviour: the middle of the picture.
+	const focus = {
+		x: clamp01( opts.focus && opts.focus.x, 0.5 ),
+		y: clamp01( opts.focus && opts.focus.y, 0.5 ),
+	};
 	const sContent =
 		Math.min( target.w / doc.w, target.h / doc.h ) * contentScale;
 
@@ -225,13 +400,7 @@ export function transformLayers( layers, doc, target, opts = {} ) {
 				dy: ( target.h - doc.h * sContent ) / 2,
 			};
 		} else if ( isBackgroundUnit( unit, doc, i ) ) {
-			const cx = ( unit.bounds.x0 + unit.bounds.x1 ) / 2;
-			const cy = ( unit.bounds.y0 + unit.bounds.y1 ) / 2;
-			affine = {
-				s: sCover,
-				dx: target.w / 2 - cx * sCover,
-				dy: target.h / 2 - cy * sCover,
-			};
+			affine = coverAffine( unit.bounds, doc, target, sCover, focus );
 		} else {
 			const b = unit.bounds;
 			const nx = anchorAxis( {

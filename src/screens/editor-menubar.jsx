@@ -111,8 +111,9 @@ function buildMenus( editor, extras ) {
 			label: __( 'File', 'wunderpaint' ),
 			items: [
 				{
+					// No kbd: ⌘N belongs to the browser (new window) and no
+					// page can claim it, so the menu must not promise it.
 					label: __( 'New', 'wunderpaint' ),
-					kbd: '⌘N',
 					run: () => extras.openCreate(),
 				},
 				{
@@ -482,8 +483,8 @@ function buildMenus( editor, extras ) {
 			label: __( 'Layer', 'wunderpaint' ),
 			items: [
 				{
+					// No kbd: ⇧⌘N is the browser's private window (HILFE-06).
 					label: __( 'New Layer', 'wunderpaint' ),
-					kbd: '⇧⌘N',
 					run: () => Ops.newLayerOp( editor ),
 				},
 				{
@@ -1097,6 +1098,18 @@ function buildMenus( editor, extras ) {
 					label: __( 'Asset Generator', 'wunderpaint' ),
 					run: () => extras.openGenerate(),
 				},
+				{
+					// Moved out of Automation > Design (v1.430.1). The
+					// Automation menu says of itself that it holds what
+					// runs over MANY posts or images; this runs over
+					// nothing - a brief goes in, three finished designs
+					// come out. It belongs here, one rung up the same
+					// ladder as its neighbours: find something, generate
+					// a piece, generate a whole design. Its old submenu
+					// held this single entry and never got a second.
+					label: __( 'Design Generator', 'wunderpaint' ),
+					run: () => extras.openDesignAssistant(),
+				},
 				{ divider: true },
 				{
 					label: __( 'Manage Media Library', 'wunderpaint' ),
@@ -1196,17 +1209,6 @@ function buildMenus( editor, extras ) {
 						{
 							label: __( 'Metadata Assistant', 'wunderpaint' ),
 							run: () => extras.openAltText(),
-						},
-					],
-				},
-				{
-					// Assistants that generate whole designs; more to come.
-					label: __( 'Design', 'wunderpaint' ),
-					subId: 'design',
-					children: [
-						{
-							label: __( 'Design Generator', 'wunderpaint' ),
-							run: () => extras.openDesignAssistant(),
 						},
 					],
 				},
@@ -3265,6 +3267,11 @@ function ToolOptions( { extras, compact } ) {
 					<BlendModeSelect
 						value={ active.blend || 'normal' }
 						width={ 116 }
+						tiles={ {
+							doc: state.doc,
+							layers: state.layers,
+							activeId: active.id,
+						} }
 						onPreview={ ( b ) =>
 							dispatch( {
 								type: 'UPDATE_LAYERS',

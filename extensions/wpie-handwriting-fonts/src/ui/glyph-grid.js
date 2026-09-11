@@ -11,6 +11,33 @@
 import { GROUPS, isMark, labelOf, progress } from '../core/charset.js';
 import { contoursToPath, fitCanvas, themeColor, outlineOpts } from './paint.js';
 
+/**
+ * One icon per character group, plus one for the progress card. A group
+ * of characters is best named by a character: a line drawing of
+ * "punctuation" would be a riddle, a comma is not.
+ */
+const glyphIcon = ( ch, size = 15 ) =>
+	'<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+	'<text x="12" y="17" text-anchor="middle" font-size="' +
+	size +
+	'" font-weight="700" fill="currentColor" font-family="Georgia, \'Times New Roman\', serif">' +
+	ch +
+	'</text></svg>';
+
+const GROUP_ICONS = {
+	upper: glyphIcon( 'A' ),
+	lower: glyphIcon( 'a' ),
+	digits: glyphIcon( '1' ),
+	punct: glyphIcon( ',', 19 ),
+	marks: glyphIcon( '\u00c1' ),
+	letters2: glyphIcon( '\u00df' ),
+	punct2: glyphIcon( '@', 13 ),
+};
+
+const ICON_PROGRESS =
+	'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+	'<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.3l2.4 2.4l4.6-5"/></svg>';
+
 export class GlyphGrid {
 	/**
 	 * @param {HTMLElement} root Container.
@@ -20,6 +47,9 @@ export class GlyphGrid {
 		this.root = root;
 		this.project = opts.project;
 		this.cache = opts.cache;
+		// bridge.ui, so the overview can use the editor's own section
+		// card instead of drawing headings of its own.
+		this.ui = opts.ui || null;
 		this.t = opts.t || ( ( s ) => s );
 		this.onPick = opts.onPick || ( () => {} );
 		this.tiles = new Map();
@@ -27,33 +57,66 @@ export class GlyphGrid {
 		this.build();
 	}
 
+	/**
+	 * A section card, through bridge.ui when it is there and by hand
+	 * when it is not - the overview is also mounted in tests, where no
+	 * bridge exists.
+	 *
+	 * @param {string} icon  Inline SVG.
+	 * @param {string} title Section title.
+	 * @return {Object} `{ body, head }`.
+	 */
+	section( icon, title ) {
+		if ( this.ui && this.ui.section ) {
+			const body = this.ui.section( this.root, { icon, title } );
+			return { body, head: body.parentElement.firstChild };
+		}
+		const card = document.createElement( 'div' );
+		card.className = 'dsm-card';
+		const head = document.createElement( 'div' );
+		head.className = 'dsm-card-head';
+		head.innerHTML = icon + '<span></span>';
+		head.querySelector( 'span' ).textContent = title;
+		card.appendChild( head );
+		const body = document.createElement( 'div' );
+		body.className = 'dsm-card-body';
+		card.appendChild( body );
+		this.root.appendChild( card );
+		return { body, head };
+	}
+
 	build() {
 		const t = this.t;
 		this.root.innerHTML = '';
+
+		const prog = this.section( ICON_PROGRESS, t( 'Progress' ) );
 		this.bar = document.createElement( 'div' );
 		this.bar.className = 'wpiehw-progress';
 		this.barFill = document.createElement( 'i' );
 		this.bar.appendChild( this.barFill );
-		this.root.appendChild( this.bar );
+		prog.body.appendChild( this.bar );
 
 		this.count = document.createElement( 'div' );
-		this.count.className = 'wpiehw-count';
-		this.root.appendChild( this.count );
+		this.count.className = 'dsm-note wpiehw-count';
+		prog.body.appendChild( this.count );
 
 		for ( const group of GROUPS ) {
-			const head = document.createElement( 'div' );
-			head.className = 'wpiehw-group';
-			head.textContent = t( group.label );
+			const sec = this.section(
+				GROUP_ICONS[ group.id ] || GROUP_ICONS.upper,
+				t( group.label )
+			);
+			// "optional" belongs at the right edge of the head, which is
+			// what the kit's dsm-head-end is for.
 			if ( ! group.required ) {
 				const tag = document.createElement( 'span' );
+				tag.className = 'dsm-head-end wpiehw-optional';
 				tag.textContent = t( 'optional' );
-				head.appendChild( tag );
+				sec.head.appendChild( tag );
 			}
-			this.root.appendChild( head );
 
 			const grid = document.createElement( 'div' );
 			grid.className = isMark( group.items[ 0 ] ) ? 'wpiehw-tiles wide' : 'wpiehw-tiles';
-			this.root.appendChild( grid );
+			sec.body.appendChild( grid );
 
 			for ( const key of group.items ) {
 				grid.appendChild( this.makeTile( key ) );
@@ -65,7 +128,7 @@ export class GlyphGrid {
 	makeTile( key ) {
 		const btn = document.createElement( 'button' );
 		btn.type = 'button';
-		btn.className = 'wpiehw-tile';
+		btn.className = 'dsm-pick wpiehw-tile';
 		btn.title = labelOf( key );
 		const canvas = document.createElement( 'canvas' );
 		canvas.className = 'wpiehw-tilecv';

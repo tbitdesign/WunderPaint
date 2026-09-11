@@ -124,9 +124,6 @@ const ICONS = {
 		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18 4.5 4.5 0 0 1 0-9 4.5 4.5 0 0 0 0-9z" fill="currentColor" fill-opacity=".28" stroke="none"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="16.5" r="1.3"/></svg>',
 };
 
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
-
 /** Directory URL of this extension's bundle for the moon texture. */
 function assetUrl( file ) {
 	try {
@@ -208,11 +205,14 @@ async function openStudio( { editor, extras, layer } ) {
 	try {
 		store = ( await bridge.storage.get( SLUG ) ) || {};
 	} catch ( e ) {}
-	const storeSave = () => {
-		try {
-			bridge.storage.set( SLUG, store );
-		} catch ( e ) {}
-	};
+	// A promise: the old try/catch caught nothing, a failed write vanished
+	// (BRIDGE-03, EXTFEHLER-09).
+	const storeSave = () =>
+		bridge.storage.set( SLUG, store ).catch( () => {
+			if ( extras && extras.toasts ) {
+				extras.toasts.error( t( 'Could not save your settings.' ) );
+			}
+		} );
 
 	const editing = !! (
 		layer &&
@@ -251,13 +251,11 @@ async function openStudio( { editor, extras, layer } ) {
 			: t(
 					'Computed birth charts, moon phases and zodiac art, as editable layers.'
 			  ),
-		width: 1180,
+		width: 1280,
 		onClose: unmountAll,
 	} );
-	const badge = document.createElement( 'span' );
-	badge.className = 'dsm-badge';
-	badge.innerHTML = ICON_BRAND;
-	modal.head.insertBefore( badge, modal.head.firstChild );
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( modal );
 	modal.dialog.classList.add( 'wpiemys-dialog' );
 
 	const body = ui.el( 'div', 'wpiemys-body', modal.body );
@@ -269,7 +267,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const side = ui.el( 'div', 'wpiemys-side', body );
 
 	/* Show document (per studio CI). */
-	const docBtn = ui.el( 'button', 'wpiemys-doc', view );
+	const docBtn = ui.el( 'button', 'dsm-viewbtn wpiemys-doc', view );
 	docBtn.type = 'button';
 	docBtn.innerHTML = ICONS.eye + ' ' + t( 'Show document' );
 	docBtn.setAttribute( 'aria-pressed', 'false' );
@@ -365,14 +363,14 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const jdOf = ( utcMs ) => utcMs / 86400000 + 2440587.5;
 
-	const chartData = () => {
+	const chartData = ( card = params.card ) => {
 		const moment = resolveMoment();
 		const jd = jdOf( moment.utcMs );
 		const withHouses =
 			params.showHouses &&
 			params.timeKnown &&
 			null !== params.lat &&
-			( 'birthchart' === params.card || 'synastry' === params.card );
+			( 'birthchart' === card || 'synastry' === card );
 		const chart = computeChart( {
 			jd,
 			lat: null === params.lat ? NaN : params.lat,
@@ -534,10 +532,9 @@ async function openStudio( { editor, extras, layer } ) {
 		statusLine.textContent = bits.join( ' · ' );
 	};
 
-	/** Draw the current card at any size; used by preview and bake. */
-	const renderCard = ( ctx, size ) => {
+	/** One renderer for the main preview, picker thumbnails and export. */
+	const renderCard = ( ctx, size, card = params.card ) => {
 		const theme = themeByKey( params.theme );
-		const card = params.card;
 		if ( 'chinesezodiac' === card ) {
 			drawChineseCard( ctx, size, chineseSign( params.dateStr ), {
 				theme,
@@ -550,7 +547,7 @@ async function openStudio( { editor, extras, layer } ) {
 			'zodiac' === card ||
 			'synastry' === card
 		) {
-			const { chart, moment } = chartData();
+			const { chart, moment } = chartData( card );
 			if ( 'synastry' === card ) {
 				const other = chartB();
 				drawSynastry( ctx, size, chart, other, {
@@ -650,6 +647,12 @@ async function openStudio( { editor, extras, layer } ) {
 		ctx.clearRect( 0, 0, canvas.width, canvas.height );
 		const { chart, moment } = renderCard( ctx, canvas.width );
 		renderStatus( moment || null, chart || null );
+		// Render each card without changing the selected card or its settings.
+		for ( const [ key, thumb ] of cardThumbs ) {
+			const thumbCtx = thumb.getContext( '2d' );
+			thumbCtx.clearRect( 0, 0, thumb.width, thumb.height );
+			renderCard( thumbCtx, thumb.width, key );
+		}
 	}
 
 	/* ------------------------------ left rail ----------------------------- */
@@ -690,28 +693,34 @@ async function openStudio( { editor, extras, layer } ) {
 		icon: ICONS.cards,
 		title: t( 'Cards' ),
 	} );
+	const cardGrid = ui.picks( cardsSec, { cell: 110 } );
 	const cardBtns = {};
+	const cardThumbs = new Map();
 	for ( const c of CARDS ) {
-		const b = ui.el( 'button', 'wpiemys-card', cardsSec );
-		b.type = 'button';
-		b.innerHTML = c.icon + '<span></span>';
-		b.querySelector( 'span' ).textContent = c.label;
-		b.setAttribute(
-			'aria-pressed',
-			params.card === c.key ? 'true' : 'false'
-		);
-		b.onclick = () => {
-			params.card = c.key;
-			for ( const k in cardBtns ) {
-				cardBtns[ k ].setAttribute(
-					'aria-pressed',
-					k === c.key ? 'true' : 'false'
-				);
-			}
-			rebuildSide();
-			paint();
-		};
-		cardBtns[ c.key ] = b;
+		const thumb = document.createElement( 'canvas' );
+		thumb.width = 220;
+		thumb.height = 220;
+		thumb.setAttribute( 'aria-hidden', 'true' );
+		const { node } = ui.pick( cardGrid, {
+			label: c.label,
+			thumb,
+			cls: 'wpiemys-card',
+			on: params.card === c.key,
+			onClick: () => {
+				params.card = c.key;
+				for ( const k in cardBtns ) {
+					cardBtns[ k ].setAttribute(
+						'aria-pressed',
+						k === c.key ? 'true' : 'false'
+					);
+				}
+				rebuildSide();
+				paint();
+			},
+		} );
+		node.dataset.card = c.key;
+		cardBtns[ c.key ] = node;
+		cardThumbs.set( c.key, thumb );
 	}
 
 	/* ------------------------------ side rail ----------------------------- */
@@ -735,12 +744,7 @@ async function openStudio( { editor, extras, layer } ) {
 			nameIn.value = params.name || '';
 			nameIn.oninput = () => {
 				params.name = nameIn.value;
-				if (
-					'namechart' === params.card ||
-					'couplenumbers' === params.card
-				) {
-					paint();
-				}
+				paint();
 			};
 			if ( ! NO_DATE.includes( params.card ) ) {
 				const dateIn = ui.el(
@@ -816,9 +820,7 @@ async function openStudio( { editor, extras, layer } ) {
 			name2In.value = params.name2 || '';
 			name2In.oninput = () => {
 				params.name2 = name2In.value;
-				if ( 'couplenumbers' === params.card ) {
-					paint();
-				}
+				paint();
 			};
 			const date2In = ui.el(
 				'input',
@@ -857,9 +859,9 @@ async function openStudio( { editor, extras, layer } ) {
 				title: t( 'Location' ),
 			} );
 			const searchWrap = ui.el( 'div', 'wpiemys-search', loc );
-			const searchIn = ui.el( 'input', 'dsm-input', searchWrap );
-			searchIn.type = 'text';
-			searchIn.placeholder = t( 'Search for a city' );
+			const searchIn = ui.search( searchWrap, {
+				placeholder: t( 'Search for a city' ),
+			} ).input;
 			searchIn.value = ( params.place && params.place.name ) || '';
 			const hits = ui.el( 'div', 'wpiemys-hits', searchWrap );
 			let searchSeq = 0;
@@ -879,14 +881,18 @@ async function openStudio( { editor, extras, layer } ) {
 					if ( ! results || ! results.length ) {
 						ui.el(
 							'div',
-							'wpiemys-hit is-empty',
+							'dsm-listrow wpiemys-hit is-empty',
 							hits,
 							t( 'No results.' )
 						);
 						return;
 					}
 					for ( const r of results ) {
-						const item = ui.el( 'button', 'wpiemys-hit', hits );
+						const item = ui.el(
+							'button',
+							'dsm-listrow wpiemys-hit',
+							hits
+						);
 						item.type = 'button';
 						item.textContent =
 							r.name + ( r.region ? ', ' + r.region : '' );
@@ -909,9 +915,18 @@ async function openStudio( { editor, extras, layer } ) {
 						};
 					}
 				} catch ( e ) {
-					if ( seq === searchSeq ) {
-						hits.textContent = '';
+					if ( seq !== searchSeq ) {
+						return;
 					}
+					// Say that the search failed: an empty list used to show
+					// LESS than a search with no hits (EXTFEHLER-05).
+					hits.textContent = '';
+					ui.el(
+						'div',
+						'dsm-listrow wpiemys-hit is-empty',
+						hits,
+						t( 'The search failed. Try again.' )
+					);
 				}
 			};
 			let debounce = 0;

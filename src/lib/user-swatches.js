@@ -4,17 +4,13 @@
  * per browser. Storage failures (private mode, quota) degrade silently.
  */
 
+import { siteStorage } from './local-storage';
 const RECENT_KEY = 'wpie-recent-colors';
 const CUSTOM_KEY = 'wpie-custom-swatches';
 export const RECENT_CAP = 18;
 export const CUSTOM_CAP = 20;
 
-let storage = null;
-try {
-	storage = window.localStorage;
-} catch ( e ) {
-	storage = null;
-}
+let storage = siteStorage;
 
 /** Test hook: swap the backing store (pass a Map-like {getItem,setItem}). */
 export const __setStorage = ( s ) => {

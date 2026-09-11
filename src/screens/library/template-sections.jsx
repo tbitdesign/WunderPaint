@@ -497,7 +497,7 @@ export function StartersSection( { editor, extras, onClose } ) {
 			<div className="library-toolbar">
 				<input
 					type="search"
-					placeholder={ __( 'Search templates…', 'wunderpaint' ) }
+					placeholder={ __( 'Search templates', 'wunderpaint' ) }
 					value={ query }
 					onChange={ ( e ) => setQuery( e.target.value ) }
 					aria-label={ __( 'Search templates', 'wunderpaint' ) }

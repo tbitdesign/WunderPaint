@@ -244,6 +244,7 @@ export function GenerateDialog( {
 				style={ { width: 600 } }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Asset Generator', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

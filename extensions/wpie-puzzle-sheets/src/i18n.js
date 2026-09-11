@@ -13,6 +13,18 @@ const LOCALE = (
 ).toLowerCase();
 
 const DE = {
+	'Binary puzzle': 'Binärrätsel',
+	'Inequality puzzle': 'Ungleichungsrätsel',
+	'Math chains': 'Rechenketten',
+	Steps: 'Schritte',
+	'Printable puzzles and games with solution sheets.':
+		'Druckbare Rätsel und Spiele mit Lösungsblättern.',
+	'Fill each row and column with equal numbers of 0s and 1s. No three identical neighbors. Every row and every column must be different.':
+		'Fülle jede Zeile und Spalte mit gleich vielen Nullen und Einsen. Nie drei gleiche Zahlen nebeneinander. Jede Zeile und jede Spalte muss sich von den anderen unterscheiden.',
+	'Use each number from 1 to the grid size once in every row and column. The narrow tip of each sign points to the smaller number.':
+		'Trage jede Zahl von 1 bis zur Gittergröße genau einmal pro Zeile und Spalte ein. Die schmale Spitze jedes Zeichens zeigt auf die kleinere Zahl.',
+	'Start with the given number. Follow the arrows from left to right and write each result in the next box.':
+		'Beginne mit der vorgegebenen Zahl. Folge den Pfeilen von links nach rechts und schreibe jedes Ergebnis ins nächste Kästchen.',
 	'Six printable puzzle types - with solution sheets.':
 		'Sechs druckbare Rätselarten - mit Lösungsblättern.',
 	Close: 'Schließen',
@@ -116,6 +128,18 @@ const DE = {
 };
 
 const ES = {
+	'Binary puzzle': 'Pasatiempo binario',
+	'Inequality puzzle': 'Pasatiempo de desigualdades',
+	'Math chains': 'Cadenas de cálculo',
+	Steps: 'Pasos',
+	'Printable puzzles and games with solution sheets.':
+		'Pasatiempos y juegos imprimibles con hojas de solución.',
+	'Fill each row and column with equal numbers of 0s and 1s. No three identical neighbors. Every row and every column must be different.':
+		'Completa cada fila y columna con la misma cantidad de ceros y unos. Nunca tres cifras iguales seguidas. Todas las filas y todas las columnas deben ser diferentes.',
+	'Use each number from 1 to the grid size once in every row and column. The narrow tip of each sign points to the smaller number.':
+		'Usa cada número del 1 al tamaño de la cuadrícula una vez por fila y columna. La punta estrecha de cada signo señala el número menor.',
+	'Start with the given number. Follow the arrows from left to right and write each result in the next box.':
+		'Empieza con el número dado. Sigue las flechas de izquierda a derecha y escribe cada resultado en la casilla siguiente.',
 	'Six printable puzzle types - with solution sheets.':
 		'Seis tipos de pasatiempos imprimibles, con hojas de solución.',
 	Close: 'Cerrar',
@@ -219,6 +243,18 @@ const ES = {
 };
 
 const FR = {
+	'Binary puzzle': 'Grille binaire',
+	'Inequality puzzle': 'Grille d’inégalités',
+	'Math chains': 'Chaînes de calcul',
+	Steps: 'Étapes',
+	'Printable puzzles and games with solution sheets.':
+		'Jeux et énigmes à imprimer avec leurs solutions.',
+	'Fill each row and column with equal numbers of 0s and 1s. No three identical neighbors. Every row and every column must be different.':
+		'Remplissez chaque ligne et colonne avec autant de 0 que de 1. Jamais trois chiffres identiques à la suite. Toutes les lignes et toutes les colonnes doivent être différentes.',
+	'Use each number from 1 to the grid size once in every row and column. The narrow tip of each sign points to the smaller number.':
+		'Utilisez chaque nombre de 1 à la taille de la grille une fois par ligne et colonne. La pointe de chaque signe indique le plus petit nombre.',
+	'Start with the given number. Follow the arrows from left to right and write each result in the next box.':
+		'Partez du nombre donné. Suivez les flèches de gauche à droite et écrivez chaque résultat dans la case suivante.',
 	'Six printable puzzle types - with solution sheets.':
 		'Six types de jeux imprimables, avec feuilles de solution.',
 	Close: 'Fermer',
@@ -322,6 +358,18 @@ const FR = {
 };
 
 const PT = {
+	'Binary puzzle': 'Quebra-cabeça binário',
+	'Inequality puzzle': 'Quebra-cabeça de desigualdades',
+	'Math chains': 'Cadeias de cálculo',
+	Steps: 'Etapas',
+	'Printable puzzles and games with solution sheets.':
+		'Passatempos e jogos para imprimir com folhas de soluções.',
+	'Fill each row and column with equal numbers of 0s and 1s. No three identical neighbors. Every row and every column must be different.':
+		'Preencha cada linha e coluna com a mesma quantidade de zeros e uns. Nunca três números iguais seguidos. Todas as linhas e todas as colunas devem ser diferentes.',
+	'Use each number from 1 to the grid size once in every row and column. The narrow tip of each sign points to the smaller number.':
+		'Use cada número de 1 ao tamanho da grade uma vez por linha e coluna. A ponta estreita de cada sinal aponta para o número menor.',
+	'Start with the given number. Follow the arrows from left to right and write each result in the next box.':
+		'Comece com o número indicado. Siga as setas da esquerda para a direita e escreva cada resultado na próxima caixa.',
 	'Six printable puzzle types - with solution sheets.':
 		'Seis tipos de passatempos imprimíveis, com folhas de solução.',
 	Close: 'Fechar',
@@ -426,6 +474,18 @@ const PT = {
 };
 
 const IT = {
+	'Binary puzzle': 'Rompicapo binario',
+	'Inequality puzzle': 'Rompicapo di disuguaglianze',
+	'Math chains': 'Catene di calcolo',
+	Steps: 'Passaggi',
+	'Printable puzzles and games with solution sheets.':
+		'Rompicapi e giochi da stampare con le soluzioni.',
+	'Fill each row and column with equal numbers of 0s and 1s. No three identical neighbors. Every row and every column must be different.':
+		'Completa ogni riga e colonna con lo stesso numero di zeri e uni. Mai tre cifre uguali consecutive. Tutte le righe e tutte le colonne devono essere diverse.',
+	'Use each number from 1 to the grid size once in every row and column. The narrow tip of each sign points to the smaller number.':
+		'Usa ogni numero da 1 alla dimensione della griglia una volta per riga e colonna. La punta stretta di ogni segno indica il numero minore.',
+	'Start with the given number. Follow the arrows from left to right and write each result in the next box.':
+		'Parti dal numero indicato. Segui le frecce da sinistra a destra e scrivi ogni risultato nella casella successiva.',
 	'Six printable puzzle types - with solution sheets.':
 		'Sei tipi di giochi stampabili, con schede soluzione.',
 	Close: 'Chiudi',
@@ -530,6 +590,18 @@ const IT = {
 };
 
 const NL = {
+	'Binary puzzle': 'Binaire puzzel',
+	'Inequality puzzle': 'Ongelijkheidspuzzel',
+	'Math chains': 'Rekenkettingen',
+	Steps: 'Stappen',
+	'Printable puzzles and games with solution sheets.':
+		'Afdrukbare puzzels en spellen met oplossingsbladen.',
+	'Fill each row and column with equal numbers of 0s and 1s. No three identical neighbors. Every row and every column must be different.':
+		'Vul elke rij en kolom met evenveel nullen en enen. Nooit drie gelijke cijfers achter elkaar. Alle rijen en alle kolommen moeten verschillend zijn.',
+	'Use each number from 1 to the grid size once in every row and column. The narrow tip of each sign points to the smaller number.':
+		'Gebruik elk getal van 1 tot de rastergrootte eenmaal per rij en kolom. De smalle punt van elk teken wijst naar het kleinere getal.',
+	'Start with the given number. Follow the arrows from left to right and write each result in the next box.':
+		'Begin met het gegeven getal. Volg de pijlen van links naar rechts en schrijf elk resultaat in het volgende vakje.',
 	'Six printable puzzle types - with solution sheets.':
 		'Zes afdrukbare puzzelsoorten - met oplossingsvellen.',
 	Close: 'Sluiten',

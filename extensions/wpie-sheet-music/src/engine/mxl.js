@@ -32,6 +32,9 @@ export function readCentralDirectory( u8 ) {
 		throw new Error( 'Not a readable archive.' );
 	}
 	const count = dv.getUint16( end + 10, true );
+	if ( count > MAX_ENTRIES ) {
+		throw new Error( TOO_BIG );
+	}
 	let p = dv.getUint32( end + 16, true );
 	const entries = new Map();
 	const dec = new TextDecoder();
@@ -53,7 +56,45 @@ export function readCentralDirectory( u8 ) {
 	return entries;
 }
 
+/**
+ * Most a MusicXML file may unpack to. A real score is a few hundred KB; a
+ * 300 KB archive of deflated zeros unpacks to gigabytes and used to take
+ * the tab with it, because nothing here ever counted (EXTSEC-01,
+ * 10.09.2026). Read in chunks and stop at the cap.
+ */
+const MAX_UNPACKED = 24 * 1024 * 1024;
+const MAX_ENTRIES = 256;
+export const TOO_BIG = 'The archive is too large to read.';
+
+async function readCapped( stream, cap ) {
+	const reader = stream.getReader();
+	const chunks = [];
+	let total = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if ( done ) {
+			break;
+		}
+		total += value.byteLength;
+		if ( total > cap ) {
+			reader.cancel();
+			throw new Error( TOO_BIG );
+		}
+		chunks.push( value );
+	}
+	const out = new Uint8Array( total );
+	let at = 0;
+	for ( const c of chunks ) {
+		out.set( c, at );
+		at += c.byteLength;
+	}
+	return new TextDecoder().decode( out );
+}
+
 async function inflateEntry( u8, e ) {
+	if ( e.size > MAX_UNPACKED || e.compSize > MAX_UNPACKED ) {
+		throw new Error( TOO_BIG );
+	}
 	const dv = new DataView( u8.buffer, u8.byteOffset, u8.byteLength );
 	if ( dv.getUint32( e.offset, true ) !== SIG_LOCAL ) {
 		throw new Error( 'Not a readable archive.' );
@@ -73,7 +114,7 @@ async function inflateEntry( u8, e ) {
 	const stream = new Blob( [ data ] )
 		.stream()
 		.pipeThrough( new DecompressionStream( 'deflate-raw' ) );
-	return new Response( stream ).text();
+	return readCapped( stream, MAX_UNPACKED );
 }
 
 /** ArrayBuffer or Uint8Array in, the MusicXML text out. */

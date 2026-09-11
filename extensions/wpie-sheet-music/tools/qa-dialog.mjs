@@ -48,9 +48,10 @@ try {
 	await page.waitForTimeout( 400 );
 	check( 1 === ( await page.locator( '.wpiesm-body' ).count() ), 'dialog mounts' );
 	check( await page.evaluate( () => !! document.querySelector( '.dsm-badge svg path[fill="#3b66ff"]' ) ), 'header shows the brand mark' );
-	check( 7 === ( await page.locator( '.wpiesm-tile' ).count() ), 'seven card tiles' );
-	const tile = await page.locator( '.wpiesm-tile' ).first().boundingBox();
-	check( !! tile && Math.abs( tile.width - 62 ) < 1 && Math.abs( tile.height - 62 ) < 1, 'tiles are 62 px, measured (' + ( tile && tile.width.toFixed( 1 ) ) + ')' );
+	check( 7 === ( await page.locator( '.wpiesm-card' ).count() ), 'seven sheet-type cards' );
+	const tile = await page.locator( '.wpiesm-card' ).first().boundingBox();
+	check( !! tile && tile.width > 200 && ( await page.locator( '.wpiesm-card small' ).count() ) === 7, 'cards fill the column and carry their hint (' + ( tile && tile.width.toFixed( 1 ) ) + ')' );
+	check( 1 === ( await page.locator( '.wpiesm-left .dsm-card-head' ).first().count() ), 'the sheet types sit in a section' );
 	// The dialog keeps ONE size while the cards change (Thomas 04.09.:
 	// every tile click made the modal taller or shorter).
 	const dialogHeight = async () => ( await page.locator( '.wpiesm-dialog' ).boundingBox() ).height;
@@ -64,7 +65,7 @@ try {
 
 	// Chord sheet.
 	let before = await frames();
-	await page.locator( '.wpiesm-tile[data-card="leadsheet"]' ).click();
+	await page.locator( '.wpiesm-card[data-card="leadsheet"]' ).click();
 	st = await settled( before );
 	heights.leadsheet = await dialogHeight();
 	check( 'leadsheet' === st.card && /\{title/.test( st.params.chordpro ), 'the Chord Sheet tile loads its first starter' );
@@ -76,7 +77,7 @@ try {
 
 	// Diagrams.
 	before = await frames();
-	await page.locator( '.wpiesm-tile[data-card="diagrams"]' ).click();
+	await page.locator( '.wpiesm-card[data-card="diagrams"]' ).click();
 	st = await settled( before );
 	heights.diagrams = await dialogHeight();
 	check( 'diagrams' === st.card && ( st.last.svg.match( /<circle/g ) || [] ).length >= 12, 'chord diagrams render' );
@@ -91,7 +92,7 @@ try {
 
 	// Fretboard.
 	before = await frames();
-	await page.locator( '.wpiesm-tile[data-card="fretboard"]' ).click();
+	await page.locator( '.wpiesm-card[data-card="fretboard"]' ).click();
 	st = await settled( before );
 	check( 'fretboard' === st.card && ( st.last.svg.match( /<circle/g ) || [] ).length >= 10 && /pentaton/i.test( st.last.svg ), 'the fretboard map renders (' + ( st.last.svg.match( /<circle/g ) || [] ).length + ' circles) ' + st.status );
 
@@ -99,12 +100,12 @@ try {
 
 	// 0.2: manuscript paper, note cards, scale sheets.
 	before = await frames();
-	await page.locator( '.wpiesm-tile[data-card="paper"]' ).click();
+	await page.locator( '.wpiesm-card[data-card="paper"]' ).click();
 	st = await settled( before );
 	check( 'paper' === st.card && 'paper-treble' === st.starter && 0 === st.last.warnings.length && st.last.height > 1500, 'manuscript paper renders ten staves on a page (' + st.status + ')' );
 	heights.paper = await dialogHeight();
 	before = await frames();
-	await page.locator( '.wpiesm-tile[data-card="flash"]' ).click();
+	await page.locator( '.wpiesm-card[data-card="flash"]' ).click();
 	st = await settled( before );
 	check( 'flash' === st.card && 0 === st.last.warnings.length && ( st.last.svg.match( /stroke-dasharray/g ) || [] ).length >= 9, 'nine note cards with cut lines (' + st.status + ')' );
 	before = await frames();
@@ -113,7 +114,7 @@ try {
 	check( 'back' === st.params.flash.side && st.last.svg.includes( '>H<' ) && ! st.last.svg.includes( '>B<' ), 'the backs say H for B in German' );
 	heights.flash = await dialogHeight();
 	before = await frames();
-	await page.locator( '.wpiesm-tile[data-card="scales"]' ).click();
+	await page.locator( '.wpiesm-card[data-card="scales"]' ).click();
 	st = await settled( before );
 	check( 'scales' === st.card && 0 === st.last.warnings.length && st.last.svg.includes( '>1<' ) && st.last.svg.includes( '>5<' ), 'the C major scale carries its fingering (' + st.status + ')' );
 	before = await frames();

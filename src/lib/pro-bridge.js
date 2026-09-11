@@ -107,10 +107,29 @@ import {
 	select as uiSelect,
 	check as uiCheck,
 	btn as uiBtn,
+	badge as uiBadge,
+	BRAND_MARK as uiBrandMark,
+	search as uiSearch,
+	SEARCH_ICON as uiSearchIcon,
+	pressed as uiPressed,
+	pills as uiPills,
+	pill as uiPill,
+	optGrid as uiOptGrid,
+	optBtn as uiOptBtn,
+	picks as uiPicks,
+	pick as uiPick,
+	picklist as uiPicklist,
+	pickrow as uiPickrow,
+	mini as uiMini,
+	add as uiAdd,
+	note as uiNote,
+	textarea as uiTextarea,
+	transport as uiTransport,
 } from './ext-ui';
 import { createElement, createRoot } from '@wordpress/element';
 import { HelpLink } from '../screens/help-dialog';
 import { SwatchButton } from '../components/color-popover';
+import { mountColorWheel } from './mount-color-wheel';
 import { VarButton } from '../components/var-picker';
 import { StyleButton } from '../components/style-picker';
 import { FontPicker } from '../components/font-picker';
@@ -240,6 +259,28 @@ export const proBridge = Object.freeze( {
 		select: uiSelect,
 		check: uiCheck,
 		btn: uiBtn,
+		// The CI components (v1.430.0 / API 2.23, additive): the pieces
+		// every studio needs and each package used to draw itself.
+		// docs/extension-ci.md.
+		badge: uiBadge,
+		brandMark: uiBrandMark,
+		search: uiSearch,
+		searchIcon: uiSearchIcon,
+		pressed: uiPressed,
+		pills: uiPills,
+		pill: uiPill,
+		// 2.24: the option grid (more than three choices).
+		opts: uiOptGrid,
+		opt: uiOptBtn,
+		picks: uiPicks,
+		pick: uiPick,
+		picklist: uiPicklist,
+		pickrow: uiPickrow,
+		mini: uiMini,
+		add: uiAdd,
+		note: uiNote,
+		textarea: uiTextarea,
+		transport: uiTransport,
 	},
 	// storage (v1.273 / API 2.10, additive): per-user, per-extension JSON
 	// store (<= 32 KB per namespace; use the extension slug as ns) - the
@@ -441,6 +482,8 @@ export const proBridge = Object.freeze( {
 			render( color );
 			return { set: render, unmount: () => root.unmount() };
 		},
+		// Additive, feature-detected inline counterpart to mountColorButton.
+		mountColorWheel,
 		// mountGradientBar (API 2.19, additive): the editor's OWN multi-stop
 		// gradient bar in a plain DOM node - click the bar to add a stop,
 		// drag to move one, double-click to recolour, right-click to drop

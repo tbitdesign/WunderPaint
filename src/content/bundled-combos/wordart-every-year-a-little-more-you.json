@@ -1,0 +1,114 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-every-year-a-little-more-you",
+	"label": "Every year a little more you",
+	"category": "wordart",
+	"w": 742,
+	"h": 640,
+	"layers": [
+		{
+			"id": "waf-every-year-a-little-more-you-0",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 35,
+			"y": 37,
+			"w": 672,
+			"h": 566,
+			"rot": -2,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "transparent",
+			"stroke": "#629eab",
+			"strokeW": 3,
+			"strokeDash": "dashed",
+			"strokeDashLen": 11,
+			"strokeDashGap": 7,
+			"radius": 22,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-every-year-a-little-more-you-1",
+			"type": "text",
+			"name": "Every year a little more you",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 98,
+			"y": 104,
+			"w": 546,
+			"h": 411,
+			"rot": -2,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "Every year\na little more\nyou",
+			"fontSize": 100,
+			"fontFamily": "Shrikhand",
+			"weight": 400,
+			"color": "#a979b5",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Every year\n",
+					"s": {
+						"color": "#a979b5"
+					}
+				},
+				{
+					"text": "a little more\n",
+					"s": {
+						"color": "#629eab"
+					}
+				},
+				{
+					"text": "you",
+					"s": {
+						"color": "#df9c71"
+					}
+				}
+			],
+			"textFX": {
+				"hatchShadow": {
+					"offset": 5,
+					"angle": 40,
+					"gap": 4,
+					"color": "#594467"
+				}
+			}
+		}
+	]
+}

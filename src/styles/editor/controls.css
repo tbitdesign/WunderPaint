@@ -614,3 +614,37 @@
 	border-color: var(--accent);
 	box-shadow: inset 0 0 0 1px var(--accent);
 }
+
+/* ---- Search field with the glass inside it ---------------------------- */
+
+/*
+ * The shape the extension studios use (.dsm-search in ext-kit.css): the
+ * magnifier sits INSIDE the field at the left, and the placeholder is a
+ * label, not a sentence - so it carries no trailing ellipsis.
+ *
+ * The wrapper only positions; the input keeps whatever size its own
+ * surface gives it (the tray field is 22px, the layers filter is a normal
+ * control), so this can be put on an existing field without resizing it.
+ */
+#wpie-root .ed-search {
+	position: relative;
+	display: flex;
+	flex: 1;
+	align-items: center;
+	min-width: 0;
+}
+
+#wpie-root .ed-search > svg {
+	position: absolute;
+	left: 8px;
+	width: 14px;
+	height: 14px;
+	color: var(--text-muted);
+	pointer-events: none;
+}
+
+#wpie-root .ed-search > input {
+	width: 100%;
+	min-width: 0;
+	padding-left: 27px;
+}

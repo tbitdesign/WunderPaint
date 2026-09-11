@@ -13,6 +13,7 @@ import { drawPlan, ARCHETYPES } from './composition.js';
 import { roles, pickPalette, shade, mix } from './palette2d.js';
 import { drawSignature, refreshSignature } from './signature.js';
 import { planFromMotif, paletteFromMotif, adaptPalette } from './motif.js';
+import { ensembleSchools } from './ensemble.js';
 
 // A school's `span` is its idea of one sitting in world seconds; the
 // engine runs the world about five times faster than the wall clock
@@ -68,6 +69,7 @@ export class FlatWorld {
 		motif = null,
 		pigment = null,
 		mixed = false,
+		ensemble = [],
 	} ) {
 		this.rng = rng;
 		// An ensemble on the sheet: every painter speaks another school;
@@ -123,6 +125,7 @@ export class FlatWorld {
 		const sig = this.signature;
 		this.voice = school;
 		this.shifted = false;
+		this.setEnsemble( ensemble );
 		// Sittings: the piece works, rests, and comes back to it - it is
 		// never simply done; the visitor decides when it is.
 		this.sitting = 1;
@@ -298,6 +301,30 @@ export class FlatWorld {
 		}
 		const i = s.index( p[ 0 ], p[ 1 ] );
 		return [ s.rgb[ i * 3 ], s.rgb[ i * 3 + 1 ], s.rgb[ i * 3 + 2 ] ];
+	}
+
+	/** Guests and changes of voice stay inside a visitor's chosen ensemble. */
+	setEnsemble( ids ) {
+		this.ensembleSchools = ensembleSchools( ids );
+		this.limitVoices();
+	}
+
+	limitVoices() {
+		const pool = this.ensembleSchools || [];
+		if ( ! pool.length ) {
+			return;
+		}
+		if ( ! pool.some( ( s ) => s.id === this.voice.id ) ) {
+			this.voice = pool[ 0 ];
+		}
+		const others = pool.filter( ( s ) => s.id !== this.voice.id );
+		for ( const key of [ 'guest', 'shift' ] ) {
+			const voice = this.signature[ key ];
+			if ( voice && ! pool.some( ( s ) => s.id === voice.id ) ) {
+				this.signature[ key ] =
+					others[ Math.floor( this.rng() * others.length ) ] || null;
+			}
+		}
 	}
 
 	setColors( hexes ) {
@@ -652,6 +679,7 @@ export class FlatWorld {
 					)
 				);
 				refreshSignature( this.signature, this.rng, this.school );
+				this.limitVoices();
 				this.chronicle.push( {
 					e: 'sitting',
 					t: this.time,

@@ -13,6 +13,7 @@
  * the exact same behaviour, and tag writing is unified through ensureTagIds.
  */
 
+import { siteStorage } from '../lib/local-storage';
 import { useState, useRef, useEffect } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -40,7 +41,7 @@ const AFFIX_KEYS = [ 'title', 'alt', 'caption', 'description' ];
 
 const readLS = ( key, fallback ) => {
 	try {
-		const v = JSON.parse( window.localStorage.getItem( key ) );
+		const v = JSON.parse( siteStorage.getItem( key ) );
 		return v ?? fallback;
 	} catch ( e ) {
 		return fallback;
@@ -147,6 +148,11 @@ export function AltTextDialog( {
 	const [ runTotal, setRunTotal ] = useState( 0 ); // images in the current run
 	const [ editId, setEditId ] = useState( null );
 	const cancelled = useRef( false );
+	// Which run is the live one. Save resets `cancelled` for its own loop,
+	// and a generate loop still awaiting a caption used to read that reset
+	// as "carry on" - the cancelled run came back to life and wrote results
+	// over the review. Every loop checks its own number as well.
+	const runId = useRef( 0 );
 	const affixRefs = useRef( {} );
 	const lastClicked = useRef( null );
 	// The single reliable escape hatch: stop any in-flight batch AND unlock
@@ -174,7 +180,7 @@ export function AltTextDialog( {
 
 	useEffect( () => {
 		try {
-			window.localStorage.setItem(
+			siteStorage.setItem(
 				'wpie-alt-affixes',
 				JSON.stringify( affixes )
 			);
@@ -225,7 +231,7 @@ export function AltTextDialog( {
 		];
 		setPresets( next );
 		try {
-			window.localStorage.setItem(
+			siteStorage.setItem(
 				'wpie-alt-affix-presets',
 				JSON.stringify( next )
 			);
@@ -241,7 +247,7 @@ export function AltTextDialog( {
 		const next = presets.filter( ( p ) => p.name !== name );
 		setPresets( next );
 		try {
-			window.localStorage.setItem(
+			siteStorage.setItem(
 				'wpie-alt-affix-presets',
 				JSON.stringify( next )
 			);
@@ -360,6 +366,8 @@ export function AltTextDialog( {
 		setRunning( true );
 		setRunTotal( ids.length );
 		cancelled.current = false;
+		const mine = ++runId.current;
+		const stopped = () => cancelled.current || runId.current !== mine;
 		const cloud = ! isLocal;
 		let pace = 400;
 		let consecutiveFails = 0;
@@ -373,7 +381,7 @@ export function AltTextDialog( {
 			);
 		for ( let idx = 0; idx < ids.length; idx++ ) {
 			const id = ids[ idx ];
-			if ( cancelled.current ) {
+			if ( stopped() ) {
 				break;
 			}
 			setStatusLine( genLabel( idx + 1 ) );
@@ -383,14 +391,16 @@ export function AltTextDialog( {
 			let ok = false;
 			// Option A: on a rate limit, wait it out and keep going (slower)
 			// rather than aborting the run and stranding the rest.
-			for ( ; ! cancelled.current;  ) {
+			for ( ; ! stopped();  ) {
 				try {
-					const r = await captionOne(
-						await toDataUrl( item.url ),
-						engine,
-						lang
+					// The save loop next door has a limit; this one ran without
+					// one, and a provider that never answered hung the run.
+					const r = await withTimeout(
+						captionOne( await toDataUrl( item.url ), engine, lang ),
+						120000,
+						__( 'Generating timed out', 'wunderpaint' )
 					);
-					if ( cancelled.current ) {
+					if ( stopped() ) {
 						break;
 					}
 					const merged = { ...r, tags: [ ...( r.tags || [] ) ] };
@@ -443,7 +453,7 @@ export function AltTextDialog( {
 						const wait = Math.min( 5000 + 3000 * attempt, 30000 );
 						for (
 							let s = Math.round( wait / 1000 );
-							s > 0 && ! cancelled.current;
+							s > 0 && ! stopped();
 							s--
 						) {
 							setStatusLine(
@@ -472,7 +482,7 @@ export function AltTextDialog( {
 			consecutiveFails = ok ? 0 : consecutiveFails + 1;
 			// A run of hard failures means the provider will not serve this
 			// batch now (e.g. a daily quota) - stop rather than grind forever.
-			if ( consecutiveFails >= 8 && ! cancelled.current ) {
+			if ( consecutiveFails >= 8 && ! stopped() ) {
 				extras.toasts.error(
 					__(
 						'The AI provider keeps refusing (a daily quota may be reached). Stopped - try the rest later.',
@@ -481,7 +491,7 @@ export function AltTextDialog( {
 				);
 				break;
 			}
-			if ( cloud && idx < ids.length - 1 && ! cancelled.current ) {
+			if ( cloud && idx < ids.length - 1 && ! stopped() ) {
 				await sleep( pace );
 			}
 		}
@@ -494,6 +504,8 @@ export function AltTextDialog( {
 		setRunning( true );
 		setRunTotal( ids.length );
 		cancelled.current = false; // fresh run: a prior Cancel must not abort this
+		const mine = ++runId.current;
+		const stopped = () => cancelled.current || runId.current !== mine;
 		const timeoutMsg = __( 'Saving timed out', 'wunderpaint' );
 
 		// Resolve every tag ONCE up front. Creating a term per image was part of
@@ -529,7 +541,7 @@ export function AltTextDialog( {
 		tick();
 
 		const saveOne = async ( id ) => {
-			if ( cancelled.current ) {
+			if ( stopped() ) {
 				return;
 			}
 			setProgress( ( p ) => ( { ...p, [ id ]: 'saving' } ) );
@@ -579,7 +591,7 @@ export function AltTextDialog( {
 		// site's save_post hooks) overlap instead of running one at a time.
 		let cursor = 0;
 		const worker = async () => {
-			while ( ! cancelled.current && cursor < ids.length ) {
+			while ( ! stopped() && cursor < ids.length ) {
 				await saveOne( ids[ cursor++ ] );
 			}
 		};
@@ -599,11 +611,11 @@ export function AltTextDialog( {
 		);
 		// Keep the result in the footer status too - a toast can hide behind
 		// the dialog, the footer line does not.
-		setStatusLine( cancelled.current ? '' : summary );
+		setStatusLine( stopped() ? '' : summary );
 		// Everything saved with nothing left to do: reflect that on the button
 		// instead of still inviting a "Save" click.
-		setJustSaved( ! cancelled.current && 0 === failed );
-		if ( ! cancelled.current ) {
+		setJustSaved( ! stopped() && 0 === failed );
+		if ( ! stopped() ) {
 			extras.toasts.success( summary );
 		}
 	};
@@ -649,6 +661,7 @@ export function AltTextDialog( {
 				className="wpie-alt-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Metadata Assistant', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

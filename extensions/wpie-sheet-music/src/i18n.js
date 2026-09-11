@@ -114,6 +114,7 @@ const DE = {
 	Square: 'Quadrat',
 	Standard: 'Standard',
 	Starters: 'Starter',
+	'Sheet type': 'Blattart',
 	Style: 'Stil',
 	Subtitle: 'Untertitel',
 	'Tablature under the staff': 'Tabulatur unter der Notenzeile',
@@ -196,6 +197,7 @@ const DE = {
 	'The twelve major scales': 'Die zwölf Dur-Tonleitern',
 	'The twelve harmonic minor scales':
 		'Die zwölf harmonischen Moll-Tonleitern',
+	'The archive is too large to read.': 'Das Archiv ist zu groß zum Lesen.',
 };
 
 const ES = {
@@ -302,6 +304,7 @@ const ES = {
 	Square: 'Cuadrado',
 	Standard: 'Estándar',
 	Starters: 'Puntos de partida',
+	'Sheet type': 'Tipo de hoja',
 	Style: 'Estilo',
 	Subtitle: 'Subtítulo',
 	'Tablature under the staff': 'Tablatura bajo el pentagrama',
@@ -383,6 +386,8 @@ const ES = {
 	'Guitar tablature': 'Tablatura de guitarra',
 	'The twelve major scales': 'Las doce escalas mayores',
 	'The twelve harmonic minor scales': 'Las doce escalas menores armónicas',
+	'The archive is too large to read.':
+		'El archivo comprimido es demasiado grande para leerlo.',
 };
 
 const FR = {
@@ -489,6 +494,7 @@ const FR = {
 	Square: 'Carré',
 	Standard: 'Standard',
 	Starters: 'Modèles de départ',
+	'Sheet type': 'Type de feuille',
 	Style: 'Style',
 	Subtitle: 'Sous-titre',
 	'Tablature under the staff': 'Tablature sous la portée',
@@ -570,6 +576,8 @@ const FR = {
 	'Guitar tablature': 'Tablature de guitare',
 	'The twelve major scales': 'Les douze gammes majeures',
 	'The twelve harmonic minor scales': 'Les douze gammes mineures harmoniques',
+	'The archive is too large to read.':
+		"L'archive est trop volumineuse pour être lue.",
 };
 
 const IT = {
@@ -676,6 +684,7 @@ const IT = {
 	Square: 'Quadrato',
 	Standard: 'Standard',
 	Starters: 'Modelli di partenza',
+	'Sheet type': 'Tipo di foglio',
 	Style: 'Stile',
 	Subtitle: 'Sottotitolo',
 	'Tablature under the staff': 'Intavolatura sotto il pentagramma',
@@ -757,6 +766,8 @@ const IT = {
 	'Guitar tablature': 'Tablatura per chitarra',
 	'The twelve major scales': 'Le dodici scale maggiori',
 	'The twelve harmonic minor scales': 'Le dodici scale minori armoniche',
+	'The archive is too large to read.':
+		"L'archivio è troppo grande per essere letto.",
 };
 
 const NL = {
@@ -863,6 +874,7 @@ const NL = {
 	Square: 'Vierkant',
 	Standard: 'Standaard',
 	Starters: 'Startpunten',
+	'Sheet type': 'Soort blad',
 	Style: 'Stijl',
 	Subtitle: 'Ondertitel',
 	'Tablature under the staff': 'Tabulatuur onder de notenbalk',
@@ -945,6 +957,7 @@ const NL = {
 	'The twelve major scales': 'De twaalf majeurtoonladders',
 	'The twelve harmonic minor scales':
 		'De twaalf harmonische mineurtoonladders',
+	'The archive is too large to read.': 'Het archief is te groot om te lezen.',
 };
 
 const PT = {
@@ -1051,6 +1064,7 @@ const PT = {
 	Square: 'Quadrado',
 	Standard: 'Padrão',
 	Starters: 'Pontos de partida',
+	'Sheet type': 'Tipo de folha',
 	Style: 'Estilo',
 	Subtitle: 'Subtítulo',
 	'Tablature under the staff': 'Tablatura abaixo da pauta',
@@ -1132,6 +1146,8 @@ const PT = {
 	'Guitar tablature': 'Tablatura de guitarra',
 	'The twelve major scales': 'As doze escalas maiores',
 	'The twelve harmonic minor scales': 'As doze escalas menores harmónicas',
+	'The archive is too large to read.':
+		'O arquivo compactado é grande demais para ser lido.',
 };
 
 export const TABLES = { de: DE, es: ES, fr: FR, it: IT, nl: NL, pt: PT };

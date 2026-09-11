@@ -15,6 +15,7 @@
  * Usage: node tools/qa-dialog.mjs
  */
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildStage, launchQA } from '../../shared/qa-kit/stage.mjs';
 
@@ -22,6 +23,9 @@ const here = path.dirname( fileURLToPath( import.meta.url ) );
 const root = path.resolve( here, '..' );
 
 const stage = await buildStage( { root } );
+fs.cpSync( path.join( root, 'thumbs' ), path.join( stage, 'thumbs' ), {
+	recursive: true,
+} );
 const qa = await launchQA( { stage, shotDir: path.join( root, 'dist' ) } );
 const { page, check } = qa;
 
@@ -38,11 +42,11 @@ const startFresh = async () => {
 const startDisabled = () =>
 	page.locator( '.wpiechaos-start' ).evaluate( ( el ) => el.disabled );
 const tile = ( i ) => page.locator( '.wpiechaos-style' ).nth( i );
-// Tiles: 0 Surprise, then the schools, then the twelve styles in space.
+// Tiles begin with Surprise and the two ensembles on the sheet.
 import { SCHOOLS } from '../src/flat/schools.js';
-// Surprise, the ensemble on the sheet, the schools, then space (ensemble first).
-const SPACE0 = 2 + SCHOOLS.length;
-const at = ( id ) => 2 + SCHOOLS.findIndex( ( s ) => s.id === id );
+// Surprise, both ensembles on the sheet, the schools, then space (ensemble first).
+const SPACE0 = 3 + SCHOOLS.length;
+const at = ( id ) => 3 + SCHOOLS.findIndex( ( s ) => s.id === id );
 const SCHOOL = {
 	impressionism: at( 'impressionism' ),
 	expressionism: at( 'expressionism' ),
@@ -71,7 +75,7 @@ try {
 	);
 	check(
 		SPACE0 + 12 === ( await page.locator( '.wpiechaos-style' ).count() ),
-		`${ SPACE0 + 12 } cards: Surprise, Ensemble, ${
+		`${ SPACE0 + 12 } cards: Surprise, Ensemble, Your ensemble, ${
 			SCHOOLS.length
 		} schools, twelve styles in space`
 	);

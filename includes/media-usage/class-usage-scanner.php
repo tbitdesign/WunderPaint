@@ -8,10 +8,13 @@
  *
  *   scan( offset, limit )   sweep mode, used by the full library run
  *   find_for( id )          single image mode, used by "where is this used?"
+ *   find_for_many( ids )    batch mode, the quarantine's second look
  *
  * find_for prefilters its rows with a LIKE on loose needles and then runs the
  * same extractors, so a needle hit only ever costs a parse. The verdict itself
- * is always made by the extractors, never by the prefilter.
+ * is always made by the extractors, never by the prefilter. find_for_many is
+ * the same prefilter with every image's needles at once: each table is read
+ * once per batch and each row parsed once, instead of once per image.
  *
  * @package WPImageEditor
  */
@@ -154,6 +157,208 @@ abstract class Usage_Scanner {
 	 */
 	abstract public function find_for( $attachment_id, $needles );
 
+	/** Whether the last lookup() ran into its row cap. */
+	private $cut = false;
+
+	/* ---------------------------- batch lookup ---------------------------- */
+
+	/**
+	 * Candidate rows one single-image lookup may pull.
+	 *
+	 * The prefilter is loose on purpose (the bare id is one of the needles),
+	 * so a cap keeps a small id on a big site from pulling the whole table.
+	 *
+	 * @return int
+	 */
+	protected function lookup_rows() {
+		/**
+		 * Row cap of the single-image prefilter, per scanner.
+		 *
+		 * @param int    $rows Cap.
+		 * @param string $key  Scanner key.
+		 */
+		return max( 1, (int) apply_filters( 'wpie_media_usage_lookup_rows', 400, $this->key() ) );
+	}
+
+	/**
+	 * Rows that could reference any of the needles: the prefilter.
+	 *
+	 * A scanner that implements this (with row_refs and row_hit) gets both
+	 * lookups from the base class. One that does not, such as a source
+	 * registered through `wpie_media_usage_sources` with only find_for(),
+	 * answers null here and is asked per image.
+	 *
+	 * @param string[] $needles Loose fragments, of one image or of many.
+	 * @param int      $limit   Row cap.
+	 * @return array{rows:array,truncated:bool}|null
+	 */
+	protected function candidates( $needles, $limit ) {
+		return null;
+	}
+
+	/**
+	 * References in one candidate row, parsed once for every image asked.
+	 *
+	 * @param mixed $row A row from candidates().
+	 * @return array|null Extractor result, or null when the row is not worth parsing.
+	 */
+	protected function row_refs( $row ) {
+		return null;
+	}
+
+	/**
+	 * The hit record for a row that references an attachment.
+	 *
+	 * @param mixed $row           A row from candidates().
+	 * @param int   $attachment_id Attachment it references.
+	 * @return array|null
+	 */
+	protected function row_hit( $row, $attachment_id ) {
+		return null;
+	}
+
+	/**
+	 * Find references to several attachments in one pass.
+	 *
+	 * The quarantine proves its whole list again before it moves or deletes
+	 * anything, and it used to do that one image at a time: for every image
+	 * a LIKE scan over each big table, each a full read of that table. The
+	 * scans differ only in their needles, so this runs one with all needles
+	 * OR-ed and matches the rows against every image in PHP.
+	 *
+	 * A batch's prefilter is looser than one image's and its row cap is
+	 * shared, so a batch that hits the cap answers null and the caller asks
+	 * per image, exactly as before: nothing is missed that the single lookup
+	 * would have found.
+	 *
+	 * @param int[]               $ids     Attachment ids.
+	 * @param array<int,string[]> $needles Needles per id.
+	 * @return array<int,array[]>|null Hits per id, every id present; null for "per image, please".
+	 */
+	public function find_for_many( $ids, $needles ) {
+		$all = array();
+		foreach ( $ids as $id ) {
+			foreach ( (array) ( $needles[ $id ] ?? array() ) as $needle ) {
+				if ( '' !== (string) $needle ) {
+					$all[ (string) $needle ] = true;
+				}
+			}
+		}
+		$rows  = $this->lookup_rows();
+		$limit = min( $rows * count( $ids ), $rows * 5 );
+		$found = $this->candidates( array_keys( $all ), $limit );
+		if ( null === $found || ! empty( $found['truncated'] ) ) {
+			return null;
+		}
+		return $this->match( $found['rows'], $ids );
+	}
+
+	/**
+	 * One image, through the batch machinery.
+	 *
+	 * @param int      $attachment_id Attachment.
+	 * @param string[] $needles       Its needles.
+	 * @return array[]
+	 */
+	protected function lookup( $attachment_id, $needles ) {
+		$this->cut = false;
+
+		$rows  = $this->lookup_rows();
+		$found = $this->candidates( $needles, $rows );
+		if ( null === $found ) {
+			return array();
+		}
+
+		// A prefilter that ran into its cap is not an answer, and this is the
+		// method the batch path falls back to: find_for_many() returns null on
+		// a cut-off batch precisely so the caller retries per image, and that
+		// retry lands here with the same cap. Without the flag below the second
+		// run would report "no references" for an image that has them, and the
+		// quarantine reads "no references" as "unused".
+		//
+		// The bare id is one of the needles, so on a big site a small id
+		// matches a lot of rows and the first cap is hit easily. One wider try
+		// keeps the honest answer cheap; only if that is cut off too does the
+		// image count as unknown.
+		if ( ! empty( $found['truncated'] ) ) {
+			$wide  = $this->candidates( $needles, $rows * 10 );
+			$found = null === $wide ? $found : $wide;
+			$this->cut = ! empty( $found['truncated'] );
+		}
+
+		$by = $this->match( $found['rows'], array( (int) $attachment_id ) );
+		return $by[ (int) $attachment_id ];
+	}
+
+	/**
+	 * Whether the last single lookup hit its row cap.
+	 *
+	 * True means "I do not know", not "nothing found". Media_Usage turns it
+	 * into a WP_Error for the callers that move or delete.
+	 *
+	 * @return bool
+	 */
+	public function was_cut() {
+		return $this->cut;
+	}
+
+	/**
+	 * Parse each row once, match it against every image.
+	 *
+	 * @param array $rows Candidate rows.
+	 * @param int[] $ids  Attachment ids.
+	 * @return array<int,array[]>
+	 */
+	protected function match( $rows, $ids ) {
+		$out = array();
+		foreach ( $ids as $id ) {
+			$out[ (int) $id ] = array();
+		}
+		foreach ( $rows as $row ) {
+			$refs = $this->row_refs( $row );
+			if ( ! $refs ) {
+				continue;
+			}
+			foreach ( $ids as $id ) {
+				if ( Media_Usage::refs_match( $refs, (int) $id, $this->resolver ) ) {
+					$hit = $this->row_hit( $row, (int) $id );
+					if ( $hit ) {
+						$out[ (int) $id ][] = $hit;
+					}
+				}
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Run a prefilter query, loud on failure.
+	 *
+	 * A failed query used to come back as "no rows", and no rows reads as
+	 * "not used" to the quarantine - the one place a database error must not
+	 * pass for an answer. Media_Usage turns the exception into a WP_Error for
+	 * the callers that move or delete, and into an empty list for the ones
+	 * that only display.
+	 *
+	 * @param string $sql  Query with placeholders.
+	 * @param array  $args Prepare arguments.
+	 * @return array Rows.
+	 * @throws \RuntimeException When the query failed.
+	 */
+	protected function rows( $sql, $args ) {
+		global $wpdb;
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- assembled from fixed fragments by the scanners, all values prepared.
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			// Escaped here because the text ends up in a WP_Error that REST
+			// hands to the browser; Plugin Check reads a raw $wpdb string in
+			// an exception as unescaped output.
+			throw new \RuntimeException( esc_html( $wpdb->last_error ) );
+		}
+		return is_array( $rows ) ? $rows : array();
+	}
+
 	/* ----------------------------- extractors ----------------------------- */
 
 	/**
@@ -264,8 +469,21 @@ abstract class Usage_Scanner {
 			}
 			// A serialized array inside a string, which is how meta nests.
 			if ( is_serialized( $value ) ) {
-				$un = maybe_unserialize( $value );
-				if ( is_array( $un ) || is_object( $un ) ) {
+				// unserialize() mit allowed_classes => false, nicht
+				// maybe_unserialize(): das von WordPress ist
+				// @unserialize( trim( $data ) ) OHNE diese Option, und
+				// is_serialized() laesst das Objekt-Token zu. Der Kern
+				// deserialisiert einen Wert EINMAL, oberste Ebene, beim
+				// Lesen; dieser Walker steigt rekursiv ab und macht auch
+				// Zeichenketten INNERHALB eines JSON-Blobs auf, die der
+				// Kern zeitlebens als inerte Zeichenkette durchreicht -
+				// und er laeuft ueber jede Zeile in postmeta, options,
+				// termmeta und usermeta, auch ueber die, die im Betrieb
+				// nie gelesen wird. Ein Autor kann so an seinem eigenen
+				// Beitrag eine doppelt serialisierte Nutzlast ablegen und
+				// den Lauf anstossen. Hier werden nur Arrays gebraucht.
+				$un = unserialize( $value, array( 'allowed_classes' => false ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- allowed_classes => false, so no object is ever constructed.
+				if ( is_array( $un ) ) {
 					$this->walk_data( $un, $mode, $ids, $paths, $depth + 1 );
 					return;
 				}

@@ -42,6 +42,7 @@ export function SmartRefineBar( { editor, extras, onClose } ) {
 		<div
 			className="smart-refine"
 			role="dialog"
+			aria-modal="true"
 			aria-label={ __( 'Refine selection', 'wunderpaint' ) }
 			onPointerDown={ ( e ) => e.stopPropagation() }
 			onMouseDown={ ( e ) => e.stopPropagation() }

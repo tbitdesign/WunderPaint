@@ -66,7 +66,7 @@ export function IconPicker( {
 				<input
 					type="text"
 					value={ query }
-					placeholder={ __( 'Search…', 'wunderpaint' ) }
+					placeholder={ __( 'Search', 'wunderpaint' ) }
 					onChange={ ( e ) => setQuery( e.target.value ) }
 				/>
 				{ icons && emoji && (

@@ -5,7 +5,7 @@
  * OffscreenCanvas feature check).
  */
 
-export function runPsdWorker( message, transfers ) {
+export function runPsdWorker( message, transfers, timeoutMs = 180000 ) {
 	return new Promise( ( resolve, reject ) => {
 		// MUST be exactly `new Worker( new URL( … ) )`, webpack only
 		// detects this literal pattern and bundles the worker with its
@@ -13,7 +13,15 @@ export function runPsdWorker( message, transfers ) {
 		const worker = new Worker(
 			new URL( './psd.worker.js', import.meta.url )
 		);
+		// A worker that dies quietly (out of memory on a huge PSD) used to
+		// leave the import hanging forever; the caller falls back to the
+		// main thread when this rejects.
+		const timer = setTimeout( () => {
+			worker.terminate();
+			reject( new Error( 'PSD worker timed out' ) );
+		}, timeoutMs );
 		worker.onmessage = ( event ) => {
+			clearTimeout( timer );
 			worker.terminate();
 			if ( event.data.error ) {
 				reject( new Error( event.data.error ) );
@@ -22,6 +30,7 @@ export function runPsdWorker( message, transfers ) {
 			}
 		};
 		worker.onerror = ( err ) => {
+			clearTimeout( timer );
 			worker.terminate();
 			reject( new Error( err.message || 'PSD worker failed' ) );
 		};

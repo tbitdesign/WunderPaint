@@ -1,0 +1,148 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-start-before-you-feel-ready",
+	"label": "Start before you feel ready",
+	"category": "wordart",
+	"w": 764,
+	"h": 565,
+	"layers": [
+		{
+			"id": "waf-start-before-you-feel-ready-0",
+			"type": "text",
+			"name": "START BEFORE YOU FEEL READY",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 105.27,
+			"y": 52.01,
+			"w": 560,
+			"h": 460,
+			"rot": -6,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fff0d2",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "START BEFORE\nYOU FEEL\nREADY",
+			"fontSize": 100,
+			"fontFamily": "Anton",
+			"weight": 400,
+			"color": "#de7652",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "START BEFORE\n",
+					"s": {
+						"color": "#de7652"
+					}
+				},
+				{
+					"text": "YOU FEEL\n",
+					"s": {
+						"color": "#398f87"
+					}
+				},
+				{
+					"text": "READY",
+					"s": {
+						"color": "#e8ba50"
+					}
+				}
+			],
+			"textFX": {
+				"extrude": {
+					"angle": 45,
+					"depth": 11,
+					"color": "#594044"
+				}
+			}
+		},
+		{
+			"id": "waf-start-before-you-feel-ready-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 26.27,
+			"y": 150.01,
+			"w": 35,
+			"h": 35,
+			"rot": -8,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#398f87",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-start-before-you-feel-ready-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 689.27,
+			"y": 395.01,
+			"w": 47,
+			"h": 47,
+			"rot": 9,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e8ba50",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		}
+	]
+}

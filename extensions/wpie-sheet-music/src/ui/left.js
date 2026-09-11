@@ -1,4 +1,4 @@
-/** Left column: the four cards, the starters of the active card, the material. */
+/** Left column: the seven sheet types, the starters of the active one, the material. */
 import { CARDS } from '../cards.js';
 import { STARTERS } from '../starters.js';
 import { ICONS } from './icons.js';
@@ -10,18 +10,24 @@ export function buildLeft(
 	left,
 	{ S, ui, bridge, t, onCard, onStarter, onChange, onImport }
 ) {
-	const grid = ui.el( 'div', 'wpiesm-grid', left );
+	// The seven sheet types (v0.3): a section of cards with the hint in
+	// the card, the way the starters read - seven tiles in a four-wide
+	// grid always left a hole.
+	const typeCard = ui.section( left, {
+		icon: ICONS.score,
+		title: t( 'Sheet type' ),
+	} );
+	const list0 = ui.el( 'div', 'wpiesm-cards', typeCard );
 	const tiles = new Map();
 	for ( const c of CARDS ) {
-		const b = ui.el( 'button', 'wpiesm-tile', grid );
+		const b = ui.el( 'button', 'dsm-pickrow wpiesm-card', list0 );
 		b.type = 'button';
 		b.dataset.card = c.id;
-		b.title = t( c.hint );
-		b.innerHTML =
-			'<span class="wpiesm-tile-ic">' +
-			ICONS[ c.id ] +
-			'</span><span class="wpiesm-tile-name"></span>';
-		b.querySelector( '.wpiesm-tile-name' ).textContent = t( c.label );
+		const ic = ui.el( 'span', 'dsm-pickrow-icon wpiesm-card-ic', b );
+		ic.innerHTML = ICONS[ c.id ];
+		const main = ui.el( 'span', 'dsm-pickrow-text wpiesm-card-main', b );
+		ui.el( 'b', null, main, t( c.label ) );
+		ui.el( 'small', null, main, t( c.hint ) );
 		b.onclick = () => onCard( c.id );
 		tiles.set( c.id, b );
 	}
@@ -44,7 +50,7 @@ export function buildLeft(
 		}
 		list.innerHTML = '';
 		for ( const s of STARTERS.filter( ( x ) => x.card === S.card ) ) {
-			const b = ui.el( 'button', 'wpiesm-starter', list );
+			const b = ui.el( 'button', 'dsm-listrow wpiesm-starter', list );
 			b.type = 'button';
 			b.dataset.id = s.id;
 			b.classList.toggle( 'is-on', S.starter === s.id );
@@ -76,7 +82,7 @@ export function buildLeft(
 		const p = S.params;
 		if ( 'score' === S.card || 'leadsheet' === S.card ) {
 			const key = 'score' === S.card ? 'abc' : 'chordpro';
-			textarea = ui.el( 'textarea', 'wpiesm-text', material );
+			textarea = ui.el( 'textarea', 'dsm-input wpiesm-text', material );
 			textarea.spellcheck = false;
 			textarea.value = p[ key ] || '';
 			textarea.placeholder =
@@ -90,7 +96,7 @@ export function buildLeft(
 			};
 			ui.el(
 				'div',
-				'wpiesm-note',
+				'dsm-note wpiesm-note',
 				material,
 				'score' === S.card
 					? t(
@@ -116,7 +122,7 @@ export function buildLeft(
 				textarea
 			);
 		} else if ( 'diagrams' === S.card ) {
-			const input = ui.el( 'input', 'wpiesm-input', material );
+			const input = ui.el( 'input', 'dsm-input wpiesm-input', material );
 			input.type = 'text';
 			input.value = p.chords || '';
 			input.placeholder = 'C G Am F';
@@ -127,7 +133,7 @@ export function buildLeft(
 			};
 			ui.el(
 				'div',
-				'wpiesm-note',
+				'dsm-note wpiesm-note',
 				material,
 				t(
 					'Chord names separated by spaces, for example C G Am F or Cmaj7 Dm7/G.'
@@ -147,7 +153,7 @@ export function buildLeft(
 		} else if ( 'paper' === S.card ) {
 			ui.el(
 				'div',
-				'wpiesm-note',
+				'dsm-note wpiesm-note',
 				material,
 				t(
 					'Clef, key, meter and TAB sit in the Music card; staves, bars and chord grids in the Layout card.'
@@ -173,7 +179,7 @@ export function buildLeft(
 			sel( t( 'Names' ), 'names', NAME_SYSTEMS );
 			ui.el(
 				'div',
-				'wpiesm-note',
+				'dsm-note wpiesm-note',
 				material,
 				t(
 					'Print the fronts, then the backs on the other side; the backs are mirrored per row.'

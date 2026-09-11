@@ -98,6 +98,7 @@ const DE = {
 	Divider: 'Trennlinie',
 	'Star map': 'Sternkarte',
 	Chart: 'Karte',
+	'Could not save your settings.': 'Deine Einstellungen konnten nicht gespeichert werden.',
 };
 
 const ES = {
@@ -168,6 +169,7 @@ const ES = {
 	Divider: 'Separador',
 	'Star map': 'Carta estelar',
 	Chart: 'Carta',
+	'Could not save your settings.': 'No se pudo guardar tu configuración.',
 };
 
 const FR = {
@@ -238,6 +240,7 @@ const FR = {
 	Divider: 'Séparateur',
 	'Star map': 'Carte du ciel',
 	Chart: 'Carte',
+	'Could not save your settings.': 'Tes réglages n’ont pas pu être enregistrés.',
 };
 
 const PT = {
@@ -308,6 +311,7 @@ const PT = {
 	Divider: 'Divisor',
 	'Star map': 'Carta estelar',
 	Chart: 'Carta',
+	'Could not save your settings.': 'Não foi possível salvar suas configurações.',
 };
 
 const IT = {
@@ -378,6 +382,7 @@ const IT = {
 	Divider: 'Divisore',
 	'Star map': 'Mappa stellare',
 	Chart: 'Mappa',
+	'Could not save your settings.': 'Impossibile salvare le tue impostazioni.',
 };
 
 const NL = {
@@ -451,6 +456,7 @@ const NL = {
 	Divider: 'Scheidingslijn',
 	'Star map': 'Sterrenkaart',
 	Chart: 'Kaart',
+	'Could not save your settings.': 'Je instellingen konden niet worden opgeslagen.',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

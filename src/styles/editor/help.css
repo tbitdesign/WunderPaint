@@ -1102,15 +1102,17 @@
 	position: relative;
 }
 
+/* Dieselbe Stelle wie in der Tray: ohne Innenabstand liegt der blaue
+   Hover-Rand direkt auf dem Vorschaubild. */
 #wpie-root .library-tpl-open {
 	width: 100%;
 	text-align: left;
 	border: 1px solid var(--ed-border);
-	border-radius: 6px;
+	border-radius: var(--r-lg);
 	overflow: hidden;
 	background: var(--ed-panel-alt);
 	cursor: pointer;
-	padding: 0;
+	padding: 4px;
 	color: var(--ed-text);
 }
 
@@ -1123,6 +1125,7 @@
 	height: 100px;
 	object-fit: cover;
 	display: block;
+	border-radius: var(--r-md);
 }
 
 #wpie-root .library-tpl-empty {
@@ -1135,7 +1138,7 @@
 
 #wpie-root .library-tpl-name {
 	display: block;
-	padding: 6px 8px;
+	padding: 5px 4px 2px;
 	font-size: 12px;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -1325,39 +1328,49 @@
 	color: var(--accent);
 }
 
+/*
+ * The tray card wears what an extension card wears (.dsm-pick): the same
+ * hairline, the same 8px, the same secondary ink that goes to primary on
+ * hover, and the accent border as the hover signal. Thomas asked for the
+ * two surfaces to read as one thing.
+ *
+ * Kept from the tray: the filled ground (--ed-panel-alt is the shared
+ * input surface, and a photo needs something behind it) and the fixed
+ * heights, because the tray is a strip and not a wrapping grid.
+ */
 #wpie-root .tray-tile {
 	flex: 0 0 auto;
-	border: 1px solid var(--ed-border);
-	border-radius: 6px;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
 	background: var(--ed-panel-alt);
-	color: var(--ed-text);
+	color: var(--text-secondary);
 	cursor: pointer;
-	padding: 0;
+
+	/* Wie in der Kit-Karte: das Bild sitzt IN der Karte, nicht auf ihrem
+	   Rand. Ohne diese Luft lief die blaue Hover-Linie direkt am Bild
+	   entlang - bei den Vorlagen faellt das am meisten auf, weil deren
+	   Vorschau die Kachel randlos fuellt. */
+	padding: 4px;
 	overflow: hidden;
 	height: 76px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	position: relative;
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease);
 }
 
-/* Subtle hover (v1.78.3): a soft blue wash instead of the accent border. */
-#wpie-root .tray-tile::after {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	content: "";
-	background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 36%, transparent), color-mix(in srgb, var(--accent) 10%, transparent) 88%);
-	opacity: 0;
-	transition: opacity var(--dur-fast) var(--ease);
-}
-
-#wpie-root .tray-tile:hover::after {
-	opacity: 1;
-}
-
+/*
+ * Hover: the accent border, nothing else. Until 09.09.2026 a blue
+ * gradient washed over the whole card - which no other surface in the
+ * editor does, and which put a colour film over the very picture you
+ * were trying to look at.
+ */
 #wpie-root .tray-tile:hover {
-	border-color: var(--ed-border-strong);
+	color: var(--text-primary);
+	border-color: var(--accent);
 }
 
 #wpie-root .tray-tile img {
@@ -1375,6 +1388,10 @@
 	width: 100%;
 	height: 100%;
 	overflow: hidden;
+
+	/* Der Radius der Kit-Vorschau, damit das eingerueckte Bild nicht als
+	   scharfkantiges Rechteck in einer runden Karte sitzt. */
+	border-radius: var(--r-md);
 }
 
 /* Named cards (v1.78.1): preview on top, caption below — the tray now
@@ -1392,17 +1409,25 @@
 	min-height: 0;
 }
 
+/*
+ * The caption of an extension card: 12px, secondary, centred, and no rule
+ * above it - the card is one surface, not a picture with a plate screwed
+ * under it. It stays on ONE line here, where the kit card allows two:
+ * these cards have a fixed height because they sit in a strip.
+ * `width: 0; min-width: 100%` is what makes the ellipsis work in a
+ * flex column.
+ */
 #wpie-root .tray-tile-name {
 	width: 0;
 	min-width: 100%;
-	padding: 3px 7px 4px;
+	padding: 3px 7px 5px;
 	overflow: hidden;
-	font-size: 10px;
-	color: var(--ed-text-muted);
+	font-size: var(--fs-xs);
+	line-height: var(--lh-tight);
+	color: inherit;
 	text-align: center;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	border-top: 1px solid var(--ed-border);
 }
 
 /* Saved assets are often transparent; preview them on white so they are
@@ -1412,7 +1437,7 @@
 }
 
 #wpie-root .tray-swatch {
-	border-radius: 6px;
+	border-radius: var(--r-lg);
 }
 
 #wpie-root .tray-swatch-fill {
@@ -1439,6 +1464,7 @@
 }
 
 #wpie-root .tray-photo-hit {
+	position: relative;
 	flex: 1;
 	min-height: 0;
 	display: flex;
@@ -1447,6 +1473,21 @@
 	border: 0;
 	background: none;
 	cursor: pointer;
+}
+
+#wpie-root .tray-photo-hit:disabled,
+#wpie-root .tray-tile[aria-busy="true"] {
+	cursor: wait;
+}
+
+#wpie-root .tray-insert-progress {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--ed-panel) 65%, transparent);
+	pointer-events: none;
 }
 
 #wpie-root .tray-photo-hit .tray-tile-preview {
@@ -1471,8 +1512,25 @@
 	text-decoration-color: currentcolor;
 }
 
-#wpie-root .tray-search {
+/* Die Huelle traegt die feste Breite, nicht mehr das Feld: das Feld
+   fuellt sie, damit die Lupe darin sitzt. */
+#wpie-root .tray-searchbox {
+	flex: 0 0 auto;
 	width: 170px;
+}
+
+#wpie-root .tray-searchbox > svg {
+	left: 7px;
+	width: 13px;
+	height: 13px;
+}
+
+#wpie-root .tray-searchbox > .tray-search {
+	padding-left: 24px;
+}
+
+#wpie-root .tray-search {
+	width: 100%;
 	min-height: 22px;
 	height: 22px;
 	font-size: 12px;

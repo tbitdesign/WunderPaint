@@ -304,7 +304,7 @@ class ML_Models {
 				continue;
 			}
 
-			$res = wp_remote_get(
+			$res = wp_safe_remote_get(
 				'https://huggingface.co/' . $repo . '/resolve/main/' . $path,
 				array(
 					'timeout'  => 300,
@@ -400,7 +400,7 @@ class ML_Models {
 		// NOTE: do not url-encode $repo, the "owner/name" slash must stay a
 		// slash in the API path (encoding it to %2F returns HTTP 400). $repo
 		// comes only from the hardcoded MODELS map, so it is safe.
-		$res = wp_remote_get(
+		$res = wp_safe_remote_get(
 			'https://huggingface.co/api/models/' . $repo . '/tree/main?recursive=true',
 			array( 'timeout' => 30 )
 		);

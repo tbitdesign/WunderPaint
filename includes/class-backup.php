@@ -27,6 +27,15 @@ class Backup {
 	const FORMAT = 'wpie-backup@1';
 
 	/**
+	 * The per-user extension stores inside the archive (F17, Codex' audit of
+	 * 10.09.2026). Studios keep what their users build - named Growth & Decay
+	 * recipes, Particle Strokes brushes and stamps - in `wpie_ext_store_<ns>`
+	 * user meta, and the archive never carried it: a move or a reinstall
+	 * brought the extensions back and lost the user's own work in them.
+	 */
+	const EXT_STORE_FILE = 'ext-store.json';
+
+	/**
 	 * Option keys included verbatim (existing values only).
 	 *
 	 * @var string[]
@@ -145,6 +154,14 @@ class Backup {
 		}
 		$zip->addFromString( 'options.json', (string) wp_json_encode( $options ) );
 
+		// --- Per-user extension stores (studio presets) ------------------
+		$ext_store = self::collect_ext_store();
+		if ( ! empty( $ext_store['error'] ) ) {
+			$zip->close();
+			return new \WP_Error( 'wpie_backup_presets', __( 'The studio presets could not be read, so no backup was written.', 'wunderpaint' ) . ' ' . $ext_store['error'] );
+		}
+		$zip->addFromString( self::EXT_STORE_FILE, (string) wp_json_encode( $ext_store ) );
+
 		// --- Template + design stores -----------------------------------
 		$counts = array(
 			'templates'  => 0,
@@ -154,6 +171,7 @@ class Backup {
 			'models'     => 0,
 			'extensions' => 0,
 			'versions'   => 0,
+			'presets'    => count( $ext_store['entries'] ),
 		);
 		foreach ( self::store_files( Templates::dir() ) as $file ) {
 			$zip->addFile( $file, 'templates/' . basename( $file ) );
@@ -331,18 +349,71 @@ class Backup {
 				$merged[ $field ] = $plain;
 			}
 		}
-		foreach ( self::OPTIONS as $key ) {
-			if ( array_key_exists( $key, $options ) ) {
-				update_option( $key, $options[ $key ], false );
+		// --- Per-user extension stores: to the same login here ---------------
+		$presets = self::restore_ext_store( json_decode( (string) $zip->getFromName( self::EXT_STORE_FILE ), true ) );
+
+		// --- Store files first, their index after ---------------------------
+		//
+		// This used to run the other way round: the option indexes
+		// (wpie_templates, wpie_designs, ...) were written FIRST and the files
+		// staged afterwards. A store that failed to write kept its old files,
+		// as the message promised - under an index that already described
+		// the archive's library. "The existing files were left untouched"
+		// was true and beside the point: the list the editor shows was
+		// already the other one (Codex C09).
+		//
+		// Now both stores are staged beside their old files; only when BOTH
+		// are complete are they swapped in, and only after a clean swap are
+		// the indexes written. A staging failure leaves files and index as
+		// they were. C09: both swaps now share recovery copies, so a failed
+		// design swap also rolls back the templates before keeping the old
+		// indexes. Stale files are only removed after both swaps succeed.
+		$fehler = array();
+		$dirs   = array(
+			'templates' => Templates::dir(),
+			'designs'   => Projects::dir(),
+		);
+		$staged = array(
+			'templates' => self::stage_store( $zip, 'templates/', $dirs['templates'] ),
+			'designs'   => self::stage_store( $zip, 'designs/', $dirs['designs'] ),
+		);
+		foreach ( $staged as $files ) {
+			if ( is_wp_error( $files ) ) {
+				$fehler[] = $files->get_error_message();
 			}
 		}
-
-		// --- Store files ---------------------------------------------------
 		$restored = array(
-			'templates' => self::restore_store( $zip, 'templates/', Templates::dir() ),
-			'designs'   => self::restore_store( $zip, 'designs/', Projects::dir() ),
+			'templates' => 0,
+			'designs'   => 0,
 			'models'    => self::restore_models( $zip ),
+			'presets'   => $presets['restored'],
 		);
+		if ( $fehler ) {
+			// One store could not even be staged, so the other one's staging
+			// goes too: a template store from the archive next to the old
+			// design store is not a restore of anything.
+			foreach ( $staged as $files ) {
+				if ( is_array( $files ) ) {
+					foreach ( $files as $tmp ) {
+						wp_delete_file( $tmp );
+					}
+				}
+			}
+		} else {
+			$done = self::commit_stores( $dirs, $staged );
+			if ( is_wp_error( $done ) ) {
+				$fehler[] = $done->get_error_message();
+			} else {
+				$restored = array_merge( $restored, $done );
+			}
+		}
+		if ( ! $fehler ) {
+			foreach ( self::OPTIONS as $key ) {
+				if ( array_key_exists( $key, $options ) ) {
+					update_option( $key, $options[ $key ], false );
+				}
+			}
+		}
 
 		// --- Kit logos + watermarks: import files, remap ids by kit -------
 		$logos = json_decode( (string) $zip->getFromName( 'logos.json' ), true );
@@ -391,11 +462,31 @@ class Backup {
 			}
 			$merged['brand_kits'] = (string) wp_json_encode( $kits );
 		}
+		// sanitize() unslashes brand_kits because the form delivers it out of
+		// $_POST. This value comes from the archive, so it has to be slashed
+		// to survive that - otherwise a kit whose text holds a quote is
+		// mangled, or json_decode fails and the kit is dropped entirely.
+		if ( isset( $merged['brand_kits'] ) && is_string( $merged['brand_kits'] ) ) {
+			$merged['brand_kits'] = wp_slash( $merged['brand_kits'] );
+		}
 		update_option( WPIE_OPTION, $merged );
 
-		// --- Version store (same-site restores) ---------------------------
-		$versions_meta = json_decode( (string) $zip->getFromName( 'versions.json' ), true );
-		$restored['versions'] = 0;
+		// --- Version store (SAME SITE ONLY) -------------------------------
+		//
+		// Version records key on ATTACHMENT IDS, and an id means nothing across
+		// installations: post 512 on the source site is a different image here,
+		// or a page. Writing the archive's _wpie_vdir, _wpie_versions,
+		// _wpie_vcounter, _wpie_project and _wpie_psd onto whatever happens to
+		// carry that id overwrote the target's own history and pointed it at
+		// sidecars describing somebody else's picture - and the editor prefers
+		// the project over the image, so the next save wrote that stranger's
+		// design onto the file. The heading has said "same-site restores" since
+		// the beginning; nothing ever checked it. The export writes home_url()
+		// into the manifest for exactly this comparison.
+		$same_site                    = home_url() === (string) ( $manifest['home'] ?? '' );
+		$versions_meta                = $same_site ? json_decode( (string) $zip->getFromName( 'versions.json' ), true ) : null;
+		$restored['versions']         = 0;
+		$restored['versions_foreign'] = ! $same_site;
 		if ( is_array( $versions_meta ) ) {
 			$base = \wpie_versions_dir();
 			for ( $i = 0; $i < $zip->numFiles; $i++ ) {
@@ -462,19 +553,147 @@ class Backup {
 		$restored = apply_filters( 'wpie_backup_restore', $restored, $zip );
 
 		$zip->close();
-		self::back(
-			'imported',
-			sprintf(
-				/* translators: 1: templates, 2: designs, 3: version files, 4: extensions, 5: font files, 6: 3D model files. */
-				__( 'Backup restored: %1$d template files, %2$d design files, %3$d version files, %4$d extensions, %5$d font files, %6$d 3D models.', 'wunderpaint' ),
-				(int) $restored['templates'],
-				(int) $restored['designs'],
-				(int) $restored['versions'],
-				(int) $restored['extensions'],
-				(int) $restored['fonts'],
-				(int) $restored['models']
-			)
+		$meldung = sprintf(
+			/* translators: 1: templates, 2: designs, 3: version files, 4: extensions, 5: font files, 6: 3D model files, 7: studio presets. */
+			__( 'Backup restored: %1$d template files, %2$d design files, %3$d version files, %4$d extensions, %5$d font files, %6$d 3D models, %7$d studio presets.', 'wunderpaint' ),
+			(int) $restored['templates'],
+			(int) $restored['designs'],
+			(int) $restored['versions'],
+			(int) $restored['extensions'],
+			(int) $restored['fonts'],
+			(int) $restored['models'],
+			(int) $restored['presets']
 		);
+		if ( ! empty( $presets['skipped'] ) ) {
+			$meldung .= ' ' . sprintf(
+				/* translators: %d: number of studio presets. */
+				_n( '%d studio preset was left out: its user does not exist here.', '%d studio presets were left out: their users do not exist here.', (int) $presets['skipped'], 'wunderpaint' ),
+				(int) $presets['skipped']
+			);
+		}
+		if ( ! empty( $restored['versions_foreign'] ) ) {
+			// Saying "0 version files" without saying why reads like a failure.
+			$meldung .= ' ' . __( 'The version history was left out: this archive comes from a different site, and its versions belong to attachment IDs that mean something else here.', 'wunderpaint' );
+		}
+		if ( $fehler ) {
+			$meldung .= ' ' . implode( ' ', $fehler );
+		}
+		self::back( $fehler ? 'error' : 'imported', $meldung );
+	}
+
+	/**
+	 * The per-user extension stores, keyed by login.
+	 *
+	 * The login is what identifies a person across two installations; the
+	 * numeric id means somebody else on the next site. The id travels along
+	 * for the reader only.
+	 *
+	 * @return array{format:int,entries:array[]}
+	 */
+	public static function collect_ext_store() {
+		global $wpdb;
+		$prefix = Extension_Store::META_PREFIX;
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one bounded read at export time, no API lists user meta by prefix.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT user_id, meta_key, meta_value FROM {$wpdb->usermeta} WHERE meta_key LIKE %s ORDER BY user_id, meta_key", $wpdb->esc_like( $prefix ) . '%' ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			// A failed read must not become an archive that quietly lacks
+			// every preset; the export refuses instead.
+			return array(
+				'format'  => 1,
+				'entries' => array(),
+				'error'   => (string) $wpdb->last_error,
+			);
+		}
+
+		$entries = array();
+		$logins  = array();
+		foreach ( (array) $rows as $row ) {
+			$uid = (int) $row->user_id;
+			if ( ! isset( $logins[ $uid ] ) ) {
+				$user           = get_userdata( $uid );
+				$logins[ $uid ] = $user ? (string) $user->user_login : '';
+			}
+			$value = maybe_unserialize( $row->meta_value );
+			if ( '' === $logins[ $uid ] || ! is_array( $value ) ) {
+				continue;
+			}
+			$entries[] = array(
+				'login' => $logins[ $uid ],
+				'user'  => $uid,
+				'ns'    => substr( (string) $row->meta_key, strlen( $prefix ) ),
+				'value' => $value,
+			);
+		}
+		return array(
+			'format'  => 1,
+			'entries' => $entries,
+		);
+	}
+
+	/**
+	 * Put the stores back, each to the user with the same login here.
+	 *
+	 * A login that does not exist on this site is skipped and counted, never
+	 * mapped to somebody else. Every value goes through the store's own
+	 * cleaning, byte cap and namespace rules, so an archive cannot plant what
+	 * the REST route would refuse.
+	 *
+	 * @param mixed $data Decoded ext-store.json.
+	 * @return array{restored:int,skipped:int}
+	 */
+	public static function restore_ext_store( $data ) {
+		$out = array(
+			'restored' => 0,
+			'skipped'  => 0,
+		);
+		if ( ! is_array( $data ) || ! isset( $data['entries'] ) || ! is_array( $data['entries'] ) ) {
+			return $out;
+		}
+		$users  = array();
+		$spaces = array();
+		foreach ( $data['entries'] as $entry ) {
+			$login = is_array( $entry ) ? (string) ( $entry['login'] ?? '' ) : '';
+			$ns    = is_array( $entry ) ? (string) ( $entry['ns'] ?? '' ) : '';
+			if ( '' === $login || ! preg_match( '/^' . Extension_Store::NS_PATTERN . '$/', $ns ) || ! is_array( $entry['value'] ?? null ) ) {
+				++$out['skipped'];
+				continue;
+			}
+			if ( ! array_key_exists( $login, $users ) ) {
+				$user            = get_user_by( 'login', $login );
+				$users[ $login ] = $user ? (int) $user->ID : 0;
+			}
+			$uid = $users[ $login ];
+			if ( ! $uid ) {
+				++$out['skipped'];
+				continue;
+			}
+			$key   = Extension_Store::META_PREFIX . $ns;
+			$clean = Extension_Store::clean( $entry['value'] );
+			if ( ! is_array( $clean ) || strlen( (string) wp_json_encode( $clean ) ) > Extension_Store::max_bytes( $ns ) ) {
+				++$out['skipped'];
+				continue;
+			}
+			// The same namespace ceiling the REST route keeps (WPIE-017).
+			if ( ! isset( $spaces[ $uid ] ) ) {
+				$spaces[ $uid ] = 0;
+				foreach ( array_keys( (array) get_user_meta( $uid ) ) as $meta_key ) {
+					if ( 0 === strpos( (string) $meta_key, Extension_Store::META_PREFIX ) ) {
+						++$spaces[ $uid ];
+					}
+				}
+			}
+			if ( ! metadata_exists( 'user', $uid, $key ) ) {
+				if ( $spaces[ $uid ] >= Extension_Store::MAX_NAMESPACES ) {
+					++$out['skipped'];
+					continue;
+				}
+				++$spaces[ $uid ];
+			}
+			update_user_meta( $uid, $key, $clean );
+			++$out['restored'];
+		}
+		return $out;
 	}
 
 	/**
@@ -547,28 +766,23 @@ class Backup {
 	}
 
 	/**
-	 * Replace one file store with the archive's entries.
+	 * Stage one store's archive entries beside the existing files.
+	 *
+	 * Writes `<name>.incoming` next to every file that will replace or join
+	 * the store, verifies each write by length, and touches nothing that is
+	 * already there. The caller swaps them in with commit_store() once EVERY
+	 * store is staged: a template store that landed while the design store
+	 * failed is as much a broken library as a half-written one.
 	 *
 	 * @param \ZipArchive $zip    Archive.
 	 * @param string      $prefix Entry prefix ('templates/').
 	 * @param string      $dir    Target directory.
-	 * @return int Restored file count.
+	 * @return array<string,string>|\WP_Error Staged temp path per file name;
+	 *                                        empty when the archive holds
+	 *                                        nothing for this store.
 	 */
-	private static function restore_store( $zip, $prefix, $dir ) {
-		$has = false;
-		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
-			if ( 0 === strpos( (string) $zip->getNameIndex( $i ), $prefix ) ) {
-				$has = true;
-				break;
-			}
-		}
-		if ( ! $has ) {
-			return 0;
-		}
-		foreach ( self::store_files( $dir ) as $file ) {
-			wp_delete_file( $file );
-		}
-		$count = 0;
+	private static function stage_store( $zip, $prefix, $dir ) {
+		$entries = array();
 		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
 			$name = (string) $zip->getNameIndex( $i );
 			if ( 0 !== strpos( $name, $prefix ) || false !== strpos( $name, '..' ) ) {
@@ -578,10 +792,148 @@ class Backup {
 			if ( ! preg_match( '/\.(json|png)$/', $base ) ) {
 				continue;
 			}
-			file_put_contents( $dir . '/' . $base, $zip->getFromIndex( $i ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			++$count;
+			$entries[ $base ] = $i;
 		}
-		return $count;
+		if ( ! $entries ) {
+			return array();
+		}
+		// Stage every entry first, then swap. The store used to be emptied
+		// BEFORE the first write, and every write went unchecked: a full disk
+		// half way through left the old templates deleted, the new ones half
+		// there, and the notice said "restored". Now nothing existing goes
+		// until every new file is complete beside it.
+		if ( ! wp_mkdir_p( $dir ) ) {
+			return new \WP_Error( 'wpie_restore_dir', sprintf( /* translators: %s: directory */ __( 'Could not create %s; the existing files were left untouched.', 'wunderpaint' ), basename( $dir ) ) );
+		}
+		$staged = array();
+		foreach ( $entries as $base => $i ) {
+			$bytes = $zip->getFromIndex( $i );
+			$tmp   = $dir . '/' . $base . '.incoming';
+			if ( false === $bytes || strlen( $bytes ) !== @file_put_contents( $tmp, $bytes ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPress.PHP.NoSilencedErrors.Discouraged
+				foreach ( $staged as $done ) {
+					wp_delete_file( $done );
+				}
+				if ( file_exists( $tmp ) ) {
+					wp_delete_file( $tmp );
+				}
+				return new \WP_Error( 'wpie_restore_write', sprintf( /* translators: 1: file name, 2: directory */ __( 'Could not write %1$s; the existing files in %2$s were left untouched.', 'wunderpaint' ), $base, basename( $dir ) ) );
+			}
+			$staged[ $base ] = $tmp;
+		}
+		return $staged;
+	}
+
+	/**
+	 * Swap one store using the same rollback as a full library restore.
+	 *
+	 * @param string $dir Target directory.
+	 * @param array  $staged From stage_store().
+	 * @return int|\WP_Error Number of files, or the error.
+	 */
+	private static function commit_store( $dir, $staged ) {
+		$result = self::commit_stores( array( 'store' => $dir ), array( 'store' => $staged ) );
+		return is_wp_error( $result ) ? $result : $result['store'];
+	}
+
+	/**
+	 * Commit both libraries together; retain recovery copies until all file
+	 * operations succeed. C09: a later store must not strand an earlier store
+	 * under its old index. Empty stores retain the existing merge behavior.
+	 *
+	 * @param array $dirs Target directories keyed by store.
+	 * @param array $staged Staged file maps keyed by store.
+	 * @return array|\WP_Error Counts by store, or the error.
+	 */
+	private static function commit_stores( $dirs, $staged ) {
+		$previous = array();
+		$changed  = array();
+		$counts   = array_fill_keys( array_keys( $staged ), 0 );
+		$error    = null;
+		$token    = wp_generate_uuid4();
+
+		// Copy before any mutation, including the stale files that will be
+		// pruned. A failed copy must never replace an existing library file.
+		foreach ( $staged as $store => $files ) {
+			if ( ! $files ) {
+				continue;
+			}
+			foreach ( self::store_files( $dirs[ $store ] ) as $file ) {
+				if ( is_dir( $file ) ) {
+					continue;
+				}
+				$copy = $file . '.previous-' . $token;
+				if ( ! @copy( $file, $copy ) || filesize( $file ) !== filesize( $copy ) || ! @chmod( $copy, fileperms( $file ) & 0777 ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- the recovery copy keeps the mode of the file it stands in for, inside our own uploads tree; WP_Filesystem would require credentials on some hosts, and the copy has to exist before anything is swapped.
+					wp_delete_file( $copy );
+					$error = new \WP_Error( 'wpie_restore_copy', __( 'The previous version could not be stored, so the files were left untouched.', 'wunderpaint' ) );
+					break 2;
+				}
+				$previous[ $file ] = $copy;
+			}
+		}
+
+		if ( ! $error ) {
+			foreach ( $staged as $store => $files ) {
+				foreach ( $files as $base => $tmp ) {
+					$file = $dirs[ $store ] . '/' . $base;
+					if ( ! @rename( $tmp, $file ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename, WordPress.PHP.NoSilencedErrors.Discouraged
+						$error = new \WP_Error( 'wpie_restore_swap', sprintf( /* translators: 1: file names, 2: directory */ __( 'Could not put %1$s in place in %2$s; the files already there were kept and the library index was not changed.', 'wunderpaint' ), $base, basename( $dirs[ $store ] ) ) );
+						break 2;
+					}
+					$changed[] = $file;
+					++$counts[ $store ];
+				}
+			}
+		}
+
+		if ( ! $error ) {
+			foreach ( $staged as $store => $files ) {
+				if ( ! $files ) {
+					continue;
+				}
+				foreach ( self::store_files( $dirs[ $store ] ) as $file ) {
+					if ( ! isset( $files[ basename( $file ) ] ) ) {
+						wp_delete_file( $file );
+						if ( file_exists( $file ) ) {
+							$error = new \WP_Error( 'wpie_restore_prune', sprintf( /* translators: 1: file names, 2: directory */ __( 'Could not put %1$s in place in %2$s; the files already there were kept and the library index was not changed.', 'wunderpaint' ), basename( $file ), basename( $dirs[ $store ] ) ) );
+							break 2;
+						}
+						$changed[] = $file;
+					}
+				}
+			}
+		}
+
+		$recovery = array();
+		if ( $error ) {
+			foreach ( array_reverse( $changed ) as $file ) {
+				if ( isset( $previous[ $file ] ) ) {
+					if ( ! @rename( $previous[ $file ], $file ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename, WordPress.PHP.NoSilencedErrors.Discouraged
+						$recovery[] = $previous[ $file ];
+					}
+				} else {
+					wp_delete_file( $file );
+					if ( file_exists( $file ) ) {
+						$recovery[] = $file;
+					}
+				}
+			}
+		}
+		foreach ( $previous as $copy ) {
+			if ( ! in_array( $copy, $recovery, true ) && file_exists( $copy ) ) {
+				wp_delete_file( $copy );
+			}
+		}
+		foreach ( $staged as $files ) {
+			foreach ( $files as $tmp ) {
+				if ( file_exists( $tmp ) ) {
+					wp_delete_file( $tmp );
+				}
+			}
+		}
+		if ( $recovery ) {
+			return new \WP_Error( 'wpie_restore_rollback', sprintf( /* translators: %s: paths requiring manual recovery */ __( 'The restore could not be rolled back completely. Check these recovery paths: %s', 'wunderpaint' ), implode( ', ', $recovery ) ) );
+		}
+		return $error ?: $counts;
 	}
 
 	/**

@@ -56,7 +56,7 @@ function el( tag, cls, parent ) {
 
 function row( parent, label ) {
 	const r = el( 'div', 'wpiert-row', parent );
-	const s = el( 'span', 'dsm-label', r );
+	const s = el( 'span', 'dsm-rowline-label', r );
 	s.textContent = label;
 	return r;
 }
@@ -69,7 +69,7 @@ function slider( parent, label, min, max, value, oninput, unit = '' ) {
 	input.min = String( min );
 	input.max = String( max );
 	input.value = String( value );
-	const val = el( 'span', 'wpiert-val', r );
+	const val = el( 'span', 'dsm-sliderrow-val wpiert-val', r );
 	val.textContent = input.value + unit;
 	input.oninput = () => {
 		val.textContent = input.value + unit;
@@ -90,10 +90,10 @@ function checkRow( parent, label, checked, onchange ) {
 
 /** Settings card with a Tabler icon header (paths verbatim). */
 function section( parent, icon, label ) {
-	const card = el( 'div', 'wpiert-card', parent );
-	const head = el( 'div', 'wpiert-card-head', card );
+	const card = el( 'div', 'dsm-card wpiert-card', parent );
+	const head = el( 'div', 'dsm-card-head wpiert-card-head', card );
 	head.innerHTML = icon + '<span>' + label + '</span>';
-	return el( 'div', 'wpiert-card-body', card );
+	return el( 'div', 'dsm-card-body wpiert-card-body', card );
 }
 
 const tabIcon = ( d, size = 15 ) =>
@@ -105,8 +105,6 @@ const tabIcon = ( d, size = 15 ) =>
 	d +
 	'"/></svg>';
 
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
 const ICONS = {
 	route: tabIcon(
 		'M3 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M19 7a2 2 0 1 0 0 -4a2 2 0 0 0 0 4z M11 19h5.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h4.5'
@@ -188,8 +186,8 @@ async function openStudio( { editor, extras, layer } ) {
 	dialog.setAttribute( 'aria-label', 'Route Visualizer' );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	const titleRow = el( 'div', 'dsm-title-row', titles );
 	const dlgTitle = el( 'span', 'dsm-title', titleRow );
@@ -206,7 +204,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const canvas = el( 'canvas', null, view );
 	const empty = el( 'div', 'wpiert-empty', view );
 	empty.textContent = t( 'Load a GPX file to start your poster.' );
-	const side = el( 'div', 'wpiert-side', body );
+	const side = el( 'div', 'dsm-col end wpiert-side', body );
 	const controls = el( 'div', 'wpiert-controls', side );
 
 	const themeOf = () =>
@@ -225,7 +223,7 @@ async function openStudio( { editor, extras, layer } ) {
 	fileInput.accept = '.gpx,application/gpx+xml';
 	fileInput.style.display = 'none';
 	loadBtn.onclick = () => fileInput.click();
-	const routeNote = el( 'div', 'wpiert-note', secRoute );
+	const routeNote = el( 'div', 'dsm-note wpiert-note', secRoute );
 
 	const setRoute = ( gpx, isDemo = false ) => {
 		const segments = simplifyTrack( gpx.segments );
@@ -385,7 +383,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const colorRow = row( secLine, t( 'Route color' ) );
 	colorRow.classList.add( 'has-color' );
 	const colorHost = el( 'div', 'wpiert-colorhost', colorRow );
-	const autoBtn = el( 'button', 'wpiert-reset', colorRow );
+	const autoBtn = el( 'button', 'ai-btn secondary wpiert-reset', colorRow );
 	autoBtn.type = 'button';
 	autoBtn.textContent = t( 'Auto' );
 	const onClose = [];
@@ -554,7 +552,7 @@ async function openStudio( { editor, extras, layer } ) {
 			paint();
 		}
 	);
-	const eleNote = el( 'div', 'wpiert-note', secLine );
+	const eleNote = el( 'div', 'dsm-note wpiert-note', secLine );
 	const syncEleState = () => {
 		const has =
 			params.route && null !== elevationSeries( params.route.segments );
@@ -621,11 +619,11 @@ async function openStudio( { editor, extras, layer } ) {
 				paint();
 			}
 		);
-		const privacyNote = el( 'div', 'wpiert-note', secMap );
+		const privacyNote = el( 'div', 'dsm-note wpiert-note', secMap );
 		privacyNote.textContent = t(
 			'Streets from OpenStreetMap, fetched through your own server and cached there.'
 		);
-		mapStatus = el( 'div', 'wpiert-note wpiert-status', secMap );
+		mapStatus = el( 'div', 'dsm-note wpiert-note wpiert-status', secMap );
 	} else {
 		params.mapBg = false;
 	}
@@ -794,7 +792,7 @@ async function openStudio( { editor, extras, layer } ) {
 		params.subtitle = subtitleInput.value;
 		paint();
 	};
-	const statsHead = el( 'div', 'wpiert-note', secText );
+	const statsHead = el( 'div', 'dsm-note wpiert-note', secText );
 	statsHead.textContent = t( 'Stats line' ) + ':';
 	[
 		[ 'dist', t( 'Distance' ) ],

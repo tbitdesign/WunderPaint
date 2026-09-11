@@ -105,11 +105,18 @@ function parseClassRules( svg ) {
 			/\/\*[\s\S]*?\*\//g,
 			''
 		);
-		const re = /([^{}]+)\{([^}]*)\}/g;
+		// /([^{}]+)\{([^}]*)\}/ backtracked once per character of a run
+		// without braces and was quadratic on a big <style> - an icon sheet
+		// with a megabyte of CSS froze the tab. Match the blocks alone
+		// (linear) and take the selectors as the text since the last block.
+		const re = /\{([^}]*)\}/g;
 		let m;
+		let lastEnd = 0;
 		while ( ( m = re.exec( css ) ) ) {
+			const selectorText = css.slice( lastEnd, m.index );
+			lastEnd = re.lastIndex;
 			const decls = {};
-			for ( const part of m[ 2 ].split( ';' ) ) {
+			for ( const part of m[ 1 ].split( ';' ) ) {
 				const [ k, v ] = part
 					.split( ':' )
 					.map( ( t ) => t && t.trim() );
@@ -117,7 +124,7 @@ function parseClassRules( svg ) {
 					decls[ k.toLowerCase() ] = v;
 				}
 			}
-			for ( const sel of m[ 1 ].split( ',' ) ) {
+			for ( const sel of selectorText.split( ',' ) ) {
 				const cls = sel.trim().match( /^[a-zA-Z0-9_-]*\.([\w-]+)$/ );
 				if ( cls ) {
 					rules[ cls[ 1 ] ] = {
@@ -206,8 +213,12 @@ function parseTransform( el, warnings ) {
 			.filter( Boolean )
 			.map( Number );
 		if ( 'translate' === fn ) {
-			out.dx += args[ 0 ] || 0;
-			out.dy += args[ 1 ] || 0;
+			// Transforms compose right to left: "scale(2) translate(10)"
+			// scales the translated point, so the offset is 20, not 10.
+			// Adding the raw offset lost that, and the layer sat in the
+			// wrong place by exactly the scale factor.
+			out.dx += out.sx * ( args[ 0 ] || 0 );
+			out.dy += out.sy * ( args[ 1 ] || 0 );
 		} else if ( 'scale' === fn ) {
 			out.sx *= args[ 0 ] || 1;
 			out.sy *= args[ 1 ] ?? ( args[ 0 ] || 1 );
@@ -253,8 +264,20 @@ export function importSvg( text ) {
 		.split( /[\s,]+/ )
 		.filter( Boolean )
 		.map( Number );
-	const vbW = viewBox.length === 4 ? viewBox[ 2 ] : num( svg, 'width', 512 );
-	const vbH = viewBox.length === 4 ? viewBox[ 3 ] : num( svg, 'height', 512 );
+	let vbW = viewBox.length === 4 ? viewBox[ 2 ] : num( svg, 'width', 512 );
+	let vbH = viewBox.length === 4 ? viewBox[ 3 ] : num( svg, 'height', 512 );
+	// A viewBox with a zero or negative side ("0 0 0 0") used to divide into
+	// NaN and Infinity and import every layer invisible, as a success.
+	if ( ! ( vbW > 0 ) || ! ( vbH > 0 ) ) {
+		vbW = num( svg, 'width', 0 ) > 0 ? num( svg, 'width', 0 ) : 512;
+		vbH = num( svg, 'height', 0 ) > 0 ? num( svg, 'height', 0 ) : 512;
+		warnings.push(
+			__(
+				'The SVG has no usable viewBox; the drawing was imported at its width and height.',
+				'wunderpaint'
+			)
+		);
+	}
 	const width = num( svg, 'width', vbW ) || vbW;
 	const height = num( svg, 'height', vbH ) || vbH;
 	const root = {
@@ -513,6 +536,97 @@ const esc = ( s ) =>
 		.replace( />/g, '&gt;' )
 		.replace( /"/g, '&quot;' );
 
+/**
+ * A geometry value, forced to be one.
+ *
+ * esc() covers every colour, path and text field of the export, and the
+ * numbers were left alone on the assumption that a number is a number. Nothing
+ * enforces that: openProjectOp() checks `data.wpie` and that `layers` is an
+ * array, hydrateLayers() converts bytes and spans, and neither makes `layer.x`
+ * numeric. A shared .wpie file or a template with `"strokeW": "1\" onload=\"…"`
+ * therefore wrote an extra attribute into the exported SVG - and that file is
+ * one the person then puts on their own site.
+ *
+ * More escaping would work too, but this is the honest fix: these fields are
+ * coordinates, and a coordinate that is not a number is a zero.
+ *
+ * @param {*} v        Raw value.
+ * @param {number} [d] Fallback.
+ * @return {number} A finite number.
+ */
+const geoNum = ( v, d = 0 ) => {
+	const n = Number( v );
+	return Number.isFinite( n ) ? n : d;
+};
+
+/**
+ * Every numeric field a layer can carry into an SVG attribute.
+ *
+ * A project file is user data: openProjectOp() checks `wpie` and that
+ * `layers` is an array, and nothing else. Any of these can therefore be a
+ * string, and a string lands unescaped inside an attribute.
+ */
+const GEO_FIELDS = [
+	'x',
+	'y',
+	'w',
+	'h',
+	'rot',
+	'opacity',
+	'strokeW',
+	'strokeDashLen',
+	'strokeDashGap',
+	'fontSize',
+	'lineHeight',
+	'letterSpacing',
+	'paragraphSpacing',
+	'weight',
+	'sides',
+];
+
+/**
+ * The same layer with its numbers guaranteed to be numbers.
+ *
+ * This is deliberately NOT another list of call sites. JSPARSE-05 was
+ * reported, fixed for the document size, marked as done - and the layer
+ * coordinates stayed raw. It was fixed again for most layer coordinates on
+ * 11.09.2026, marked as done, and `font-size`, `font-weight`, the two text
+ * transforms, the image height and the right-aligned anchor stayed raw
+ * (Codex C05). Twice the fix reached the reported line and not the class.
+ * So every emitter below now works on a normalized layer, and a new
+ * attribute cannot reintroduce the hole by forgetting a helper.
+ *
+ * A value that is not a finite number is DROPPED rather than zeroed, so the
+ * branch's own fallback still applies: `layer.fontSize || 16` has to keep
+ * meaning sixteen, not zero.
+ *
+ * @param {Object} layer Raw layer.
+ * @return {Object} The layer, or a copy with clean numbers.
+ */
+const geoLayer = ( layer ) => {
+	if ( ! layer || 'object' !== typeof layer ) {
+		return layer;
+	}
+	let copy = null;
+	for ( const f of GEO_FIELDS ) {
+		const v = layer[ f ];
+		if ( undefined === v || null === v ) {
+			continue;
+		}
+		if ( 'number' === typeof v && Number.isFinite( v ) ) {
+			continue;
+		}
+		const n = Number( v );
+		copy = copy || { ...layer };
+		if ( Number.isFinite( n ) ) {
+			copy[ f ] = n;
+		} else {
+			delete copy[ f ];
+		}
+	}
+	return copy || layer;
+};
+
 const dashAttr = ( layer, width ) => {
 	const d = dashPattern(
 		layer.strokeDash,
@@ -524,7 +638,7 @@ const dashAttr = ( layer, width ) => {
 		return '';
 	}
 	const vals = d.map( ( v ) => Math.round( v * 100 ) / 100 ).join( ' ' );
-	return ` stroke-dasharray="${ vals }"${
+	return ` stroke-dasharray="${ esc( String( vals ) ) }"${
 		'dotted' === layer.strokeDash ? ' stroke-linecap="round"' : ''
 	}`;
 };
@@ -543,14 +657,18 @@ function shapeToSvg( layer, defs ) {
 			: '' );
 	const strokeAttr =
 		layer.stroke && layer.strokeW
-			? ` stroke="${ esc( layer.stroke ) }" stroke-width="${
+			? ` stroke="${ esc( layer.stroke ) }" stroke-width="${ geoNum(
 					layer.strokeW
-			  }"${ dashAttr( layer, layer.strokeW ) }${ capJoinAttr }`
+			  ) }"${ dashAttr( layer, layer.strokeW ) }${ capJoinAttr }`
 			: '';
 	const common = `fill="${ esc( fillAttr ) }"${ strokeAttr }`;
-	const tx = ` transform="translate(${ layer.x },${ layer.y })${
+	const tx = ` transform="translate(${ geoNum( layer.x ) },${ geoNum(
+		layer.y
+	) })${
 		layer.rot
-			? ` rotate(${ layer.rot } ${ layer.w / 2 } ${ layer.h / 2 })`
+			? ` rotate(${ geoNum( layer.rot ) } ${ geoNum( layer.w ) / 2 } ${
+					geoNum( layer.h ) / 2
+			  })`
 			: ''
 	}"`;
 	const align = strokeAlignOf( layer );
@@ -675,7 +793,9 @@ function shapeToSvg( layer, defs ) {
 				) }" ${ common }${ tx }/>`;
 			}
 			const [ r ] = cornerRadii( layer.radius, layer.w, layer.h );
-			return `<rect width="${ layer.w }" height="${ layer.h }" rx="${ r }" ${ common }${ tx }/>`;
+			return `<rect width="${ geoNum( layer.w ) }" height="${ geoNum(
+				layer.h
+			) }" rx="${ r }" ${ common }${ tx }/>`;
 		}
 		default: {
 			// A shape whose geometry we can bake travels as its real path
@@ -857,7 +977,11 @@ function gradientToSvg( layer, defs ) {
 					'linear' === layer.kind ? 0 : 1
 			  }">${ stops }</linearGradient>`
 	);
-	return `<rect x="${ layer.x }" y="${ layer.y }" width="${ layer.w }" height="${ layer.h }" fill="url(#${ id })"/>`;
+	return `<rect x="${ geoNum( layer.x ) }" y="${ geoNum(
+		layer.y
+	) }" width="${ geoNum( layer.w ) }" height="${ geoNum(
+		layer.h
+	) }" fill="url(#${ id })"/>`;
 }
 
 /**
@@ -871,12 +995,17 @@ export function exportSvg( doc, layers ) {
 	const defs = { items: [], warnings: [] };
 	const byId = new Map( layers.map( ( l ) => [ l.id, l ] ) );
 
-	const emit = ( layer ) => {
+	const emit = ( raw ) => {
+		// ONE place where a layer's numbers become numbers, before any
+		// branch can interpolate one into an attribute.
+		const layer = geoLayer( raw );
 		if ( ! layer.visible ) {
 			return '';
 		}
 		const alpha =
-			1 !== ( layer.opacity ?? 1 ) ? ` opacity="${ layer.opacity }"` : '';
+			1 !== ( layer.opacity ?? 1 )
+				? ` opacity="${ geoNum( layer.opacity, 1 ) }"`
+				: '';
 		if ( 'group' === layer.type ) {
 			const inner = ( layer.children || [] )
 				.map( ( id ) => byId.get( id ) )
@@ -923,9 +1052,9 @@ export function exportSvg( doc, layers ) {
 				if ( ! href ) {
 					return '';
 				}
-				body = `<image href="${ esc( href ) }" x="${ layer.x }" y="${
-					layer.y
-				}" width="${ layer.w }" height="${
+				body = `<image href="${ esc( href ) }" x="${ geoNum(
+					layer.x
+				) }" y="${ layer.y }" width="${ geoNum( layer.w ) }" height="${
 					layer.h
 				}" preserveAspectRatio="none"/>`;
 			}
@@ -940,15 +1069,17 @@ export function exportSvg( doc, layers ) {
 		.map( emit )
 		.filter( Boolean )
 		.join( '\n' );
+	// The document's size fields come from a project file; a string with
+	// a quote in it used to land in the attribute as it was.
+	const docW = Number( doc.w ) || 0;
+	const docH = Number( doc.h ) || 0;
 	const bg =
 		doc.bg && 'transparent' !== doc.bg
-			? `<rect width="${ doc.w }" height="${ doc.h }" fill="${ esc(
+			? `<rect width="${ docW }" height="${ docH }" fill="${ esc(
 					doc.bg
 			  ) }"/>\n`
 			: '';
-	const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${
-		doc.w
-	}" height="${ doc.h }" viewBox="0 0 ${ doc.w } ${ doc.h }">\n${
+	const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${ docW }" height="${ docH }" viewBox="0 0 ${ docW } ${ docH }">\n${
 		defs.items.length ? `<defs>${ defs.items.join( '' ) }</defs>\n` : ''
 	}${ bg }${ body }\n</svg>\n`;
 	return { svg, warnings: defs.warnings };

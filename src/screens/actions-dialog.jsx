@@ -25,6 +25,7 @@ export function ActionsDialog( { extras, onClose } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Actions', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

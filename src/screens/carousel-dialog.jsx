@@ -117,6 +117,7 @@ export function CarouselDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Export Carousel', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

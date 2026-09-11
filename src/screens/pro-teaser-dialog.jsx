@@ -17,6 +17,7 @@ export function ProTeaserDialog( { label, onClose } ) {
 				className="dsm pro-teaser"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ label }
 			>
 				<div className="dsm-head">

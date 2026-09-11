@@ -259,6 +259,10 @@ class Media {
 				array_merge( array( $id ), $likes )
 			)
 		);
+		// last_error speaks about ONE query: read it now, or the second query
+		// erases what the first one had to say.
+		$fehler_inhalt    = (string) $wpdb->last_error;
+		$wpdb->last_error = '';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- admin-only usage count for one attachment; inherently dynamic, not worth caching.
 		$featured = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -268,7 +272,7 @@ class Media {
 		);
 		// Both counts are null-on-error, so zero would be a confident "nowhere"
 		// for an image that may well be in use.
-		if ( '' !== (string) $wpdb->last_error ) {
+		if ( '' !== $fehler_inhalt || '' !== (string) $wpdb->last_error ) {
 			return new \WP_Error(
 				'wpie_usage_query_failed',
 				__( 'The usage count could not be determined.', 'wunderpaint' ),

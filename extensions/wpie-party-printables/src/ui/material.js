@@ -8,13 +8,13 @@ import { PHOTO_SOURCES } from '../model.js';
 import { ICONS } from './icons.js';
 
 export function buildMaterial( host, { S, ui, bridge, t, onChange, onPhoto } ) {
-	const panel = ui.el( 'div', 'wpiepp-material', host );
-	const head = ui.el( 'div', 'wpiepp-material-head', panel );
+	const panel = ui.el( 'div', 'dsm-card wpiepp-material', host );
+	const head = ui.el( 'div', 'dsm-card-head wpiepp-material-head', panel );
 	const headIcon = ui.el( 'span', 'wpiepp-material-ic', head );
 	const headLabel = ui.el( 'b', null, head, '' );
-	const headHint = ui.el( 'span', 'wpiepp-material-hint', head, '' );
-	const body = ui.el( 'div', 'wpiepp-material-body', panel );
-	const errors = ui.el( 'div', 'wpiepp-errors', panel, '' );
+	const headHint = ui.el( 'span', 'dsm-note wpiepp-material-hint', head, '' );
+	const body = ui.el( 'div', 'dsm-card-body wpiepp-material-body', panel );
+	const errors = ui.el( 'div', 'dsm-note wpiepp-errors', panel, '' );
 	errors.hidden = true;
 	const mounts = [];
 
@@ -44,11 +44,11 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange, onPhoto } ) {
 			const col = ui.el( 'div', 'wpiepp-material-col', row );
 			ui.el(
 				'div',
-				'wpiepp-note',
+				'dsm-note wpiepp-note',
 				col,
 				def.textLabel ? t( def.textLabel ) : t( 'Text' )
 			);
-			const ta = ui.el( 'textarea', 'wpiepp-text', col );
+			const ta = ui.el( 'textarea', 'dsm-input wpiepp-text', col );
 			ta.spellcheck = false;
 			ta.value = item.text || '';
 			ta.placeholder =
@@ -85,11 +85,11 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange, onPhoto } ) {
 			const col = ui.el( 'div', 'wpiepp-material-col', row );
 			ui.el(
 				'div',
-				'wpiepp-note',
+				'dsm-note wpiepp-note',
 				col,
 				t( 'Guests, one name per line' )
 			);
-			const ta = ui.el( 'textarea', 'wpiepp-names', col );
+			const ta = ui.el( 'textarea', 'dsm-input wpiepp-names', col );
 			ta.spellcheck = false;
 			ta.value = ( S.params.event.names || [] ).join( '\n' );
 			ta.placeholder = 'Mia\nLeo\nAda';
@@ -117,13 +117,13 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange, onPhoto } ) {
 				'wpiepp-material-col wpiepp-material-photo',
 				row
 			);
-			ui.el( 'div', 'wpiepp-note', col, t( 'Photo' ) );
+			ui.el( 'div', 'dsm-note wpiepp-note', col, t( 'Photo' ) );
 			const photo = S.params.photo;
 			const pickHost = ui.el( 'div', 'wpiepp-photo-pick', col );
 			const many = 'many' === def.uses.photo;
 			const countLine = ui.el(
 				'div',
-				'wpiepp-note wpiepp-photo-count',
+				'dsm-note wpiepp-note wpiepp-photo-count',
 				col,
 				''
 			);

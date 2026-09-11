@@ -30,20 +30,60 @@ import {
 	buildRecipe,
 	flowerOps,
 	splatterOps,
+	laceOps,
+	sweepToolOps,
+	mirroredOps,
 	replaySchedule,
 	ease,
 	rng,
 } from './marbling.js';
 import { t } from './i18n.js';
+import { openFluidLab } from './fluid/studio.js';
+import { labT } from './fluid/i18n.js';
+
+/**
+ * Six hex digits, whatever the picker hands over.
+ *
+ * The core's colour dialog always shows an alpha slider, and below 100 % it
+ * answers with eight digits (#rrggbbaa). The renderer here reads the first six
+ * with slice(), so the preview looked right - and mergeParams() then checks
+ * /^#[0-9a-f]{6}$/ when the layer is reopened, does not match, and falls back
+ * to the factory colour. The whole finished marbling recoloured itself on the
+ * next Update, because inks are slot references. Alpha has no meaning for a
+ * bath colour, so it is dropped where the value arrives.
+ */
+function hex6( c ) {
+	const s = String( c || '' ).trim();
+	return /^#[0-9a-f]{8}$/i.test( s ) ? s.slice( 0, 7 ) : s;
+}
+
+/**
+ * Upload through wp.apiFetch, which carries and refreshes the nonce; a
+ * hand-built fetch with the boot nonce failed after the first rotation
+ * (BRIDGE-04, 10.09.2026). Same shape as the fetch Response the callers read.
+ */
+async function wpieMediaPost( restRoot, init ) {
+	try {
+		const json = await window.wp.apiFetch( {
+			url: restRoot + 'wp/v2/media',
+			method: 'POST',
+			...init,
+		} );
+		return { ok: true, status: 201, json: () => Promise.resolve( json ) };
+	} catch ( e ) {
+		return {
+			ok: false,
+			status: ( e && e.data && e.data.status ) || 0,
+			json: () => Promise.resolve( e ),
+		};
+	}
+}
 
 const GEN_ID = 'wpie-marbling-studio/marbling';
 const OUT_SIZE = 1600;
 const VIDEO_MAX = 1280;
 
 // The editor's brand mark - every studio badges with it, verbatim.
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03,.14-.09,.17-.17l.91-2.45c.03-.07,.13-.07,.16,0Z"/></svg>';
-
 const tabIcon = ( d ) =>
 	'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" ' +
 	'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
@@ -54,6 +94,17 @@ const tabIcon = ( d ) =>
 	'</svg>';
 
 const ICONS = {
+	duplicate: tabIcon( 'M9 9h11v11H9z M15 9V4H4v11h5' ),
+	heat: tabIcon(
+		'M10 14v-9a2 2 0 0 1 4 0v9a4 4 0 1 1 -4 0 M12 8v9 M18 5h3 M18 9h2'
+	),
+	cool: tabIcon(
+		'M12 3v18 M4.2 7.5l15.6 9 M4.2 16.5l15.6 -9 M9 5l3 3l3 -3 M9 19l3 -3l3 3'
+	),
+	magnet: tabIcon(
+		'M5 3v10a7 7 0 0 0 14 0v-10h-4v10a3 3 0 0 1 -6 0v-10z M5 7h4 M15 7h4'
+	),
+	sourceOff: tabIcon( 'M5 5l14 14 M19 5l-14 14 M12 2a10 10 0 1 1 -0.01 0' ),
 	cards: tabIcon(
 		'M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4 M14 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4 M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4 M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4'
 	),
@@ -62,6 +113,12 @@ const ICONS = {
 	),
 	drop: tabIcon( 'M12 3l4.5 5a6.5 6.5 0 1 1 -9 0z' ),
 	needle: tabIcon( 'M5 19L17 7 M17 7a2 2 0 1 0 2 -2' ),
+	fan: tabIcon(
+		'M12 20L3 5 M12 20L7 3 M12 20V2 M12 20L17 3 M12 20L21 5 M3 5Q12 -1 21 5'
+	),
+	twin: tabIcon(
+		'M8 12a2 2 0 1 1 -2 -2a4 4 0 1 1 -4 4 M16 12a2 2 0 1 0 2 -2a4 4 0 1 0 4 4 M12 3v18'
+	),
 	comb: tabIcon( 'M4 5h16 M6 5v14 M10 5v10 M14 5v14 M18 5v10' ),
 	wave: tabIcon(
 		'M3 12c2.2 -3.6 5 -3.6 7.2 0s5 3.6 7.2 0 M3 18c2.2 -3.6 5 -3.6 7.2 0s5 3.6 7.2 0'
@@ -75,6 +132,23 @@ const ICONS = {
 	arc: tabIcon( 'M4 18a12 12 0 0 1 15 -11 M19 7l-3.2 -0.4 M19 7l-0.6 3.1' ),
 	ringcomb: tabIcon(
 		'M12 12m-2.6 0a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0 -5.2 0 M12 12m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0 M12 12m-9.3 0a9.3 9.3 0 1 0 18.6 0a9.3 9.3 0 1 0 -18.6 0'
+	),
+	stylus: tabIcon(
+		'M4 20c3 -6 5 -9 9 -11c2 -1 4 -3 6 -6 M15 6l3 3 M5 19l-1 1'
+	),
+	wavycomb: tabIcon(
+		'M3 7c3 -3 6 3 9 0s6 -3 9 0 M6 8v11 M10 7v8 M14 8v11 M18 7v8'
+	),
+	lace: tabIcon(
+		'M12 3l4.5 5a6.5 6.5 0 1 1 -9 0z M10 11l0 .01 M14 12l0 .01 M12 15l0 .01 M9.5 14.5l0 .01 M14.5 15.5l0 .01'
+	),
+	feather: tabIcon(
+		'M4 6h16 M6 6v13 M10 6v9 M14 6v13 M18 6v9 M8 20l-2 -2 M16 20l2 -2 M8 3l-2 3 M16 3l2 3'
+	),
+	mirror: tabIcon( 'M12 3v18 M4 8l5 4l-5 4z M20 8l-5 4l5 4z' ),
+	embed: tabIcon( 'M8 7l-5 5l5 5 M16 7l5 5l-5 5 M13 4l-2 16' ),
+	surprise: tabIcon(
+		'M12 3l1.8 4.2l4.2 1.8l-4.2 1.8l-1.8 4.2l-1.8 -4.2l-4.2 -1.8l4.2 -1.8z M5 17l0.8 1.7l1.7 0.8l-1.7 0.8l-0.8 1.7l-0.8 -1.7l-1.7 -0.8l1.7 -0.8z M19 15l0.6 1.4l1.4 0.6l-1.4 0.6l-0.6 1.4l-0.6 -1.4l-1.4 -0.6l1.4 -0.6z'
 	),
 	splatter: tabIcon(
 		'M7 7m-1.4 0a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0 M14 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M18 10m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0 M8 15m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M14 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M5 11m-0.8 0a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0'
@@ -103,20 +177,28 @@ const ICONS = {
 
 const TOOL_LIST = [
 	[ 'drop', 'Ink drop', 'drop' ],
+	[ 'lace', 'Lace drop', 'lace' ],
 	[ 'flower', 'Flower', 'flower' ],
+	[ 'splatter', 'Splatter', 'splatter' ],
 	[ 'needle', 'Needle', 'needle' ],
+	[ 'stylus', 'Stylus', 'stylus' ],
 	[ 'comb', 'Comb', 'comb' ],
+	[ 'wavycomb', 'Wavy comb', 'wavycomb' ],
+	[ 'feather', 'Feather comb', 'feather' ],
 	[ 'arc', 'Arc', 'arc' ],
 	[ 'ringcomb', 'Ring comb', 'ringcomb' ],
 	[ 'wave', 'Wave', 'wave' ],
 	[ 'vortex', 'Curl', 'vortex' ],
-	[ 'splatter', 'Splatter', 'splatter' ],
+	[ 'fan', 'Fan comb', 'fan' ],
+	[ 'twin', 'Twin swirl', 'twin' ],
 ];
 
 const FLOWER_LABELS = {
 	tulip: 'Tulip',
 	carnation: 'Carnation',
 	daisy: 'Daisy',
+	rose: 'Rose',
+	iris: 'Iris',
 };
 
 const RECIPE_LABELS = {
@@ -127,7 +209,34 @@ const RECIPE_LABELS = {
 	bouquet: 'Bouquet',
 	curls: 'French curls',
 	peacock: 'Peacock',
+	spanish: 'Spanish wave',
+	italian: 'Italian vein',
 };
+
+// One line under each pattern card: what the recipe does to the bath.
+const RECIPE_SUBS = {
+	stone: 'Drops on drops, uncombed - the pebbled ground.',
+	gelgit: 'Two combs back and forth: the classic zigzag.',
+	nonpareil: 'Gel-git pulled through a fine comb, feather-tight.',
+	chevron: 'Nonpareil rocked into herringbone arrows.',
+	bouquet: 'A wide comb, then a sway: fanned bouquets.',
+	curls: 'A field of curls, turning left and right.',
+	peacock: 'A wave and a counter-comb open the eyes.',
+	spanish: 'Long slanted folds over a fine comb.',
+	italian: 'A shower of gall opens cells; thin veins between.',
+};
+
+// "Surprise me" draws its inks from these, so a roll never looks muddy.
+const SURPRISE_PALETTES = [
+	[ '#1f3a5f', '#c9553d', '#e6b04b', '#f2e8d5', '#2f5d50' ],
+	[ '#101820', '#f2aa4c', '#f2f2f2', '#6b8e9b', '#a63d40' ],
+	[ '#2b2d42', '#8d99ae', '#edf2f4', '#ef233c', '#d90429' ],
+	[ '#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51' ],
+	[ '#22223b', '#4a4e69', '#9a8c98', '#c9ada7', '#f2e9e4' ],
+	[ '#0b3954', '#087e8b', '#bfd7ea', '#ff5a5f', '#c81d25' ],
+	[ '#3d405b', '#81b29a', '#f2cc8f', '#e07a5f', '#f4f1de' ],
+	[ '#1b1b1e', '#d8b4a0', '#d77a61', '#223843', '#eff1f3' ],
+];
 
 /** Deterministic seed walk - the dice are a Lehmer sequence. */
 const nextSeed = ( s ) => ( ( s * 48271 ) % 2147483647 ) % 999983 || 7;
@@ -142,7 +251,7 @@ const download = ( blob, name ) => {
 
 /* -------------------------------- the studio ------------------------------- */
 
-function openStudio( ctx ) {
+function openStudio( ctx, session = {}, mode = null ) {
 	const { editor } = ctx || {};
 	const boot = window.WPIE || {};
 	const bridge = boot.bridge;
@@ -155,13 +264,27 @@ function openStudio( ctx ) {
 			? ctx.layer
 			: null;
 	const editing = !! genLayer;
+	const saved = genLayer?.generator.params;
+	if ( mode === 'fluid' || ( ! mode && saved?.mode === 'fluid' ) ) {
+		openFluidLab( ctx, {
+			draft: session.lab || saved?.lab,
+			classic: session.classic || saved?.classic,
+			icons: ICONS,
+			onClassic: ( lab ) => {
+				session.lab = lab;
+				openStudio( ctx, session, 'classic' );
+			},
+		} );
+		return;
+	}
 	const doc = editor.state.doc || { w: 4, h: 3 };
 	const docAspect = Math.max(
 		0.5,
 		Math.min( 2, ( doc.w || 1 ) / ( doc.h || 1 ) )
 	);
 	let state = mergeParams(
-		editing ? genLayer.generator.params : { aspect: docAspect }
+		session.classic ||
+			( editing ? saved?.classic || saved : { aspect: docAspect } )
 	);
 
 	// window.WPIE first - the Brand-Kits dialog REASSIGNS brandKits on it.
@@ -183,8 +306,8 @@ function openStudio( ctx ) {
 	dialog.onclick = ( e ) => e.stopPropagation();
 
 	const head = ui.el( 'div', 'dsm-head', dialog );
-	const badge = ui.el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( head );
 	const titles = ui.el( 'div', 'dsm-titles', head );
 	ui.el(
 		'span',
@@ -218,13 +341,31 @@ function openStudio( ctx ) {
 	const guide = ui.el( 'canvas', 'wpiemb-guide', stage );
 	const hint = ui.el(
 		'div',
-		'wpiemb-hint',
+		'dsm-viewhint wpiemb-hint',
 		view,
 		t( 'Click to drop ink · hold to let it grow · drag a tool through' )
 	);
 	void hint;
 	const busy = ui.el( 'div', 'wpiemb-busy', view, '' );
 	busy.style.display = 'none';
+	// The timeline (v1.4): scrub through the making - every prefix of the
+	// history is a valid picture. A new move returns the bath to the end.
+	const timeline = ui.el( 'input', 'dsm-range wpiemb-timeline', view );
+	timeline.type = 'range';
+	timeline.min = '0';
+	timeline.max = '0';
+	timeline.value = '0';
+	timeline.setAttribute( 'aria-label', t( 'Timeline' ) );
+	timeline.oninput = () => {
+		engine.setPartial( Number( timeline.value ), 1 );
+		engine.render();
+	};
+	const syncTimeline = () => {
+		const n = engine.state.ops.length;
+		timeline.max = String( n );
+		timeline.value = String( n );
+		timeline.style.display = n > 1 ? '' : 'none';
+	};
 
 	const toasts = ( ctx.extras && ctx.extras.toasts ) || {
 		error: ( m ) => window.console && window.console.error( m ),
@@ -254,7 +395,7 @@ function openStudio( ctx ) {
 		editor.state &&
 		editor.state.doc
 	);
-	const docBtn = ui.el( 'button', 'wpiemb-docbtn', view );
+	const docBtn = ui.el( 'button', 'dsm-viewbtn wpiemb-docbtn', view );
 	docBtn.type = 'button';
 	docBtn.innerHTML = ICONS.eye + '<span>' + t( 'Show document' ) + '</span>';
 	docBtn.title = t( 'Preview on your current design.' );
@@ -314,84 +455,158 @@ function openStudio( ctx ) {
 
 	/* --------------------------------- cards ------------------------------- */
 
+	// v1.3: the family's sections and sliders, not a look of this studio's
+	// own - Thomas: the two columns "did not match the extensions' CI".
 	function card( parent, title, icon ) {
-		const box = ui.el( 'div', 'wpiemb-card', parent );
-		const headRow = ui.el( 'div', 'wpiemb-cardhead', box );
-		if ( icon ) {
-			const ic = ui.el( 'span', 'wpiemb-cardicon', headRow );
-			ic.innerHTML = icon;
-		}
-		ui.el( 'span', 'wpiemb-cardtitle', headRow, title );
-		return ui.el( 'div', 'wpiemb-cardbody', box );
+		return ui.section( parent, { icon, title } );
 	}
 
 	function row( parent, label, min, max, step, value, onChange, fmt ) {
-		const r = ui.el( 'div', 'wpiemb-row', parent );
-		ui.el( 'span', 'wpiemb-label', r, label );
-		const input = ui.el( 'input', 'dsm-range', r );
-		input.type = 'range';
-		input.min = String( min );
-		input.max = String( max );
-		input.step = String( step );
-		input.value = String( value );
-		const out = ui.el(
-			'span',
-			'wpiemb-value',
-			r,
-			fmt ? fmt( value ) : String( value )
-		);
-		input.oninput = () => {
-			const v = Number( input.value );
-			out.textContent = fmt ? fmt( v ) : String( v );
-			onChange( v );
-		};
-		return input;
+		return ui.slider( parent, {
+			label,
+			min,
+			max,
+			step,
+			value,
+			onInput: onChange,
+			format: fmt || String,
+		} );
 	}
 
-	function chips( parent, label, list, current, onPick ) {
-		if ( label ) {
-			const r = ui.el( 'div', 'wpiemb-row', parent );
-			ui.el( 'span', 'wpiemb-label', r, label );
-		}
-		const wrap = ui.el( 'div', 'wpiemb-chips', parent );
+	/** A labelled select in the family's row line. */
+	function selectRow( parent, label, options, value, onChange ) {
+		return ui.select( ui.row( parent, label ), {
+			options,
+			value,
+			onChange,
+		} );
+	}
+
+	/** The tools as icon tiles, the 3D Flip Studio model look. */
+	function toolTiles( parent, list, current, onPick ) {
+		const wrap = ui.el( 'div', 'wpiemb-tools', parent );
 		list.forEach( ( [ id, lbl, icon ] ) => {
-			const chip = ui.el(
+			const tile = ui.el(
 				'button',
-				'wpiemb-chip' + ( id === current ? ' is-on' : '' ),
+				'dsm-pick wpiemb-tool' + ( id === current ? ' is-on' : '' ),
 				wrap
 			);
-			chip.type = 'button';
-			chip.innerHTML = icon
-				? ICONS[ icon ] + '<span>' + lbl + '</span>'
-				: lbl;
-			chip.onclick = () => onPick( id );
+			tile.type = 'button';
+			tile.dataset.tool = id;
+			tile.innerHTML = ICONS[ icon ] + '<span>' + lbl + '</span>';
+			tile.onclick = () => onPick( id );
 		} );
 		return wrap;
 	}
 
 	/* -------------------------------- left column --------------------------- */
 
+	const modes = ui.el( 'div', 'wpiemb-lab-modes', left );
+	const classicMode = ui.btn( modes, {
+		label: labT( 'Classic' ),
+		primary: true,
+	} );
+	classicMode.setAttribute( 'aria-pressed', 'true' );
+	const fluidMode = ui.btn( modes, {
+		label: labT( 'Fluid Lab' ),
+		onClick: () => {
+			session.classic = { ...state };
+			close();
+			openStudio( ctx, session, 'fluid' );
+		},
+	} );
+	fluidMode.dataset.mode = 'fluid';
+
 	const recipesBox = card( left, t( 'Patterns' ), ICONS.cards );
+	// Surprise me: a pattern, a palette and one extra move, rolled at once.
+	const surpriseBtn = ui.btn( recipesBox, {
+		label: t( 'Surprise me' ),
+		onClick: () => surprise(),
+	} );
+	surpriseBtn.classList.add( 'wpiemb-surprise' );
+	surpriseBtn.innerHTML =
+		ICONS.surprise + '<span>' + t( 'Surprise me' ) + '</span>';
 	ui.el(
 		'div',
-		'wpiemb-note',
+		'dsm-note wpiemb-note',
 		recipesBox,
 		t( 'A seeded start over your inks - keep marbling on top of it.' )
 	);
 	const recipeEls = {};
+	const recipeThumbs = {};
+	const recipeList = ui.el( 'div', 'wpiemb-recipes', recipesBox );
 	for ( const r of RECIPES ) {
 		const el = ui.el(
 			'button',
-			'wpiemb-card-btn',
-			recipesBox,
-			t( RECIPE_LABELS[ r.id ] || r.label )
+			'dsm-listrow wpiemb-card-btn wpiemb-recipe',
+			recipeList
 		);
 		el.type = 'button';
+		el.dataset.recipe = r.id;
+		const thumb = ui.el( 'canvas', 'wpiemb-recipe-thumb', el );
+		thumb.width = 96;
+		thumb.height = 72;
+		const main = ui.el( 'span', 'wpiemb-recipe-main', el );
+		ui.el( 'b', null, main, t( RECIPE_LABELS[ r.id ] || r.label ) );
+		ui.el( 'small', null, main, t( RECIPE_SUBS[ r.id ] || '' ) );
 		el.onclick = () => applyRecipe( r.id );
 		recipeEls[ r.id ] = el;
+		recipeThumbs[ r.id ] = thumb;
 	}
+	// Live thumbnails: every recipe rendered small over the CURRENT inks
+	// and seed, on its own engine (the Growth & Decay force cards).
+	let thumbEngine = null;
+	let thumbTimer = 0;
+	function paintRecipeThumbs() {
+		if ( engine.cpu ) {
+			return;
+		}
+		try {
+			if ( ! thumbEngine ) {
+				thumbEngine = new MarblingEngine(
+					document.createElement( 'canvas' )
+				);
+			}
+			if ( thumbEngine.cpu ) {
+				return;
+			}
+			const tw = 96;
+			const th = Math.max( 24, Math.round( tw / state.aspect ) );
+			for ( const r of RECIPES ) {
+				thumbEngine.setState( {
+					ops: renderOps(
+						buildRecipe(
+							r.id,
+							state.seed,
+							state.aspect,
+							state.inks.length
+						)
+					),
+					inks: state.inks,
+					bath: state.bath,
+					bathClear: state.bathClear,
+					aspect: state.aspect,
+					veins: state.veins,
+					paper: 0,
+				} );
+				const still = thumbEngine.renderStill( tw * 2, th * 2 );
+				const c = recipeThumbs[ r.id ];
+				c.width = tw;
+				c.height = th;
+				const g = c.getContext( '2d' );
+				g.clearRect( 0, 0, tw, th );
+				g.drawImage( still, 0, 0, tw, th );
+			}
+		} catch ( e ) {
+			// A thumbnail is a courtesy; the bath itself is what matters.
+		}
+	}
+	const refreshThumbs = () => {
+		window.clearTimeout( thumbTimer );
+		thumbTimer = window.setTimeout( paintRecipeThumbs, 120 );
+	};
 	const seedRow = ui.el( 'div', 'wpiemb-row wpiemb-seedrow', recipesBox );
-	ui.el( 'span', 'wpiemb-label', seedRow, t( 'Seed' ) );
+	ui.el( 'span', 'dsm-rowline-label wpiemb-label', seedRow, t( 'Seed' ) );
 	const seedInput = ui.el( 'input', 'dsm-input wpiemb-seed', seedRow );
 	seedInput.type = 'number';
 	seedInput.value = String( state.seed );
@@ -401,7 +616,7 @@ function openStudio( ctx ) {
 			applyRecipe( state.recipe );
 		}
 	};
-	const diceBtn = ui.el( 'button', 'wpiemb-chip', seedRow );
+	const diceBtn = ui.el( 'button', 'dsm-pill wpiemb-chip', seedRow );
 	diceBtn.type = 'button';
 	diceBtn.innerHTML = ICONS.dice;
 	diceBtn.title = t( 'New seed' );
@@ -415,7 +630,11 @@ function openStudio( ctx ) {
 
 	const actionsBox = card( left, t( 'Bath' ), ICONS.water );
 	const actRow = ui.el( 'div', 'wpiemb-btncol', actionsBox );
-	const sprinkleBtn = ui.el( 'button', 'wpiemb-action', actRow );
+	const sprinkleBtn = ui.el(
+		'button',
+		'ai-btn secondary wpiemb-action',
+		actRow
+	);
 	sprinkleBtn.type = 'button';
 	sprinkleBtn.innerHTML =
 		ICONS.sparkle + '<span>' + t( 'Sprinkle drops' ) + '</span>';
@@ -438,15 +657,29 @@ function openStudio( ctx ) {
 		}
 		setOps( ops );
 	};
-	const undoBtn = ui.el( 'button', 'wpiemb-action', actRow );
+	const undoBtn = ui.el( 'button', 'ai-btn secondary wpiemb-action', actRow );
 	undoBtn.type = 'button';
 	undoBtn.innerHTML =
 		ICONS.undo + '<span>' + t( 'Undo last move' ) + '</span>';
 	undoBtn.onclick = () => undoGroup();
+	// Mirror (v1.4): every gesture twinned across the middle of the bath.
+	ui.check( actionsBox, {
+		label: t( 'Mirror across the middle' ),
+		checked: state.mirror,
+		onChange: ( v ) => {
+			state.mirror = v;
+			setOps( state.ops );
+			refreshThumbs();
+		},
+	} );
 	// Clearing throws a performance away - the button asks by turning red
 	// once, never with a popup.
 	let clearArmed = 0;
-	const clearBtn = ui.el( 'button', 'wpiemb-action', actRow );
+	const clearBtn = ui.el(
+		'button',
+		'ai-btn secondary wpiemb-action',
+		actRow
+	);
 	clearBtn.type = 'button';
 	const clearIdle =
 		ICONS.trash + '<span>' + t( 'Empty the bath' ) + '</span>';
@@ -477,6 +710,60 @@ function openStudio( ctx ) {
 		}, 2600 );
 	};
 
+	/**
+	 * Surprise me (v1.3): a pattern, a palette and one extra move - one
+	 * click, a new bath. Seeded from the clock, then every re-roll is a
+	 * fresh seed the dice can carry on from.
+	 */
+	function surprise() {
+		state.seed = ( ( Date.now() % 900000 ) + 7 ) | 0;
+		const rand = rng( state.seed );
+		const pal =
+			SURPRISE_PALETTES[
+				Math.floor( rand() * SURPRISE_PALETTES.length )
+			];
+		state.inks = state.inks.map( ( c, i ) => pal[ i % pal.length ] );
+		const r = RECIPES[ Math.floor( rand() * RECIPES.length ) ];
+		seedInput.value = String( state.seed );
+		applyRecipe( r.id );
+		// One more move on top, so two rolls of the same recipe differ.
+		const extra = Math.floor( rand() * 3 );
+		const ops = state.ops.slice();
+		if ( 0 === extra ) {
+			ops.push( [
+				OP.WAVE,
+				1,
+				0,
+				0.03 + rand() * 0.04,
+				0.18 + rand() * 0.3,
+				rand() * 6.28,
+			] );
+		} else if ( 1 === extra ) {
+			ops.push( [
+				OP.VORTEX,
+				state.aspect * ( 0.3 + rand() * 0.4 ),
+				0.3 + rand() * 0.4,
+				( rand() < 0.5 ? -1 : 1 ) * ( 3 + rand() * 5 ),
+				0.2 + rand() * 0.2,
+			] );
+		} else {
+			ops.push( [
+				OP.COMB,
+				state.aspect / 2,
+				0.5,
+				1,
+				0,
+				0.2 + rand() * 0.2,
+				0.012,
+				0.06 + rand() * 0.08,
+			] );
+		}
+		state.groups.push( 1 );
+		setOps( ops.slice( 0, MAX_OPS ) );
+		renderSide();
+		refreshThumbs();
+	}
+
 	/* -------------------------------- side column --------------------------- */
 
 	let mounts = [];
@@ -499,9 +786,8 @@ function openStudio( ctx ) {
 
 		/* -- Tool -- */
 		const tw = card( side, t( 'Tool' ), ICONS.tool );
-		chips(
+		toolTiles(
 			tw,
-			null,
 			TOOL_LIST.map( ( [ id, lbl, icon ] ) => [ id, t( lbl ), icon ] ),
 			p.tool,
 			( id ) => {
@@ -510,23 +796,41 @@ function openStudio( ctx ) {
 				syncStatus();
 			}
 		);
+		if ( 'lace' === p.tool ) {
+			row(
+				tw,
+				t( 'Drop size' ),
+				0.03,
+				0.16,
+				0.002,
+				p.dropSize,
+				( v ) => {
+					state.dropSize = v;
+				},
+				( v ) => Math.round( v * 1000 ) / 10 + '%'
+			);
+			ui.el(
+				'div',
+				'dsm-note wpiemb-note',
+				tw,
+				t(
+					'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.'
+				)
+			);
+		}
 		if ( 'flower' === p.tool ) {
-			const kr = ui.el( 'div', 'wpiemb-row', tw );
-			ui.el( 'span', 'wpiemb-label', kr, t( 'Flower' ) );
-			const ksel = ui.el( 'select', 'dsm-select', kr );
-			for ( const k of FLOWER_KINDS ) {
-				const o = ui.el(
-					'option',
-					null,
-					ksel,
-					t( FLOWER_LABELS[ k ] )
-				);
-				o.value = k;
-			}
-			ksel.value = p.flowerKind;
-			ksel.onchange = () => {
-				state.flowerKind = ksel.value;
-			};
+			selectRow(
+				tw,
+				t( 'Flower' ),
+				FLOWER_KINDS.map( ( k ) => ( {
+					value: k,
+					label: t( FLOWER_LABELS[ k ] ),
+				} ) ),
+				p.flowerKind,
+				( v ) => {
+					state.flowerKind = v;
+				}
+			);
 			row(
 				tw,
 				t( 'Size' ),
@@ -551,7 +855,7 @@ function openStudio( ctx ) {
 			} );
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				tw,
 				t(
 					'Click plants the flower; drag turns it and sets its size. The stem uses the last ink well.'
@@ -590,7 +894,7 @@ function openStudio( ctx ) {
 			);
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				tw,
 				t(
 					'Press at the centre, drag out to the radius; right pulls clockwise.'
@@ -612,7 +916,7 @@ function openStudio( ctx ) {
 			);
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				tw,
 				t( 'Flick across the bath to spray a fan of tiny drops.' )
 			);
@@ -630,31 +934,38 @@ function openStudio( ctx ) {
 				},
 				( v ) => Math.round( v * 1000 ) / 10 + '%'
 			);
-			const ringRow = ui.el( 'div', 'wpiemb-row', tw );
-			ui.el( 'span', 'wpiemb-label', ringRow, t( 'Rings' ) );
-			const ringSel = ui.el( 'select', 'dsm-select', ringRow );
-			for ( const n of [ 1, 3, 5, 7 ] ) {
-				const o = ui.el(
-					'option',
-					null,
-					ringSel,
-					1 === n ? t( 'Single drop' ) : String( n )
-				);
-				o.value = String( n );
-			}
-			ringSel.value = String( p.rings );
-			ringSel.onchange = () => {
-				state.rings = Number( ringSel.value );
-			};
+			selectRow(
+				tw,
+				t( 'Rings' ),
+				[ 1, 3, 5, 7 ].map( ( n ) => ( {
+					value: n,
+					label: 1 === n ? t( 'Single drop' ) : String( n ),
+				} ) ),
+				String( p.rings ),
+				( v ) => {
+					state.rings = Number( v );
+				}
+			);
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				tw,
 				t( 'Hold to grow the drop; drag to scatter a trail.' )
 			);
 		}
-		if ( 'needle' === p.tool || 'comb' === p.tool ) {
-			if ( 'comb' === p.tool ) {
+		if (
+			'needle' === p.tool ||
+			'comb' === p.tool ||
+			'stylus' === p.tool ||
+			'wavycomb' === p.tool ||
+			'feather' === p.tool ||
+			'fan' === p.tool
+		) {
+			if (
+				'comb' === p.tool ||
+				'wavycomb' === p.tool ||
+				'feather' === p.tool
+			) {
 				row(
 					tw,
 					t( 'Tooth spacing' ),
@@ -668,11 +979,16 @@ function openStudio( ctx ) {
 					( v ) => Math.round( v * 100 ) + '%'
 				);
 			}
+			// Force caps the pull; feathering says how tightly the ink
+			// clings to the teeth (the far field falls off as z / d).
+			row( tw, t( 'Force' ), 0.1, 1.4, 0.05, p.force, ( v ) => {
+				state.force = v;
+			} );
 			row(
 				tw,
-				t( 'Softness' ),
+				t( 'Feathering' ),
 				0.004,
-				0.09,
+				0.06,
 				0.002,
 				p.softness,
 				( v ) => {
@@ -682,9 +998,48 @@ function openStudio( ctx ) {
 			);
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				tw,
-				t( 'Drag through the bath; the pull length is the force.' )
+				'stylus' === p.tool
+					? t(
+							'Draw freely through the bath; the ink follows every bend of the line.'
+					  )
+					: 'feather' === p.tool
+					? t(
+							'Pull once; the comb combs back by itself, half a tooth over - gel-git in one stroke.'
+					  )
+					: 'wavycomb' === p.tool
+					? t(
+							'Pull the comb along a curve; a wavy pull fans the bath into bouquets.'
+					  )
+					: t(
+							'Drag through the bath. Force caps the pull, feathering binds the ink to the teeth.'
+					  )
+			);
+		}
+		if ( 'fan' === p.tool ) {
+			row(
+				tw,
+				t( 'Fan angle' ),
+				20,
+				140,
+				5,
+				p.fanSpread,
+				( v ) => {
+					state.fanSpread = v;
+				},
+				( v ) => v + '°'
+			);
+			row( tw, t( 'Teeth' ), 3, 13, 1, p.fanTeeth, ( v ) => {
+				state.fanTeeth = v;
+			} );
+			ui.el(
+				'div',
+				'dsm-note wpiemb-note',
+				tw,
+				t(
+					'Drag to open the colors into a fan. Angle and teeth shape the folds.'
+				)
 			);
 		}
 		if ( 'wave' === p.tool ) {
@@ -714,12 +1069,12 @@ function openStudio( ctx ) {
 			);
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				tw,
 				t( 'Drag along the direction the water should sway.' )
 			);
 		}
-		if ( 'vortex' === p.tool ) {
+		if ( 'vortex' === p.tool || 'twin' === p.tool ) {
 			row(
 				tw,
 				t( 'Curl radius' ),
@@ -734,9 +1089,15 @@ function openStudio( ctx ) {
 			);
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				tw,
-				t( 'Drag right to curl clockwise, left to curl the other way.' )
+				p.tool === 'twin'
+					? t(
+							'Drag to roll two opposing swirls around a shared center.'
+					  )
+					: t(
+							'Drag right to curl clockwise, left to curl the other way.'
+					  )
 			);
 		}
 
@@ -746,7 +1107,7 @@ function openStudio( ctx ) {
 		p.inks.forEach( ( c, i ) => {
 			const b = ui.el(
 				'button',
-				'wpiemb-ink' + ( i === activeInk ? ' is-on' : '' ),
+				'dsm-mini wpiemb-ink' + ( i === activeInk ? ' is-on' : '' ),
 				inkRow
 			);
 			b.type = 'button';
@@ -762,7 +1123,8 @@ function openStudio( ctx ) {
 		// colours exactly like ink, but what it leaves behind is water.
 		const gallBtn = ui.el(
 			'button',
-			'wpiemb-ink wpiemb-gall' + ( GALL === activeInk ? ' is-on' : '' ),
+			'dsm-mini wpiemb-ink wpiemb-gall' +
+				( GALL === activeInk ? ' is-on' : '' ),
 			inkRow
 		);
 		gallBtn.type = 'button';
@@ -773,7 +1135,12 @@ function openStudio( ctx ) {
 		};
 		if ( GALL !== activeInk ) {
 			const editRow = ui.el( 'div', 'wpiemb-row', co );
-			ui.el( 'span', 'wpiemb-label', editRow, t( 'Active ink' ) );
+			ui.el(
+				'span',
+				'dsm-rowline-label wpiemb-label',
+				editRow,
+				t( 'Active ink' )
+			);
 			const mountNode = ui.el( 'div', null, editRow );
 			if ( bridge.components && bridge.components.mountColorButton ) {
 				mounts.push(
@@ -781,7 +1148,7 @@ function openStudio( ctx ) {
 						color: p.inks[ activeInk ],
 						onChange: ( c ) => {
 							const inks = state.inks.slice();
-							inks[ activeInk ] = c;
+							inks[ activeInk ] = hex6( c );
 							state.inks = inks;
 							syncInks();
 						},
@@ -792,19 +1159,49 @@ function openStudio( ctx ) {
 		} else {
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				co,
 				t(
 					'The gall drop pushes the colours aside and leaves open water.'
 				)
 			);
 		}
+		// Palettes (v1.4): the curated sets behind "Surprise me", one click
+		// recolours the finished bath (inks are slot references).
+		ui.el( 'div', 'dsm-rowline-label wpiemb-label', co, t( 'Palettes' ) );
+		const palRow = ui.el( 'div', 'wpiemb-palettes', co );
+		SURPRISE_PALETTES.forEach( ( pal, i ) => {
+			const b = ui.el( 'button', 'dsm-strip wpiemb-palette', palRow );
+			b.type = 'button';
+			b.title = t( 'Palettes' ) + ' ' + ( i + 1 );
+			b.style.background =
+				'linear-gradient(90deg,' +
+				pal
+					.map(
+						( c, k ) =>
+							c +
+							' ' +
+							( k * 100 ) / pal.length +
+							'% ' +
+							( ( k + 1 ) * 100 ) / pal.length +
+							'%'
+					)
+					.join( ',' ) +
+				')';
+			b.onclick = () => {
+				state.inks = state.inks.map(
+					( c, k ) => pal[ k % pal.length ]
+				);
+				renderSide();
+				syncInks();
+			};
+		} );
 		const kits = brandKits();
 		if ( kits.length ) {
 			const kitRow = ui.el( 'div', 'wpiemb-row', co );
 			const kitBtn = ui.el(
 				'button',
-				'wpiemb-chip',
+				'dsm-pill wpiemb-chip',
 				kitRow,
 				t( 'Use brand colors' )
 			);
@@ -844,14 +1241,19 @@ function openStudio( ctx ) {
 		/* -- Water -- */
 		const wa = card( side, t( 'Water' ), ICONS.water );
 		const bathRow = ui.el( 'div', 'wpiemb-row', wa );
-		ui.el( 'span', 'wpiemb-label', bathRow, t( 'Water color' ) );
+		ui.el(
+			'span',
+			'dsm-rowline-label wpiemb-label',
+			bathRow,
+			t( 'Water color' )
+		);
 		const bathNode = ui.el( 'div', null, bathRow );
 		if ( bridge.components && bridge.components.mountColorButton ) {
 			mounts.push(
 				bridge.components.mountColorButton( bathNode, {
 					color: p.bath,
 					onChange: ( c ) => {
-						state.bath = c;
+						state.bath = hex6( c );
 						syncInks();
 					},
 					title: t( 'Water color' ),
@@ -868,7 +1270,7 @@ function openStudio( ctx ) {
 		} );
 		ui.el(
 			'div',
-			'wpiemb-note',
+			'dsm-note wpiemb-note',
 			wa,
 			t( 'Clear water marbles veins straight over your design.' )
 		);
@@ -883,21 +1285,23 @@ function openStudio( ctx ) {
 
 		/* -- Film -- */
 		const fi = card( side, t( 'Film' ), ICONS.filmSec );
-		const modeRow = ui.el( 'div', 'wpiemb-row', fi );
-		ui.el( 'span', 'wpiemb-label', modeRow, t( 'Motion' ) );
-		const modeSel = ui.el( 'select', 'dsm-select', modeRow );
-		for ( const [ v, label ] of [
-			[ 'grow', t( 'The making, replayed' ) ],
-			[ 'water', t( 'Living water loop' ) ],
-		] ) {
-			const o = ui.el( 'option', null, modeSel, label );
-			o.value = v;
-		}
-		modeSel.value = p.video;
-		modeSel.onchange = () => {
-			state.video = modeSel.value;
-			renderSide();
-		};
+		selectRow(
+			fi,
+			t( 'Motion' ),
+			[
+				{ value: 'grow', label: t( 'The making, replayed' ) },
+				{ value: 'water', label: t( 'Living water loop' ) },
+				{
+					value: 'print',
+					label: t( 'The making, then the print lifted' ),
+				},
+			],
+			p.video,
+			( v ) => {
+				state.video = v;
+				renderSide();
+			}
+		);
 		if ( 'water' === p.video ) {
 			row( fi, t( 'Sway' ), 0.1, 1, 0.05, p.waterAmp, ( v ) => {
 				state.waterAmp = v;
@@ -915,10 +1319,41 @@ function openStudio( ctx ) {
 				( v ) => v + 's'
 			);
 		}
-		const prevBtn = ui.el( 'button', 'wpiemb-chip', fi );
+		const prevBtn = ui.el( 'button', 'dsm-pill wpiemb-chip', fi );
 		prevBtn.type = 'button';
 		prevBtn.innerHTML = ICONS.play + ' ' + t( 'Preview' );
 		prevBtn.onclick = () => playPreview();
+		// The bath on the website (v1.4): the same engine, embedded.
+		const em = card( side, t( 'Website' ), ICONS.embed );
+		selectRow(
+			em,
+			t( 'On the website' ),
+			[
+				{ value: 'replay', label: t( 'Replay the making' ) },
+				{ value: 'water', label: t( 'Living water' ) },
+				{
+					value: 'interactive',
+					label: t( 'Visitors marble themselves' ),
+				},
+			],
+			p.embed,
+			( v ) => {
+				state.embed = v;
+			}
+		);
+		const emRow = ui.el( 'div', 'wpiemb-btnrow', em );
+		const emBtn = ui.el( 'button', 'ai-btn secondary', emRow );
+		emBtn.type = 'button';
+		emBtn.innerHTML = ICONS.embed + ' ' + t( 'Embed (HTML)' );
+		emBtn.onclick = () => copySnippet();
+		ui.el(
+			'div',
+			'dsm-note wpiemb-note',
+			em,
+			t(
+				'Copies a snippet that runs the bath live on your page: replayed, resting on living water, or open for visitors to drop and pull.'
+			)
+		);
 		// Offer the film only where it can actually be made, and say why
 		// when it cannot: WebGL2 is one gate, the browser's recorder is
 		// the other. Safari has no WebM encoder, so a button labelled
@@ -928,12 +1363,12 @@ function openStudio( ctx ) {
 		if ( engine.cpu ) {
 			ui.el(
 				'div',
-				'wpiemb-note',
+				'dsm-note wpiemb-note',
 				fi,
 				t( 'Video export needs WebGL2, which this browser lacks.' )
 			);
 		} else if ( ! canRecordVideo( videoBridge ) ) {
-			ui.el( 'div', 'wpiemb-note', fi, noRecorderText() );
+			ui.el( 'div', 'dsm-note wpiemb-note', fi, noRecorderText() );
 		} else {
 			const recExt = recordingExtension( videoBridge );
 			const vidRow = ui.el( 'div', 'wpiemb-btnrow', fi );
@@ -958,18 +1393,22 @@ function openStudio( ctx ) {
 
 	/* ------------------------------ state -> engine ------------------------- */
 
+	/** The history as the engine renders it (twinned when mirrored). */
+	const renderOps = ( ops ) =>
+		state.mirror ? mirroredOps( ops, state.aspect ) : ops;
 	function syncInks() {
 		engine.setState( {
 			inks: state.inks,
 			bath: state.bath,
 			bathClear: state.bathClear,
-			ops: state.ops,
+			ops: renderOps( state.ops ),
 			aspect: state.aspect,
 			veins: state.veins,
 			paper: state.paper,
 		} );
 		engine.render();
 		syncStatus();
+		refreshThumbs();
 	}
 
 	function setOps( ops, silent ) {
@@ -977,7 +1416,7 @@ function openStudio( ctx ) {
 		// Always the FULL state: a fresh dialog's first recipe must not
 		// render with the engine's empty starting inks (every drop black).
 		engine.setState( {
-			ops,
+			ops: renderOps( ops ),
 			aspect: state.aspect,
 			inks: state.inks,
 			bath: state.bath,
@@ -1056,6 +1495,79 @@ function openStudio( ctx ) {
 	const clearGuide = () =>
 		guideCtx.clearRect( 0, 0, guide.width, guide.height );
 
+	/** The freehand path as a faint line, so the hand sees its stroke. */
+	function drawPath( path, tool ) {
+		clearGuide();
+		const g = guideCtx;
+		g.strokeStyle = 'rgba(255,255,255,0.8)';
+		g.lineWidth = 'wavycomb' === tool ? 3 : 1.5;
+		g.setLineDash( 'wavycomb' === tool ? [ 6, 4 ] : [] );
+		g.beginPath();
+		path.forEach( ( q, i ) => {
+			const P = toPx( q );
+			if ( i ) {
+				g.lineTo( P.x, P.y );
+			} else {
+				g.moveTo( P.x, P.y );
+			}
+		} );
+		g.stroke();
+		g.setLineDash( [] );
+	}
+
+	/*
+	 * The living surface (v1.3). The exact bath sits in a texture; a
+	 * cheap pass lets the water sway and a band of light wander over it.
+	 * The sway eases out while a tool is in the bath, so what the hand
+	 * sees is exactly where the mathematics puts it - and back in when
+	 * the hand lets go. Drops plop: a ring of real water runs out in the
+	 * surface pass, bending the picture as it passes (1.3.2 - the drawn
+	 * white rings before it read as a glitch, not as water).
+	 */
+	const ripples = [];
+	function plop( p, r ) {
+		ripples.push( { p, r, t0: performance.now() } );
+	}
+	let surfaceRaf = 0;
+	let sway = 1;
+	const surfaceStart = performance.now();
+	function surfaceStep( now ) {
+		surfaceRaf = window.requestAnimationFrame( surfaceStep );
+		if ( engine.cpu ) {
+			return;
+		}
+		const target = gesture || replaying ? 0 : 1;
+		sway += ( target - sway ) * ( target ? 0.03 : 0.18 );
+		if ( Math.abs( target - sway ) < 0.002 ) {
+			sway = target;
+		}
+		engine.setSurface( { sway } );
+		if ( ! replaying ) {
+			engine.renderSurface( ( now - surfaceStart ) / 1000 );
+		}
+		// (ripples are handed over below, before the next frame reads them)
+		// Ripples live about two seconds; the newest six ride the surface.
+		for ( let i = ripples.length - 1; i >= 0; i-- ) {
+			if ( now - ripples[ i ].t0 > 2200 ) {
+				ripples.splice( i, 1 );
+			}
+		}
+		engine.setRipples(
+			ripples
+				.slice( -6 )
+				.map( ( rp ) => [
+					rp.p.x,
+					rp.p.y,
+					( now - rp.t0 ) / 1000,
+					rp.r,
+				] )
+		);
+	}
+	if ( ! engine.cpu ) {
+		engine.setSurface( { on: true, sway: 1, sheen: 1, rim: 1 } );
+		surfaceRaf = window.requestAnimationFrame( surfaceStep );
+	}
+
 	function drawGuide( a, b, tool ) {
 		clearGuide();
 		const A = toPx( a );
@@ -1124,6 +1636,12 @@ function openStudio( ctx ) {
 		}
 	}
 
+	// Pen pressure (v1.4): a pen's pressure sizes the drop and scales the
+	// pull; a mouse reports a flat 0.5 and is left alone.
+	const pressureOf = ( e ) =>
+		'pen' === e.pointerType && e.pressure > 0 ? e.pressure : null;
+	const sizeK = ( pr ) => ( null === pr ? 1 : 0.45 + pr * 1.1 );
+	const forceK = ( pr ) => ( null === pr ? 1 : 0.4 + pr * 1.2 );
 	canvas.addEventListener( 'pointerdown', ( e ) => {
 		if ( replaying || state.ops.length >= MAX_OPS ) {
 			if ( state.ops.length >= MAX_OPS ) {
@@ -1168,12 +1686,14 @@ function openStudio( ctx ) {
 			}
 			ops.push( [ OP.DROP, p.x, p.y, 0.012, activeInk ] );
 			setOps( ops );
+			plop( p, 0.03 );
 			gesture = {
 				tool,
 				at: p,
 				start: performance.now(),
 				chain: false,
 				lastDrop: p,
+				press: pressureOf( e ),
 			};
 			const grow = ( now ) => {
 				if ( ! gesture || 'drop' !== gesture.tool || gesture.chain ) {
@@ -1181,7 +1701,10 @@ function openStudio( ctx ) {
 				}
 				const r = Math.min(
 					0.16,
-					0.012 + ( ( now - gesture.start ) / 1000 ) * 0.055
+					0.012 +
+						( ( now - gesture.start ) / 1000 ) *
+							0.055 *
+							sizeK( gesture.press )
 				);
 				const ops2 = state.ops.slice();
 				ops2[ ops2.length - 1 ] = [
@@ -1195,6 +1718,38 @@ function openStudio( ctx ) {
 				gesture.raf = window.requestAnimationFrame( grow );
 			};
 			gesture.raf = window.requestAnimationFrame( grow );
+			return;
+		}
+		if ( 'lace' === tool ) {
+			// One click, one lace drop - a gesture group of its own.
+			const inkA = GALL === activeInk ? lastRealInk : activeInk;
+			const laced = laceOps(
+				rng( state.seed + state.ops.length * 17 ),
+				p.x,
+				p.y,
+				Math.max( 0.03, state.dropSize ),
+				inkA
+			).slice( 0, Math.max( 0, MAX_OPS - state.ops.length ) );
+			if ( laced.length ) {
+				state.groups.push( laced.length );
+				setOps( state.ops.concat( laced ) );
+				plop( p, Math.max( 0.03, state.dropSize ) );
+			}
+			gesture = { tool, done: true };
+			return;
+		}
+		if ( 'fan' === tool || 'twin' === tool ) {
+			gesture = {
+				tool,
+				at: p,
+				base: state.ops.slice(),
+				press: pressureOf( e ),
+			};
+			return;
+		}
+		if ( 'stylus' === tool || 'wavycomb' === tool ) {
+			// Freehand: the path becomes a chain of short exact pulls.
+			gesture = { tool, at: p, last: p, path: [ p ] };
 			return;
 		}
 		if ( 'flower' === tool ) {
@@ -1211,7 +1766,41 @@ function openStudio( ctx ) {
 			};
 			return;
 		}
-		gesture = { tool, at: p, cur: p };
+		if ( 'feather' === tool ) {
+			// Two live combs: the pull, and the pull back half a tooth over.
+			const ops0 = state.ops.slice();
+			ops0.push( [
+				OP.COMB,
+				p.x,
+				p.y,
+				0,
+				1,
+				0.001,
+				state.softness,
+				state.spacing,
+			] );
+			ops0.push( [
+				OP.COMB,
+				p.x,
+				p.y,
+				0,
+				-1,
+				0.001,
+				state.softness,
+				state.spacing,
+			] );
+			setOps( ops0 );
+			gesture = {
+				tool,
+				at: p,
+				cur: p,
+				liveIndex: ops0.length - 2,
+				press: pressureOf( e ),
+			};
+			drawGuide( p, p, 'comb' );
+			return;
+		}
+		gesture = { tool, at: p, cur: p, press: pressureOf( e ) };
 		const alpha0 = 0.001;
 		if ( 'arc' === tool || 'ringcomb' === tool ) {
 			pushLive(
@@ -1286,6 +1875,9 @@ function openStudio( ctx ) {
 		const p = toBath( e );
 		const g = gesture;
 		g.cur = p;
+		if ( null !== pressureOf( e ) ) {
+			g.press = pressureOf( e );
+		}
 		if ( 'drop' === g.tool ) {
 			const moved = Math.hypot( p.x - g.at.x, p.y - g.at.y );
 			if ( ! g.chain && moved > 0.035 ) {
@@ -1314,6 +1906,58 @@ function openStudio( ctx ) {
 		const dx = p.x - g.at.x;
 		const dy = p.y - g.at.y;
 		const L = Math.hypot( dx, dy );
+		if ( 'fan' === g.tool || 'twin' === g.tool ) {
+			const ops = sweepToolOps(
+				g.tool,
+				g.at,
+				p,
+				state,
+				forceK( g.press )
+			);
+			setOps( g.base.concat( ops ).slice( 0, MAX_OPS ) );
+			drawGuide( g.at, p, 'needle' );
+			return;
+		}
+		if ( 'stylus' === g.tool || 'wavycomb' === g.tool ) {
+			const sx = p.x - g.last.x;
+			const sy = p.y - g.last.y;
+			const seg = Math.hypot( sx, sy );
+			if ( seg < 0.028 || state.ops.length >= MAX_OPS ) {
+				return;
+			}
+			const ux = sx / seg;
+			const uy = sy / seg;
+			const alpha = Math.min(
+				state.force * 0.7 * forceK( g.press ),
+				seg * 1.15
+			);
+			const op =
+				'wavycomb' === g.tool
+					? [
+							OP.COMB,
+							g.at.x,
+							g.at.y,
+							ux,
+							uy,
+							alpha,
+							state.softness,
+							state.spacing,
+					  ]
+					: [
+							OP.TINE,
+							g.last.x,
+							g.last.y,
+							ux,
+							uy,
+							alpha,
+							state.softness,
+					  ];
+			setOps( state.ops.concat( [ op ] ) );
+			g.last = p;
+			g.path.push( p );
+			drawPath( g.path, g.tool );
+			return;
+		}
 		if ( 'flower' === g.tool ) {
 			if ( L > 0.02 ) {
 				const size = Math.max( 0.06, Math.min( 0.3, L ) );
@@ -1366,13 +2010,48 @@ function openStudio( ctx ) {
 			drawGuide( g.at, p, g.tool );
 			return;
 		}
+		if ( 'feather' === g.tool ) {
+			if ( L < 0.004 ) {
+				return;
+			}
+			const ux = dx / L;
+			const uy = dy / L;
+			const alpha = Math.min( state.force * forceK( g.press ), L * 0.95 );
+			const sp = state.spacing;
+			const ops2 = state.ops.slice();
+			ops2[ g.liveIndex ] = [
+				OP.COMB,
+				g.at.x,
+				g.at.y,
+				ux,
+				uy,
+				alpha,
+				state.softness,
+				sp,
+			];
+			ops2[ g.liveIndex + 1 ] = [
+				OP.COMB,
+				g.at.x - uy * sp * 0.5,
+				g.at.y + ux * sp * 0.5,
+				-ux,
+				-uy,
+				alpha * 0.85,
+				state.softness,
+				sp,
+			];
+			setOps( ops2 );
+			drawGuide( g.at, p, 'comb' );
+			return;
+		}
 		if ( 'needle' === g.tool || 'comb' === g.tool ) {
 			if ( L < 0.004 ) {
 				return;
 			}
 			const ux = dx / L;
 			const uy = dy / L;
-			const alpha = Math.min( 1.2, L * 0.95 );
+			// Force caps the pull: a stroke across the whole bath no longer
+			// drags every drop a bath-length along the teeth.
+			const alpha = Math.min( state.force * forceK( g.press ), L * 0.95 );
 			replaceLive(
 				'comb' === g.tool
 					? [
@@ -1429,7 +2108,14 @@ function openStudio( ctx ) {
 		if ( g.done ) {
 			return;
 		}
-		if ( 'drop' === g.tool || 'flower' === g.tool ) {
+		if (
+			'drop' === g.tool ||
+			'flower' === g.tool ||
+			'stylus' === g.tool ||
+			'wavycomb' === g.tool ||
+			'fan' === g.tool ||
+			'twin' === g.tool
+		) {
 			if ( commit ) {
 				commitGesture();
 			} else {
@@ -1496,7 +2182,7 @@ function openStudio( ctx ) {
 			return;
 		}
 		replaying = true;
-		const ops = state.ops;
+		const ops = engine.state.ops;
 		if ( 'water' === state.video ) {
 			const t0 = performance.now();
 			const loopMs = state.loop * 1000;
@@ -1537,8 +2223,20 @@ function openStudio( ctx ) {
 				}
 			}
 			engine.setPartial( count, lastT );
+			// The print: after the making, the sheet lifts off.
+			const printK = ( tt - sched.total - sched.hold ) / 2.2;
+			if ( 'print' === state.video && printK > 0 ) {
+				engine.setSurface( {
+					lift: Math.min( 1, ease( Math.min( 1, printK ) ) ),
+				} );
+			}
 			engine.render();
-			if ( tt >= sched.total + 0.3 ) {
+			const done =
+				'print' === state.video
+					? printK >= 1.15
+					: tt >= sched.total + 0.3;
+			if ( done ) {
+				engine.setSurface( { lift: 0 } );
 				engine.setPartial( ops.length, 1 );
 				engine.render();
 				replaying = false;
@@ -1547,6 +2245,70 @@ function openStudio( ctx ) {
 			window.requestAnimationFrame( step );
 		};
 		window.requestAnimationFrame( step );
+	}
+
+	/* ------------------------------ the snippet ----------------------------- */
+	const runtimeUrl = ( () => {
+		const own = ( boot.extensions || [] ).find(
+			( e ) => e && 'wpie-marbling-studio' === e.slug
+		);
+		return own && own.main
+			? String( own.main ).replace(
+					/extension\.js([?#].*)?$/,
+					'runtime.js'
+			  )
+			: '';
+	} )();
+	async function copySnippet() {
+		if ( ! runtimeUrl ) {
+			toasts.error(
+				t( 'The embed needs the extension installed on this site.' )
+			);
+			return;
+		}
+		const embed = {
+			ops: renderOps( state.ops ),
+			inks: state.inks,
+			bath: state.bath,
+			bathClear: state.bathClear,
+			aspect: state.aspect,
+			veins: state.veins,
+			paper: state.paper,
+			seed: state.seed,
+			mode: state.embed,
+		};
+		const { w, h } = outSize();
+		// & MUSS zuerst maskiert werden, dann ' und <: das JSON steht in
+		// einem einfach gequoteten HTML-Attribut, das der Browser VOR dem
+		// JSON.parse entity-dekodiert. Ohne das & veraendert ein
+		// kaufmaennisches Und im Nutzertext den Text, und ein &#39; zerlegt
+		// das JSON. EXPORT-4 (10.09.2026) hat drei von sieben Snippet-Bauern
+		// erwischt.
+		const json = JSON.stringify( embed )
+			.replace( /&/g, '&amp;' )
+			.replace( /'/g, '&#39;' )
+			.replace( /</g, '&lt;' );
+		const snippet =
+			"<div data-wpie-marble='" +
+			json +
+			'\' style="width:100%;aspect-ratio:' +
+			w +
+			'/' +
+			h +
+			'"></div>\n<script src="' +
+			runtimeUrl +
+			'" defer></' +
+			'script>';
+		try {
+			await navigator.clipboard.writeText( snippet );
+			toasts.success(
+				t(
+					'Snippet copied - paste it into an HTML block on your site.'
+				)
+			);
+		} catch ( e ) {
+			toasts.error( t( 'Copy failed.' ) );
+		}
 	}
 
 	/* -------------------------------- exports ------------------------------- */
@@ -1607,6 +2369,14 @@ function openStudio( ctx ) {
 				params: { waterAmp: state.waterAmp, loop: state.loop },
 				video: videoBridge,
 			} );
+			// Cancelled mid-recording: the engine stops its loop on dispose,
+			// but this await chain kept running and uploaded the half video to
+			// the Media Library afterwards - with a "Saved to Media Library"
+			// toast into a dialog the person had already closed. liftThenInsert
+			// and doInsert have carried this guard since F13; recordAnd did not.
+			if ( closed ) {
+				return;
+			}
 			await sink( blob, ext );
 		} catch ( e ) {
 			toasts.error( recordingProblem( e ) );
@@ -1620,11 +2390,8 @@ function openStudio( ctx ) {
 			/wpie\/v1\/?$/,
 			''
 		);
-		const res = await window.fetch( restRoot + 'wp/v2/media', {
-			method: 'POST',
-			credentials: 'same-origin',
+		const res = await wpieMediaPost( restRoot, {
 			headers: {
-				'X-WP-Nonce': boot.nonce || '',
 				'Content-Disposition':
 					'attachment; filename="marbling.' + ext + '"',
 				// Follow the recording, not a wish: WebKit hands back
@@ -1644,16 +2411,44 @@ function openStudio( ctx ) {
 
 	/* ---------------------------------- foot -------------------------------- */
 
-	const statusEl = ui.el( 'div', 'wpiemb-status', modal.foot, '' );
+	const statusEl = ui.el( 'div', 'dsm-hint wpiemb-status', modal.foot, '' );
 	const footBtns = ui.el( 'div', 'wpiemb-footbtns', modal.foot );
 	ui.btn( footBtns, { label: t( 'Cancel' ), onClick: () => close() } );
-	ui.btn( footBtns, {
+	const insertBtn = ui.btn( footBtns, {
 		label: editing ? t( 'Update' ) : t( 'Insert' ),
 		primary: true,
-		onClick: doInsert,
+		onClick: () => liftThenInsert(),
 	} );
+	/** The print: the sheet lifts off the bath, then it lands as a layer. */
+	function liftThenInsert() {
+		if ( engine.cpu || replaying || insertBtn.disabled ) {
+			doInsert();
+			return;
+		}
+		insertBtn.disabled = true;
+		engine.setPartial( engine.state.ops.length, 1 );
+		const t0 = performance.now();
+		const step = ( now ) => {
+			// Cancel during the lift: the studio is gone, the print is
+			// not made. Without this guard the frame loop kept running on
+			// a disposed engine and landed the layer after Cancel.
+			if ( closed ) {
+				return;
+			}
+			const k = Math.min( 1, ( now - t0 ) / 1100 );
+			engine.setSurface( { lift: ease( k ) } );
+			if ( k < 1 ) {
+				window.requestAnimationFrame( step );
+				return;
+			}
+			engine.setSurface( { lift: 0 } );
+			doInsert();
+		};
+		window.requestAnimationFrame( step );
+	}
 
 	function syncStatus() {
+		syncTimeline();
 		const toolLabel = TOOL_LIST.find( ( x ) => x[ 0 ] === state.tool );
 		statusEl.textContent =
 			state.ops.length +
@@ -1665,12 +2460,20 @@ function openStudio( ctx ) {
 	}
 
 	const storableParams = () => {
-		const stored = { ...state };
+		const stored = { ...state, mode: 'classic' };
+		if ( session.lab || saved?.lab ) {
+			stored.lab = session.lab || saved.lab;
+		}
 		return stored;
 	};
 
 	function doInsert() {
+		if ( closed ) {
+			return;
+		}
 		try {
+			// Never a scrubbed prefix: the layer is the whole history.
+			engine.setPartial( engine.state.ops.length, 1 );
 			const stored = storableParams();
 			if ( editing ) {
 				const ratio = ( genLayer.w || 1 ) / ( genLayer.h || 1 );
@@ -1715,6 +2518,13 @@ function openStudio( ctx ) {
 			close();
 		} catch ( e ) {
 			toasts.error( t( 'Could not insert.' ) );
+			// The lock has to come back off here. liftThenInsert() sets
+			// insertBtn.disabled OUTSIDE any try and never cleared it, so after
+			// a failed insert the button stayed dead for good - and a disabled
+			// button fires no click, so the short-circuit at the top of
+			// liftThenInsert() could not rescue it either. The only way out was
+			// Cancel, and that throws the bath away.
+			insertBtn.disabled = false;
 		}
 	}
 
@@ -1757,8 +2567,19 @@ function openStudio( ctx ) {
 		}
 	}
 
+	let closed = false;
 	function close() {
+		if ( closed ) {
+			return;
+		}
+		closed = true;
 		replaying = false;
+		window.cancelAnimationFrame( surfaceRaf );
+		window.clearTimeout( thumbTimer );
+		if ( thumbEngine ) {
+			thumbEngine.dispose();
+			thumbEngine = null;
+		}
 		unmountAll();
 		if ( ro ) {
 			ro.disconnect();
@@ -1785,7 +2606,7 @@ function openStudio( ctx ) {
 		}
 	}
 	syncStatus();
-
+	refreshThumbs();
 	// What the QA harness reads: the state the studio believes it is in.
 	window.__wpiembState = () => ( {
 		ready: true,

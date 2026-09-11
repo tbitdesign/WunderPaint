@@ -36,6 +36,11 @@ export function ImagePanOverlay( {
 
 	useEffect( () => {
 		const onKey = ( e ) => {
+			// Window capture runs before the game's later keyboard listener.
+			// An inert editor must not commit or delete while Pixelstorm is open.
+			if ( document.getElementById( 'wpie-root' )?.inert ) {
+				return;
+			}
 			if ( 'Escape' === e.key || 'Enter' === e.key ) {
 				e.stopPropagation();
 				finish();

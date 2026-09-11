@@ -101,7 +101,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange, onRebuild } ) {
 		{ min = 1, max = 1000, step = 1 } = {}
 	) => {
 		const host = ui.row( parent, label );
-		const input = ui.el( 'input', 'wpiepp-input', host );
+		const input = ui.el( 'input', 'dsm-input wpiepp-input', host );
 		input.type = 'number';
 		input.min = String( min );
 		input.max = String( max );
@@ -119,7 +119,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange, onRebuild } ) {
 	};
 	const textFor = ( parent, label, key, get, set ) => {
 		const host = ui.row( parent, label );
-		const input = ui.el( 'input', 'wpiepp-input', host );
+		const input = ui.el( 'input', 'dsm-input wpiepp-input', host );
 		input.type = 'text';
 		input.dataset.key = key;
 		input.value = get() || '';
@@ -246,7 +246,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange, onRebuild } ) {
 				: def.repeat
 		) {
 			const fitHost = ui.row( sh, t( 'Copies per sheet' ) );
-			const fitIn = ui.el( 'input', 'wpiepp-input', fitHost );
+			const fitIn = ui.el( 'input', 'dsm-input wpiepp-input', fitHost );
 			fitIn.type = 'text';
 			fitIn.dataset.key = 'fit';
 			fitIn.placeholder = t( 'as many as fit' );
@@ -922,7 +922,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange, onRebuild } ) {
 			prev.classList.add( 'wpiepp-page-btn' );
 			ui.el(
 				'span',
-				'wpiepp-page-label',
+				'dsm-note wpiepp-page-label',
 				pageRow,
 				t( 'Sheet' ) + ' ' + page + ' / ' + pages
 			);

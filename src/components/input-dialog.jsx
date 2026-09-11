@@ -69,7 +69,23 @@ export function DialogHost() {
 				return req;
 			} );
 		} );
-		return unbind;
+		return () => {
+			unbind();
+			// Every request has to settle exactly once - dialogs.js says so in
+			// its own header. unbind() only stopped NEW requests arriving; an
+			// open prompt and everything waiting behind it were left hanging,
+			// so the caller's await never returned and any busy flag it had
+			// set stayed set. Silent, and with no way back.
+			setRequest( ( current ) => {
+				if ( current ) {
+					current.resolve?.( null );
+				}
+				return current;
+			} );
+			for ( const queued of queue.current.splice( 0 ) ) {
+				queued.resolve?.( null );
+			}
+		};
 	}, [] );
 
 	useEffect( () => {
@@ -125,6 +141,7 @@ export function DialogHost() {
 				className="wpie-input-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ opts.title }
 			>
 				<div className="wpie-input-dialog-title">{ opts.title }</div>

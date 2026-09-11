@@ -4,6 +4,7 @@
  * metadata with AI alt text, sidecar project file, real save pipeline.
  */
 
+import { siteStorage } from '../lib/local-storage';
 import {
 	useState,
 	useEffect,
@@ -18,7 +19,12 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 
 import { I } from '../icons';
 import { useEditor } from '../store/editor-context';
-import { serializeLayers, hydrateLayers, loadImage } from '../store/document';
+import {
+	serializeLayers,
+	hydrateLayers,
+	loadImage,
+	PROJECT_FORMAT,
+} from '../store/document';
 import { applyWatermark } from '../lib/watermark';
 import {
 	MOTIFS,
@@ -124,8 +130,55 @@ export function ExportDialog( { mode, onClose, extras } ) {
 			: state.layers;
 	}, [ state.layers, state.previewPost, generatorTick ] );
 
-	const [ format, setFormat ] = useState( 'png' );
-	const [ quality, setQuality ] = useState( 92 );
+	const psdExporter = getPsdExporter();
+	const extFormats = 'export' === mode ? listExtensionExportFormats() : [];
+	const extFormatById = ( id ) => extFormats.find( ( f ) => f.id === id );
+	const formats = [
+		'png',
+		'jpeg',
+		'webp',
+		...( 'export' === mode && gifFrameLayers( layers ).length >= 2
+			? [
+					'gif',
+					'apng',
+					// Having a MediaRecorder is not the same as being able
+					// to encode with it: Safari has one and records MP4
+					// only, so the plain existence check offered a WebM
+					// export that threw on click.
+					...( canRecordWebm() ? [ 'webm' ] : [] ),
+			  ]
+			: [] ),
+		// PSD is download-only (v1.4.2): the media library can't display
+		// PSDs, and re-editing is covered by the .wpie project sidecar.
+		...( 'export' === mode && psdExporter && layers.length
+			? [ 'psd' ]
+			: [] ),
+		...( 'export' === mode ? [ 'pdf' ] : [] ),
+		...extFormats.map( ( f ) => f.id ),
+	];
+
+	// Reuse the quick-export settings when opening a normal export. Save
+	// modes keep their defaults, and unavailable encoders fall back to PNG.
+	const [ lastExport ] = useState( () => {
+		if ( 'export' === mode ) {
+			try {
+				return (
+					JSON.parse(
+						siteStorage.getItem( 'wpie-last-export' ) || '{}'
+					) || {}
+				);
+			} catch ( e ) {}
+		}
+		return {};
+	} );
+	const [ format, setFormat ] = useState( () =>
+		formats.includes( lastExport.format ) ? lastExport.format : 'png'
+	);
+	const [ quality, setQuality ] = useState( () =>
+		Number.isFinite( lastExport.quality )
+			? Math.max( 10, Math.min( 100, Math.round( lastExport.quality ) ) )
+			: 92
+	);
 	// JPEG/PDF cannot store transparency; without flattening, transparent
 	// pixels turn BLACK in the encoder (v1.130.0). User-pickable backdrop.
 	const [ flattenBg, setFlattenBg ] = useState( '#ffffff' );
@@ -242,7 +295,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	const wmPlacement = useMemo( () => {
 		try {
 			const stored = JSON.parse(
-				window.localStorage.getItem( 'wpie-batch-watermark' ) || 'null'
+				siteStorage.getItem( 'wpie-batch-watermark' ) || 'null'
 			);
 			if ( stored?.pos ) {
 				return stored;
@@ -336,8 +389,6 @@ export function ExportDialog( { mode, onClose, extras } ) {
 			return canvas;
 		};
 	} )();
-
-	const psdExporter = getPsdExporter();
 	// Element-bound embeds (builders, insert flows) reach saveAs through the
 	// "Apply" button, so the dialog carries that name (v1.236) - same save,
 	// clearer connection to the button that opened it.
@@ -573,6 +624,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 		// placeholders even when the pixels ship a resolved post preview.
 		const fields = {
 			projectJson: JSON.stringify( {
+				wpie: PROJECT_FORMAT,
 				doc,
 				layers: serializeLayers( state.layers ),
 			} ),
@@ -667,11 +719,13 @@ export function ExportDialog( { mode, onClose, extras } ) {
 	};
 
 	const run = async () => {
+		// What this export uploads; a late response marks THIS one saved.
+		const uploaded = state.history?.present || null;
 		setBusy( true );
 		try {
-			// Remember settings for the titlebar quick export (v0.7).
+			// Remember settings for the next dialog and titlebar quick export.
 			try {
-				window.localStorage?.setItem(
+				siteStorage.setItem(
 					'wpie-last-export',
 					JSON.stringify( { format, quality, scale } )
 				);
@@ -709,7 +763,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 						{ ...common, attachmentId: WPIE.attachmentId }
 					)
 				);
-				dispatch( { type: 'MARK_SAVED' } );
+				dispatch( { type: 'MARK_SAVED', snapshot: uploaded } );
 				// Edit-in-place: hand the overwritten image back to the host
 				// builder so it refreshes the element (v1.180.0).
 				if ( isEmbedded() ) {
@@ -776,7 +830,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 						{ ...common, attachmentId: WPIE.attachmentId }
 					)
 				);
-				dispatch( { type: 'MARK_SAVED' } );
+				dispatch( { type: 'MARK_SAVED', snapshot: uploaded } );
 				postApplied( {
 					attachmentId: WPIE.attachmentId,
 					url: response.url,
@@ -817,7 +871,7 @@ export function ExportDialog( { mode, onClose, extras } ) {
 						{ ...common, filename: meta.filename || 'wpie-image' }
 					)
 				);
-				dispatch( { type: 'MARK_SAVED' } );
+				dispatch( { type: 'MARK_SAVED', snapshot: uploaded } );
 				// Edit-in-place: the bound copy becomes the element's new image
 				// in the host builder (v1.180.0).
 				if ( isEmbedded() ) {
@@ -851,38 +905,13 @@ export function ExportDialog( { mode, onClose, extras } ) {
 		setBusy( false );
 	};
 
-	const extFormats = 'export' === mode ? listExtensionExportFormats() : [];
-	const extFormatById = ( id ) => extFormats.find( ( f ) => f.id === id );
-	const formats = [
-		'png',
-		'jpeg',
-		'webp',
-		...( 'export' === mode && gifFrameLayers( layers ).length >= 2
-			? [
-					'gif',
-					'apng',
-					// Having a MediaRecorder is not the same as being able
-					// to encode with it: Safari has one and records MP4
-					// only, so the plain existence check offered a WebM
-					// export that threw on click.
-					...( canRecordWebm() ? [ 'webm' ] : [] ),
-			  ]
-			: [] ),
-		// PSD is download-only (v1.4.2): the media library can't display
-		// PSDs, and re-editing is covered by the .wpie project sidecar.
-		...( 'export' === mode && psdExporter && layers.length
-			? [ 'psd' ]
-			: [] ),
-		...( 'export' === mode ? [ 'pdf' ] : [] ),
-		...extFormats.map( ( f ) => f.id ),
-	];
-
 	return (
 		<div className="modal-backdrop" onClick={ onClose } role="presentation">
 			<div
 				className="export-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ title }
 			>
 				<div className="dsm-head">

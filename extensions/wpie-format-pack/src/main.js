@@ -8,16 +8,48 @@
  * straight into the media library. Registers under Automate → Design.
  */
 
-import { FORMATS } from './formats.js';
-import { transformLayers } from './relayout.js';
+import { FORMATS, GROUPS } from './formats.js';
+import {
+	transformLayers,
+	focusFromDepth,
+	focusFromCutout,
+	coverAffine,
+} from './relayout.js';
 import { makeZip, download } from './zip.js';
 
 import { t } from './i18n.js';
 
+/**
+ * Upload through wp.apiFetch, which carries and refreshes the nonce; a
+ * hand-built fetch with the boot nonce failed after the first rotation
+ * (BRIDGE-04, 10.09.2026). Same shape as the fetch Response the callers read.
+ */
+async function wpieMediaPost( restRoot, init ) {
+	try {
+		const json = await window.wp.apiFetch( {
+			url: restRoot + 'wp/v2/media',
+			method: 'POST',
+			...init,
+		} );
+		return { ok: true, status: 201, json: () => Promise.resolve( json ) };
+	} catch ( e ) {
+		return {
+			ok: false,
+			status: ( e && e.data && e.data.status ) || 0,
+			json: () => Promise.resolve( e ),
+		};
+	}
+}
+
 
 /* ------------------------------ DOM helpers ------------------------------ */
 
-function el( tag, cls, parent ) {
+/**
+ * Same signature as the kit's ui.el, INCLUDING the fourth argument. It
+ * used to stop at three, so `el( 'span', cls, parent, 'Text' )` dropped
+ * the text without a word - the format list showed bare checkboxes.
+ */
+function el( tag, cls, parent, text ) {
 	const node = document.createElement( tag );
 	if ( cls ) {
 		node.className = cls;
@@ -25,22 +57,13 @@ function el( tag, cls, parent ) {
 	if ( parent ) {
 		parent.appendChild( node );
 	}
+	if ( undefined !== text && null !== text ) {
+		node.textContent = String( text );
+	}
 	return node;
 }
 
-function row( parent, label ) {
-	const r = el( 'div', 'wpiefp-row', parent );
-	const s = el( 'span', 'dsm-label', r );
-	s.textContent = label;
-	return r;
-}
 
-function section( parent, icon, label ) {
-	const card = el( 'div', 'wpiefp-card', parent );
-	const head = el( 'div', 'wpiefp-card-head', card );
-	head.innerHTML = icon + '<span>' + label + '</span>';
-	return el( 'div', 'wpiefp-card-body', card );
-}
 
 const tabIcon = ( d, size = 15 ) =>
 	'<svg xmlns="http://www.w3.org/2000/svg" width="' +
@@ -51,14 +74,15 @@ const tabIcon = ( d, size = 15 ) =>
 	d +
 	'"/></svg>';
 
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
 const ICONS = {
 	formats: tabIcon(
 		'M3 5a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z M16 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-9a2 2 0 0 1 -2 -2v-2'
 	),
 	options: tabIcon(
 		'M4 6l8 0 M16 6l4 0 M8 12l12 0 M4 12l0 0 M4 18l4 0 M12 18l8 0 M14 4l0 4 M6 10l0 4 M10 16l0 4'
+	),
+	crop: tabIcon(
+		'M6 3v12a2 2 0 0 0 2 2h12 M3 6h12a2 2 0 0 1 2 2v12'
 	),
 	export: tabIcon(
 		'M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2 M7 11l5 5l5 -5 M12 4l0 12'
@@ -80,6 +104,7 @@ const dataUrlBytes = ( url ) => {
 
 async function openFormatPack( { editor, extras } ) {
 	const bridge = window.WPIE && window.WPIE.bridge;
+	const ui = bridge && bridge.ui;
 	const doc = editor.state.doc;
 	const srcLayers = editor.state.layers;
 	if ( ! srcLayers.length ) {
@@ -91,6 +116,11 @@ async function openFormatPack( { editor, extras } ) {
 	const opts = {
 		contentScale: 1,
 		useSafe: true,
+		// The point a cover-filled background must keep. Half/half is the
+		// middle of the picture; the subject finder moves it.
+		focus: { x: 0.5, y: 0.5 },
+		smartCrop: true,
+		showSafe: true,
 		type: 'png',
 		base: 'design',
 		selected: new Set(
@@ -105,8 +135,8 @@ async function openFormatPack( { editor, extras } ) {
 	dialog.setAttribute( 'aria-label', 'Reformat' );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	const titleRow = el( 'div', 'dsm-title-row', titles );
 	const dlgTitle = el( 'span', 'dsm-title', titleRow );
@@ -119,65 +149,150 @@ async function openFormatPack( { editor, extras } ) {
 	const body = el( 'div', 'wpiefp-body', dialog );
 	const view = el( 'div', 'wpiefp-view wpiefp-gridwrap', body );
 	const grid = el( 'div', 'wpiefp-formats', view );
-	const side = el( 'div', 'wpiefp-side', body );
+	const side = el( 'div', 'dsm-col end wpiefp-side', body );
 	const controls = el( 'div', 'wpiefp-controls', side );
 
 	/* ------------------------------ formats ------------------------------- */
 
-	const secFormats = section( controls, ICONS.formats, t( 'Formats' ) );
+	const secFormats = ui.section( controls, {
+		icon: ICONS.formats,
+		title: t( 'Formats' ),
+	} );
 	const selRow = el( 'div', 'wpiefp-selrow', secFormats );
-	const allBtn = el( 'button', 'ai-btn secondary', selRow );
-	allBtn.type = 'button';
-	allBtn.textContent = t( 'All' );
-	const noneBtn = el( 'button', 'ai-btn secondary', selRow );
-	noneBtn.type = 'button';
-	noneBtn.textContent = t( 'None' );
-	const selNote = el( 'div', 'wpiefp-note', secFormats );
-	selNote.textContent = t(
-		'Backgrounds fill each frame; text and logos keep their anchors and stay inside each platform’s safe zones.'
+	const allBtn = ui.btn( selRow, { label: t( 'All' ) } );
+	const noneBtn = ui.btn( selRow, { label: t( 'None' ) } );
+	// The formats were selectable only by clicking a preview card, which
+	// nobody finds and which needs the card to be on screen. The list is
+	// the control; the cards follow it.
+	const fmtList = el( 'div', 'wpiefp-fmtlist', secFormats );
+	const fmtChecks = new Map();
+	const groupBoxes = [];
+	for ( const group of GROUPS ) {
+		const items = group.ids
+			.map( ( id ) => FORMATS.find( ( f ) => f.id === id ) )
+			.filter( Boolean );
+		if ( ! items.length ) {
+			continue;
+		}
+		// The group head is a control, not a caption: it takes the whole
+		// platform in one click and shows a dash while only part of it is
+		// picked.
+		const gHead = el( 'label', 'wpiefp-fmtgroup', fmtList );
+		const gbox = el( 'input', 'wpiefp-fmtbox', gHead );
+		gbox.type = 'checkbox';
+		el( 'span', 'wpiefp-groupname', gHead, t( group.label ) );
+		const gcount = el( 'span', 'wpiefp-fmtdim', gHead, '' );
+		gbox.onchange = () => {
+			for ( const f of items ) {
+				if ( gbox.checked ) {
+					opts.selected.add( f.id );
+				} else {
+					opts.selected.delete( f.id );
+				}
+			}
+			syncSelection();
+		};
+		groupBoxes.push( { box: gbox, count: gcount, items } );
+		for ( const format of items ) {
+			const line = el( 'label', 'wpiefp-fmtrow', fmtList );
+			const box = el( 'input', 'wpiefp-fmtbox', line );
+			box.type = 'checkbox';
+			box.checked = opts.selected.has( format.id );
+			el( 'span', 'wpiefp-fmtname', line, t( format.label ) );
+			el(
+				'span',
+				'wpiefp-fmtdim',
+				line,
+				format.w + '×' + format.h
+			);
+			box.onchange = () => {
+				if ( box.checked ) {
+					opts.selected.add( format.id );
+				} else {
+					opts.selected.delete( format.id );
+				}
+				syncSelection();
+			};
+			fmtChecks.set( format.id, box );
+		}
+	}
+	ui.note(
+		secFormats,
+		t(
+			'Backgrounds fill each frame; text and logos keep their anchors and stay inside each platform’s safe zones.'
+		)
 	);
 
 	/* ------------------------------ options ------------------------------- */
 
-	const secOpts = section( controls, ICONS.options, t( 'Options' ) );
-	const scaleRow = row( secOpts, t( 'Content scale' ) );
-	scaleRow.classList.add( 'has-val' );
-	const scaleInput = el( 'input', 'dsm-range', scaleRow );
-	scaleInput.type = 'range';
-	scaleInput.min = '60';
-	scaleInput.max = '150';
-	scaleInput.value = '100';
-	const scaleVal = el( 'span', 'wpiefp-val', scaleRow );
-	scaleVal.textContent = '100%';
-	scaleInput.oninput = () => {
-		scaleVal.textContent = scaleInput.value + '%';
-		opts.contentScale = parseInt( scaleInput.value, 10 ) / 100;
-		schedulePreviews();
-	};
-	const safeRow = row( secOpts, t( 'Respect platform safe zones' ) );
-	safeRow.classList.add( 'wpiefp-wide' );
-	const safeInput = el( 'input', 'wpiefp-checkbox', safeRow );
-	safeInput.type = 'checkbox';
-	safeInput.checked = true;
-	safeInput.onchange = () => {
-		opts.useSafe = safeInput.checked;
-		schedulePreviews();
-	};
-	const typeRow = row( secOpts, t( 'File type' ) );
-	const typeSel = el( 'select', 'dsm-select', typeRow );
-	[
-		[ 'png', 'PNG' ],
-		[ 'jpeg', 'JPEG (90%)' ],
-	].forEach( ( [ v, label ] ) => {
-		const opt = el( 'option', null, typeSel );
-		opt.value = v;
-		opt.textContent = label;
+	/* ------------------------------- crop -------------------------------- */
+
+	const secCrop = ui.section( controls, {
+		icon: ICONS.crop,
+		title: t( 'Crop' ),
 	} );
-	typeSel.onchange = () => {
-		opts.type = typeSel.value;
-	};
-	const nameRow = row( secOpts, t( 'File name' ) );
-	const nameInput = el( 'input', 'dsm-input', nameRow );
+	ui.check( secCrop, {
+		label: t( 'Keep the subject in frame' ),
+		checked: opts.smartCrop,
+		onChange: ( v ) => {
+			opts.smartCrop = !! v;
+			schedulePreviews();
+		},
+	} );
+	const cropNote = ui.note(
+		secCrop,
+		t( 'A square design cut to a story keeps its middle by default - which is often the gap between the things that matter.' )
+	);
+	const findBtn = ui.btn( secCrop, { label: t( 'Find the subject' ) } );
+
+	/* ------------------------------ options ------------------------------- */
+
+	const secOpts = ui.section( controls, {
+		icon: ICONS.options,
+		title: t( 'Options' ),
+	} );
+	ui.slider( secOpts, {
+		label: t( 'Content scale' ),
+		min: 60,
+		max: 150,
+		value: 100,
+		format: ( v ) => v + '%',
+		onInput: ( v ) => {
+			opts.contentScale = v / 100;
+			schedulePreviews();
+		},
+	} );
+	ui.check( secOpts, {
+		label: t( 'Respect platform safe zones' ),
+		checked: true,
+		onChange: ( v ) => {
+			opts.useSafe = !! v;
+			schedulePreviews();
+		},
+	} );
+	ui.check( secOpts, {
+		label: t( 'Show the safe zones in the preview' ),
+		checked: true,
+		onChange: ( v ) => {
+			opts.showSafe = !! v;
+			schedulePreviews();
+		},
+	} );
+	ui.select( ui.row( secOpts, t( 'File type' ) ), {
+		options: [
+			{ value: 'png', label: 'PNG' },
+			{ value: 'jpeg', label: 'JPEG (90%)' },
+		],
+		value: opts.type,
+		onChange: ( v ) => {
+			opts.type = v;
+		},
+	} );
+	const nameInput = el(
+		'input',
+		'dsm-input',
+		ui.row( secOpts, t( 'File name' ) )
+	);
 	nameInput.type = 'text';
 	nameInput.value = opts.base;
 	nameInput.oninput = () => {
@@ -190,8 +305,12 @@ async function openFormatPack( { editor, extras } ) {
 
 	/* ------------------------------- export ------------------------------- */
 
-	const secExport = section( controls, ICONS.export, t( 'Export' ) );
-	const statusNote = el( 'div', 'wpiefp-note wpiefp-status', secExport );
+	const secExport = ui.section( controls, {
+		icon: ICONS.export,
+		title: t( 'Export' ),
+	} );
+	const statusNote = ui.note( secExport, '' );
+	statusNote.classList.add( 'wpiefp-status' );
 
 	const foot = el( 'div', 'dsm-foot', dialog );
 	const footHint = el( 'div', 'dsm-hint', foot );
@@ -222,6 +341,7 @@ async function openFormatPack( { editor, extras } ) {
 		const layers = transformLayers( srcLayers, doc, format, {
 			contentScale: opts.contentScale,
 			useSafe: opts.useSafe,
+			focus: opts.smartCrop ? opts.focus : null,
 		} );
 		return bridge.raster.renderToCanvas(
 			{ ...doc, w: format.w, h: format.h },
@@ -231,8 +351,9 @@ async function openFormatPack( { editor, extras } ) {
 	};
 
 	const cards = new Map();
+	const cardEls = new Map();
 	for ( const format of FORMATS ) {
-		const card = el( 'button', 'wpiefp-format', grid );
+		const card = el( 'button', 'dsm-pick wpiefp-format', grid );
 		card.type = 'button';
 		card.classList.toggle( 'active', opts.selected.has( format.id ) );
 		const thumbBox = el( 'div', 'wpiefp-thumbbox', card );
@@ -242,19 +363,233 @@ async function openFormatPack( { editor, extras } ) {
 		capName.textContent = t( format.label );
 		const capDims = el( 'span', 'wpiefp-dims', cap );
 		capDims.textContent = format.w + '×' + format.h;
-		card.onclick = () => {
+		card.onclick = ( e ) => {
+			// A click on the picture sets the focus, a click anywhere
+			// else on the card picks the format. Two jobs, but the one
+			// you get is the one you aimed at.
+			if ( opts.smartCrop && thumb.contains( e.target ) ) {
+				const r = thumb.getBoundingClientRect();
+				const p = focusFromPoint(
+					format,
+					( e.clientX - r.left ) / ( r.width || 1 ),
+					( e.clientY - r.top ) / ( r.height || 1 )
+				);
+				if ( p ) {
+					opts.focus = p;
+					cropNote.textContent = t( 'Subject at %s' ).replace(
+						'%s',
+						Math.round( p.x * 100 ) +
+							' / ' +
+							Math.round( p.y * 100 )
+					);
+					schedulePreviews();
+					return;
+				}
+			}
 			if ( opts.selected.has( format.id ) ) {
 				opts.selected.delete( format.id );
 			} else {
 				opts.selected.add( format.id );
 			}
-			card.classList.toggle(
-				'active',
-				opts.selected.has( format.id )
-			);
-			syncButtons();
+			syncSelection();
 		};
 		cards.set( format.id, thumb );
+		cardEls.set( format.id, card );
+	}
+
+	/* ---------------------------- subject finder -------------------------- */
+
+	/*
+	 * Where to crop is a question about the picture, so we ask the picture.
+	 * Depth Anything runs locally in the browser (bridge.ml.depthMap, API
+	 * 2.16) and hands back one grayscale channel, near = bright; the
+	 * centroid of the nearest band is the subject.
+	 *
+	 * It is a nice-to-have, never a requirement: with no model installed,
+	 * no bridge or a flat map the focus stays in the middle and the
+	 * reformat behaves exactly as it did before.
+	 */
+	async function findSubject() {
+		const small = await bridge.raster.renderToCanvas( doc, srcLayers, {
+			scale: Math.min( 1, 384 / Math.max( doc.w || 1, doc.h || 1 ) ),
+			cache,
+		} );
+		const url = small.toDataURL( 'image/png' );
+
+		// FIRST the cutout: it is the same local model the editor's own
+		// Smart Recrop uses on thumbnails, so a picture is framed here the
+		// way the Media Library Manager frames it. Local, no cost.
+		if ( bridge.raster && bridge.raster.subjectCutout ) {
+			try {
+				const cut = await bridge.raster.subjectCutout( url );
+				const img = await loadImage( cut );
+				const c = document.createElement( 'canvas' );
+				c.width = Math.max( 1, img.naturalWidth || img.width );
+				c.height = Math.max( 1, img.naturalHeight || img.height );
+				const g = c.getContext( '2d' );
+				g.drawImage( img, 0, 0 );
+				const px = g.getImageData( 0, 0, c.width, c.height );
+				const f = focusFromCutout( px.data, c.width, c.height );
+				if ( f ) {
+					opts.focus = f;
+					return { ok: true, f, how: 'cutout' };
+				}
+			} catch ( e ) {
+				// No model installed, or nothing to cut out: fall through.
+			}
+		}
+
+		// THEN depth, which answers a different question - what is near,
+		// not what the picture is about. Good enough for a landscape.
+		const ml = bridge && bridge.ml;
+		if ( ml && ml.depthMap ) {
+			try {
+				const map = await ml.depthMap( url );
+				const f = map && focusFromDepth( map.depth, map.w, map.h );
+				if ( f ) {
+					opts.focus = f;
+					return { ok: true, f, how: 'depth' };
+				}
+			} catch ( e ) {
+				// Fall through to the honest answer below.
+			}
+		}
+		return {
+			ok: false,
+			why: t( 'No clear subject - the crop stays centered.' ),
+		};
+	}
+
+	/**
+	 * A dataURL as an <img>, resolved once it can be measured.
+	 *
+	 * @param {string} src Data URL.
+	 * @return {Promise<HTMLImageElement>} The loaded image.
+	 */
+	function loadImage( src ) {
+		return new Promise( ( resolve, reject ) => {
+			const img = new window.Image();
+			img.onload = () => resolve( img );
+			img.onerror = () => reject( new Error( 'image' ) );
+			img.src = src;
+		} );
+	}
+
+	findBtn.onclick = async () => {
+		findBtn.disabled = true;
+		cropNote.textContent = t( 'Looking for the subject…' );
+		try {
+			const r = await findSubject();
+			if ( r.ok ) {
+				cropNote.textContent = t( 'Subject at %s' ).replace(
+					'%s',
+					Math.round( r.f.x * 100 ) + ' / ' + Math.round( r.f.y * 100 )
+				);
+				opts.smartCrop = true;
+				schedulePreviews();
+			} else {
+				cropNote.textContent = r.why;
+			}
+		} catch ( e ) {
+			cropNote.textContent = t( 'The subject could not be found.' );
+		}
+		findBtn.disabled = false;
+	};
+
+	/**
+	 * What the preview owes the user beyond the picture: where the
+	 * platform's own UI will sit, and which point of the design survived
+	 * the crop. Both are drawn ON the thumbnail, never baked into the
+	 * export - this runs after the render, on the preview canvas only.
+	 *
+	 * @param {Object} g      2D context of the thumbnail.
+	 * @param {Object} format The target format.
+	 * @param {number} w      Thumbnail width.
+	 * @param {number} h      Thumbnail height.
+	 */
+	function drawOverlay( g, format, w, h ) {
+		if ( opts.showSafe && opts.useSafe && format.safe ) {
+			const t0 = ( format.safe.top || 0 ) * h;
+			const b0 = ( format.safe.bottom || 0 ) * h;
+			const l0 = ( format.safe.left || 0 ) * w;
+			const r0 = ( format.safe.right || 0 ) * w;
+			g.save();
+			// The bands are what the platform covers - shading them says
+			// "do not put anything here" far better than a number does.
+			g.fillStyle = 'rgba(0,0,0,.34)';
+			g.fillRect( 0, 0, w, t0 );
+			g.fillRect( 0, h - b0, w, b0 );
+			g.fillRect( 0, t0, l0, h - t0 - b0 );
+			g.fillRect( w - r0, t0, r0, h - t0 - b0 );
+			g.strokeStyle = 'rgba(255,255,255,.45)';
+			g.setLineDash( [ 3, 3 ] );
+			g.lineWidth = 1;
+			g.strokeRect( l0 + 0.5, t0 + 0.5, w - l0 - r0 - 1, h - t0 - b0 - 1 );
+			g.restore();
+		}
+		if ( ! opts.smartCrop ) {
+			return;
+		}
+		// The focus, mapped through the same cover transform the layers
+		// took, so the ring sits where the kept point really landed.
+		const s = Math.max( w / doc.w, h / doc.h );
+		const a = coverAffine(
+			{ x0: 0, y0: 0, x1: doc.w, y1: doc.h },
+			doc,
+			{ w, h },
+			s,
+			opts.focus
+		);
+		const fx = opts.focus.x * doc.w * s + a.dx;
+		const fy = opts.focus.y * doc.h * s + a.dy;
+		if ( fx < 0 || fy < 0 || fx > w || fy > h ) {
+			return;
+		}
+		g.save();
+		g.strokeStyle = 'rgba(255,255,255,.9)';
+		g.lineWidth = 1.5;
+		g.beginPath();
+		g.arc( fx, fy, 7, 0, Math.PI * 2 );
+		g.stroke();
+		g.strokeStyle = 'rgba(0,0,0,.55)';
+		g.lineWidth = 1;
+		g.beginPath();
+		g.arc( fx, fy, 8.5, 0, Math.PI * 2 );
+		g.stroke();
+		g.restore();
+	}
+
+	/**
+	 * A point clicked in one format's preview, back in document units.
+	 * The preview is a cover-fill, so the same transform has to be
+	 * undone - a click at the left edge of a story is NOT the left edge
+	 * of the design.
+	 *
+	 * @param {Object} format The format that was clicked.
+	 * @param {number} u      0..1 across the preview.
+	 * @param {number} v      0..1 down the preview.
+	 * @return {Object|null} { x, y } in 0..1 of the document.
+	 */
+	function focusFromPoint( format, u, v ) {
+		const w = format.w;
+		const h = format.h;
+		const s = Math.max( w / doc.w, h / doc.h );
+		const a = coverAffine(
+			{ x0: 0, y0: 0, x1: doc.w, y1: doc.h },
+			doc,
+			{ w, h },
+			s,
+			opts.focus
+		);
+		const x = ( u * w - a.dx ) / s / doc.w;
+		const y = ( v * h - a.dy ) / s / doc.h;
+		if ( ! isFinite( x ) || ! isFinite( y ) ) {
+			return null;
+		}
+		return {
+			x: Math.min( 1, Math.max( 0, x ) ),
+			y: Math.min( 1, Math.max( 0, y ) ),
+		};
 	}
 
 	let previewSeq = 0;
@@ -281,7 +616,9 @@ async function openFormatPack( { editor, extras } ) {
 				// stretches the bitmap off its aspect.
 				thumb.style.width = c.width + 'px';
 				thumb.style.height = c.height + 'px';
-				thumb.getContext( '2d' ).drawImage( c, 0, 0 );
+				const g = thumb.getContext( '2d' );
+				g.drawImage( c, 0, 0 );
+				drawOverlay( g, format, c.width, c.height );
 			} catch ( e ) {
 				// Skip broken previews, keep the rest of the grid alive.
 			}
@@ -293,24 +630,36 @@ async function openFormatPack( { editor, extras } ) {
 		previewTimer = window.setTimeout( renderPreviews, 180 );
 	};
 
-	const syncButtons = () => {
+	// One place decides what "selected" looks like - the list, the cards
+	// and the two buttons all read from the same set. Before this the
+	// cards and the buttons each kept their own idea of it.
+	function syncSelection() {
 		const any = opts.selected.size > 0;
 		zipBtn.disabled = ! any;
 		libraryBtn.disabled = ! any;
-	};
+		for ( const [ id, box ] of fmtChecks ) {
+			box.checked = opts.selected.has( id );
+		}
+		for ( const g of groupBoxes ) {
+			const on = g.items.filter( ( f ) =>
+				opts.selected.has( f.id )
+			).length;
+			g.box.checked = on === g.items.length;
+			g.box.indeterminate = on > 0 && on < g.items.length;
+			g.count.textContent = on + '/' + g.items.length;
+		}
+		for ( const [ id, card ] of cardEls ) {
+			card.classList.toggle( 'active', opts.selected.has( id ) );
+		}
+	}
+	const syncButtons = syncSelection;
 	allBtn.onclick = () => {
 		FORMATS.forEach( ( f ) => opts.selected.add( f.id ) );
-		grid.querySelectorAll( '.wpiefp-format' ).forEach( ( c ) =>
-			c.classList.add( 'active' )
-		);
-		syncButtons();
+		syncSelection();
 	};
 	noneBtn.onclick = () => {
 		opts.selected.clear();
-		grid.querySelectorAll( '.wpiefp-format' ).forEach( ( c ) =>
-			c.classList.remove( 'active' )
-		);
-		syncButtons();
+		syncSelection();
 	};
 
 	/* ------------------------------- exports ------------------------------ */
@@ -411,12 +760,10 @@ async function openFormatPack( { editor, extras } ) {
 				opts.base + ' – ' + t( entry.format.label )
 			);
 			try {
-				const res = await window.fetch( mediaUrl, {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: { 'X-WP-Nonce': boot.nonce || '' },
-					body: fd,
-				} );
+				const res = await wpieMediaPost(
+					mediaUrl.replace( /wp\/v2\/media$/, '' ),
+					{ body: fd }
+				);
 				if ( ! res.ok ) {
 					failed++;
 				} else {

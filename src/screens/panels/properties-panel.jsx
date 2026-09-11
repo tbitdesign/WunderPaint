@@ -3,6 +3,7 @@
  * two-way binding to the canvas.
  */
 
+import { siteStorage } from '../../lib/local-storage';
 import { ROUNDABLE_SHAPES } from '../../lib/corner-geometry';
 import { cornerRadii } from '../../lib/corner-radii';
 import { NumExprInput } from '../../components/num-expr-input';
@@ -618,7 +619,7 @@ function TransformSection( { layer } ) {
 	// W and H chained (v1.429): typing one keeps the proportion.
 	const [ lockRatio, setLockRatio ] = useState( () => {
 		try {
-			return '1' === window.localStorage?.getItem( RATIO_KEY );
+			return '1' === siteStorage.getItem( RATIO_KEY );
 		} catch ( e ) {
 			return false;
 		}
@@ -627,7 +628,7 @@ function TransformSection( { layer } ) {
 		const next = ! lockRatio;
 		setLockRatio( next );
 		try {
-			window.localStorage?.setItem( RATIO_KEY, next ? '1' : '0' );
+			siteStorage.setItem( RATIO_KEY, next ? '1' : '0' );
 		} catch ( e ) {}
 	};
 	const up = ( patch, label ) => {

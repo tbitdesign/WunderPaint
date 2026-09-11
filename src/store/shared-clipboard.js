@@ -14,19 +14,14 @@
  * the current page load, which is exactly the reported gap.
  */
 
+import { siteStorage } from '../lib/local-storage';
 const STYLE_KEY = 'wpie-clip-style';
 
 let layerClip = null; // Array<layer> (clone-tree output) | null
 let styleClip = null; // { sourceType, universal, typed } | null
 let hydrated = false;
 
-const store = () => {
-	try {
-		return window.localStorage || null;
-	} catch ( e ) {
-		return null;
-	}
-};
+const store = () => siteStorage;
 
 const hydrate = () => {
 	if ( hydrated ) {

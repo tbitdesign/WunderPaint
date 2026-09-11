@@ -20,12 +20,18 @@ import { css } from './palette2d.js';
 const TIP_SEED = 7;
 
 export class FlatStage {
-	constructor( { createCanvas, aspect = 1.5, height = 1100, kit = null } ) {
+	constructor( {
+		createCanvas,
+		aspect = 1.5,
+		height = 1100,
+		width,
+		kit = null,
+	} ) {
 		this.createCanvas = createCanvas;
 		this.kit = kit;
 		this.aspect = aspect;
-		this.H = Math.max( 64, Math.round( height ) );
-		this.W = Math.max( 64, Math.round( height * aspect ) );
+		this.H = Math.max( 1, Math.round( height ) );
+		this.W = Math.max( 1, Math.round( width ?? height * aspect ) );
 		this.S = this.H;
 		this.canvas = createCanvas( this.W, this.H );
 		this.ctx = this.canvas.getContext( '2d' );

@@ -171,6 +171,16 @@ class Meshy {
 		$args = array(
 			'method'  => $method,
 			'timeout' => 45,
+			// Kein Sprung mit dem Schluessel im Gepaeck. WordPress folgt sonst
+			// bis zu fuenf Weiterleitungen und reicht dabei DIESELBEN Kopfzeilen
+			// weiter (WP_Http::handle_redirects), also ginge das Authorization-
+			// oder x-api-key-Feld an das Ziel - bei 307 und 308 zusaetzlich der
+			// ganze Rumpf mit Prompt und Bild. Die Hosts sind fest verdrahtet,
+			// aber diese Pruefung gilt nur fuer den ERSTEN Sprung.
+			'redirection' => 0,
+			// Der Anbieter antwortet mit JSON; ohne Grenze liest json_decode
+			// alles, was er schickt.
+			'limit_response_size' => 64 * MB_IN_BYTES,
 			'headers' => array(
 				'Authorization' => 'Bearer ' . $key,
 				'Content-Type'  => 'application/json',
@@ -189,7 +199,19 @@ class Meshy {
 			return new \WP_Error( 'wpie_meshy_auth', __( 'Meshy rejected the API key.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
 		if ( $code < 200 || $code >= 300 ) {
-			$msg = is_array( $data ) && isset( $data['message'] ) ? (string) $data['message'] : ( 'HTTP ' . $code );
+			// Same treatment the AI provider's text gets since REST-08
+			// (class-ai-provider.php provider_error): stripped of markup and
+			// cut to a sentence. That fix reached the AI path only, and this
+			// one handed a provider's message straight through, unbounded.
+			$msg = is_array( $data ) && isset( $data['message'] ) ? (string) $data['message'] : '';
+			$msg = trim( wp_strip_all_tags( $msg ) );
+			if ( strlen( $msg ) > 300 ) {
+				$msg = substr( $msg, 0, 297 ) . '...';
+			}
+			if ( '' === $msg ) {
+				/* translators: %d: HTTP status code. */
+				$msg = sprintf( __( 'Meshy error (HTTP %d).', 'wunderpaint' ), $code );
+			}
 			return new \WP_Error( 'wpie_meshy_api', $msg, array( 'status' => 502 ) );
 		}
 		return is_array( $data ) ? $data : array();
@@ -220,12 +242,47 @@ class Meshy {
 	 * @param \WP_REST_Request $request Request.
 	 * @return array|\WP_Error { id, mode } - `mode` is the POLLING mode.
 	 */
+	/**
+	 * Record one started job in the same log the AI overview reads.
+	 *
+	 * A 3D job is one billable unit, so it prices through the `img_meshy`
+	 * key like every other per-result provider. Without a configured price it
+	 * books at zero - still worth writing, because the overview then at least
+	 * shows THAT it happened, and check_budget() has something to count once
+	 * a price is set.
+	 *
+	 * @param string $mode  Generation mode.
+	 * @param string $model Model id.
+	 * @return void
+	 */
+	private static function book( $mode, $model ) {
+		$usage = array( 'images' => 1 );
+		Helpers::log_ai_usage(
+			'meshy',
+			$mode,
+			$model,
+			$usage,
+			AI_Provider::configured_cost( 'meshy', $mode, $usage )
+		);
+	}
+
 	public function generate( $request ) {
 		// Paid third-party generation: throttle it like every other AI call,
 		// using the AI budget cap from the settings. (F-L19)
 		$limited = AI_Provider::rate_limit( 'meshy' );
 		if ( is_wp_error( $limited ) ) {
 			return $limited;
+		}
+		// The rate limit only spaces the calls out. The MONTHLY CAP and the
+		// usage log are the two things the settings actually promise, and
+		// Meshy ran past both: check_budget() and log_ai_usage() are called in
+		// exactly one place in this plugin, AI_Provider::metered(), and Meshy
+		// does not go through it. So a spent budget stopped every provider
+		// except this one - the paid one - and no Meshy job ever showed up in
+		// the cost overview. (2026-09-10 audit)
+		$budget = AI_Provider::check_budget();
+		if ( is_wp_error( $budget ) ) {
+			return $budget;
 		}
 		$mode = (string) $request->get_param( 'mode' );
 		if ( 'image' === $mode ) {
@@ -269,6 +326,7 @@ class Meshy {
 			if ( is_wp_error( $data ) ) {
 				return $data;
 			}
+			self::book( 'image', (string) $gen['model'] );
 			return array(
 				'id'   => isset( $data['result'] ) ? (string) $data['result'] : '',
 				'mode' => 'image',
@@ -308,12 +366,51 @@ class Meshy {
 			if ( is_wp_error( $data ) ) {
 				return $data;
 			}
+			self::book( $mode, (string) $gen['model'] );
 			return array(
 				'id'   => isset( $data['result'] ) ? (string) $data['result'] : '',
 				'mode' => 'text',
 			);
 		}
 		return new \WP_Error( 'wpie_meshy_mode', __( 'Unknown generation mode.', 'wunderpaint' ), array( 'status' => 400 ) );
+	}
+
+	/**
+	 * Whether a download address from the provider may be fetched.
+	 *
+	 * @param string $url Address.
+	 * @return bool
+	 */
+	public static function download_url_ok( $url ) {
+		if ( 'https' !== strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) ) ) {
+			return false;
+		}
+		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		if ( '' === $host ) {
+			return false;
+		}
+		/**
+		 * Hosts a Meshy download may come from.
+		 *
+		 * The default used to be an EMPTY list, and an empty list meant "any
+		 * public host is fine" - so the host check named in AUSSEN-08 did not
+		 * exist unless somebody set this filter, which nobody does. The scheme
+		 * check arrived with that finding, the host check did not, and the
+		 * docblock of import_model() claimed both. Meshy serves its results
+		 * from meshy.ai; a site that needs another one says so here.
+		 *
+		 * @param string[] $hosts Host suffixes.
+		 */
+		$hosts = (array) apply_filters( 'wpie_meshy_download_hosts', array( 'meshy.ai' ) );
+		foreach ( $hosts as $suffix ) {
+			$suffix = strtolower( (string) $suffix );
+			if ( '' !== $suffix && ( $host === $suffix || substr( $host, -strlen( '.' . $suffix ) ) === '.' . $suffix ) ) {
+				return true;
+			}
+		}
+		// An empty list is now "nothing is allowed", not "everything is": a
+		// filter that returns array() is asking for the door to be shut.
+		return false;
 	}
 
 	/**
@@ -358,7 +455,13 @@ class Meshy {
 		if ( 'SUCCEEDED' !== ( $data['status'] ?? '' ) || empty( $data['model_urls']['glb'] ) ) {
 			return new \WP_Error( 'wpie_meshy_pending', __( 'The model is not finished yet.', 'wunderpaint' ), array( 'status' => 409 ) );
 		}
-		$response = wp_remote_get(
+		// The addresses come out of the provider's answer. https only, and
+		// through wp_safe_remote_get, which refuses private and reserved
+		// hosts on the request and on every redirect.
+		if ( ! self::download_url_ok( (string) $data['model_urls']['glb'] ) ) {
+			return new \WP_Error( 'wpie_meshy_download', __( 'The provider returned a model address that is not allowed.', 'wunderpaint' ), array( 'status' => 502 ) );
+		}
+		$response = wp_safe_remote_get(
 			(string) $data['model_urls']['glb'],
 			array(
 				'timeout'             => 90,
@@ -373,8 +476,8 @@ class Meshy {
 		$item  = Models_3D::store_buffer( '' !== $name ? $name : __( 'AI model', 'wunderpaint' ), $bytes, 'meshy' );
 		// Meshy renders a preview image for every task - keep it as the
 		// library thumbnail so AI models are recognizable at a glance.
-		if ( ! is_wp_error( $item ) && ! empty( $data['thumbnail_url'] ) ) {
-			$thumb = wp_remote_get(
+		if ( ! is_wp_error( $item ) && ! empty( $data['thumbnail_url'] ) && self::download_url_ok( (string) $data['thumbnail_url'] ) ) {
+			$thumb = wp_safe_remote_get(
 				(string) $data['thumbnail_url'],
 				array(
 					'timeout'             => 20,

@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.429.0
+Stable tag: 1.430.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -86,7 +86,7 @@ Everything runs on your own server: no telemetry, no tracking, self-hosted fonts
 
 = Grows with extensions =
 
-Studios that go beyond everyday editing come with the plugin and are simply there after installing: Chaos Art (a society of autonomous painters makes one-of-a-kind abstract art that can never be painted twice), Map Posters, Star Map Posters, Route Visualizer (a GPX track becomes a poster), Soundwave Art, Photo Mosaic, Text Art, Puzzle Sheets, Party Printables, Stitch Patterns, Drawing Templates, Origami, Day Ring, Papercut Art, Marble Bath, Mystic Studio, Seamless Patterns, Handwriting Fonts, Code Shot and Reformat (social formats with safe zones, in one pass). Each is a self-contained studio inside the editor, and new ones arrive with the next update.
+Studios that go beyond everyday editing come with the plugin and are simply there after installing: Chaos Art (a society of autonomous painters makes one-of-a-kind abstract art that can never be painted twice), Map Posters, Star Map Posters, Route Visualizer (a GPX track becomes a poster), Soundwave Art, Photo Mosaic, Text Art, Puzzle Sheets, Party Printables, Stitch Patterns, Drawing Templates, Origami, Day Ring, Papercut Art, Marble Bath, Mystic Studio, Seamless Patterns, Handwriting Fonts, Code Shot, Math Figures (formulas typeset as graphics), Sheet Music (notation from ABC or MusicXML) and Reformat (social formats with safe zones, in one pass). Each is a self-contained studio inside the editor, and new ones arrive with the next update.
 
 WunderPaint Pro adds the extension manager - browse, install and update in one click - and the premium studios: 3D Mockup Studio with its library of product models, 3D Text, Motion Graphics, 3D Particle Studio, Cinematic Effects, Smart Diagrams, Calendars, Step Guides, Dynamic Showcases, Living Photos, Generative Art, AI Ad Banners and more. Extension packages are client-side only and can never ship server code.
 
@@ -127,7 +127,7 @@ Text, image and raster layers, plus QR codes, charts and tables, and Smart Objec
 
 = Where are my API keys stored? =
 
-Obfuscated in the WordPress database, or preferably as constants in wp-config.php (WPIE_GEMINI_KEY, WPIE_OPENAI_KEY, WPIE_ANTHROPIC_KEY, WPIE_PEXELS_KEY, WPIE_PIXABAY_KEY, WPIE_UNSPLASH_KEY). They are only ever read server-side and never sent to the browser.
+Obfuscated in the WordPress database, or preferably as constants in wp-config.php (WPIE_GEMINI_KEY, WPIE_OPENAI_KEY, WPIE_ANTHROPIC_KEY, WPIE_PEXELS_KEY, WPIE_PIXABAY_KEY, WPIE_UNSPLASH_KEY, WPIE_MESHY_KEY). They are only ever read server-side and never sent to the browser.
 
 = Does it work with my page builder? =
 
@@ -162,8 +162,8 @@ The handbook lives right inside the editor (press ?), the built-in help assistan
 All of it is public, at https://github.com/tbitdesign/WunderPaint - the readable original of every generated file this plugin ships. Node.js 20 and npm are the only things needed to rebuild them.
 
 * build/*.js and build/*.css are webpack output, built from src/ with "npm ci && npm run build". The files named after a library (build/agpsd.<hash>.js, build/jszip.<hash>.js and so on) are those npm dependencies, bundled by the same run; each one is listed with its own source link under "Which third-party libraries are bundled?" below.
-* bundled-extensions/<slug>/extension.js is esbuild output, built from extensions/<slug>/src/ with "bash tools/bundle-free-extensions.sh".
-* languages/*.mo and languages/*.json are compiled from the .po files that travel next to them.
+* bundled-extensions/<slug>/extension.js is esbuild output, built from extensions/<slug>/src/ with "npm ci && npm run build" inside that studio's folder; "bash tools/bundle-free-extensions.sh" then collects the built studios into bundled-extensions/ (it does not build them itself and stops when one is missing).
+* Translations are not part of the download: wordpress.org delivers them as language packs from translate.wordpress.org. Their sources (tools/<locale>.py, languages/*.po) stay in the repository.
 * build/vtracer.<hash>.wasm is not compiled during that build and is not ours: webpack copies it out of the npm package vtracer-wasm (MIT), a WebAssembly build of VTracer (https://github.com/visioncortex/vtracer, MIT). It is the vectorizer behind the editor's Vectorize command, which turns a bitmap into paths in the browser.
 * build/ort.wasm.min.<hash>.mjs is copied from npm in the same way: the CPU build of onnxruntime-web (MIT, https://github.com/microsoft/onnxruntime), which carries the local AI features.
 
@@ -191,10 +191,28 @@ Each library below is bundled into its own file under build/, named after the li
 * U²-Netp model — Apache License 2.0 (Xuebin Qin et al.), the background-removal model; licence text and notice travel with it in assets/models/. Source: https://github.com/xuebinqin/U-2-Net — assets/models/u2netp.onnx (ONNX is an open, documented format; the weights are read by the runtime, never executed)
 * Fonts — 10 self-hosted families ship with the plugin (Roboto, Open Sans, Inter, Montserrat, Poppins, Oswald, Bebas Neue, Anton, Playfair Display, Lora); a larger catalog can be downloaded to your own server under Settings → Fonts. All ten are under the SIL Open Font License 1.1. See assets/fonts/OFL.txt. Sourced from the @fontsource project / Google Fonts.
 
-Apache-2.0 components are compatible with this plugin via the "or later" clause of GPL-2.0-or-later (Apache-2.0 is compatible with GPLv3).
+The free studios in bundled-extensions/ carry code and data of their own. They travel in the same download, so they belong in the same list:
+
+* highlight.js 11.11.1 — BSD-3-Clause (syntax highlighting in Code Shot, core plus thirty languages). Source: https://github.com/highlightjs/highlight.js — bundled-extensions/wpie-code-shot/extension.js
+* JetBrains Mono — SIL Open Font License 1.1 (the typeface Code Shot sets code in). Source: https://github.com/JetBrains/JetBrainsMono — bundled-extensions/wpie-code-shot/fonts/, with FONT-LICENSE.md beside it
+* three.js 0.185.1 — MIT License (the WebGL renderer that folds the paper in Origami, including RoomEnvironment). Source: https://github.com/mrdoob/three.js — bundled-extensions/wpie-origami/extension.js
+* tz-lookup 6.1.25 — CC0-1.0 public domain dedication (offline time zone for a pair of coordinates, so Mystic Studio needs no service). Source: https://github.com/darkskyapp/tz-lookup — bundled-extensions/wpie-mystic-studio/extension.js
+* d3-celestial constellation figures — BSD-3-Clause, Copyright (c) 2015 Olaf Frohn, drawn over the Yale Bright Star Catalogue (public domain). Source: https://github.com/ofrohn/d3-celestial — bundled-extensions/wpie-star-map/extension.js and bundled-extensions/wpie-mystic-studio/extension.js
+* abcjs 6.7 — MIT License (the ABC notation engraver in Sheet Music; no audio parts). Source: https://github.com/paulrosen/abcjs — bundled-extensions/wpie-sheet-music/extension.js
+* xml2abc 1.68 — GNU Lesser General Public License v3.0, bundled UNMODIFIED, full licence text beside it. Loaded only when a MusicXML file is imported. Source: https://wim.vree.org/js/xml2abc-js_index.html — bundled-extensions/wpie-sheet-music/assets/xml2abc.js
+* MathJax 3.2 — Apache License 2.0 (TeX input, SVG output, lite adaptor and font glyph data), loaded only when Math Figures typesets a formula. Source: https://www.mathjax.org — bundled-extensions/wpie-math-figures/assets/mathjax.js
+* Moon photograph — NASA/JPL, Galileo spacecraft, 7 December 1992 (PIA00405), NASA imagery, public domain, resized to 1200 px. Source: https://photojournal.jpl.nasa.gov/catalog/PIA00405 — bundled-extensions/wpie-mystic-studio/textures/moon.jpg, with TEXTURES.md beside it
+* Oldenburg map excerpt — © OpenStreetMap contributors, Open Database License (ODbL); one small area so Map Studio has something to show before any map is fetched, credited on screen as well. Source: https://www.openstreetmap.org/copyright — bundled-extensions/wpie-map-studio/oldenburg.json
+* GeoNames place index — Creative Commons Attribution 4.0 (CC BY 4.0), the offline city index the place search answers from; built once and shipped, never downloaded at run time. Source: https://download.geonames.org/export/dump/ — assets/geo/cities.json
+
+Apache-2.0 components are compatible with this plugin via the "or later" clause of GPL-2.0-or-later (Apache-2.0 is compatible with GPLv3). The same clause covers the one LGPL-3.0 component, xml2abc, which is bundled unmodified and can be replaced on its own.
 
 All AI cloud calls are proxied server-side; API keys never reach the browser. Background removal and upscaling run fully locally in your browser and no data leaves your site for those; the runtime that carries them is bundled rather than fetched from anywhere.
 
+
+= Which assets does the optional 3D Solar System Studio use? =
+
+The separately installed 3D Solar System Studio extension includes planet and sky maps by Solar System Scope / INOVE (https://www.solarsystemscope.com/textures/, CC BY 4.0: https://creativecommons.org/licenses/by/4.0/), a reduced HYG star dataset by David Nash / Astronexus (https://github.com/astronexus/HYG-Database, CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/), and adapted constellation figures and conventional names by the Stellarium team and contributors (https://github.com/Stellarium/stellarium/tree/6176182b9fc861990dae1b5dba67d2024d2b4100/skycultures/modern, CC BY-SA 4.0). These assets are loaded locally. The extension ships ATTRIBUTION.md, TEXTURES.md and individual data notices with the complete sources and adaptation details. The adapted star and constellation data remains under CC BY-SA 4.0. These optional extension assets are not bundled in the Free plugin ZIP.
 
 = Which external services does this plugin use? =
 
@@ -204,7 +222,7 @@ The three stock photo services below also work the same way: nothing is sent unt
 
 * **Pexels** (api.pexels.com, images.pexels.com). The key travels in the request header. Privacy policy: https://www.pexels.com/privacy-policy/ Terms: https://www.pexels.com/terms-of-service/
 * **Pixabay** (pixabay.com, including its image servers). Also sent: the image type you picked (photo, illustration or vector) and a safe-search flag. Note that the Pixabay API accepts its key only as a query parameter, so unlike the other two the key travels in the request URL. Privacy policy: https://pixabay.com/service/privacy/ Terms: https://pixabay.com/service/terms/
-* **Unsplash** (api.unsplash.com, images.unsplash.com). Also sent: a content filter set to high. The access key travels in the request header. Privacy policy: https://unsplash.com/privacy Terms: https://unsplash.com/terms
+* **Unsplash** (api.unsplash.com, images.unsplash.com, plus.unsplash.com — an Unsplash+ result is served from the last of these, by your server when it downloads the file and by your browser when it shows the thumbnail). Also sent: a content filter set to high. The access key travels in the request header. Privacy policy: https://unsplash.com/privacy Terms: https://unsplash.com/terms
 The three AI providers below all work the same way: nothing is sent until you enter that provider's API key yourself, and then only when you trigger the action. Your key travels with every such request. What leaves your site depends on the action, and never on anything else: image generation sends your prompt; image editing sends your prompt and the current image, inpainting and outpainting additionally the mask you painted, variations the source image alone; alt text and image descriptions send the image and the language you want; the Design Assistant, design review, improve text, gradient, lockup and vector suggestions send the brief or wording you wrote, the canvas size, and, if you filled one in, your brand kit of colors, font names, company name, industry, tone of voice and company description; SEO suggestions send the post title and excerpt; text lockups send the wording of the text layer, its style note and its box size; an extension using the generic text endpoint sends the prompt it built. The connection test in Settings sends your key alone to the provider's model list.
 
 * **Google Gemini** (generativelanguage.googleapis.com). Runs: image generation and editing, inpainting and outpainting, 360° panorama generation, alt text and image descriptions, and all the text actions above. Privacy policy: https://policies.google.com/privacy Terms: https://ai.google.dev/gemini-api/terms
@@ -213,10 +231,11 @@ The three AI providers below all work the same way: nothing is sent until you en
 * **OpenStreetMap Nominatim** (nominatim.openstreetmap.org). When: only when an editor user searches for a place inside a map extension, the place is not in the index of 34,079 cities that ships with the plugin, and the answer is not already cached on your site. A search for a town is answered on your own site and never reaches this service; what is asked here is what the index cannot know, such as house numbers, lakes and mountain passes. Sent server-side: the place name you typed, the number of results wanted, the language for the answer, and a user agent line that identifies the plugin with its version and contains your site address, because the Nominatim usage policy requires requests to identify themselves. No API key, no account, no personal data. Results are cached on your own server. Privacy policy: https://osmfoundation.org/wiki/Privacy_Policy Usage policy: https://operations.osmfoundation.org/policies/nominatim/
 * **OpenFreeMap** (tiles.openfreemap.org). When: only when a map extension actually draws a map and the geometry is not already cached on your site. This is the first source asked; the Overpass servers below are the fallback when it does not answer. Sent server-side: a request for the map tiles covering the section you are drawing. No API key, no account, no cookie, no personal data - OpenFreeMap has no registration and no user database. Received: vector tiles with the street, water, building and park geometry, cached on your own server. Map data from OpenStreetMap, ODbL. Privacy policy: https://openfreemap.org/privacy/ Terms: https://openfreemap.org/tos/
 * **OpenStreetMap Overpass API** (overpass-api.de, and the mirrors overpass.kumi.systems, overpass.private.coffee and overpass.osm.jp, which are tried one after another if the first does not answer). When: only when a map extension draws a map, the geometry is not already cached on your site, and the tile server above did not answer. Sent server-side: a query containing the coordinates of the map section you are drawing, the requested level of detail, and the same identifying user agent with your site address. No API key, no account, no personal data. The street, water and park geometry that comes back is cached on your own server. Map data © OpenStreetMap contributors, ODbL. Privacy policy: https://osmfoundation.org/wiki/Privacy_Policy Terms: https://osmfoundation.org/wiki/Terms_of_Use
-* **Meshy** (api.meshy.ai, and the download addresses it returns). When: only if you have entered a Meshy API key and you generate a 3D model in the 3D Objects studio. Sent server-side: for text to 3D, the text prompt you typed together with the generation settings; for image to 3D, the image file you selected; in both cases your Meshy API key. Your site then asks Meshy repeatedly whether the job is finished, and when it is, downloads the finished model file and its preview picture from the addresses Meshy returns, into your own site. The connection test in Settings asks for your account balance and sends nothing but your key. Privacy policy: https://www.meshy.ai/privacy-policy Terms: https://www.meshy.ai/terms-of-use
+* **Meshy** (api.meshy.ai, and the download addresses it returns). When: only if you have entered a Meshy API key and you generate a 3D model in the 3D Objects studio, which is part of WunderPaint Pro. Sent server-side: for text to 3D, the text prompt you typed together with the generation settings; for image to 3D, the image file you selected; in both cases your Meshy API key. Your site then asks Meshy repeatedly whether the job is finished, and when it is, downloads the finished model file and its preview picture from the addresses Meshy returns, into your own site. The connection test in Settings asks for your account balance and sends nothing but your key. Privacy policy: https://www.meshy.ai/privacy-policy Terms: https://www.meshy.ai/terms-of-use
 * **Hugging Face** (huggingface.co). When: only when an administrator presses the download button for a local AI model under Settings, WunderPaint, Local AI Models. Sent: a request for the file list of that model repository and then a request per model file. No API key, no account, no site data, no personal data. This is a one-time server-to-server download; afterwards the model files are served from your own site, and the in-browser AI runtime is configured never to fetch models remotely, so the browsers of the people using the editor do not contact Hugging Face at all. Privacy policy: https://huggingface.co/privacy Terms: https://huggingface.co/terms-of-service
 * **Google Fonts** (fonts.googleapis.com, fonts.gstatic.com). The plugin ships ten font families with it and contacts no font CDN by default. Google is contacted only in the two cases you choose yourself. (a) An administrator downloads additional families under Settings, WunderPaint, Fonts: your server asks fonts.googleapis.com for the stylesheet of the family and requested weights, then downloads the matching woff2 files from fonts.gstatic.com and stores them in your uploads folder. Sent: the family name and weights, nothing else. This happens once, server to server, and afterwards those fonts are served from your own site. (b) An administrator switches on the Google Fonts CDN option: the editor then loads font stylesheets from fonts.googleapis.com in the browser while people work, which makes their IP address visible to Google. Exported images are unaffected either way, because text is rendered into pixels on your side. Privacy policy: https://policies.google.com/privacy What Google Fonts logs: https://developers.google.com/fonts/faq/privacy
 * **Feeds and data sources you enter yourself** (any address you type). When: only when you point a dynamic layer or a repeater at an RSS or Atom feed or at a JSON endpoint, for example a podcast feed, a YouTube channel feed or the now-playing endpoint of a web radio. Sent server-side: a plain request for exactly the address you entered, so that host sees your server's IP address and nothing else from your site. The answer is analysed on your server and cached there briefly. No data of yours is transmitted, and no such request happens unless you enter an address.
+* **Gravatar** (secure.gravatar.com). When: only when a dynamic layer is bound to an author avatar or to the author of a review, and only for the picture of that one person. Your server computes the avatar address with WordPress' own get_avatar_url(), exactly as your theme does for every comment, and the picture is then fetched through your site's image proxy when the layer renders. Sent: the hashed e-mail address that WordPress sends for every avatar on your site. Privacy policy: https://automattic.com/privacy/
 
 One more connection that is not a third-party service: if your Media Library is offloaded to external storage, opening such an image in the editor makes your site fetch that file from your own storage address server-side. This only ever concerns attachments of your own site that the current user is allowed to edit.
 
@@ -255,29 +274,25 @@ files?" is the short version.
 
 == Changelog ==
 
+= 1.430.0 =
+* Design Generator: describe what you need and a language model writes each design in a design language; a compiler builds the layers, checks contrast, margins, overlaps and text sizes, repairs what it can and shows every design with its result. Three designs per run, presets for the usual jobs, format chips while the document is still empty, a history of every run, and dials for font pairing and palette that recompile a design without asking the model again. Pick the model the way the AI panel does. Everything lands as editable layers in one undo step.
+* A photo from the Asset Library fills the document with one click, centered and proportional, as a normal image layer you can move, resize or reframe.
+* The blend mode picker shows every mode as a small live render of the active layer, grouped by what it does, in the Layers panel and in the options bar.
+* The Media Library Manager keeps its head under load: a new view, search or filter clears the selection so bulk actions only touch what you see, late responses no longer overwrite a newer view, similar-image and broken-file views keep their own state, duplicate removal drops only what the server confirmed, and the title search works without the local image model.
+* Small things that add up: importing a file activates Move, the Export dialog remembers format and quality, Align stays open for the next action, a photo tile shows a spinner while it inserts, background AI jobs keep their error message, and Gemini says why it stopped.
+* Fixed: restoring an image version reads the source first, writes through a temporary file and brings its layer project back; ungrouping inside a group keeps the children; quarantined images are protected on every delete path; the table import reports the rows it really returned; multi-page projects keep their pages when reopened or restored; Fluid Text measures its lines the way the renderer paints them.
+* Security: replacing an image checks that you may edit and delete the source and refuses a rename when the places the image is used cannot be determined; table data of password-protected posts needs the password or edit rights; the versions folder keeps its deny-all rule; the SVG export writes numbers as numbers.
+* Two hardening passes over editor and server: the usage check reports an incomplete result instead of an empty one, replacing a file leaves the original in place when the new one does not fit and rewrites the generated sizes too, downloads and key checks no longer follow a redirect, map tiles stay inside their budget on a broken response, the backup restore swaps its files before it writes the index, browser storage is kept per site, Remove Object runs off the main thread, and the language switch asks before it reloads when the snapshot could not be written.
+* Complete translations in all six languages.
+
 = 1.429.0 =
-* Fluid Text: a switch on the text layer (context bar, options bar next to the curve, Character section) that lets the box set the type. Every line is sized to fill the frame's width, the words are spread over as many lines as the height allows, and the stack fills the box; dragging any handle re-flows it live. Enter still breaks a line by hand. Character colours and faces survive, the font size and leading belong to the box while the switch is on, and switching it off freezes the current look into the layer. Bound text and variables keep the mode, so a post title fills its frame line by line for every post.
-* Layouts are looks on Fluid Text now. A look is a recipe of roles (kicker, hero, sub, detail) with face, weight, casing, tracking, colour, width share and air; the sentences of your text become segments, each gets a role, and the box breaks and sizes the lines. Nothing is baked into the text any more, casing stays non-destructive, and editing a word keeps the look. The popover shows all ten classics, four generated rolls and the cloud suggestions, each rendered in the layer's own box on the document's ground, with names. The accent colour comes from the brand kit or a harmony of the text colour. Layers with an old baked layout keep it.
-* Editing text no longer loses the per-line leading of a frozen Fluid Text or a layout lockup: colouring one word used to pull the lines apart or into each other.
-* Shapes combine: Unite, Subtract, Intersect and Exclude for two or more selected shapes (context bar and context menu), with the bottom-most shape as the base. Outline Stroke turns a stroke into its own filled path, dashes and stroke position included.
-* Stroke position for shapes: inside, centre or outside, in the Stroke section, honoured by the canvas and the SVG export.
-* Rectangles round each corner on its own in the Shape section, and the crown starts with five prongs.
-* Shape styles: a Style picker in the options bar with live tiles of the layer's own shape (outlines, dashed, sticker, neon, glass, shadows, gradient, patterns), each a complete look built on the layer's colour.
-* Slimmer shape options bars: the shape picker, colours, stroke width, style and the studio; pattern, stroke style, radius and sides live in the properties panel and the studio. The picker popover shows the basics and opens the studio for everything else, and the context bar has Edit Shape for shapes.
-* The right-click menu on the canvas is grouped under small headlines (Edit, Convert, Combine, Arrange, Group & Mask, Layer) with icon rows for the arrange and boolean moves, keeps itself on screen, and no longer lists the dock panels.
-* Arrange like a design tool: Bring to Front and Send to Back (Shift+Cmd+] and [), Group and Ungroup on Cmd+G and Shift+Cmd+G, Hide on Shift+Cmd+H, Lock or unlock on Cmd+2 and in the right-click menu, Paste in Place on Shift+Cmd+V, flips and quarter turns of whole groups, Rename from the menu, and Select > Select Same for every layer with the same fill, stroke, font or type.
-* Offset Path grows or shrinks a shape by a distance, as a new layer above it.
-* Strokes choose their joins (miter, round, bevel) and ends (flat, round, square); untouched shapes paint as before.
-* Text takes a strikethrough, and Case offers uppercase, lowercase and capitalized words, all non-destructive.
-* Export exports the selection alone: a tight box around the selected layers, transparent unless the format flattens.
-* Number fields take arithmetic ("100+20", "/2"), W and H can be chained to keep the proportion, and edits to fill, stroke, opacity, font or size hit every selected layer of that kind.
-* Grid Repeat lays copies out in rows and columns with a gap; the right-click menu lists every layer under the cursor where they overlap; Alt-click on an eye in the Layers panel shows that layer alone, and one button collapses all groups.
-* Paragraph spacing for text, and the Scale slider can scale stroke widths along.
-* The marquee, lasso, eyedropper, clone stamp and pen have option bars: rectangle or ellipse marquee, freehand or polygon lasso, the modes New, Add and Subtract with a feather, the eyedropper's sample size, the stamp's size, opacity, hardness and Aligned switch, and a freehand pen that fits smooth anchors to a drawn stroke.
-* The effect brush smudges, dodges, burns and sponges beside blur and sharpen; the bracket keys size the stamp and the effect brush too.
-* Select > Modify expands, contracts, smooths or borders any selection.
-* Free extensions on board: Math Figures is new (formulas, graphs, geometry, number lines and the classroom pictures of primary and secondary school out of blocks), Sheet Music is new (scores, chord sheets, diagrams, manuscript paper, note-reading cards and scale sheets), Party Printables is rebuilt on real sheets with occasions, palettes, patterns and motifs for cards, gifts, decor and games, and Chaos Art paints with its full set of schools.
-* Imported SVG text keeps its baseline when the drawing is scaled, and it arrives with the weight and slant the file says instead of everything bold. Printable sheets and scores used to land with their labels too low.
+* Fluid Text: the box sets the type. Lines fill the frame's width, the stack fills its height, and dragging a handle re-flows the text live. Layouts are looks on Fluid Text now, with roles, casing and tracking that stay editable.
+* Shapes: Unite, Subtract, Intersect and Exclude, Outline Stroke, Offset Path, stroke position (inside, center, outside), joins and caps, per-corner rounding, and a Style picker with live tiles of the layer's own shape.
+* Working like a design tool: a grouped right-click menu, Bring to Front and Send to Back, Group and Ungroup, Hide, Lock, Paste in Place, Select Same, Grid Repeat, arithmetic in number fields, edits that reach every selected layer of a kind, and export of the selection alone.
+* Text: strikethrough, non-destructive case, paragraph spacing, and per-line leading that survives editing.
+* Tools: option bars for the marquee, lasso, eyedropper, clone stamp and pen; the effect brush smudges, dodges, burns and sponges; Select > Modify expands, contracts, smooths or borders a selection.
+* Free studios on board: Math Figures and Sheet Music are new, Party Printables is rebuilt on real sheets.
+* Imported SVG text keeps its baseline and its real weight and slant.
 
 = 1.428.0 =
 * A pass over what the editor promises against what it actually does, and everything below came out of it. The paint media are the clearest case: with "each stroke on its own layer" left on, a watercolor or charcoal stroke quietly landed as an ordinary one, with no message and no way to tell. It keeps its medium now.
@@ -288,180 +303,3 @@ files?" is the short version.
 * Printable sheets are legible and honest. Puzzle numbers and starting letters were drawn in the palette's lead color, which on a pale palette left them invisible on paper. The gift box printed every line solid while its own legend promised dashed folds. Cupcake toppers offered a text field for a design that never drew the text.
 * Smaller things across the studios: Papercut can punch a hole in any object it lets you place, City Diorama's Variation really rolls the skyline and its status line no longer counts two different sets of buildings, Star Map's foil color returns with the theme, Stitch Patterns' thread weight reaches the planner, Generative Art's five densest motifs got their density dial, a page in the Flip Studio opens from anywhere in its row, and the source list in Drawing Templates shows its grouping again.
 * The handbook and the help assistant were describing things the code does not do, in eight places. Those are corrected at the source, so pages written from them later inherit the correction rather than the error.
-
-= 1.427.2 =
-* Four brush tips to a row again. They grew last release and the strip could only hold three of them, so the strip itself is wider now and the panel with it.
-
-= 1.427.1 =
-* The shape panel holds still. The preview is a fixed square and the panel a fixed height, so picking a shape with six dials after one with two no longer makes the window jump, and the whole catalog is one scroll with headings instead of a group menu you have to click through. Widening the panel now buys you more shapes per row rather than wider sliders.
-* Brush tips and shape tiles are bigger and no longer stretch with the column they sit in, so two textures are told apart at a glance.
-
-= 1.427.0 =
-* The Shape Studio moved into a panel. Hold the shape tool and it is right beside your work, the way the brush panel is while you paint: pick a shape, turn its dials, and the next one you drag is the one in the preview. Select a shape that is already on the canvas and the same dials change that shape as you turn them.
-* The panel shows one group of shapes at a time, at a size where a pattern looks like itself instead of a grey smudge. The full studio is one click away in the panel's head for the moments when a generator wants a bigger picture.
-
-= 1.426.0 =
-* New Shape Studio. Shapes are parametric objects now instead of fixed outlines: corner radius, smoothing, slices and every setting a shape brings of its own stay editable long after you drew it, on the canvas or in the studio dialog. The element catalog moved into the same dialog, so choosing a shape and shaping it happen in one place.
-* The Shape Studio also draws artwork. Fifty families of generative patterns are built in, among them Voronoi cells, flow lines, mazes, space-filling curves, fractals, mandalas, metaballs, honeycombs, halftone ramps, moire and star tilings. Each family has its own dials, a set of presets and a stored seed, so a result you like can be refined and reproduced instead of rolled again.
-* QR codes can carry your artwork. Your logo can be woven into the code as a halftone, or the data modules themselves can form the motif, with the artwork's own dominant tone coloring the rest of the code. A scan check rates each design the way a phone sees it: sharp, out of focus, and shrunk to small print.
-* QR codes export as SVG, take their logo from the Media Library, and show the three placements as preview tiles rendered with your actual logo.
-* The in-editor handbook and the help assistant cover the Shape Studio, and all new interface text ships translated in six languages.
-
-= 1.425.9 =
-* Tested with WordPress 7.1.
-
-= 1.425.8 =
-* Translations: nine strings that had arrived with the last releases were still English in all six languages and are now translated. Locale typography is fixed at the source as well, so a rebuild can no longer revert it: curly quotes per locale, and French keeps its non-breaking spaces inside guillemets and before its double punctuation.
-
-= 1.425.7 =
-* The in-editor handbook and the help assistant now know the Pro content generator's newer parts: the two kinds of content template, structured fields that fill your own meta keys, the template assistant and the dry run.
-
-= 1.425.6 =
-* Editor styling for the assistant's refine row.
-
-= 1.425.5 =
-* Editor styling for the Pro template assistant and the dry-run preview: the brief form with its examples, the readable article preview, field group separators, the drag state of field cards and the prefix rename tool.
-
-= 1.425.4 =
-* Content Templates dialog: styling for the kind switch above the template list and for the fact chips in the template rows.
-
-= 1.425.3 =
-* Content Templates dialog: styling for the kind label above the template list.
-
-= 1.425.2 =
-* Structured Fields panel: one consistent 12px type size for selects and the description box, and styling for the new in-place explainer.
-
-= 1.425.1 =
-* Editor styling groundwork for the Structured Fields builder in the Pro Content Templates dialog: a third panel with field cards, key inputs and fixed-size controls.
-
-= 1.425.0 =
-* Editor styling groundwork for the redesigned Featured Images dialog in Pro: section headlines with icons, a three-column layout that scrolls per column instead of clipping, and a clearer format row. The German translation source dictionary now carries the August glossary corrections, so rebuilds can no longer revert them.
-= 1.424.1 =
-* Security: media maintenance and image metadata now enforce the same per-object permission the rest of the editor uses. Cleaning up unreferenced upload files is restricted to administrators and will never move a file that still belongs to an attachment, and reading an image's embedded EXIF/XMP details requires edit rights on that specific image. Thanks to a security review for both.
-
-= 1.424.0 =
-* New bundled studio: Chaos Art. A society of autonomous painters makes one-of-a-kind abstract art in deep 3D space - gestures with attack and release, art movements from Impressionism to Minimalism, painterly media from watercolor to ink sketch, a self-directed mode where the society picks everything itself, a snapshot ring so no moment is lost, a process film, and live embeds that paint a new original for every visitor. There is no seed: no piece can ever be painted twice.
-
-= 1.423.0 =
-* White chalk. The dry media gained a scattering body: light pigment now covers the ground the way real chalk does - white pastel highlights on black paper, grainy on the tooth, building up layer by layer. Dark charcoal absorbs exactly as before. The transparent media stay true to themselves: watercolor and ink have no white because the real ones do not either - their white is the paper, and covering white is what gouache and acrylic are for.
-
-= 1.422.0 =
-* Pen tilt. Leaning the stylus answers per medium, with no dial to set: charcoal and pastel on their side lay a broad, light, soft-edged mark that lets the paper's tooth show - the classic shading grip. A flatter brush paints wider and wetter with its belly, a flat knife spreads its load thinner. A mouse has no tilt to report and keeps painting upright, exactly as before.
-* Quick export commits wet paint first, the way the export dialog always did. A wash still drying on the canvas used to be missing from the quickly exported file.
-
-= 1.421.1 =
-* Under stroke smoothing, a plain-style stroke could end in a hard, flat cut: the finishing segment ran past the window the stroke was committed through and was clipped at its edge. Stroke ends are round brush caps again, and mask painting now finishes to the release point the way paint strokes always did.
-
-= 1.421.0 =
-* Stroke smoothing. The brush point trails the pointer on a pulled string: hand wobble shorter than the string never reaches the paint, and hard corners round into clean curves before any color is laid down. The Smoothing dial in the brush panel sets the string's length, measured on screen so it feels the same at every zoom, and lifting the pointer finishes the stroke to the exact point you released. It works for the brush, the pencil, the eraser, mask painting and every wet style alike, because it happens at the input, before the paint.
-
-= 1.420.0 =
-* Right-click became the painter's palette. While a paint tool is active, the right mouse button opens a compact palette under the cursor: a color wheel, the eighteen colors you used last, an eyedropper that picks up the color under the pointer, and Size and Opacity, both adjustable by dragging their labels or their numbers. While wet paint sits on the canvas it also offers Dry now.
-
-= 1.419.0 =
-* Pastel, the tenth painting style. Dry, soft pigment that catches on the paper's tooth and builds up in grainy layers - charcoal's gentler sibling.
-* The Draw a brush tip button sits once at the foot of the tip list, within reach from every group.
-
-= 1.418.0 =
-* Star symmetry: strokes repeat around the center of the canvas with three, five, six, eight or twelve arms, next to the vertical, horizontal and fourfold mirrors. Mandalas, rosettes and snowflakes paint themselves.
-* The tool options bar carries what a stroke needs: Paper moved in next to Symmetry, and Flow lives in the brush panel with its siblings.
-* The smudge tool settles down sooner after the stroke ends.
-
-= 1.417.0 =
-* Paper is a property of the document. Hot press, cold press, rough, canvas or laid: washes granulate into the chosen surface, the paste media show its weave in their relief, the dry media catch on its tooth. An open wash finishes drying before the sheet changes under it.
-
-= 1.416.0 =
-* Oil smears in the direction you pull. Paint already on the canvas is dragged along the stroke into streaks, the way a loaded bristle brush pulls through wet paint. The smear conserves the paint - color moves, it is never created or lost by it - and a dial sets how strong the pull is.
-
-= 1.415.0 =
-* The smudge style runs inside the wet simulation. It brings almost no paint of its own: it lifts the colors it crosses, blends them like a wet fingertip and sets them back down, with real pigment mixing on the way - dragging blue through yellow leaves green.
-
-= 1.414.0 =
-* A Pickup dial for every wet style sets how strongly fresh paint lifts and carries the color already dried on the layer, from a faint tint with acrylic to heavy dragging with oil. Each style comes tuned; each can be set your way.
-
-= 1.413.0 =
-* The water brush: water without pigment. Run it over dried color and the color loosens, bleeds and can be pushed around again; run it over a fresh wash and it thins and spreads it. The oldest watercolor technique there is, and the whole reason the paint here stays rewettable.
-
-= 1.412.0 =
-* Pen pressure drives the wet media. With a stylus, pressure sets the width of the stroke and how much water and pigment it carries, on a curve tuned per medium: a light touch scumbles dry, a full press lays a loaded brush. Mouse strokes keep painting at full strength, because a mouse has no pressure to give.
-
-= 1.411.0 =
-* Media brushes: three matched brushes for every painting style - bristle rounds and flats, torn chalk and crayons, knife edges, scratchy nibs - built as real, irregular tips that rotate to follow the stroke. They stand at the head of the tip list and change with the style.
-* The brush panel fits small screens now: the style's brushes live in the tip list, nothing scrolls sideways, and every dial can be scrubbed on its label or its number for an exact value.
-* Fast zigzag strokes render clean; under load, the stamping could fan a sharp turn into straight spokes.
-
-= 1.410.0 =
-* Wet strokes wake the paint beneath them. Water loosens dried color back into the wash and floats it along; the paste media pick up what they cross and carry it into the stroke. Blue over dried yellow makes green - between strokes, not only within one.
-
-= 1.409.0 =
-* A wash lies over the artwork like a glaze. The layer underneath shines through and mixes with the wash like pigment: yellow under blue reads green, and thin color over white stays luminous instead of graying out.
-
-= 1.408.0 =
-* The wet styles split into three engines, each simulating its own physics on the graphics card: liquid for watercolor and ink, paste for gouache, acrylic and oil, dry for charcoal. A wash flows, pools and blooms; paste holds relief, sheen and knife marks; charcoal breaks on the paper's tooth.
-* Fast strokes stopped leaving rectangular ghosts of earlier stamps behind, and the painted surface renders its grain at full resolution instead of as a coarse diagonal pattern.
-* A fresh editor starts with a red brush and continuous spacing, so the first stroke is a line, not a row of dots.
-
-= 1.407.0 =
-* Colors mix like paint, not like light: yellow and blue make green, red and green make brown, across every painting style. Each medium carries its own character and its own dials - water and pigment for the washes, load and body for the paste media, pressure and grain for the dry ones.
-
-= 1.406.0 =
-* The wet simulation runs on the graphics card, so large washes stay fluid on large canvases, and what you see while the paint is wet is exactly what dries into the layer.
-
-= 1.405.0 =
-* Wet watercolor moves in. A stroke stays liquid on the canvas: pigment drifts with the water, gathers toward the edges, dries darker at the rim and settles into the paper's grain - live, while you paint. When it has dried, the whole wash lands in the layer as one undo step.
-
-= 1.404.0 =
-* Creating a shared media folder or tag now asks for the same right as renaming or deleting one. Both of those already did; creating did not, so anyone who could open the editor could add rows to a taxonomy the whole site shares. Filing pictures into folders that already exist is untouched, and the buttons for creating are simply not shown to people who may not use them.
-* Every bundled component now names its source next to its license, down to the European Commission's AI labelling emblems and the background-removal model.
-
-= 1.403.2 =
-* The background-removal model now names its source alongside its license, the last bundled component that did not.
-
-= 1.403.1 =
-* Every bundled library now names its own source next to its license, and says which file in the plugin it is, so anyone can go from a file in the download to the code it was built from.
-
-= 1.403.0 =
-* Where an image is used is now answered only to people who are allowed to edit that very image, and the answer leaves out any post the person asking may not read. Before, anyone who could use the editor could ask about any image in the library and see the titles of the posts it appears in, including drafts and private posts that were none of their business.
-* The readme and BUILD.md now name the source of every generated file the plugin ships, and the vectorizer's WebAssembly file carries its own name (build/vtracer.<hash>.wasm) instead of a bare hash, so it is obvious what it is and where it comes from.
-
-= 1.402.1 =
-* The built-in handbook and the in-editor help assistant now know about the newest additions: the EU AI labels in the save dialog, the File data tab with its inspector and cleaner, and the large preview with its download button.
-
-= 1.402.0 =
-* The arrows in the large preview stay put. They used to hang off the edge of the picture, so they moved with every image and clicking through a folder meant re-aiming for every single step; on a very wide image they even ended up off screen. They now sit at the left and right edge of the window and stay exactly where your cursor already is.
-* A Download button in the large preview saves the original file straight to your computer, next to Copy file URL and Edit metadata.
-
-= 1.401.0 =
-* A new File data tab in the image details shows what is actually inside a file: the camera and lens that took it, when, the software that touched it since, and the spot on earth it was taken at. A photo from a phone carries all of that, WordPress shows none of it, and the original file sits in your library under a public address. Coordinates are turned into a place name and a distance, worked out on your own server against the built-in place index, so nothing about your photos is sent anywhere to look it up.
-* Two buttons take it back out again. One removes just the location and leaves the camera details alone, the other clears every embedded block. Both work on the original and on every size generated from it, and both are byte surgery rather than a re-save, so the picture keeps its exact quality. Coordinates are overwritten rather than merely unlinked, and the previous files are kept as a version you can restore.
-
-= 1.400.0 =
-* The European Commission's AI labelling emblems ship with the editor. When you save or export, one tick places the emblem you choose, in the color and the corner you choose, into the picture itself, the same way a watermark is placed. The files are the Commission's own originals, and they also sit in the Brand Kits shelf of the library, so you can drop one in as an ordinary layer and put it exactly where you want it.
-* You decide when an emblem appears. The editor does not inspect your work, does not guess and never suggests one: it stays out of the way until you ask for it. A second tick, empty unless you set it, additionally records the disclosure inside the file's own metadata, in the IPTC vocabulary that image search and picture agencies read.
-
-= 1.399.0 =
-* New layers land where you are working. Pick a layer, insert a picture, a shape, a chart or anything a studio makes, and it arrives directly above the one you picked instead of on top of the whole stack. Nothing has to be dragged back down afterwards. When the layer you picked sits inside a group, the new one lands above that whole group rather than slipping between its members, and with several layers selected the topmost one decides. A background still goes to the bottom, where it belongs.
-* Grouping keeps the order of your layers. Selecting several layers and grouping them used to arrange them in the order you happened to click them, so picking from the top down quietly swapped them behind each other. They now keep the order they had in the stack, whichever way you select them - and the new group stays where those layers were instead of jumping in front of everything else.
-
-= 1.398.0 =
-* AI 3D generation runs on Meshy 7. Generated geometry follows the reference image far more closely, which is where most of the work between a generation and a usable model used to go. The AI model setting under Integrations can pin Meshy 7, 6 or 5, and it knows that Meshy 7 is an image-to-3D model: a written prompt keeps using the newest model that path offers instead of failing on a version it has never heard of.
-* A fourth quality level, Ultra, runs Meshy's extra refinement pass over the mesh for the finest surface detail it can produce. It applies when you generate from an image, it takes longer, and it costs more credits than the level below it, so it is there to be picked rather than to arrive by surprise.
-* From Meshy 6 on, a generated mesh is kept the way it comes out of the model instead of being reduced to a polygon target afterwards. That reduction was smoothing away the very detail the newer models are better at. Low still reduces, because a small, quick file is the whole point of that level.
-
-= 1.397.0 =
-* The brush is rebuilt. A finished stroke goes into the layer you have selected, the way it does in every other editor; a portrait used to end up with one layer per stroke. Where a new layer is still wanted, an option at the foot of the brush panel does exactly that, and a new layer now arrives directly above the active one instead of on top of everything. A stroke also ends where you lift the pointer rather than trailing past it, and it no longer redraws itself while you drag.
-* Five painting styles that mix pigment instead of blending alpha, next to the plain one that was always there. Blue over yellow becomes green, which alpha blending never does. Watercolor runs out along the stroke, creeps past the bristles, dries darker at the rim and settles into the paper; Gouache is its opaque cousin; Acrylic stands proud of the sheet with a lit side, a shadowed side and a satin sheen; Oil holds a lot, gives out slowly and drags what it crosses; Smudge brings no paint of its own and pushes around what is already there.
-* A brush panel that floats over the canvas, opens with any paint tool and remembers where you put it. It is not a seventh tab in the right rail. The 37 tips are shown as rendered strokes rather than as names, in groups, drawn by the engine that will paint them, so a preview cannot promise something the tip does not deliver. Beside them sit the styles, the four numbers you reach for constantly, the tip's own scatter and spacing, and a color wheel.
-* You can draw your own brush tip. It is built from discs, rings, stars, polygons, bars, leaves and arcs, holes included, and it is kept as a recipe rather than as pixels: it stays editable, renders crisp at any size, and travels inside the document, so a design you hand on paints the same on the other machine. Tips can also be saved across documents.
-* Color no longer has to be one flat value. Jitter gives every mark a shade of its own, which is what stops a stroke reading as printed by a machine; Gradient runs a multi-stop ramp along the stroke and can repeat it, turning around at each end so a repeat leaves no seam. Both work with every tip and are ready the moment you pick them.
-* The shape tool shows shapes instead of naming them. The dropdown of nine names is a grid of previews drawn from the same path data the canvas fills, and eleven shapes join it: triangle, diamond, pill, arch, shield, tag, ribbon, cross, bolt, music note and a blob. The heart moved into the same list, so every shape is now defined once rather than twice.
-* The Eraser takes the brush's tips. Erasing through a texture is a technique, not a curiosity, and the eraser was the only paint tool that could not do it. Its panel also no longer offers a color wheel, which changed nothing about erasing.
-* Extensions API 2.20. Four additions, all of them things the editor already had and only extensions could not reach: the stamp recipe engine, the editor's own shape library, its multi-stop gradient bar as a mountable control, and a one-field prompt dialog. Nothing was renamed or removed.
-
-= 1.396.0 =
-* Extensions can now ask the editor for a picture's DEPTH. The depth model has been running here since v1.27 to blur backgrounds, but an extension that wanted to sort a picture by distance rather than by brightness had no way to reach it. Papercut Art builds its paper stack from it. Nothing is downloaded and nothing is sent anywhere; where the model is not installed, extensions carry on without it.
-
-= 1.395.0 =
-* The extension category "3D & Mockups" is now "3D & Scenes". It was named after one of its three members when there were three; there are ten, and all of them build a scene you can turn and light. The menu and the extension list also said different things, and now say the same.
-
-The complete history back to the first release is at https://wp-image-editor.com/changelog/

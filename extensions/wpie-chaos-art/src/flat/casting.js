@@ -15,13 +15,16 @@ import { familyOf } from './signature.js';
 /** For a mixed society: a school for one painter, mostly of the anchor's family. */
 export function mixedVoice( world, anchor ) {
 	const fam = familyOf( anchor.id );
-	const kin = SCHOOLS.filter(
+	const schools = world.ensembleSchools?.length
+		? world.ensembleSchools
+		: SCHOOLS;
+	const kin = schools.filter(
 		( s ) => s.id !== anchor.id && familyOf( s.id ) === fam
 	);
 	const pool =
 		kin.length && world.rng() < 0.7
 			? kin
-			: SCHOOLS.filter( ( s ) => s.id !== anchor.id );
+			: schools.filter( ( s ) => s.id !== anchor.id );
 	return pool[ Math.floor( world.rng() * pool.length ) % pool.length ];
 }
 
@@ -32,7 +35,10 @@ export function makeCast( world, school, density ) {
 		? Math.min( 1, Math.max( 0, density ) )
 		: 0.5;
 	const [ lo, hi ] = school.tempo.painters || [ 3, 8 ];
-	const n = Math.max( 1, Math.round( lo + ( hi - lo ) * d ) );
+	const n = Math.max(
+		world.ensembleSchools?.length || 1,
+		Math.round( lo + ( hi - lo ) * d )
+	);
 	const chaos = world.params.chaos || 0.5;
 	const actors = [
 		new Timekeeper( world, {
@@ -71,9 +77,10 @@ export function makeCast( world, school, density ) {
 			sizeMul: world.mixedScale && world.rng() < 0.2 ? 1.8 : 1,
 			// In an ensemble every second painter speaks another school.
 			voice:
-				world.mixed && world.rng() < 0.6
+				world.ensembleSchools?.[ i ] ||
+				( world.mixed && world.rng() < 0.6
 					? mixedVoice( world, school )
-					: null,
+					: null ),
 		} );
 		p.entry =
 			i === 0
@@ -103,6 +110,10 @@ export function hireOne( world ) {
 	const r = world.rng();
 	const p = new Painter( world, {
 		role: r < 0.5 ? 'builder' : r < 0.8 ? 'responder' : 'wanderer',
+		voice:
+			world.mixed && world.rng() < 0.6
+				? mixedVoice( world, world.voice || world.school )
+				: null,
 	} );
 	p.entry = 0;
 	return p;

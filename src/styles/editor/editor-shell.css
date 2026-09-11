@@ -1472,6 +1472,102 @@
 	color: #fff;
 }
 
+/* Blend-mode tiles (v1.430): one render per mode, families in rows.
+   Fixed 60px tiles in a fixed 4-column grid, the menu width IS the grid,
+   and fixed heights all the way down (58 + 5 x 83 + 12 + 2 = 487px), so
+   the menu never scrolls: no cap, no overflow. */
+#wpie-root .blend-menu.has-tiles {
+	box-sizing: border-box;
+	width: 272px;
+	max-height: none;
+	overflow: visible;
+	padding: 6px;
+}
+
+#wpie-root .blend-family-row + .blend-family-row {
+	margin-top: 3px;
+	padding-top: 3px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .blend-family {
+	padding: 3px 2px;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 12px;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .blend-tiles {
+	display: grid;
+	grid-template-columns: repeat(4, 60px);
+	gap: 6px;
+}
+
+#wpie-root .blend-tile {
+	display: block;
+	width: 60px;
+	height: 58px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--ed-text);
+	cursor: pointer;
+}
+
+#wpie-root .blend-tile:focus-visible {
+	outline: none;
+}
+
+#wpie-root .blend-tile-img {
+	display: block;
+	box-sizing: border-box;
+	width: 60px;
+	height: 44px;
+	overflow: hidden;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+	background-image: conic-gradient(#d0d0d0 25%, #f4f4f4 0 50%, #d0d0d0 0 75%, #f4f4f4 0);
+	background-size: 12px 12px;
+}
+
+#wpie-root .blend-tile-img img {
+	display: block;
+	width: 58px;
+	height: 42px;
+}
+
+#wpie-root .blend-tile-name {
+	display: block;
+	overflow: hidden;
+	padding-top: 2px;
+	font-size: 10px;
+	line-height: 12px;
+	text-align: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .blend-tile:hover .blend-tile-img,
+#wpie-root .blend-tile:focus-visible .blend-tile-img,
+#wpie-root .blend-tile.active .blend-tile-img {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent);
+}
+
+#wpie-root .blend-tile:hover .blend-tile-name,
+#wpie-root .blend-tile:focus-visible .blend-tile-name {
+	color: var(--ed-text);
+}
+
+#wpie-root .blend-tile.active .blend-tile-name {
+	font-weight: 600;
+	color: var(--accent);
+}
+
 /* History list */
 #wpie-root .history-list {
 	display: flex;
@@ -2130,19 +2226,9 @@
 	gap: 10px;
 }
 
-#wpie-root .ai-panel .ai-head {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-weight: 600;
-	font-size: 13px;
-}
-
-#wpie-root .ai-panel .ai-head .dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: var(--accent);
+#wpie-root .ai-panel .ai-local-note {
+	font-size: var(--fs-xs);
+	color: var(--text-muted);
 }
 
 #wpie-root .ai-panel textarea {
@@ -2407,44 +2493,6 @@
 	}
 }
 
-#wpie-root .ai-provider-pill {
-	display: inline-flex;
-	gap: 7px;
-	align-items: center;
-	height: 26px;
-	padding: 0 12px;
-	font-size: var(--fs-sm);
-	font-weight: var(--fw-medium);
-	color: var(--text-secondary);
-	white-space: nowrap;
-	cursor: pointer;
-	background: var(--surface-raised);
-	border: 1px solid var(--border-strong);
-	border-radius: var(--r-pill);
-	transition:
-		border-color var(--dur-fast) var(--ease),
-		filter var(--dur-fast) var(--ease);
-}
-
-#wpie-root .ai-provider-pill:hover {
-	filter: brightness(1.15);
-}
-
-#wpie-root .ai-provider-pill.active {
-	color: var(--text-primary);
-	border-color: var(--accent);
-	box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-#wpie-root .ai-provider-pill .dot {
-	flex: 0 0 auto;
-	width: 7px;
-	height: 7px;
-	background: var(--status-online);
-	border-radius: 50%;
-	box-shadow: 0 0 6px var(--status-online);
-}
-
 /* Status bar */
 #wpie-root .ed-status {
 	grid-column: 1 / -1;
@@ -2632,6 +2680,7 @@
    drop anywhere, so the dashed card is an invitation rather than the only
    target, and it holds the same size as the preview beside it in the other
    tabs so the dialog does not change height when the tab changes. */
+
 /* .preview-card in the selector, and not for decoration: the base rule for
    that class carries the same weight as this one and sits further down, so
    without the extra class it wins and the drop area comes out white. */
@@ -2648,26 +2697,31 @@
 	background: var( --ed-panel );
 	transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
+
 #wpie-root .create-open .preview-card.open-drop:hover:not( :disabled ) {
 	border-color: var( --ed-text-dim );
 	color: var( --ed-text );
 	background: var( --ed-panel-2, var( --ed-panel ) );
 }
+
 #wpie-root .create-open .preview-card.open-drop:focus-visible {
 	outline: 2px solid var( --accent );
 	outline-offset: 2px;
 }
+
 /* Once a picture is in, the dashes have done their job: the card holds the
    picture and stops advertising that something may be dropped on it. */
 #wpie-root .create-open .preview-card.open-drop.has-file {
 	border-style: solid;
 }
+
 #wpie-root .create-open .preview-card.open-drop img {
 	width: 100%;
 	height: 100%;
 	object-fit: contain;
 	display: block;
 }
+
 #wpie-root .create-open .open-mark {
 	display: flex;
 	flex-direction: column;
@@ -2687,10 +2741,12 @@
 	justify-content: center;
 	gap: 12px;
 }
+
 #wpie-root .create-open .open-drop:not( .has-file ) {
 	width: 84px;
 	height: 84px;
 }
+
 #wpie-root .create-open .open-text {
 	display: flex;
 	flex-direction: column;
@@ -2704,6 +2760,7 @@
 	color: var( --ed-text );
 	overflow-wrap: anywhere;
 }
+
 #wpie-root .create-open .open-text small {
 	font-size: 12px;
 	color: var( --ed-text-dim );
@@ -3383,9 +3440,11 @@
 	color: var(--ed-text);
 	font-size: 13px;
 }
+
 .ed-crash-box p {
 	margin: 0 0 8px;
 }
+
 .ed-crash-box code {
 	display: block;
 	margin: 0 0 10px;

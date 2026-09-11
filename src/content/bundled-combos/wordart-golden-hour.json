@@ -1,0 +1,122 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-golden-hour",
+	"label": "Golden Hour",
+	"category": "wordart",
+	"w": 655,
+	"h": 452,
+	"layers": [
+		{
+			"id": "wa-golden-hour-0",
+			"type": "text",
+			"name": "Golden",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 19.5,
+			"y": 18,
+			"w": 615,
+			"h": 331,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "Golden",
+			"fontSize": 271.1545748681027,
+			"fontFamily": "Great Vibes",
+			"weight": 400,
+			"color": "#c28d2c",
+			"align": "left",
+			"valign": "top",
+			"letterSpacing": 0,
+			"lineHeight": 1.08,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "gradient",
+			"gradientStops": [
+				{
+					"color": "#f7d993",
+					"at": 0
+				},
+				{
+					"color": "#c18b28",
+					"at": 0.5
+				},
+				{
+					"color": "#7b4e17",
+					"at": 1
+				}
+			],
+			"gradientAngle": 90,
+			"pattern": "none",
+			"patternData": null,
+			"textFX": {
+				"bevel": {
+					"depth": 2
+				}
+			}
+		},
+		{
+			"id": "wa-golden-hour-1",
+			"type": "text",
+			"name": "HOUR",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 147.5,
+			"y": 360,
+			"w": 356,
+			"h": 76,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fff2d0",
+					"size": 1,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "HOUR",
+			"fontSize": 96.50127092830284,
+			"fontFamily": "Cinzel",
+			"weight": 600,
+			"color": "#bf8a36",
+			"align": "left",
+			"valign": "top",
+			"letterSpacing": 13,
+			"lineHeight": 1.08,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"textFX": null
+		}
+	]
+}

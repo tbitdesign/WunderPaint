@@ -438,12 +438,22 @@ class Post_Data {
 		if ( ! $url || ! preg_match( '#^https?://#i', $url ) ) {
 			return new \WP_Error( 'wpie_bad_feed', __( 'Enter a feed URL (https://…).', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
+		// The route makes the server fetch a URL of the caller's choosing.
+		// Public hosts only (wp_safe_remote_get), 2 MB, ten seconds - and
+		// now a per-user rate as well, the same one the lookups have, so an
+		// editor account cannot turn the site into a fetch loop.
+		$limited = AI_Provider::rate_limit( 'feed', 0, 'lookup_rate_limit' );
+		if ( is_wp_error( $limited ) ) {
+			return $limited;
+		}
 		$count = min( 24, max( 1, (int) ( $request->get_param( 'count' ) ?: 12 ) ) );
 		// Individual sources (v1.279): a JSON API (web-radio now playing,
 		// a headless CMS, any custom endpoint) is analysed structurally
 		// and returned as columns + rows for the client-side mapping UI.
 		// A short cache keeps now-playing style data fresh.
-		$sniff_key = 'wpie_feed_json_' . md5( $url );
+		// The row count is part of the key: the first caller used to decide
+		// it for everyone else for two minutes.
+		$sniff_key = 'wpie_feed_json_' . md5( $url . '|' . $count );
 		$cached    = get_transient( $sniff_key );
 		if ( is_array( $cached ) ) {
 			return rest_ensure_response( $cached );
@@ -828,7 +838,12 @@ class Post_Data {
 				$meta_keys[] = substr( $field, 5 );
 			}
 		}
-		$args = array(
+		// Password protected posts stay out of the query for everyone who
+		// could not edit them anyway. found_posts is then a count of what
+		// the caller may read, not an oracle over protected content.
+		$type_object    = get_post_type_object( $type );
+		$sees_protected = $type_object && current_user_can( $type_object->cap->edit_others_posts );
+		$args           = array(
 			'post_type'      => $type,
 			'post_status'    => 'publish',
 			's'              => sanitize_text_field( (string) $request->get_param( 'search' ) ),
@@ -836,6 +851,9 @@ class Post_Data {
 			'orderby'        => $orderby,
 			'order'          => $order,
 		);
+		if ( ! $sees_protected ) {
+			$args['has_password'] = false;
+		}
 		// Filters (v1.271): date range, author, any public taxonomy,
 		// post-meta comparison (protected meta blocked) and an offset.
 		$offset = min( 500, max( 0, (int) $request->get_param( 'offset' ) ) );
@@ -956,7 +974,13 @@ class Post_Data {
 		// user chose exactly these, in exactly this order.
 		$include = array_filter( array_map( 'absint', explode( ',', (string) $request->get_param( 'include' ) ) ) );
 		if ( $include ) {
-			$args['post__in']       = array_values( $include );
+			// Derselbe Deckel wie ohne include. $count = min( 50, ... ) galt nur
+			// fuer den Normalfall; mit include bestimmte der Aufrufer die
+			// Zeilenzahl selbst, und ueber die uebliche URL-Laenge passen rund
+			// tausend Ids hinein. Jede Zeile laeuft durch fields_for(), und das
+			// ruft je Zeile wc_get_product() und get_field_objects().
+			$include                = array_slice( array_values( $include ), 0, $count );
+			$args['post__in']       = $include;
 			$args['orderby']        = 'post__in';
 			$args['posts_per_page'] = count( $include );
 			unset( $args['s'], $args['meta_key'] );
@@ -981,10 +1005,15 @@ class Post_Data {
 		if ( $tax_query ) {
 			$args['tax_query'] = $tax_query; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
 		}
-		$query = new \WP_Query( $args );
-		$rows  = array();
+		$query   = new \WP_Query( $args );
+		$rows    = array();
+		$dropped = 0;
 		foreach ( $query->posts as $post ) {
-			$map    = self::fields_for( $post, $meta_keys );
+			if ( ! self::can_read_context( $post ) ) {
+				++$dropped;
+				continue;
+			}
+			$map    = self::fields_for( $post, $meta_keys, $fields );
 			$rows[] = array_map(
 				static function ( $field ) use ( $map ) {
 					return (string) ( $map[ $field ] ?? '' );
@@ -996,7 +1025,11 @@ class Post_Data {
 			array(
 				'fields' => array_values( $fields ),
 				'rows'   => $rows,
-				'total'  => (int) $query->found_posts,
+				// The number the import dialog shows beside offset and limit:
+				// every readable match, not just this page. Rows the capability
+				// check dropped above come off the tally, so nothing hidden is
+				// ever counted.
+				'total'  => max( count( $rows ), (int) $query->found_posts - $dropped ),
 			)
 		);
 	}
@@ -1211,7 +1244,7 @@ class Post_Data {
 	 * @param array    $meta_keys Additional post-meta keys → `meta.<key>`.
 	 * @return array Field map (binding id => string value).
 	 */
-	public static function fields_for( $post, $meta_keys = array() ) {
+	public static function fields_for( $post, $meta_keys = array(), $want = null ) {
 		list( $cat_names ) = self::post_terms( $post );
 		if ( has_excerpt( $post ) ) {
 			$excerpt = wp_strip_all_tags( $post->post_excerpt );
@@ -1264,7 +1297,34 @@ class Post_Data {
 			'site.url'         => (string) wp_parse_url( home_url(), PHP_URL_HOST ),
 			'site.logo'        => $logo_id ? (string) wp_get_attachment_image_url( $logo_id, 'full' ) : '',
 		);
-		$fields = array_merge( $fields, self::wc_fields( $post ), self::acf_fields( $post ) );
+		// Die teuren Quellen nur, wenn jemand sie will.
+		//
+		// Beide liefen bisher UNBEDINGT, einmal je Zeile: wc_fields() ruft
+		// wc_get_product() (ein CRUD-Objekt mit eigener Ladelogik, bei
+		// variablen Produkten samt Kindabfrage), acf_fields() ruft
+		// get_field_objects(), das alle Feldgruppen laedt und jeden Wert
+		// formatiert aufloest, inklusive Relationship- und Gallery-Feldern
+		// mit eigenen Abfragen. Das Feld-Argument der Route steuerte nur,
+		// was am Ende AUSGELESEN wurde, nicht was berechnet wurde - es
+		// genuegte, dass WooCommerce oder ACF aktiv ist.
+		$want_list = null === $want ? null : (array) $want;
+		$needs     = static function ( $prefix ) use ( $want_list ) {
+			if ( null === $want_list ) {
+				return true;
+			}
+			foreach ( $want_list as $field ) {
+				if ( 0 === strpos( (string) $field, $prefix ) ) {
+					return true;
+				}
+			}
+			return false;
+		};
+		if ( $needs( 'wc.' ) ) {
+			$fields = array_merge( $fields, self::wc_fields( $post ) );
+		}
+		if ( $needs( 'acf.' ) ) {
+			$fields = array_merge( $fields, self::acf_fields( $post ) );
+		}
 
 		// Custom-field bindings: the client sends the keys its layers use.
 		// Protected meta (`_`-prefixed and anything flagged via the
@@ -1356,27 +1416,18 @@ class Post_Data {
 		return rest_ensure_response( array( 'items' => $items ) );
 	}
 
-	/**
-	 * The context payload for one post, or null when the caller may not
-	 * read it. Shared by the single and the batch route, so the capability
-	 * rules cannot drift apart.
-	 *
-	 * @param int   $post_id   Post id.
-	 * @param array $meta_keys Meta keys to resolve into fields.
-	 * @return array|null
-	 */
+	/** Whether the caller may resolve this post into editor fields. */
+	private static function can_read_context( $post ) {
+		$type = $post ? get_post_type_object( $post->post_type ) : null;
+		return $post && $type && ! empty( $type->public )
+			&& current_user_can( 'read_post', $post->ID )
+			&& ( ! post_password_required( $post ) || current_user_can( 'edit_post', $post->ID ) );
+	}
+
+	/** Resolve only data this caller can read, including password protection. */
 	private static function context_payload( $post_id, $meta_keys ) {
 		$post = get_post( $post_id );
-		$type = $post ? get_post_type_object( $post->post_type ) : null;
-		// `publish` is not a read permission. Password protected posts are
-		// published too, and so are non public post types such as WooCommerce
-		// coupons, whose post_title IS the coupon code. Ask the capability
-		// system instead. (F-M02, 2026-07-25 audit)
-		if ( ! $post
-			|| ! $type
-			|| empty( $type->public )
-			|| ! current_user_can( 'read_post', $post->ID )
-			|| ( post_password_required( $post ) && ! current_user_can( 'edit_post', $post->ID ) ) ) {
+		if ( ! self::can_read_context( $post ) ) {
 			return null;
 		}
 		list( $cat_names ) = self::post_terms( $post );

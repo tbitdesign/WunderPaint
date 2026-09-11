@@ -1,0 +1,177 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-a-little-weird-a-lot-wonderful",
+	"label": "A little weird a lot wonderful",
+	"category": "wordart",
+	"w": 766,
+	"h": 576,
+	"layers": [
+		{
+			"id": "waf-a-little-weird-a-lot-wonderful-0",
+			"type": "text",
+			"name": "A LITTLE WEIRD A LOT WONDERFUL",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 110.8,
+			"y": 47.53,
+			"w": 560,
+			"h": 460,
+			"rot": 5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#294d6d",
+					"size": 1,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "A LITTLE WEIRD\nA LOT\nWONDERFUL",
+			"fontSize": 100,
+			"fontFamily": "Comfortaa",
+			"weight": 700,
+			"color": "#26acc0",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "A LITTLE WEIRD\n",
+					"s": {
+						"color": "#26acc0"
+					}
+				},
+				{
+					"text": "A LOT\n",
+					"s": {
+						"color": "#e667a1"
+					}
+				},
+				{
+					"text": "WONDERFUL",
+					"s": {
+						"color": "#e5c649"
+					}
+				}
+			],
+			"textFX": {
+				"sticker": {
+					"size": 5,
+					"color": "#e9faff",
+					"shadow": 28
+				}
+			}
+		},
+		{
+			"id": "waf-a-little-weird-a-lot-wonderful-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 416.53,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e5c649",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-a-little-weird-a-lot-wonderful-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 85.53,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e667a1",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-a-little-weird-a-lot-wonderful-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 548.53,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#26acc0",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

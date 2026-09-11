@@ -3072,3 +3072,156 @@ export function renderPyramid( like, py, opts = {} ) {
 	}
 	return c;
 }
+
+/* ----------------------- binary / inequality / chains -------------------- */
+
+const ruleLines = ( g, text, width ) => {
+	const lines = [];
+	let line = '';
+	for ( const word of String( text || '' )
+		.split( /\s+/ )
+		.filter( Boolean ) ) {
+		const next = line ? line + ' ' + word : word;
+		if ( line && g.measureText( next ).width > width ) {
+			lines.push( line );
+			line = word;
+		} else {
+			line = next;
+		}
+	}
+	if ( line ) lines.push( line );
+	return lines;
+};
+
+/** The rules belong on the printed sheet, including its solution. */
+const logicSheet = ( like, width, contentHeight, opts ) => {
+	const tb = titleBlock( opts );
+	const px = Math.round( 18 * tscale( opts ) );
+	const c = makeCanvas( like, width, 1 );
+	const g = c.getContext( '2d' );
+	g.font = `${ px }px ${ famFor( opts ) }`;
+	const lines = ruleLines( g, opts.rules, width - 112 );
+	const top = 56 + tb.h;
+	const footer = top + contentHeight + 38;
+	c.height = footer + lines.length * px * 1.4 + 40;
+	g.fillStyle = '#ffffff';
+	g.fillRect( 0, 0, width, c.height );
+	drawTitle( g, tb, opts, width / 2, 36 );
+	g.fillStyle = INK;
+	g.font = `${ px }px ${ famFor( opts ) }`;
+	g.textBaseline = 'top';
+	lines.forEach( ( line, i ) =>
+		g.fillText( line, 56, footer + i * px * 1.4 )
+	);
+	return { c, g, top };
+};
+
+/** Both grids share paper/typography; inequalities have space BETWEEN cells. */
+export function renderLogicGrid( like, model, opts = {} ) {
+	const inequality = Array.isArray( model.signs );
+	const { size, puzzle, solution } = model;
+	const cell = 8 === size ? 64 : 76;
+	const gap = inequality ? 28 : 0;
+	const step = cell + gap;
+	const extent = size * step - gap;
+	const { c, g, top } = logicSheet( like, extent + 112, extent, opts );
+	g.textAlign = 'center';
+	g.textBaseline = 'middle';
+	for ( let i = 0; i < puzzle.length; i++ ) {
+		const x = 56 + ( i % size ) * step;
+		const y = top + Math.floor( i / size ) * step;
+		g.strokeStyle = INK;
+		g.lineWidth = inequality ? 1.5 : 1;
+		g.strokeRect( x, y, cell, cell );
+		const given = puzzle[ i ] !== ( inequality ? 0 : -1 );
+		if ( given || opts.solution ) {
+			g.fillStyle = given ? INK : SOLVE;
+			g.font = `${ given ? 700 : 400 } ${ Math.round(
+				cell * 0.5 * tscale( opts )
+			) }px ${ famFor( opts ) }`;
+			g.fillText(
+				String( given ? puzzle[ i ] : solution[ i ] ),
+				x + cell / 2,
+				y + cell / 2 + 1,
+				cell - 12
+			);
+		}
+	}
+	if ( inequality ) {
+		g.strokeStyle = hintInk( opts );
+		g.lineWidth = 2.6;
+		for ( const { low, high } of model.signs ) {
+			const ax = 56 + ( low % size ) * step + cell / 2;
+			const ay = top + Math.floor( low / size ) * step + cell / 2;
+			const bx = 56 + ( high % size ) * step + cell / 2;
+			const by = top + Math.floor( high / size ) * step + cell / 2;
+			const dx = ( bx - ax ) / step;
+			const dy = ( by - ay ) / step;
+			const mx = ( ax + bx ) / 2;
+			const my = ( ay + by ) / 2;
+			// The narrow tip always points to the smaller number.
+			g.beginPath();
+			g.moveTo( mx + dx * 6 - dy * 6, my + dy * 6 + dx * 6 );
+			g.lineTo( mx - dx * 6, my - dy * 6 );
+			g.lineTo( mx + dx * 6 + dy * 6, my + dy * 6 - dx * 6 );
+			g.stroke();
+		}
+	} else {
+		g.strokeStyle = accentOf( opts );
+		g.lineWidth = 3;
+		g.strokeRect( 56, top, extent, extent );
+	}
+	return c;
+}
+
+export function renderMathChains( like, model, opts = {} ) {
+	const cell = 72;
+	const step = 134;
+	const rowHeight = 96;
+	const { c, g, top } = logicSheet(
+		like,
+		112 + cell + model.steps * step,
+		model.rows * rowHeight - 24,
+		opts
+	);
+	g.textAlign = 'center';
+	g.textBaseline = 'middle';
+	model.chains.forEach( ( chain, row ) => {
+		const y = top + row * rowHeight;
+		chain.values.forEach( ( value, i ) => {
+			const x = 56 + i * step;
+			g.strokeStyle = INK;
+			g.lineWidth = 1.5;
+			g.strokeRect( x, y + 14, cell, 56 );
+			if ( i === 0 || opts.solution ) {
+				g.fillStyle = i === 0 ? INK : SOLVE;
+				g.font = `${ i === 0 ? 700 : 400 } ${ Math.round(
+					26 * tscale( opts )
+				) }px ${ famFor( opts ) }`;
+				g.fillText( String( value ), x + cell / 2, y + 42, cell - 12 );
+			}
+			if ( i < model.steps ) {
+				const { op, operand } = chain.operations[ i ];
+				g.fillStyle = hintInk( opts );
+				g.font = `600 ${ Math.round(
+					18 * tscale( opts )
+				) }px ${ famFor( opts ) }`;
+				g.fillText(
+					op + ' ' + operand,
+					x + cell + ( step - cell ) / 2,
+					y + 24,
+					step - cell - 8
+				);
+				g.strokeStyle = hintInk( opts );
+				g.beginPath();
+				g.moveTo( x + cell + 8, y + 46 );
+				g.lineTo( x + step - 8, y + 46 );
+				g.lineTo( x + step - 14, y + 41 );
+				g.moveTo( x + step - 8, y + 46 );
+				g.lineTo( x + step - 14, y + 51 );
+				g.stroke();
+			}
+		} );
+	} );
+	return c;
+}

@@ -10,6 +10,7 @@
  * inserted assets.
  */
 
+import { readLocal, writeLocal } from '../lib/local-storage';
 import { useState, useEffect, useRef } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -81,6 +82,35 @@ const tileProps = ( asset, onUse ) => ( {
 	},
 	onClick: onUse,
 } );
+
+/** Shared photo loading feedback for search results and recent assets. */
+function ImageInsertButton( {
+	asset,
+	insert,
+	pendingPhotos,
+	className,
+	title,
+	children,
+} ) {
+	const inserting = 'photo' === asset.kind && pendingPhotos.has( asset.full );
+	return (
+		<button
+			className={ className }
+			title={ title }
+			{ ...tileProps( asset, () => insert( asset ) ) }
+			draggable={ ! inserting }
+			disabled={ inserting }
+			aria-busy={ inserting }
+		>
+			{ children }
+			{ inserting && (
+				<span className="tray-insert-progress" aria-hidden="true">
+					<span className="spin" />
+				</span>
+			) }
+		</button>
+	);
+}
 
 /** Render layers through the real pipeline into a cached tile preview. */
 function PipelineTile( {
@@ -744,6 +774,7 @@ function PhotosStrip( {
 	query,
 	setQuery,
 	insert,
+	pendingPhotos,
 	type = 'photo',
 	providerOverride,
 } ) {
@@ -870,6 +901,7 @@ function PhotosStrip( {
 		thumb: item.thumb,
 		full: item.full,
 		author: item.author,
+		stockType: type,
 		// Travels with the asset so the insert can tell the provider the
 		// photo was used. Unsplash requires that call and it is how the
 		// photographer gets counted; without it here, everything inserted
@@ -961,12 +993,12 @@ function PhotosStrip( {
 					key={ item.id }
 					className="tray-tile tray-tile-labeled tray-photo"
 				>
-					<button
+					<ImageInsertButton
 						className="tray-photo-hit"
 						title={ creditOf( item ) }
-						{ ...tileProps( assetOf( item ), () =>
-							insert( assetOf( item ) )
-						) }
+						asset={ assetOf( item ) }
+						insert={ insert }
+						pendingPhotos={ pendingPhotos }
 					>
 						<span className="tray-tile-preview">
 							<img
@@ -976,7 +1008,7 @@ function PhotosStrip( {
 								draggable={ false }
 							/>
 						</span>
-					</button>
+					</ImageInsertButton>
 					<span className="tray-tile-name tray-photo-credit">
 						{ item.authorUrl && item.author ? (
 							<a
@@ -999,7 +1031,7 @@ function PhotosStrip( {
 }
 
 /** Last inserted assets, newest first (v1.15). */
-function RecentStrip( { query, insert, version } ) {
+function RecentStrip( { query, insert, version, pendingPhotos } ) {
 	const combos = useCombos();
 	const elements = useElements();
 	const gradients = useGradients();
@@ -1095,11 +1127,13 @@ function RecentStrip( { query, insert, version } ) {
 				}
 				if ( 'upload' === asset.kind || 'photo' === asset.kind ) {
 					return (
-						<button
+						<ImageInsertButton
 							key={ key }
 							className="tray-tile"
 							title={ asset.title || asset.author }
-							{ ...tileProps( asset, () => insert( asset ) ) }
+							asset={ asset }
+							insert={ insert }
+							pendingPhotos={ pendingPhotos }
 						>
 							<img
 								src={ asset.thumb || asset.url }
@@ -1107,7 +1141,7 @@ function RecentStrip( { query, insert, version } ) {
 								loading="lazy"
 								draggable={ false }
 							/>
-						</button>
+						</ImageInsertButton>
 					);
 				}
 				if ( 'bg-gradient' === asset.kind ) {
@@ -1529,7 +1563,7 @@ function ExtensionStrip( { section, query, insert, editor, extras } ) {
 export function LibraryTray( { extras } ) {
 	const editor = useEditor();
 	const [ open, setOpen ] = useState( () => {
-		const stored = window.localStorage.getItem( 'wpie-tray-open' );
+		const stored = readLocal( 'wpie-tray-open' );
 		// Demo installs open the tray for first-time visitors (v1.308):
 		// the asset shelf IS the pitch. A visitor's own choice sticks.
 		if ( null === stored ) {
@@ -1538,10 +1572,14 @@ export function LibraryTray( { extras } ) {
 		return '1' === stored;
 	} );
 	const [ section, setSection ] = useState(
-		() => window.localStorage.getItem( 'wpie-tray-section' ) || 'buttons'
+		() => readLocal( 'wpie-tray-section' ) || 'buttons'
 	);
 	const [ query, setQuery ] = useState( '' );
 	const [ recentVersion, setRecentVersion ] = useState( 0 );
+	// A synchronous guard catches repeated clicks before React rerenders.
+	// Keep it on the tray so switching sections cannot start the same photo twice.
+	const pendingPhotosRef = useRef( new Set() );
+	const [ pendingPhotos, setPendingPhotos ] = useState( () => new Set() );
 	// Stock providers for the Photos section (v1.291.4): a small dropdown by
 	// the search lets you pick Pexels / Pixabay / Unsplash instead of being
 	// stuck on the first configured one.
@@ -1562,8 +1600,8 @@ export function LibraryTray( { extras } ) {
 		[]
 	);
 	useEffect( () => {
-		window.localStorage.setItem( 'wpie-tray-open', open ? '1' : '0' );
-		window.localStorage.setItem( 'wpie-tray-section', section );
+		writeLocal( 'wpie-tray-open', open ? '1' : '0' );
+		writeLocal( 'wpie-tray-section', section );
 	}, [ open, section ] );
 
 	// Deep link into a tray section (v1.166.3): the Easy Mode toolbar
@@ -1584,8 +1622,24 @@ export function LibraryTray( { extras } ) {
 	}, [] );
 
 	const insert = async ( asset ) => {
-		await insertAsset( editor, extras, asset, null );
-		setRecentVersion( ( v ) => v + 1 );
+		// Full URLs distinguish providers whose numeric image IDs can overlap.
+		const photoKey = 'photo' === asset.kind ? asset.full : null;
+		if ( photoKey ) {
+			if ( pendingPhotosRef.current.has( photoKey ) ) {
+				return;
+			}
+			pendingPhotosRef.current.add( photoKey );
+			setPendingPhotos( new Set( pendingPhotosRef.current ) );
+		}
+		try {
+			await insertAsset( editor, extras, asset, null );
+			setRecentVersion( ( v ) => v + 1 );
+		} finally {
+			if ( photoKey ) {
+				pendingPhotosRef.current.delete( photoKey );
+				setPendingPhotos( new Set( pendingPhotosRef.current ) );
+			}
+		}
 	};
 
 	const sections = [
@@ -1659,28 +1713,34 @@ export function LibraryTray( { extras } ) {
 					) ) }
 				</div>
 				{ open && (
-					<input
-						type="search"
-						className="tray-search"
-						value={ query }
-						placeholder={
-							'photos' === section
-								? __( 'Search free photos…', 'wunderpaint' )
-								: 'illustrations' === section
-								? __(
-										'Search free illustrations…',
-										'wunderpaint'
-								  )
-								: 'vectors' === section
-								? __(
-										'Search free vector graphics…',
-										'wunderpaint'
-								  )
-								: __( 'Filter…', 'wunderpaint' )
-						}
-						aria-label={ __( 'Search the library', 'wunderpaint' ) }
-						onChange={ ( e ) => setQuery( e.target.value ) }
-					/>
+					<span className="ed-search tray-searchbox">
+						{ I.search( { size: 13 } ) }
+						<input
+							type="search"
+							className="tray-search"
+							value={ query }
+							placeholder={
+								'photos' === section
+									? __( 'Search free photos', 'wunderpaint' )
+									: 'illustrations' === section
+									? __(
+											'Search free illustrations',
+											'wunderpaint'
+									  )
+									: 'vectors' === section
+									? __(
+											'Search free vector graphics',
+											'wunderpaint'
+									  )
+									: __( 'Filter', 'wunderpaint' )
+							}
+							aria-label={ __(
+								'Search the library',
+								'wunderpaint'
+							) }
+							onChange={ ( e ) => setQuery( e.target.value ) }
+						/>
+					</span>
 				) }
 				{ open && 'photos' === section && stockCfg.length > 1 && (
 					<select
@@ -1723,6 +1783,7 @@ export function LibraryTray( { extras } ) {
 							query={ q }
 							insert={ insert }
 							version={ recentVersion }
+							pendingPhotos={ pendingPhotos }
 						/>
 					) }
 					{ COMBO_CATEGORIES.some( ( c ) => c.id === section ) && (
@@ -1754,6 +1815,7 @@ export function LibraryTray( { extras } ) {
 							query={ q }
 							setQuery={ setQuery }
 							insert={ insert }
+							pendingPhotos={ pendingPhotos }
 							providerOverride={ photoProvider }
 						/>
 					) }
@@ -1763,6 +1825,7 @@ export function LibraryTray( { extras } ) {
 							query={ q }
 							setQuery={ setQuery }
 							insert={ insert }
+							pendingPhotos={ pendingPhotos }
 							type="illustration"
 						/>
 					) }
@@ -1772,6 +1835,7 @@ export function LibraryTray( { extras } ) {
 							query={ q }
 							setQuery={ setQuery }
 							insert={ insert }
+							pendingPhotos={ pendingPhotos }
 							type="vector"
 						/>
 					) }

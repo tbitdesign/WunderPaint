@@ -7,11 +7,12 @@
  * mode without threading props.
  */
 
+import { siteStorage } from './local-storage';
 const KEY = 'wpie-easy-mode';
 
 let flag = false;
 try {
-	flag = '1' === window.localStorage?.getItem( KEY );
+	flag = '1' === siteStorage.getItem( KEY );
 } catch ( e ) {
 	// Storage blocked: easy mode simply starts off.
 }
@@ -27,7 +28,7 @@ export const isEasyMode = () => flag;
 export function setEasyModeFlag( on ) {
 	flag = !! on;
 	try {
-		window.localStorage?.setItem( KEY, flag ? '1' : '0' );
+		siteStorage.setItem( KEY, flag ? '1' : '0' );
 	} catch ( e ) {
 		// Session-only then.
 	}
@@ -37,6 +38,7 @@ export function setEasyModeFlag( on ) {
 // nothing that opens pro surfaces (masks, smart objects, panels, …).
 const EASY_KEYS = new Set( [
 	'z', // undo / redo (shift)
+	'?', // the handbook: help stays reachable in the beginner shell (HILFE-10)
 	'y', // redo
 	's', // save
 	'c', // copy

@@ -16,6 +16,14 @@
  * blade is involved, it may sit on ANY layer, not just a backdrop.
  */
 
+import {
+	EXTRA_WINDOWS,
+	EXTRA_TREES,
+	EXTRA_PLANTS,
+	LANDFORMS,
+	DECORATIONS,
+} from './library.js';
+import { createExtraPresets } from './extra-scenes.js';
 import { GROUND_ANIMALS, SKY_ANIMALS, WATER_ANIMALS } from './generators.js';
 
 let uid = 0;
@@ -42,6 +50,7 @@ export const WINDOWS = [
 	'ring',
 	'twinring',
 	'rect',
+	...EXTRA_WINDOWS.map( ( e ) => e.id ),
 ];
 
 /** Windows built from dials rather than from a fixed outline. */
@@ -50,8 +59,21 @@ export const PARAMETRIC_WINDOWS = [ 'star', 'ring', 'twinring' ];
 /** Landscape shapes a terrain object can take. `flat` is a plain horizon. */
 export const PROFILES = [ 'ridge', 'hills', 'dunes', 'waves', 'city', 'flat' ];
 
-export const TREE_SPECIES = [ 'conifer', 'broadleaf', 'birch', 'palm', 'bush' ];
-export const PLANT_SPECIES = [ 'grass', 'reeds', 'flowers', 'rocks' ];
+export const TREE_SPECIES = [
+	'conifer',
+	'broadleaf',
+	'birch',
+	'palm',
+	'bush',
+	...EXTRA_TREES.map( ( e ) => e.id ),
+];
+export const PLANT_SPECIES = [
+	'grass',
+	'reeds',
+	'flowers',
+	'rocks',
+	...EXTRA_PLANTS.map( ( e ) => e.id ),
+];
 export const ORBS = [ 'moon', 'crescent', 'sun' ];
 export const CORNERS = [ 'tl', 'tr', 'bl', 'br' ];
 
@@ -63,6 +85,8 @@ export const CORNERS = [ 'tl', 'tr', 'bl', 'br' ];
 export const OBJECT_KINDS = [
 	'backdrop',
 	'terrain',
+	'landform',
+	'decoration',
 	'border',
 	'frame',
 	'animal',
@@ -218,6 +242,16 @@ export function defaultObject( kind, extra = {} ) {
 			...extra,
 		};
 	}
+	if ( 'landform' === kind || 'decoration' === kind ) {
+		return {
+			...base,
+			variant: kind === 'landform' ? 'canyon' : 'lighthouse',
+			stretch: kind === 'landform' ? 140 : 100,
+			detail: 45,
+			scale: kind === 'landform' ? 50 : 34,
+			...extra,
+		};
+	}
 	if ( 'border' === kind ) {
 		return {
 			...base,
@@ -243,6 +277,9 @@ export function defaultObject( kind, extra = {} ) {
 			width: 25,
 			tilt: 0,
 			gap: 55,
+			ornament: 50,
+			irregularity: 40,
+			spacing: 35,
 			x: 0.5,
 			y: 0.5,
 			scale: 100,
@@ -261,6 +298,7 @@ export function defaultObject( kind, extra = {} ) {
 			count: 7,
 			scale: 24,
 			vary: 50,
+			lean: 0,
 			...extra,
 		};
 	}
@@ -273,6 +311,7 @@ export function defaultObject( kind, extra = {} ) {
 			scale: 14,
 			y: 0.9,
 			vary: 50,
+			lean: 0,
 			...extra,
 		};
 	}
@@ -535,12 +574,23 @@ function cleanObject( raw ) {
 		o.width = num( raw.width, d.width, 4, 80 );
 		o.tilt = num( raw.tilt, d.tilt, -90, 90 );
 		o.gap = num( raw.gap, d.gap, 10, 140 );
+		o.ornament = num( raw.ornament, d.ornament, 0, 100 );
+		o.irregularity = num( raw.irregularity, d.irregularity, 0, 100 );
+		o.spacing = num( raw.spacing, d.spacing, 0, 100 );
 	} else if ( 'border' === raw.kind ) {
 		o.border = num( raw.border, d.border, 1, 20 );
 	} else if ( 'cloud' === raw.kind ) {
 		o.wide = !! raw.wide;
 		o.puff = num( raw.puff, d.puff, 0, 100 );
 		o.wisp = num( raw.wisp, d.wisp, 0, 100 );
+	}
+	if ( 'landform' === raw.kind || 'decoration' === raw.kind ) {
+		const list = raw.kind === 'landform' ? LANDFORMS : DECORATIONS;
+		o.variant = list.some( ( e ) => e.id === raw.variant )
+			? raw.variant
+			: d.variant;
+		o.stretch = num( raw.stretch, d.stretch, 30, 300 );
+		o.detail = num( raw.detail, d.detail, 0, 100 );
 	}
 	if ( 'animal' === raw.kind ) {
 		o.species = ANIMAL_SPECIES.includes( raw.species )
@@ -553,6 +603,7 @@ function cleanObject( raw ) {
 		o.spread = num( raw.spread, d.spread, 0, 200 );
 		o.count = Math.round( num( raw.count, d.count, 1, 40 ) );
 		o.vary = num( raw.vary, d.vary, 0, 100 );
+		o.lean = num( raw.lean, 0, -65, 65 );
 	} else if ( 'plants' === raw.kind ) {
 		o.species = PLANT_SPECIES.includes( raw.species )
 			? raw.species
@@ -560,6 +611,7 @@ function cleanObject( raw ) {
 		o.spread = num( raw.spread, d.spread, 0, 200 );
 		o.count = Math.round( num( raw.count, d.count, 1, 60 ) );
 		o.vary = num( raw.vary, d.vary, 0, 100 );
+		o.lean = num( raw.lean, 0, -65, 65 );
 	} else if ( 'orb' === raw.kind ) {
 		o.variant = ORBS.includes( raw.variant ) ? raw.variant : 'moon';
 		o.rays = Math.round( num( raw.rays, d.rays, 3, 40 ) );
@@ -1409,4 +1461,5 @@ export const PRESETS = [
 			],
 		} ),
 	},
+	...createExtraPresets( defaultObject, defaultLayer ),
 ];

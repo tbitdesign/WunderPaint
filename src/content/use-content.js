@@ -30,11 +30,16 @@ const useLazyPack = ( loader, peek ) => {
 			return undefined;
 		}
 		let live = true;
-		loader().then( ( resolved ) => {
-			if ( live ) {
-				setPack( resolved );
-			}
-		} );
+		loader()
+			.then( ( resolved ) => {
+				if ( live ) {
+					setPack( resolved );
+				}
+			} )
+			.catch( () => {
+				// index.js forgets a failed load; the next mount asks again.
+				// Nothing to set here, the section keeps its empty list.
+			} );
 		return () => {
 			live = false;
 		};

@@ -106,6 +106,7 @@ export function ExtensionsDialog( { onClose, extras } ) {
 				className="export-dialog extensions-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Extensions', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -127,10 +128,7 @@ export function ExtensionsDialog( { onClose, extras } ) {
 					<input
 						className="ext-search"
 						type="search"
-						placeholder={ __(
-							'Search extensions…',
-							'wunderpaint'
-						) }
+						placeholder={ __( 'Search extensions', 'wunderpaint' ) }
 						value={ query }
 						onChange={ ( e ) => {
 							setQuery( e.target.value );

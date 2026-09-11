@@ -146,6 +146,7 @@ export function ResizeDialog( { mode, onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={
 					isCanvas
 						? __( 'Canvas Size', 'wunderpaint' )

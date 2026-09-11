@@ -73,6 +73,7 @@ export function FloatPanel( {
 				...( height ? { height } : {} ),
 			} }
 			role="dialog"
+			aria-modal="true"
 			aria-label={ title }
 			// A floating panel is a CHILD of the canvas area, and the canvas
 			// area is what starts a stroke on pointerdown. Without this, every

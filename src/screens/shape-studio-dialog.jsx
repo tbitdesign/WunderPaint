@@ -89,6 +89,7 @@ export function ShapeStudioDialog( { onClose, extras, layerId = null } ) {
 				className="stock-dialog shape-studio-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Shape Studio', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -100,7 +101,10 @@ export function ShapeStudioDialog( { onClose, extras, layerId = null } ) {
 							<span className="dsm-title">
 								{ __( 'Shape Studio', 'wunderpaint' ) }
 							</span>
-							<HelpLink article="tools" extras={ extras } />
+							<HelpLink
+								article="shape-studio"
+								extras={ extras }
+							/>
 						</div>
 						<div className="dsm-sub">
 							{ __(
@@ -124,10 +128,7 @@ export function ShapeStudioDialog( { onClose, extras, layerId = null } ) {
 						<input
 							type="search"
 							className="ssd-search"
-							placeholder={ __(
-								'Search shapes…',
-								'wunderpaint'
-							) }
+							placeholder={ __( 'Search shapes', 'wunderpaint' ) }
 							value={ query }
 							onChange={ ( e ) =>
 								setQuery( e.target.value.toLowerCase() )

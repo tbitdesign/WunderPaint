@@ -196,7 +196,6 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 			live = false;
 			clearTimeout( t );
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ style.logoUrl ] );
 
 	// Re-read window.WPIE.brandKits when the kit dialog saves (v1.89.0).
@@ -444,6 +443,7 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'QR Code', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

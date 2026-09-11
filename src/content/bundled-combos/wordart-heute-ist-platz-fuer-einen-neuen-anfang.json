@@ -1,0 +1,178 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-heute-ist-platz-fuer-einen-neuen-anfang",
+	"label": "Heute ist Platz für einen neuen Anfang",
+	"category": "wordart",
+	"w": 626,
+	"h": 571,
+	"layers": [
+		{
+			"id": "waf-heute-ist-platz-fuer-einen-neuen-anfang-0",
+			"type": "text",
+			"name": "HEUTE IST PLATZ FÜR EINEN NEUEN ANFANG",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 33,
+			"y": 26,
+			"w": 560,
+			"h": 460,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#365e91",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "HEUTE IST PLATZ\nFÜR EINEN NEUEN\nANFANG",
+			"fontSize": 100,
+			"fontFamily": "Teko",
+			"weight": 700,
+			"color": "#4fc8db",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "HEUTE IST PLATZ\n",
+					"s": {
+						"color": "#4fc8db"
+					}
+				},
+				{
+					"text": "FÜR EINEN NEUEN\n",
+					"s": {
+						"color": "#d46caf"
+					}
+				},
+				{
+					"text": "ANFANG",
+					"s": {
+						"color": "#a598df"
+					}
+				}
+			],
+			"textFX": {
+				"glow": {
+					"color": "#5b86d1",
+					"size": 7
+				},
+				"chromatic": {
+					"offset": 2,
+					"angle": 0
+				}
+			}
+		},
+		{
+			"id": "waf-heute-ist-platz-fuer-einen-neuen-anfang-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 276,
+			"y": 537,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#379b98",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-heute-ist-platz-fuer-einen-neuen-anfang-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 304,
+			"y": 537,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#659dc9",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-heute-ist-platz-fuer-einen-neuen-anfang-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 332,
+			"y": 537,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#ccaf6a",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

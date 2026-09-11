@@ -1,0 +1,1158 @@
+{
+	"type": "object",
+	"required": [
+		"v",
+		"concept",
+		"canvas",
+		"tokens",
+		"grid",
+		"areas",
+		"assets",
+		"elements"
+	],
+	"properties": {
+		"v": {
+			"type": "integer"
+		},
+		"name": {
+			"type": "string"
+		},
+		"concept": {
+			"type": "object",
+			"required": [
+				"idea"
+			],
+			"properties": {
+				"idea": {
+					"type": "string"
+				},
+				"mood": {
+					"type": "string",
+					"enum": [
+						"warm",
+						"cool",
+						"earthy",
+						"vibrant",
+						"pastel",
+						"dark",
+						"mono"
+					]
+				},
+				"loud": {
+					"type": "integer"
+				},
+				"imagery": {
+					"type": "string",
+					"enum": [
+						"none",
+						"photo-hero",
+						"photo-cutout",
+						"photo-texture",
+						"illustration",
+						"pattern"
+					]
+				}
+			}
+		},
+		"canvas": {
+			"type": "object",
+			"description": "The canvas of the request, copied over unchanged.",
+			"required": [
+				"w",
+				"h"
+			],
+			"properties": {
+				"w": {
+					"type": "integer"
+				},
+				"h": {
+					"type": "integer"
+				}
+			}
+		},
+		"tokens": {
+			"type": "object",
+			"properties": {
+				"palette": {
+					"type": "object",
+					"properties": {
+						"source": {
+							"type": "string",
+							"enum": [
+								"brand",
+								"intent",
+								"custom"
+							]
+						},
+						"intent": {
+							"type": "string",
+							"enum": [
+								"warm",
+								"cool",
+								"earthy",
+								"vibrant",
+								"pastel",
+								"dark",
+								"mono"
+							]
+						},
+						"roles": {
+							"type": "object",
+							"properties": {
+								"bg": {
+									"type": "string"
+								},
+								"surface": {
+									"type": "string"
+								},
+								"ink": {
+									"type": "string"
+								},
+								"muted": {
+									"type": "string"
+								},
+								"accent": {
+									"type": "string"
+								},
+								"accent2": {
+									"type": "string"
+								},
+								"onAccent": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				},
+				"type": {
+					"type": "object",
+					"properties": {
+						"pairing": {
+							"type": "object",
+							"properties": {
+								"hero": {
+									"type": "array",
+									"items": {
+										"anyOf": [
+											{
+												"type": "string"
+											},
+											{
+												"type": "integer"
+											}
+										]
+									}
+								},
+								"support": {
+									"type": "array",
+									"items": {
+										"anyOf": [
+											{
+												"type": "string"
+											},
+											{
+												"type": "integer"
+											}
+										]
+									}
+								}
+							}
+						},
+						"scale": {
+							"type": "number"
+						}
+					}
+				},
+				"space": {
+					"type": "object",
+					"properties": {
+						"margin": {
+							"type": "number"
+						},
+						"gap": {
+							"type": "number"
+						},
+						"radius": {
+							"type": "number"
+						}
+					}
+				}
+			}
+		},
+		"grid": {
+			"type": "object",
+			"properties": {
+				"cols": {
+					"type": "integer"
+				},
+				"rows": {
+					"type": "integer"
+				},
+				"margin": {
+					"type": "number"
+				},
+				"gutter": {
+					"type": "number"
+				}
+			}
+		},
+		"areas": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"id",
+					"cell"
+				],
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"cell": {
+						"type": "array",
+						"items": {
+							"type": "integer"
+						}
+					}
+				}
+			}
+		},
+		"assets": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"id",
+					"kind"
+				],
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"type": "string",
+						"enum": [
+							"stock",
+							"ai",
+							"media",
+							"logo",
+							"placeholder"
+						]
+					},
+					"query": {
+						"type": "string",
+						"description": "For kind \"stock\": a concrete 2-4 word search phrase, e.g. \"sourdough bread bakery\"."
+					},
+					"prompt": {
+						"type": "string"
+					},
+					"mediaId": {
+						"type": "integer"
+					},
+					"orientation": {
+						"type": "string",
+						"enum": [
+							"landscape",
+							"portrait",
+							"square"
+						]
+					}
+				}
+			},
+			"description": "Every photo asset this design uses, declared here. A photo whose \"asset\" is not in this list is rejected. Empty list when the design has no photo."
+		},
+		"elements": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"id",
+					"kind",
+					"place"
+				],
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"type": "string",
+						"enum": [
+							"background",
+							"photo",
+							"text",
+							"shape",
+							"component",
+							"group"
+						]
+					},
+					"name": {
+						"type": "string"
+					},
+					"place": {
+						"type": "object",
+						"description": "WHERE the element sits. Top level: \"area\" + \"anchor\" + \"size\", or \"rect\", or \"rel\" + \"size\", or \"cover\". A child of a group carries only \"size\" in here.",
+						"properties": {
+							"area": {
+								"type": "string",
+								"description": "Id of an entry in \"areas\". Needs \"size\" (and usually \"anchor\")."
+							},
+							"rect": {
+								"type": "array",
+								"items": {
+									"type": "number"
+								},
+								"minItems": 4,
+								"maxItems": 4,
+								"description": "[x, y, w, h] as fractions of the canvas - the direct way to place something."
+							},
+							"rel": {
+								"type": "object",
+								"description": "Hang this element off another one. Needs \"size\".",
+								"properties": {
+									"to": {
+										"type": "string"
+									},
+									"side": {
+										"type": "string",
+										"enum": [
+											"above",
+											"below",
+											"left",
+											"right"
+										]
+									},
+									"gap": {
+										"type": "number"
+									}
+								}
+							},
+							"cover": {
+								"type": "boolean",
+								"description": "Full canvas, edge to edge - for a background or a full-bleed photo."
+							},
+							"anchor": {
+								"type": "string",
+								"enum": [
+									"tl",
+									"t",
+									"tr",
+									"l",
+									"c",
+									"r",
+									"bl",
+									"b",
+									"br"
+								]
+							},
+							"inset": {
+								"type": "array",
+								"items": {
+									"type": "number"
+								},
+								"minItems": 4,
+								"maxItems": 4
+							},
+							"size": {
+								"type": "array",
+								"items": {
+									"anyOf": [
+										{
+											"type": "number"
+										},
+										{
+											"type": "string",
+											"enum": [
+												"fill",
+												"match",
+												"auto"
+											]
+										}
+									]
+								},
+								"description": "[w, h] as fractions of the canvas edge, or \"fill\" / \"match\" / \"auto\"."
+							}
+						}
+					},
+					"parent": {
+						"type": "string"
+					},
+					"size": {
+						"type": "array",
+						"items": {
+							"anyOf": [
+								{
+									"type": "number"
+								},
+								{
+									"type": "string",
+									"enum": [
+										"fill",
+										"match",
+										"auto"
+									]
+								}
+							]
+						}
+					},
+					"role": {
+						"type": "string",
+						"enum": [
+							"hero",
+							"support",
+							"decor",
+							"frame",
+							"scrim"
+						]
+					},
+					"for": {
+						"type": "string"
+					},
+					"opacity": {
+						"type": "number"
+					},
+					"blend": {
+						"type": "string",
+						"enum": [
+							"normal",
+							"multiply",
+							"screen",
+							"overlay",
+							"soft-light",
+							"hard-light",
+							"color-dodge",
+							"color-burn",
+							"darken",
+							"lighten",
+							"difference",
+							"exclusion",
+							"hue",
+							"saturation",
+							"color",
+							"luminosity"
+						]
+					},
+					"rot": {
+						"type": "number"
+					},
+					"effects": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": [
+								"fx"
+							],
+							"properties": {
+								"fx": {
+									"type": "string",
+									"enum": [
+										"duotone",
+										"halftone",
+										"grain",
+										"blur",
+										"vignette"
+									]
+								},
+								"shadow": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"highlight": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"cell": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"angle": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"amount": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"size": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"monochrome": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"radius": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"softness": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								}
+							}
+						}
+					},
+					"styles": {
+						"type": "object"
+					},
+					"bind": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"enum": [
+									"post.title",
+									"post.excerpt",
+									"post.content",
+									"post.author",
+									"post.category",
+									"post.date",
+									"site.name",
+									"post.featured",
+									"brand.logo"
+								]
+							},
+							"fit": {
+								"type": "string",
+								"enum": [
+									"fluid",
+									"shrink"
+								]
+							}
+						}
+					},
+					"lock": {
+						"type": "boolean"
+					},
+					"optional": {
+						"type": "boolean"
+					},
+					"style": {
+						"type": "string",
+						"enum": [
+							"solid",
+							"gradient",
+							"mesh",
+							"organic",
+							"geo",
+							"poly",
+							"topo",
+							"halftone",
+							"rings",
+							"confetti"
+						]
+					},
+					"colors": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "Palette role names (bg, surface, ink, muted, accent, accent2, onAccent) or #rrggbb."
+					},
+					"seed": {
+						"type": "integer"
+					},
+					"grain": {
+						"type": "number"
+					},
+					"direction": {
+						"type": "string",
+						"enum": [
+							"down",
+							"right",
+							"diag"
+						]
+					},
+					"asset": {
+						"type": "string",
+						"description": "Id of an entry in \"assets\" - every photo needs one (or a \"bind\")."
+					},
+					"fit": {
+						"type": "string",
+						"enum": [
+							"cover",
+							"contain",
+							"fluid",
+							"fixed"
+						]
+					},
+					"focus": {
+						"type": "array",
+						"items": {
+							"type": "number"
+						},
+						"minItems": 2,
+						"maxItems": 2
+					},
+					"instance": {
+						"type": "string",
+						"enum": [
+							"full",
+							"cutout"
+						]
+					},
+					"treat": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": [
+								"fx"
+							],
+							"properties": {
+								"fx": {
+									"type": "string",
+									"enum": [
+										"duotone",
+										"halftone",
+										"grain",
+										"blur",
+										"vignette"
+									]
+								},
+								"shadow": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"highlight": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"cell": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"angle": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"amount": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"size": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"monochrome": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"radius": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								},
+								"softness": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										}
+									]
+								}
+							}
+						}
+					},
+					"maskShape": {
+						"type": "object",
+						"properties": {
+							"family": {
+								"type": "string",
+								"enum": [
+									"rect",
+									"ellipse",
+									"squircle",
+									"triangle",
+									"diamond",
+									"parallelogram",
+									"frame",
+									"polyframe",
+									"arch",
+									"ring",
+									"blob",
+									"blobgen",
+									"wave",
+									"cloud",
+									"crescent",
+									"sun",
+									"leaf",
+									"drop",
+									"heart",
+									"flower",
+									"spiral",
+									"burst",
+									"starpoly",
+									"rays",
+									"arrow",
+									"arcarrow",
+									"chevron",
+									"ticket",
+									"tag",
+									"label",
+									"ribbon",
+									"flag",
+									"seal",
+									"shield",
+									"speech",
+									"divider",
+									"cornerband",
+									"stripes",
+									"scatter",
+									"halftone"
+								]
+							},
+							"params": {
+								"type": "object"
+							}
+						}
+					},
+					"scrim": {
+						"type": "object",
+						"properties": {
+							"color": {
+								"type": "string"
+							},
+							"from": {
+								"type": "string",
+								"enum": [
+									"t",
+									"b",
+									"l",
+									"r"
+								]
+							},
+							"strength": {
+								"type": "number"
+							},
+							"height": {
+								"type": "number"
+							}
+						}
+					},
+					"voice": {
+						"type": "string",
+						"enum": [
+							"eyebrow",
+							"hero",
+							"sub",
+							"detail",
+							"cta",
+							"quote",
+							"stat"
+						]
+					},
+					"content": {
+						"type": "string",
+						"description": "The words that will be painted, in the requested language. Never empty, never a placeholder."
+					},
+					"lines": {
+						"type": "integer"
+					},
+					"align": {
+						"type": "string",
+						"enum": [
+							"left",
+							"center",
+							"right"
+						]
+					},
+					"upper": {
+						"type": "boolean"
+					},
+					"emph": {
+						"type": "object",
+						"properties": {
+							"rule": {
+								"type": "string",
+								"enum": [
+									"salient",
+									"number",
+									"longest",
+									"word"
+								]
+							},
+							"word": {
+								"type": "string"
+							},
+							"style": {
+								"type": "string",
+								"enum": [
+									"accent",
+									"italic"
+								]
+							}
+						}
+					},
+					"fill": {
+						"type": "string"
+					},
+					"chip": {
+						"type": "string"
+					},
+					"family": {
+						"type": "string",
+						"enum": [
+							"rect",
+							"ellipse",
+							"squircle",
+							"triangle",
+							"diamond",
+							"parallelogram",
+							"frame",
+							"polyframe",
+							"arch",
+							"ring",
+							"blob",
+							"blobgen",
+							"wave",
+							"cloud",
+							"crescent",
+							"sun",
+							"leaf",
+							"drop",
+							"heart",
+							"flower",
+							"spiral",
+							"burst",
+							"starpoly",
+							"rays",
+							"arrow",
+							"arcarrow",
+							"chevron",
+							"ticket",
+							"tag",
+							"label",
+							"ribbon",
+							"flag",
+							"seal",
+							"shield",
+							"speech",
+							"divider",
+							"cornerband",
+							"stripes",
+							"scatter",
+							"halftone"
+						]
+					},
+					"params": {
+						"type": "object"
+					},
+					"stroke": {
+						"type": "string"
+					},
+					"strokeW": {
+						"type": "number"
+					},
+					"corner": {
+						"type": "number"
+					},
+					"type": {
+						"type": "string",
+						"enum": [
+							"button",
+							"chip",
+							"scrim"
+						]
+					},
+					"props": {
+						"type": "object",
+						"properties": {
+							"label": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							},
+							"pill": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							},
+							"arrow": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							},
+							"maxW": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							},
+							"tilt": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							},
+							"from": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							},
+							"strength": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							},
+							"height": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "number"
+									},
+									{
+										"type": "boolean"
+									}
+								]
+							}
+						},
+						"description": "Props of the chosen component type: button { label, pill, arrow, maxW }, chip { label, tilt }, scrim { from, strength, height }. A button or chip without a \"label\" paints its default word."
+					},
+					"stack": {
+						"type": "object",
+						"properties": {
+							"dir": {
+								"type": "string",
+								"enum": [
+									"col",
+									"row"
+								]
+							},
+							"gap": {
+								"type": "number"
+							},
+							"align": {
+								"type": "string",
+								"enum": [
+									"start",
+									"center",
+									"end"
+								]
+							},
+							"justify": {
+								"type": "string",
+								"enum": [
+									"start",
+									"center",
+									"end"
+								]
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

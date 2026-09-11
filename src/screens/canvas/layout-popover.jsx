@@ -1,14 +1,26 @@
 /**
  * Layout popover (Text Looks, v1.430): the Layouts button opens this
- * fixed-anchored panel with every classic look, four seeded rolls and,
+ * movable panel with nine classic looks, three seeded rolls and,
  * on request, cloud suggestions. Each tile renders the look on the
  * layer's OWN box through the real pipeline, on the document's ground,
  * with its name underneath. Clicking a tile puts the look on the layer
- * (Fluid Text goes on with it); × takes the look off again.
+ * (Fluid Text goes on with it); closing the panel keeps the applied look.
  */
 
-import { useState, useEffect, useRef, useMemo } from '@wordpress/element';
+import {
+	useState,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useMemo,
+	createPortal,
+} from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+
+import { I } from '../../icons';
+import { FloatPanel } from '../panels/float-panel';
+import { parseColor } from '../../lib/color';
+import { contrastRatio } from '../../lib/contrast-check';
 
 import { renderToCanvas, sharedImageCache } from '../../lib/raster';
 import { ensureFontsForLayers } from '../../lib/font-manager';
@@ -19,14 +31,43 @@ import {
 	splitSegments,
 } from '../../lib/text-look';
 import { generateTextLook, lookFontPool } from '../../lib/text-look-generator';
-import { sourceTextOf, clearTextLayoutOp } from '../../lib/text-layouts';
-import { applyTextLookOp, clearTextLookOp } from '../../lib/text-fit-ops';
+import { sourceTextOf } from '../../lib/text-layouts';
+import { applyTextLookOp } from '../../lib/text-fit-ops';
 import { ai } from '../../lib/api';
 import { salienceAvailable, wordSalience } from '../../lib/text-salience';
 
 const TILE_W = 148;
 const TILE_H_MAX = 110;
 const TILE_H_MIN = 44;
+const CLASSIC_COUNT = 9;
+const GENERATED_COUNT = 3;
+const EDGE = 8;
+
+// The shared float panel keeps its head reachable; this chooser keeps the
+// entire measured window visible, including after resizing its contents.
+function fitPanel( pos, panel ) {
+	const rect = panel?.getBoundingClientRect();
+	return {
+		x: Math.max(
+			EDGE,
+			Math.min( pos.x, window.innerWidth - ( rect?.width || 480 ) - EDGE )
+		),
+		y: Math.max(
+			EDGE,
+			Math.min( pos.y, window.innerHeight - ( rect?.height || 0 ) - EDGE )
+		),
+	};
+}
+
+function previewGround( layer ) {
+	const ink = parseColor( layer?.color ) || { r: 0, g: 0, b: 0 };
+	const dark = '#252a34';
+	const light = '#f5f5f0';
+	return contrastRatio( ink, parseColor( dark ) ) >
+		contrastRatio( ink, parseColor( light ) )
+		? dark
+		: light;
+}
 
 const keyOf = ( look ) => look.source + ':' + look.id;
 
@@ -76,6 +117,31 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 	const { state } = editor;
 	const layer = state.layers.find( ( l ) => l.id === state.activeId );
 	const ref = useRef( null );
+	const [ pos, setPos ] = useState( () => ( {
+		x: anchor.left,
+		y: anchor.top,
+	} ) );
+	useLayoutEffect( () => {
+		const panel = ref.current?.querySelector( '.ed-float-panel' );
+		if ( ! panel ) {
+			return undefined;
+		}
+		const fit = () =>
+			setPos( ( current ) => {
+				const next = fitPanel( current, panel );
+				return next.x === current.x && next.y === current.y
+					? current
+					: next;
+			} );
+		fit();
+		const observer = new ResizeObserver( fit );
+		observer.observe( panel );
+		window.addEventListener( 'resize', fit );
+		return () => {
+			observer.disconnect();
+			window.removeEventListener( 'resize', fit );
+		};
+	}, [] );
 	const text = layer
 		? layer.textLayout
 			? sourceTextOf( layer )
@@ -84,12 +150,12 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 	const segments = useMemo( () => splitSegments( text ), [ text ] );
 	const [ seeds, setSeeds ] = useState( () =>
 		Array.from(
-			{ length: 4 },
+			{ length: GENERATED_COUNT },
 			( _, i ) => ( Date.now() % 100000 ) + i * 7919
 		)
 	);
 	const [ previews, setPreviews ] = useState( {} );
-	const doneRef = useRef( { key: '', set: new Set() } );
+	const doneRef = useRef( { source: null, set: new Set() } );
 	// Cloud suggestions: explicit button only, costs per call.
 	const [ aiLooks, setAiLooks ] = useState( [] );
 	const [ aiStyle, setAiStyle ] = useState( '' );
@@ -129,7 +195,7 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 	);
 	const entries = useMemo(
 		() => [
-			...CLASSIC_LOOKS.map( ( c ) => ( {
+			...CLASSIC_LOOKS.slice( 0, CLASSIC_COUNT ).map( ( c ) => ( {
 				key: keyOf( c.look ),
 				name: c.name,
 				look: c.look,
@@ -151,8 +217,11 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 		[ generated, aiLooks ]
 	);
 
-	const docBg = state.doc?.bg || '#ffffff';
-	const transparent = ! docBg || 'transparent' === docBg;
+	const ground = previewGround( layer );
+	const previewSource = useMemo(
+		() => ( { layer, doc: state.doc, layers: state.layers } ),
+		[ layer, state.doc, state.layers ]
+	);
 	const tileH = layer
 		? Math.max(
 				TILE_H_MIN,
@@ -165,21 +234,47 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 
 	// Render the tiles one after another through the real pipeline, fonts
 	// first; a new text, box or colour starts the set over.
-	const renderKey = layer
-		? `${ layer.id }|${ text }|${ layer.w }x${ layer.h }|${ layer.color }|${
-				layer.spans ? JSON.stringify( layer.spans ) : ''
-		  }`
-		: '';
 	useEffect( () => {
 		if ( ! layer ) {
 			return undefined;
 		}
-		if ( doneRef.current.key !== renderKey ) {
-			doneRef.current = { key: renderKey, set: new Set() };
+		if ( doneRef.current.source !== previewSource ) {
+			doneRef.current = { source: previewSource, set: new Set() };
 			setPreviews( {} );
 		}
 		let cancelled = false;
 		( async () => {
+			const scale = Math.min(
+				TILE_W / Math.max( 1, layer.w ),
+				tileH / Math.max( 1, layer.h ),
+				1
+			);
+			let backdrop = null;
+			try {
+				// Same document renderer and crop as the canvas, with only the
+				// chosen text hidden. Keeping the layer preserves group/clip links.
+				backdrop = await renderToCanvas(
+					state.doc,
+					state.layers.map( ( l ) =>
+						l.id === layer.id ? { ...l, visible: false } : l
+					),
+					{
+						viewport: {
+							x: layer.x,
+							y: layer.y,
+							w: layer.w,
+							h: layer.h,
+						},
+						scale,
+						cache: sharedImageCache,
+					}
+				);
+				// A cross-origin image must not taint every thumbnail. In that
+				// case, use the light/dark ground selected from the text color.
+				backdrop.toDataURL();
+			} catch ( e ) {
+				backdrop = null;
+			}
 			for ( const entry of entries ) {
 				if ( cancelled ) {
 					return;
@@ -190,16 +285,11 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 				try {
 					await ensureFontsForLayers( [ fontProbe( entry.look ) ] );
 					const pl = previewLayer( layer, entry.look );
-					const scale = Math.min(
-						TILE_W / Math.max( 1, layer.w ),
-						tileH / Math.max( 1, layer.h ),
-						1
-					);
 					const canvas = await renderToCanvas(
 						{
 							w: layer.w,
 							h: layer.h,
-							bg: transparent ? 'transparent' : docBg,
+							bg: 'transparent',
 						},
 						[ pl ],
 						{
@@ -208,7 +298,23 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 							cache: sharedImageCache,
 						}
 					);
-					const url = canvas?.toDataURL?.() || null;
+					const ctx = canvas.getContext( '2d' );
+					ctx.save();
+					ctx.globalCompositeOperation = 'destination-over';
+					if ( backdrop ) {
+						ctx.drawImage(
+							backdrop,
+							0,
+							0,
+							canvas.width,
+							canvas.height
+						);
+					}
+					// Also fills genuinely transparent portions of the document.
+					ctx.fillStyle = ground;
+					ctx.fillRect( 0, 0, canvas.width, canvas.height );
+					ctx.restore();
+					const url = canvas.toDataURL();
 					if ( cancelled ) {
 						return;
 					}
@@ -228,7 +334,7 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 			cancelled = true;
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ entries, renderKey ] );
+	}, [ entries, previewSource, tileH, ground ] );
 
 	// Close on outside pointerdown / Escape.
 	useEffect( () => {
@@ -269,7 +375,7 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 				style: aiStyle,
 				w: Math.round( layer.w ),
 				h: Math.round( layer.h ),
-				n: 4,
+				n: GENERATED_COUNT,
 			} );
 			const stamp = Date.now();
 			const cleaned = ( res?.items || [] )
@@ -280,7 +386,8 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 						id: 'ai-' + stamp + '-' + i,
 					} )
 				)
-				.filter( Boolean );
+				.filter( Boolean )
+				.slice( 0, GENERATED_COUNT );
 			if ( ! cleaned.length ) {
 				throw new Error(
 					__(
@@ -296,19 +403,6 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 			setAiBusy( false );
 		}
 	};
-	const remove = () => {
-		if ( layer.textLook ) {
-			clearTextLookOp( editor );
-		} else if ( layer.textLayout ) {
-			clearTextLayoutOp( editor );
-		}
-	};
-
-	const left = Math.max(
-		8,
-		Math.min( anchor.left, window.innerWidth - ( TILE_W * 3 + 44 ) )
-	);
-	const top = Math.min( anchor.top, window.innerHeight - 300 );
 
 	const tiles = ( group ) =>
 		entries
@@ -324,11 +418,8 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 					onClick={ () => applyTextLookOp( editor, entry.look ) }
 				>
 					<span
-						className={
-							'layout-tile-img' +
-							( transparent ? ' checker' : '' )
-						}
-						style={ { height: tileH } }
+						className="layout-tile-img"
+						style={ { height: tileH, background: ground } }
 					>
 						{ previews[ entry.key ] ? (
 							<img src={ previews[ entry.key ] } alt="" />
@@ -340,93 +431,99 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 				</button>
 			) );
 
-	return (
+	// Leave the context bar's stacking context so other canvas overlays
+	// cannot cover the chooser. Keep the portal inside the editor theme root.
+	return createPortal(
 		<div
 			ref={ ref }
 			className="layout-popover"
-			style={ { position: 'fixed', left, top } }
-			onPointerDown={ ( e ) => e.stopPropagation() }
+			role="presentation"
 			onMouseDown={ ( e ) => e.stopPropagation() }
-			role="dialog"
-			aria-label={ __( 'Layouts', 'wunderpaint' ) }
 		>
-			<div className="layout-pop-head">
-				<span>{ __( 'Layouts', 'wunderpaint' ) }</span>
-				{ ( !! layer.textLook || !! layer.textLayout ) && (
+			<FloatPanel
+				title={ __( 'Layouts', 'wunderpaint' ) }
+				icon={ I.brand( { size: 15 } ) }
+				width={ 480 }
+				pos={ pos }
+				onMove={ ( next ) =>
+					setPos(
+						fitPanel(
+							next,
+							ref.current?.querySelector( '.ed-float-panel' )
+						)
+					)
+				}
+				onClose={ onClose }
+			>
+				<div className="layout-pop-section">
+					<span>{ __( 'Classics', 'wunderpaint' ) }</span>
+				</div>
+				<div className="layout-tiles">{ tiles( 'classic' ) }</div>
+				<div className="layout-pop-section">
+					<span>{ __( 'Generated', 'wunderpaint' ) }</span>
 					<button
 						className="ai-btn secondary"
-						title={ __( 'Remove layout', 'wunderpaint' ) }
-						onClick={ remove }
-					>
-						×
-					</button>
-				) }
-			</div>
-			<div className="layout-pop-section">
-				<span>{ __( 'Classics', 'wunderpaint' ) }</span>
-			</div>
-			<div className="layout-tiles">{ tiles( 'classic' ) }</div>
-			<div className="layout-pop-section">
-				<span>{ __( 'Generated', 'wunderpaint' ) }</span>
-				<button
-					className="ai-btn secondary"
-					onClick={ () =>
-						setSeeds(
-							seeds.map(
-								( s, i ) =>
-									( s * 31 +
-										( Date.now() % 9973 ) +
-										i * 101 ) %
-									2147483647
+						onClick={ () =>
+							setSeeds(
+								seeds.map(
+									( s, i ) =>
+										( s * 31 +
+											( Date.now() % 9973 ) +
+											i * 101 ) %
+										2147483647
+								)
 							)
-						)
-					}
-				>
-					{ __( 'Shuffle', 'wunderpaint' ) }
-				</button>
-			</div>
-			<div className="layout-tiles">{ tiles( 'generated' ) }</div>
-			{ aiLooks.length > 0 && (
-				<>
-					<div className="layout-pop-section">
-						<span>{ __( 'Suggestions', 'wunderpaint' ) }</span>
-					</div>
-					<div className="layout-tiles">{ tiles( 'ai' ) }</div>
-				</>
-			) }
-			{ hasCloud && (
-				<div className="layout-pop-ai">
-					<div className="layout-pop-ai-head">
-						{ __( 'New Suggestions', 'wunderpaint' ) }
-					</div>
-					<div className="layout-pop-ai-row">
-						<input
-							type="text"
-							value={ aiStyle }
-							placeholder={ __(
-								'Style, e.g. elegant, loud, playful…',
-								'wunderpaint'
-							) }
-							onChange={ ( e ) => setAiStyle( e.target.value ) }
-							onKeyDown={ ( e ) => {
-								e.stopPropagation();
-								if ( 'Enter' === e.key ) {
-									fetchAi();
-								}
-							} }
-						/>
-						<button
-							className="ai-btn primary"
-							disabled={ aiBusy }
-							onClick={ fetchAi }
-						>
-							{ aiBusy
-								? __( 'Generating…', 'wunderpaint' )
-								: __( 'Generate with AI', 'wunderpaint' ) }
-						</button>
-					</div>
+						}
+					>
+						{ __( 'Shuffle', 'wunderpaint' ) }
+					</button>
 				</div>
-			) }
-		</div>
+				<div className="layout-tiles">{ tiles( 'generated' ) }</div>
+				{ aiLooks.length > 0 && (
+					<>
+						<div className="layout-pop-section">
+							<span>{ __( 'Suggestions', 'wunderpaint' ) }</span>
+						</div>
+						<div className="layout-tiles">{ tiles( 'ai' ) }</div>
+					</>
+				) }
+				{ hasCloud && (
+					<div className="layout-pop-ai">
+						<div className="layout-pop-ai-head">
+							{ __( 'New Suggestions', 'wunderpaint' ) }
+						</div>
+						<div className="layout-pop-ai-row">
+							<input
+								type="text"
+								value={ aiStyle }
+								placeholder={ __(
+									'Style, e.g. elegant, loud, playful…',
+									'wunderpaint'
+								) }
+								onChange={ ( e ) =>
+									setAiStyle( e.target.value )
+								}
+								onKeyDown={ ( e ) => {
+									e.stopPropagation();
+									if ( 'Enter' === e.key ) {
+										fetchAi();
+									}
+								} }
+							/>
+							<button
+								className="ai-btn primary"
+								disabled={ aiBusy }
+								onClick={ fetchAi }
+							>
+								{ aiBusy
+									? __( 'Generating…', 'wunderpaint' )
+									: __( 'Generate with AI', 'wunderpaint' ) }
+							</button>
+						</div>
+					</div>
+				) }
+			</FloatPanel>
+		</div>,
+		document.getElementById( 'wpie-root' )
 	);
 }

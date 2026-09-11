@@ -7,6 +7,7 @@
  * macros derived from a layer's current filter + adjustments.
  */
 
+import { siteStorage } from './local-storage';
 import { __ } from '@wordpress/i18n';
 
 import { reducer, initialState, activeLayerOf } from '../store/editor-context';
@@ -20,7 +21,16 @@ import { BUNDLED_ACTIONS } from './bundled-actions';
  * Replayable ops. `run( editor, params )` may be async. Params are
  * JSON-safe so macros survive export/import.
  */
-export const MACRO_OPS = {
+// Object.create( null ) statt eines Literals: MACRO_OPS[ step.op ] trifft
+// sonst die Prototypkette, und fuer step.op === 'constructor' liefert der
+// Zugriff Object - einen WAHREN Wert ohne .label und ohne .run. stepLabel()
+// wirft dann TypeError, die `! op`-Wache in runMacro greift nicht, und weil
+// actions-panel.jsx jede gespeicherte Aktion rendert, ist das Panel bei
+// jedem Sitzungsstart wieder tot: importMacros() prueft die Schritte nicht,
+// die Datei ist laut exportMacros ausdruecklich zum Weitergeben gedacht, und
+// sie liegt danach im localStorage. Dieselbe Klasse ist in
+// src/lib/shape-dynamics.js seit dem 10.09. genau so geschlossen.
+export const MACRO_OPS = Object.assign( Object.create( null ), {
 	applyEffect: {
 		label: ( p ) => `${ __( 'Effect', 'wunderpaint' ) }: ${ p.id }`,
 		// Replays stay non-interactive: groups flatten without asking.
@@ -208,7 +218,7 @@ export const MACRO_OPS = {
 			return aiBlurFaces( editor );
 		},
 	},
-};
+} );
 
 export const stepLabel = ( step ) =>
 	MACRO_OPS[ step.op ]
@@ -277,12 +287,7 @@ export function createHeadlessEditor( doc, layers, WPIE ) {
 
 const STORE_KEY = 'wpie-macros';
 
-let storage = null;
-try {
-	storage = window.localStorage;
-} catch ( e ) {
-	storage = null;
-}
+let storage = siteStorage;
 
 /** Test hook. */
 export const __setMacroStorage = ( s ) => {

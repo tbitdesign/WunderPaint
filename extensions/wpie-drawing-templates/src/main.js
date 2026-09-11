@@ -3,8 +3,10 @@
  *
  * The whole document (default), any layer or a media-library image
  * becomes a printable drawing template: paint by numbers, a coloring
- * page, a tracing sheet, connect the dots, a symmetry drawing sheet
- * or the classic grid drawing aid. Paint colors can be pinned to ten
+ * page, a tracing sheet, connect the dots, a symmetry drawing sheet,
+ * the classic grid drawing aid and (v2.3) a step-by-step guide, colour
+ * by code, shade by numbers, a one-line drawing, finish-the-drawing
+ * and complete-the-mandala sheets. Paint colors can be pinned to ten
  * preset palettes, the brand kit or custom colors; every sheet takes
  * a multi-line title in the editor font catalog. Everything is
  * computed locally.
@@ -19,6 +21,12 @@ import {
 	connectTheDots,
 	symmetrySheet,
 	gridSheet,
+	stepGuide,
+	colorByCode,
+	shadeByNumbers,
+	oneLineDrawing,
+	finishSheet,
+	mandalaSheet,
 } from './drawing-engine.js';
 
 const GEN_ID = 'wpie-drawing-templates/sheet';
@@ -106,6 +114,22 @@ const DEFAULTS = {
 	cells: 8,
 	symCells: 12,
 	symSide: 'right',
+	// v2.3 sheets.
+	steps: 6, // 4 | 6
+	codeKind: 'add', // add | sub | mul | mixed | letters
+	codeRange: 20, // 10 | 20 | 100
+	codeColors: 8,
+	shades: 4,
+	lineStyle: 'waves', // waves | spiral
+	lineCount: 70,
+	lineWeight: 2,
+	lineInvert: false,
+	finishVariant: 'fade', // fade | missing
+	finishDir: 'lr', // lr | tb
+	finishAmount: 50,
+	segments: 8, // 6 | 8 | 12
+	mandalaHints: true,
+	seed: 1,
 	paletteId: '', // '' = auto colors from the image
 	useBrand: false,
 	brandKitId: '',
@@ -145,9 +169,6 @@ const splitLines = ( s, maxLines = 2 ) =>
 		.slice( 0, maxLines );
 
 // The WPIE brand mark for the dialog head (shared across studios).
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
-
 const tabIcon = ( d, size = 15 ) =>
 	'<svg xmlns="http://www.w3.org/2000/svg" width="' +
 	size +
@@ -177,6 +198,7 @@ const ICONS = {
 function openStudio( ctx ) {
 	const { editor, extras, layer } = ctx;
 	const bridge = window.WPIE && window.WPIE.bridge;
+	const ui = bridge && bridge.ui;
 	if ( ! bridge || ! bridge.documents ) {
 		return;
 	}
@@ -195,58 +217,63 @@ function openStudio( ctx ) {
 	const dialog = el( 'div', 'dsm wpiedrw-dialog', backdrop );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	el( 'span', 'dsm-title', titles, 'Drawing Templates' );
 	el(
 		'div',
 		'dsm-sub',
 		titles,
-		t(
-			'Six printable drawing templates from one image - as editable layers.'
-		)
+		t( 'Printable drawing templates from one image - as editable layers.' )
 	);
 	const closeBtn = el( 'button', 'dsm-x', head );
 	closeBtn.innerHTML = '&times;';
 	closeBtn.setAttribute( 'aria-label', t( 'Close' ) );
 
 	const body = el( 'div', 'wpiedrw-body', dialog );
-	const view = el( 'div', 'wpiedrw-view', body );
+	const library = el( 'div', 'dsm-col start wpiedrw-library', body );
+	const view = el( 'div', 'dsm-view wpiedrw-view', body );
 	const canvas = el( 'canvas', null, view );
-	const side = el( 'div', 'wpiedrw-side', body );
-	const status = el( 'div', 'wpiedrw-status', view );
+	const side = el( 'div', 'dsm-col end wpiedrw-side', body );
+	const status = el( 'div', 'dsm-viewhint wpiedrw-status', view );
 	const setStatus = ( msg, isErr ) => {
 		status.textContent = msg || '';
 		status.classList.toggle( 'on', !! msg );
 		status.classList.toggle( 'err', !! isErr );
 	};
 
-	const section = ( parent, icon, label ) => {
-		const card = el( 'div', 'wpiedrw-card', parent );
-		const h = el( 'div', 'wpiedrw-card-head', card );
-		h.innerHTML = icon + '<span>' + label + '</span>';
-		return el( 'div', 'wpiedrw-card-body', card );
+	const section = ( parent, icon, title ) => {
+		const body = ui.section( parent, { icon, title } );
+		body.classList.add( 'wpiedrw-card-body' );
+		body.parentElement.classList.add( 'wpiedrw-card' );
+		return body;
 	};
 
-	/* --------------------------- template cards --------------------------- */
+	/* --------------------------- template library ------------------------- */
 
-	const modeSec = section( side, ICONS.template, t( 'Template' ) );
-	const modeGrid = el( 'div', 'wpiedrw-cards', modeSec );
+	const srcSec = section( library, ICONS.source, t( 'Source' ) );
+	srcSec.parentElement.classList.add( 'wpiedrw-source' );
+	const modeSec = section( library, ICONS.template, t( 'Template' ) );
+	const modeGrid = ui.picks( modeSec, { cell: 110, cls: 'wpiedrw-cards' } );
 	const modeTiles = new Map();
 	for ( const m of MODES ) {
-		const card = el( 'button', 'wpiedrw-tcard', modeGrid );
-		card.type = 'button';
-		card.title = t( m.label );
-		const thumb = el( 'canvas', 'wpiedrw-tthumb', card );
+		const thumb = document.createElement( 'canvas' );
+		thumb.className = 'wpiedrw-tthumb';
 		thumb.width = 132;
 		thumb.height = 92;
-		el( 'span', 'wpiedrw-tlabel', card, t( m.label ) );
-		card.onclick = () => {
-			params.mode = m.id;
-			syncUi();
-			schedule();
-		};
+		const { node: card } = ui.pick( modeGrid, {
+			label: t( m.label ),
+			thumb,
+			cls: 'wpiedrw-tcard',
+			on: m.id === params.mode,
+			onClick: () => {
+				params.mode = m.id;
+				syncUi();
+				schedule();
+			},
+		} );
+		card.dataset.mode = m.id;
 		modeTiles.set( m.id, { card, thumb } );
 	}
 
@@ -294,6 +321,22 @@ function openStudio( ctx ) {
 			symmetry: () =>
 				symmetrySheet( src, { cells: 10, gridColor: accent } ),
 			grid: () => gridSheet( src, { cells: 6, gridColor: accent } ),
+			steps: () =>
+				stepGuide( src, { steps: 4, accent: accent || undefined } )
+					.canvas,
+			code: () =>
+				colorByCode( src, { colors: 6, smooth: 2, kind: 'add' } )
+					.canvas,
+			shade: () => shadeByNumbers( src, { shades: 3 } ).canvas,
+			oneline: () =>
+				oneLineDrawing( src, { style: 'waves', lines: 30 } ).canvas,
+			finish: () =>
+				finishSheet( src, { variant: 'fade', amount: 50 } ).canvas,
+			mandala: () =>
+				mandalaSheet( src, {
+					segments: 8,
+					gridColor: accent || undefined,
+				} ),
 		};
 		for ( const m of MODES ) {
 			const { thumb } = modeTiles.get( m.id );
@@ -324,9 +367,9 @@ function openStudio( ctx ) {
 
 	/* ------------------------------- source ------------------------------- */
 
-	const srcSec = section( side, ICONS.source, t( 'Source' ) );
 	const srcSel = el( 'select', 'dsm-select wpiedrw-wide', srcSec );
-	const srcNote = el( 'div', 'wpiedrw-info', srcSec );
+	srcSel.setAttribute( 'aria-label', t( 'Source' ) );
+	const srcNote = el( 'div', 'dsm-note wpiedrw-info', srcSec );
 
 	function fillSourceOptions() {
 		srcSel.innerHTML = '';
@@ -460,24 +503,40 @@ function openStudio( ctx ) {
 				);
 			} else if ( desc.startsWith( 'layer:' ) ) {
 				const id = desc.slice( 6 );
-				const find = ( layers ) => {
-					for ( const l of layers || [] ) {
-						if ( String( l.id ) === id ) {
-							return l;
-						}
-						const hit = l.children && find( l.children );
-						if ( hit ) {
-							return hit;
-						}
-					}
-					return null;
-				};
-				const target = find( editor.state.layers );
+				const flat = editor.state.layers || [];
+				const target = flat.find( ( l ) => String( l.id ) === id );
 				if ( target ) {
+					// The layer may be the child of a group: the renderer
+					// starts at roots without a parent and never reached it,
+					// so a grouped photo arrived as an empty canvas (Codex
+					// F15, 10.09.2026). Render a parent-less copy and hand the
+					// renderer its descendants for a group.
+					const byId = new Map(
+						flat.map( ( l ) => [ String( l.id ), l ] )
+					);
+					const members = new Set();
+					const collect = ( item ) => {
+						if ( ! item || members.has( item.id ) ) {
+							return;
+						}
+						members.add( item.id );
+						( item.children || [] ).forEach( ( cid ) =>
+							collect( byId.get( String( cid ) ) )
+						);
+					};
+					collect( target );
+					const selected = flat.filter( ( l ) =>
+						members.has( l.id )
+					);
+					await bridge.raster.sharedImageCache?.warm?.( selected );
 					c = await bridge.raster.renderToCanvas(
 						editor.state.doc,
-						[ target ],
-						{ scale: Math.min( 1, 900 / editor.state.doc.w ) }
+						[ { ...target, parent: null } ],
+						{
+							scale: Math.min( 1, 900 / editor.state.doc.w ),
+							cache: bridge.raster.sharedImageCache,
+							allLayers: selected,
+						}
 					);
 					srcNote.textContent = target.name || '';
 				}
@@ -523,7 +582,7 @@ function openStudio( ctx ) {
 	const palWrap = el( 'div', 'wpiedrw-pals', colSec );
 	const palBtns = new Map();
 	for ( const p of PALETTES ) {
-		const b = el( 'button', 'wpiedrw-pal', palWrap );
+		const b = el( 'button', 'dsm-strip wpiedrw-pal', palWrap );
 		b.type = 'button';
 		b.title = p.label;
 		b.style.background = `linear-gradient(90deg, ${ p.colors.join(
@@ -555,7 +614,7 @@ function openStudio( ctx ) {
 	};
 	let brandCb = null;
 	if ( brandKits.length ) {
-		const brandLbl = el( 'label', 'wpiedrw-check', colSec );
+		const brandLbl = el( 'label', 'dsm-checkrow wpiedrw-check', colSec );
 		brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
 		brandCb.checked = !! params.useBrand;
@@ -591,7 +650,8 @@ function openStudio( ctx ) {
 	// Up to four custom paint colors; the mounted button is controlled -
 	// call handle.set() on every change.
 	const customRow = el( 'div', 'wpiedrw-row wpiedrw-customrow', colSec );
-	el( 'span', null, customRow ).textContent = t( 'Custom colors' );
+	el( 'span', 'dsm-rowline-label', customRow ).textContent =
+		t( 'Custom colors' );
 	const customWrap = el( 'span', 'wpiedrw-customs', customRow );
 	const mountSwatch = bridge.components && bridge.components.mountColorButton;
 	const customCtls = [];
@@ -624,7 +684,11 @@ function openStudio( ctx ) {
 			customCtls.push( { set: ( hex ) => ( input.value = hex ) } );
 		}
 	}
-	const resetBtn = el( 'button', 'wpiedrw-reset', customRow );
+	const resetBtn = el(
+		'button',
+		'ai-btn secondary wpiedrw-reset',
+		customRow
+	);
 	resetBtn.textContent = t( 'Auto' );
 	resetBtn.onclick = ( e ) => {
 		e.preventDefault();
@@ -669,8 +733,8 @@ function openStudio( ctx ) {
 	const setSec = section( side, ICONS.settings, t( 'Settings' ) );
 
 	const titleRow = el( 'label', 'wpiedrw-text-row', setSec );
-	el( 'span', null, titleRow ).textContent = t( 'Title' );
-	const titleArea = el( 'textarea', 'wpiedrw-names', titleRow );
+	el( 'span', 'dsm-fieldlabel', titleRow ).textContent = t( 'Title' );
+	const titleArea = el( 'textarea', 'dsm-input wpiedrw-names', titleRow );
 	titleArea.rows = 2;
 	titleArea.value = params.title;
 	titleArea.oninput = () => {
@@ -679,7 +743,7 @@ function openStudio( ctx ) {
 	};
 
 	const fontRow = el( 'div', 'wpiedrw-text-row', setSec );
-	el( 'span', null, fontRow ).textContent = t( 'Font' );
+	el( 'span', 'dsm-fieldlabel', fontRow ).textContent = t( 'Font' );
 	const fontMount = el( 'div', null, fontRow );
 	let fontCtl = null;
 	const onFont = ( fam ) => {
@@ -715,7 +779,7 @@ function openStudio( ctx ) {
 
 	function sliderRowIn( parent, label, min, max, get, set, unit ) {
 		const row = el( 'label', 'wpiedrw-row', parent );
-		el( 'span', null, row ).textContent = label;
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
 		const input = el( 'input', null, row );
 		input.type = 'range';
 		input.min = String( min );
@@ -772,7 +836,7 @@ function openStudio( ctx ) {
 		() => params.dots,
 		( v ) => ( params.dots = v )
 	);
-	const hintsLbl = el( 'label', 'wpiedrw-check', setSec );
+	const hintsLbl = el( 'label', 'dsm-checkrow wpiedrw-check', setSec );
 	const hintsCb = el( 'input', null, hintsLbl );
 	hintsCb.type = 'checkbox';
 	hintsCb.checked = !! params.dotHints;
@@ -798,7 +862,7 @@ function openStudio( ctx ) {
 		( v ) => ( params.symCells = v )
 	);
 	const sideRow = el( 'label', 'wpiedrw-row', setSec );
-	el( 'span', null, sideRow ).textContent = t( 'Empty half' );
+	el( 'span', 'dsm-rowline-label', sideRow ).textContent = t( 'Empty half' );
 	const sideSel = el( 'select', 'dsm-select', sideRow );
 	for ( const [ v, l ] of [
 		[ 'right', t( 'Right' ) ],
@@ -814,9 +878,177 @@ function openStudio( ctx ) {
 		schedule();
 	};
 
+	/* ---- v2.3 sheet options ---- */
+	function selectRowIn( parent, label, options, get, set ) {
+		const row = el( 'label', 'wpiedrw-row', parent );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const sel = el( 'select', 'dsm-select', row );
+		for ( const [ v, l ] of options ) {
+			const o = el( 'option', null, sel );
+			o.value = String( v );
+			o.textContent = l;
+		}
+		sel.value = String( get() );
+		sel.onchange = () => {
+			set( sel.value );
+			schedule();
+		};
+		return row;
+	}
+	function checkRowIn( parent, label, get, set ) {
+		const lbl = el( 'label', 'dsm-checkrow wpiedrw-check', parent );
+		const cb = el( 'input', null, lbl );
+		cb.type = 'checkbox';
+		cb.checked = !! get();
+		el( 'span', null, lbl ).textContent = label;
+		cb.onchange = () => {
+			set( cb.checked );
+			schedule();
+		};
+		return lbl;
+	}
+	const stepsRow = selectRowIn(
+		setSec,
+		t( 'Steps' ),
+		[
+			[ 6, '6' ],
+			[ 4, '4' ],
+		],
+		() => params.steps,
+		( v ) => ( params.steps = parseInt( v, 10 ) )
+	);
+	const codeKindRow = selectRowIn(
+		setSec,
+		t( 'Task type' ),
+		[
+			[ 'add', t( 'Addition' ) ],
+			[ 'sub', t( 'Subtraction' ) ],
+			[ 'mixed', t( 'Addition and subtraction' ) ],
+			[ 'mul', t( 'Multiplication' ) ],
+			[ 'letters', t( 'Letters' ) ],
+		],
+		() => params.codeKind,
+		( v ) => ( params.codeKind = v )
+	);
+	const codeRangeRow = selectRowIn(
+		setSec,
+		t( 'Number range' ),
+		[
+			[ 10, t( 'Up to 10' ) ],
+			[ 20, t( 'Up to 20' ) ],
+			[ 100, t( 'Up to 100' ) ],
+		],
+		() => params.codeRange,
+		( v ) => ( params.codeRange = parseInt( v, 10 ) )
+	);
+	const codeColorsRow = sliderRowIn(
+		setSec,
+		t( 'Colors' ),
+		6,
+		12,
+		() => params.codeColors,
+		( v ) => ( params.codeColors = v )
+	);
+	const shuffleRow = el( 'div', 'wpiedrw-row', setSec );
+	el( 'span', 'dsm-rowline-label', shuffleRow ).textContent =
+		t( 'Variation' );
+	const shuffleBtn = el( 'button', 'ai-btn secondary', shuffleRow );
+	shuffleBtn.type = 'button';
+	shuffleBtn.textContent = t( 'Shuffle' );
+	shuffleBtn.onclick = () => {
+		params.seed = ( ( params.seed | 0 ) % 100000 ) + 1;
+		schedule();
+	};
+	const shadesRow = sliderRowIn(
+		setSec,
+		t( 'Shades' ),
+		3,
+		5,
+		() => params.shades,
+		( v ) => ( params.shades = v )
+	);
+	const lineStyleRow = selectRowIn(
+		setSec,
+		t( 'Line style' ),
+		[
+			[ 'waves', t( 'Waves' ) ],
+			[ 'spiral', t( 'Spiral' ) ],
+		],
+		() => params.lineStyle,
+		( v ) => ( params.lineStyle = v )
+	);
+	const lineCountRow = sliderRowIn(
+		setSec,
+		t( 'Lines' ),
+		30,
+		140,
+		() => params.lineCount,
+		( v ) => ( params.lineCount = v )
+	);
+	const lineWeightRow = sliderRowIn(
+		setSec,
+		t( 'Line weight' ),
+		1,
+		3,
+		() => params.lineWeight,
+		( v ) => ( params.lineWeight = v )
+	);
+	const lineInvertLbl = checkRowIn(
+		setSec,
+		t( 'Draw the light parts' ),
+		() => params.lineInvert,
+		( v ) => ( params.lineInvert = v )
+	);
+	const variantRow = selectRowIn(
+		setSec,
+		t( 'Variant' ),
+		[
+			[ 'fade', t( 'Lines fade out' ) ],
+			[ 'missing', t( 'Missing parts' ) ],
+		],
+		() => params.finishVariant,
+		( v ) => ( params.finishVariant = v )
+	);
+	const dirRow = selectRowIn(
+		setSec,
+		t( 'Direction' ),
+		[
+			[ 'lr', t( 'Left to right' ) ],
+			[ 'tb', t( 'Top to bottom' ) ],
+		],
+		() => params.finishDir,
+		( v ) => ( params.finishDir = v )
+	);
+	const amountRow = sliderRowIn(
+		setSec,
+		t( 'To finish' ),
+		30,
+		70,
+		() => params.finishAmount,
+		( v ) => ( params.finishAmount = v ),
+		'%'
+	);
+	const segRow = selectRowIn(
+		setSec,
+		t( 'Segments' ),
+		[
+			[ 6, '6' ],
+			[ 8, '8' ],
+			[ 12, '12' ],
+		],
+		() => params.segments,
+		( v ) => ( params.segments = parseInt( v, 10 ) )
+	);
+	const mandalaHintsLbl = checkRowIn(
+		setSec,
+		t( 'Ghost hints' ),
+		() => params.mandalaHints,
+		( v ) => ( params.mandalaHints = v )
+	);
+
 	const syncUi = () => {
 		modeTiles.forEach( ( { card }, id ) =>
-			card.classList.toggle( 'sel', id === params.mode )
+			ui.pressed( card, id === params.mode )
 		);
 		palBtns.forEach( ( b, id ) =>
 			b.classList.toggle(
@@ -839,10 +1071,41 @@ function openStudio( ctx ) {
 		cellsRow.style.display = 'grid' === m ? '' : 'none';
 		symCellsRow.style.display = 'symmetry' === m ? '' : 'none';
 		sideRow.style.display = 'symmetry' === m ? '' : 'none';
+		const show = ( node, on ) => ( node.style.display = on ? '' : 'none' );
+		show( stepsRow, 'steps' === m );
+		show( codeKindRow, 'code' === m );
+		show( codeRangeRow, 'code' === m && 'letters' !== params.codeKind );
+		show( codeColorsRow, 'code' === m && ! resolvedFixed() );
+		show(
+			shuffleRow,
+			'code' === m ||
+				( 'finish' === m && 'missing' === params.finishVariant )
+		);
+		show( shadesRow, 'shade' === m );
+		show( lineStyleRow, 'oneline' === m );
+		show( lineCountRow, 'oneline' === m );
+		show( lineWeightRow, 'oneline' === m );
+		show( lineInvertLbl, 'oneline' === m );
+		show( variantRow, 'finish' === m );
+		show( dirRow, 'finish' === m && 'fade' === params.finishVariant );
+		show( amountRow, 'finish' === m );
+		show( segRow, 'mandala' === m );
+		show( mandalaHintsLbl, 'mandala' === m );
+		// Detail drives the region pipeline of the finish sheet too.
+		if ( 'finish' === m ) {
+			detailRow.style.display = '';
+		}
+		// Smoothing serves every region sheet that carries labels.
+		if ( [ 'code', 'shade' ].includes( m ) ) {
+			smoothRow.style.display = '';
+		}
 		colSec.parentElement.style.display = [
 			'paintbynumbers',
 			'symmetry',
 			'grid',
+			'code',
+			'steps',
+			'mandala',
 		].includes( m )
 			? ''
 			: 'none';
@@ -949,6 +1212,82 @@ function openStudio( ctx ) {
 				symmetrySheet( srcCanvas, {
 					cells: params.symCells,
 					side: params.symSide,
+					gridColor: accent || undefined,
+				} )
+			);
+		}
+		// A numbered sheet plus its legend, shared by code and shade.
+		const withLegend = ( sheet, palette, labels ) => {
+			const legendRows = Math.ceil(
+				palette.length / Math.max( 3, Math.floor( sheet.width / 130 ) )
+			);
+			const c = document.createElement( 'canvas' );
+			c.width = sheet.width;
+			c.height = sheet.height + legendRows * 32 + 24;
+			const g = c.getContext( '2d' );
+			g.fillStyle = '#ffffff';
+			g.fillRect( 0, 0, c.width, c.height );
+			g.drawImage( sheet, 0, 0 );
+			renderNumberLegend( g, palette, {
+				x: 0,
+				y: sheet.height + 10,
+				width: sheet.width,
+				labels,
+			} );
+			return withTitle( c );
+		};
+		if ( 'steps' === params.mode ) {
+			return withTitle(
+				stepGuide( srcCanvas, {
+					steps: params.steps,
+					accent: accent || undefined,
+				} ).canvas
+			);
+		}
+		if ( 'code' === params.mode ) {
+			const out = colorByCode( srcCanvas, {
+				kind: params.codeKind,
+				range: params.codeRange,
+				colors: params.codeColors,
+				smooth: params.smooth,
+				seed: params.seed,
+				fixedPalette: resolvedFixed(),
+			} );
+			return withLegend( out.canvas, out.palette, out.labels );
+		}
+		if ( 'shade' === params.mode ) {
+			const out = shadeByNumbers( srcCanvas, {
+				shades: params.shades,
+				smooth: params.smooth,
+			} );
+			return withLegend( out.canvas, out.palette );
+		}
+		if ( 'oneline' === params.mode ) {
+			return withTitle(
+				oneLineDrawing( srcCanvas, {
+					style: params.lineStyle,
+					lines: params.lineCount,
+					weight: params.lineWeight,
+					invert: params.lineInvert,
+				} ).canvas
+			);
+		}
+		if ( 'finish' === params.mode ) {
+			return withTitle(
+				finishSheet( srcCanvas, {
+					variant: params.finishVariant,
+					direction: params.finishDir,
+					amount: params.finishAmount,
+					detail: params.detail,
+					seed: params.seed,
+				} ).canvas
+			);
+		}
+		if ( 'mandala' === params.mode ) {
+			return withTitle(
+				mandalaSheet( srcCanvas, {
+					segments: params.segments,
+					hints: params.mandalaHints,
 					gridColor: accent || undefined,
 				} )
 			);

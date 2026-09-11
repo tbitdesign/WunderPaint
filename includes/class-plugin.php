@@ -133,11 +133,20 @@ class Plugin {
 	 * @return void
 	 */
 	public function ensure_upload_protection() {
-		if ( get_option( 'wpie_upload_guard_version' ) === WPIE_VERSION ) {
+		$guard_version = WPIE_VERSION . ':' . Helpers::UPLOAD_GUARD_REVISION;
+		if ( get_option( 'wpie_upload_guard_version' ) === $guard_version ) {
 			return;
 		}
 		Helpers::protect_upload_dirs();
-		update_option( 'wpie_upload_guard_version', WPIE_VERSION, false );
+		update_option( 'wpie_upload_guard_version', $guard_version, false );
+	}
+
+	/**
+	 * Deactivation: the daily quarantine sweep is ours, and WordPress keeps a
+	 * scheduled event for a plugin that is no longer there, forever.
+	 */
+	public static function deactivate() {
+		wp_clear_scheduled_hook( Media_Quarantine::CRON );
 	}
 
 	/**
@@ -148,7 +157,13 @@ class Plugin {
 		if ( false === $stored || ! is_array( $stored ) ) {
 			$stored = array();
 		}
-		update_option( WPIE_OPTION, array_merge( Helpers::defaults(), $stored ) );
+		update_option( WPIE_OPTION, array_merge( Helpers::defaults(), $stored ), false );
+		// The option is read by admin, editor and REST requests, never by a
+		// visitor's page, and it carries the brand kits. The code said it
+		// does not autoload; the first update_option() said yes. Align it.
+		if ( function_exists( 'wp_set_option_autoload' ) ) {
+			wp_set_option_autoload( WPIE_OPTION, false );
+		}
 
 		$dir = \wpie_versions_dir();
 		if ( ! is_dir( $dir ) ) {

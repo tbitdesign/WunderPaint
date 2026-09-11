@@ -18,22 +18,39 @@
  * the Cache API is unavailable or the fetch fails, so callers can fall
  * back to the runtime's own loader.
  *
- * @param {string} url Same-origin binary URL.
+ * The plugin version is part of the key. It used to be the bare file
+ * URL, so after an update the NEW runtime kept loading the OLD binary
+ * from this cache, and nothing in the project ever deleted an entry -
+ * the classic "feature X broke with the update, but only for some
+ * people". Entries of other versions go as soon as a new one lands.
+ *
+ * @param {string} url     Same-origin binary URL.
+ * @param {string} version Plugin version (window.WPIE.version; a worker
+ *                         gets it in its message).
  * @return {Promise<ArrayBuffer|null>} The bytes, or null.
  */
-export async function cachedRuntimeBuffer( url ) {
+export async function cachedRuntimeBuffer( url, version = '' ) {
 	if ( 'undefined' === typeof caches ) {
 		return null;
 	}
 	const cache = await caches.open( 'wpie-ml-runtime' );
-	let res = await cache.match( url );
+	const key = version
+		? `${ url }?ver=${ encodeURIComponent( version ) }`
+		: url;
+	let res = await cache.match( key );
 	if ( ! res ) {
-		res = await fetch( url, { credentials: 'same-origin' } );
+		res = await fetch( key, { credentials: 'same-origin' } );
 		if ( ! res || ! res.ok ) {
 			return null;
 		}
 		try {
-			await cache.put( url, res.clone() );
+			await cache.put( key, res.clone() );
+			for ( const req of await cache.keys() ) {
+				const stored = req.url || String( req );
+				if ( stored !== key && stored.split( '?' )[ 0 ] === url ) {
+					await cache.delete( req );
+				}
+			}
 		} catch ( e ) {
 			// Quota exceeded: serve uncached this time.
 		}

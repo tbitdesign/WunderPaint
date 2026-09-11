@@ -117,6 +117,7 @@ export function WorkspaceOverlay( { onClose } ) {
 			<div
 				className="wpie-ws-pickbar"
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Customize workspace', 'wunderpaint' ) }
 			>
 				<span>

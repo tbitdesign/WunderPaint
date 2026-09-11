@@ -1,0 +1,183 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-choose-wonder-over-worry-today",
+	"label": "Choose wonder over worry today",
+	"category": "wordart",
+	"w": 766,
+	"h": 572,
+	"layers": [
+		{
+			"id": "waf-choose-wonder-over-worry-today-0",
+			"type": "text",
+			"name": "CHOOSE WONDER OVER WORRY TODAY",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 110.8,
+			"y": 44,
+			"w": 560,
+			"h": 460,
+			"rot": -4,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#e9faff",
+					"size": 2,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "CHOOSE WONDER\nOVER WORRY\nTODAY",
+			"fontSize": 100,
+			"fontFamily": "Anton",
+			"weight": 400,
+			"color": "#26acc0",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "CHOOSE WONDER\n",
+					"s": {
+						"color": "#26acc0"
+					}
+				},
+				{
+					"text": "OVER WORRY\n",
+					"s": {
+						"color": "#e667a1"
+					}
+				},
+				{
+					"text": "TODAY",
+					"s": {
+						"color": "#e5c649"
+					}
+				}
+			],
+			"textFX": {
+				"twoTone": {
+					"angle": 12,
+					"split": 51,
+					"color": "#26acc0",
+					"color2": "#e667a1"
+				},
+				"extrude": {
+					"angle": 40,
+					"depth": 7,
+					"color": "#294d6d"
+				}
+			}
+		},
+		{
+			"id": "waf-choose-wonder-over-worry-today-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 413,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e5c649",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-choose-wonder-over-worry-today-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 82,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e667a1",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-choose-wonder-over-worry-today-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 545,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#26acc0",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

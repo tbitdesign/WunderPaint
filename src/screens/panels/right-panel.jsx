@@ -3,6 +3,7 @@
  * plus extension panels (v0.4).
  */
 
+import { siteStorage } from '../../lib/local-storage';
 import { __ } from '@wordpress/i18n';
 import { useRef, useEffect, useState } from '@wordpress/element';
 
@@ -67,7 +68,7 @@ const applyWidth = ( w, persist ) => {
 		?.style.setProperty( '--wpie-right-w', clamped + 'px' );
 	if ( persist ) {
 		try {
-			window.localStorage.setItem( 'wpie-right-w', String( clamped ) );
+			siteStorage.setItem( 'wpie-right-w', String( clamped ) );
 		} catch ( e ) {}
 	}
 	return clamped;
@@ -83,10 +84,7 @@ export function RightPanel( { extras } ) {
 	const bodyRef = useRef( null );
 
 	useEffect( () => {
-		const stored = parseInt(
-			window.localStorage?.getItem( 'wpie-right-w' ),
-			10
-		);
+		const stored = parseInt( siteStorage.getItem( 'wpie-right-w' ), 10 );
 		if ( Number.isFinite( stored ) ) {
 			applyWidth( stored, false );
 		}

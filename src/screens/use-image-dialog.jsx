@@ -105,6 +105,7 @@ export function UseImageDialog( { attachment, onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Use image', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -171,7 +172,7 @@ export function UseImageDialog( { attachment, onClose, extras } ) {
 					</div>
 					<input
 						type="search"
-						placeholder={ __( 'Search posts…', 'wunderpaint' ) }
+						placeholder={ __( 'Search posts', 'wunderpaint' ) }
 						value={ query }
 						onChange={ ( e ) => setQuery( e.target.value ) }
 						aria-label={ __( 'Search posts', 'wunderpaint' ) }

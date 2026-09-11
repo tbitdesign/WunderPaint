@@ -1,12 +1,12 @@
 {
 	"name": "Party Printables",
 	"slug": "wpie-party-printables",
-	"version": "3.3.1",
+	"version": "3.5.4",
 	"author": "TBIT DESIGN - Thomas Breher",
 	"description": "Sixty-nine party items on a real print sheet, all in one theme: cards and stationery (invitations as postcards or folded cards, save the dates, thank-you and reply cards, menus, drinks menus, programs, table numbers, seating charts, welcome signs, signposts, vouchers, tickets with serial numbers, address labels, lined envelopes), gifts and favors (gift tags, gift boxes, wrapping paper, bottle labels, glass markers, napkin rings, coasters, treat bag toppers, chocolate wrappers, jar labels, candle wraps, sticker sheets), decor (bunting, letter banners, motif garlands, paper fans, photo frames, photo props, party hats, crowns, cake toppers, cupcake toppers and wrappers, straw flags, lantern wraps, door hangers, countdown numbers, confetti sheets) games (bingo with unique cards and a call list, scavenger hunts, question cards, who-am-I cards, memory from photos, quartets, a full deck of playing cards, scoreboards, chess, draughts and go diagrams, tactics boards for five sports, a roll-and-move board game, paper dice, domino with motif pips, secret code cards, a fortune teller, tournament brackets, guess-the-photo cards, play money), puzzles and activities (word search, maze and sudoku with solution sheets, coloring pages, a kids' place mat) and awards (certificates per guest, medals). Choose the occasion (kids' birthday, wedding, baby shower, christening, first day of school, graduation, retirement, anniversary, Christmas, New Year, Easter, Halloween, company event, summer party, Mother's Day) and every item takes its palette, pattern, motif and fonts; thirty palettes, fifteen patterns and forty motifs are built in, the brand kit or custom colors replace the palette. The sheet is a real A4, A5, A3, Letter, Legal or custom page in millimetres with cut marks, fold lines and page splits for long lists; guest names give a piece per guest, the event title, date and place land on cards, labels and tickets, photos from the document, a layer or the Media Library are cut to shape. Every sheet is inserted as a 300 dpi picture exactly as previewed, with the document set to the sheet size; further sheets become pages of their own; the picture reopens in the dialog for changes. 156 starters, two or more per occasion.",
 	"main": "extension.js",
 	"style": "style.css",
-	"requiresApi": "2.10.0",
+	"requiresApi": "2.23.0",
 	"provides": [
 		"generator"
 	],

@@ -106,6 +106,7 @@ const DE = {
 	Divider: 'Trennlinie',
 	Coordinates: 'Koordinaten',
 	Attribution: 'Quellenangabe',
+	'Could not save your settings.': 'Deine Einstellungen konnten nicht gespeichert werden.',
 };
 
 const ES = {
@@ -201,6 +202,7 @@ const ES = {
 	Divider: 'Separador',
 	Coordinates: 'Coordenadas',
 	Attribution: 'Atribución',
+	'Could not save your settings.': 'No se pudo guardar tu configuración.',
 };
 
 const FR = {
@@ -297,6 +299,7 @@ const FR = {
 	Divider: 'Séparateur',
 	Coordinates: 'Coordonnées',
 	Attribution: 'Attribution',
+	'Could not save your settings.': 'Tes réglages n’ont pas pu être enregistrés.',
 };
 
 const PT = {
@@ -392,6 +395,7 @@ const PT = {
 	Divider: 'Divisor',
 	Coordinates: 'Coordenadas',
 	Attribution: 'Atribuição',
+	'Could not save your settings.': 'Não foi possível salvar suas configurações.',
 };
 
 const IT = {
@@ -489,6 +493,7 @@ const IT = {
 	Divider: 'Divisore',
 	Coordinates: 'Coordinate',
 	Attribution: 'Attribuzione',
+	'Could not save your settings.': 'Impossibile salvare le tue impostazioni.',
 };
 
 const NL = {
@@ -585,6 +590,7 @@ const NL = {
 	Divider: 'Scheidingslijn',
 	Coordinates: 'Coördinaten',
 	Attribution: 'Bronvermelding',
+	'Could not save your settings.': 'Je instellingen konden niet worden opgeslagen.',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

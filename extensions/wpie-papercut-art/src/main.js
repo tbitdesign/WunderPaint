@@ -13,6 +13,7 @@
 
 import { t } from './i18n.js';
 import { PaperEngine } from './ui/engine.js';
+import { createLibraryPreview } from './ui/library-preview.js';
 import {
 	cleanParams,
 	defaultParams,
@@ -33,6 +34,19 @@ import {
 	SKY_ANIMALS,
 	WATER_ANIMALS,
 } from './core/generators.js';
+import {
+	EXTRA_WINDOWS,
+	EXTRA_TREES,
+	EXTRA_PLANTS,
+	LANDFORMS,
+	DECORATIONS,
+	THEMES,
+	LIBRARY_LABELS,
+	ORNAMENT_WINDOWS,
+	IRREGULAR_WINDOWS,
+	MULTI_WINDOWS,
+} from './core/library.js';
+import { isExtraBotanical } from './core/botanical.js';
 import { autoThresholds, histogram } from './core/photo.js';
 
 /**
@@ -51,9 +65,6 @@ const GEN_ID = 'wpie-papercut-art/scene';
 
 // Objects that cover the page: no corner to drag, no size, no rotation.
 const FULL_PAGE_KINDS = [ 'backdrop', 'terrain', 'border', 'frame' ];
-
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03,.14-.09,.17-.17l.91-2.45c.03-.07,.13-.07,.16,0Z"/></svg>';
 
 const svg = ( inner, size = 14 ) =>
 	`<svg width="${ size }" height="${ size }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ inner }</svg>`;
@@ -89,6 +100,24 @@ const I = {
 	palette: svg(
 		'<path d="M12 21a9 9 0 1 1 9 -9c0 2 -1.5 3 -3 3h-2a2 2 0 0 0 -2 2c0 .5 .2 1 .6 1.4c.4 .4 .4 1 .1 1.5c-.5 .7 -1.5 1.1 -2.7 1.1"/><circle cx="8" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/>'
 	),
+	// The eight heads of the library, one per family.
+	scene: svg(
+		'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l4 -4l3 3l4 -5l7 6"/><circle cx="8.5" cy="9" r="1.2"/>'
+	),
+	paper: svg(
+		'<path d="M14 3H7a2 2 0 0 0 -2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2V8z"/><path d="M14 3v5h5"/>'
+	),
+	hills: svg( '<path d="M3 18l5 -7l4 5l3 -4l6 6z"/><path d="M3 21h18"/>' ),
+	tree: svg( '<path d="M12 3l5 7h-3l4 6H6l4 -6H7z"/><path d="M12 16v5"/>' ),
+	animal: svg(
+		'<path d="M4 15c0 -3 2 -5 5 -5h4l4 -3v3l3 2l-3 1v3a3 3 0 0 1 -3 3H9a5 5 0 0 1 -5 -4z"/><circle cx="15.5" cy="11" r=".9" fill="currentColor" stroke="none"/>'
+	),
+	cloud: svg(
+		'<path d="M7 18a4 4 0 0 1 0 -8a5 5 0 0 1 9.5 -1A3.5 3.5 0 0 1 17 18z"/>'
+	),
+	crop: svg(
+		'<path d="M6 3v13a2 2 0 0 0 2 2h13"/><path d="M3 6h13a2 2 0 0 1 2 2v13"/>'
+	),
 };
 
 /* -------------------------- library thumbnails --------------------------- */
@@ -117,6 +146,14 @@ function openStudio( ctx ) {
 	const params = cleanParams(
 		editing ? layer.generator.params : defaultParams()
 	);
+	// Only the untouched automatic fallback belongs to the photo startup.
+	// Keep user edits, objects added while loading, and every saved scene.
+	const starterLayers = new Map(
+		editing
+			? []
+			: params.layers.map( ( s ) => [ s.id, JSON.stringify( s ) ] )
+	);
+	let pickedStartScene = false;
 
 	const modal = ui.dialog( {
 		title: 'Papercut Art',
@@ -127,25 +164,23 @@ function openStudio( ctx ) {
 		closeOnBackdrop: true,
 		onClose: () => destroy(),
 	} );
-	const badge = document.createElement( 'span' );
-	badge.className = 'dsm-badge';
-	badge.innerHTML = ICON_BRAND;
-	modal.head.insertBefore( badge, modal.head.firstChild );
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( modal );
 	// The dsm base is a narrow settings dialog; the studio needs the
 	// full three-column stage (ui.dialog only caps maxWidth).
 	modal.dialog.classList.add( 'wpiepca-dialog' );
 
 	const body = ui.el( 'div', 'wpiepca-body', modal.body );
-	const left = ui.el( 'div', 'wpiepca-left', body );
+	const left = ui.el( 'div', 'dsm-col start wpiepca-left', body );
 	const view = ui.el( 'div', 'wpiepca-view', body );
 	const canvas = ui.el( 'canvas', null, view );
 	const sunBtn = ui.el( 'div', 'wpiepca-sun', view );
 	sunBtn.innerHTML = I.sun;
-	const hint = ui.el( 'div', 'wpiepca-hint', view );
+	const hint = ui.el( 'div', 'dsm-viewhint wpiepca-hint', view );
 	hint.textContent = t(
 		'Click to pick · drag to move · corner handles resize · Del removes · Ctrl+Z undoes'
 	);
-	const side = ui.el( 'div', 'wpiepca-side', body );
+	const side = ui.el( 'div', 'dsm-col end wpiepca-side', body );
 
 	const status = ui.el( 'div', 'dsm-hint wpiepca-status', modal.foot, '' );
 	const actions = ui.el( 'div', 'dsm-actions', modal.foot );
@@ -585,7 +620,12 @@ function openStudio( ctx ) {
 			// front - a first guess the user can override by dragging the
 			// layer up or down.
 			const sheet = defaultLayer( { objects: [ obj ] } );
-			if ( 'cloud' === obj.kind || 'flock' === obj.kind ) {
+			if (
+				'cloud' === obj.kind ||
+				'flock' === obj.kind ||
+				( obj.kind === 'decoration' &&
+					[ 'starfield', 'aurora' ].includes( obj.variant ) )
+			) {
 				params.layers.splice( 1, 0, sheet );
 			} else {
 				// A passepartout is the last sheet by definition; anything
@@ -607,8 +647,8 @@ function openStudio( ctx ) {
 
 	/* ------------------------------ library ----------------------------- */
 
-	const thumbEngine = new PaperEngine( document.createElement( 'canvas' ) );
-	thumbEngine.setSize( 168, 112 );
+	const libraryPreview = createLibraryPreview();
+	let libraryScroll = null;
 	const thumbQueue = [];
 	let thumbBusy = false;
 	const pumpThumbs = () => {
@@ -616,7 +656,23 @@ function openStudio( ctx ) {
 			thumbBusy = false;
 			return;
 		}
-		const job = thumbQueue.shift();
+		const bounds = libraryScroll.getBoundingClientRect();
+		const available = ( job ) => ! job.el.closest( '[hidden]' );
+		let at = thumbQueue.findIndex( ( job ) => {
+			if ( ! available( job ) ) {
+				return false;
+			}
+			const box = job.el.getBoundingClientRect();
+			return box.bottom > bounds.top && box.top < bounds.bottom;
+		} );
+		if ( at < 0 ) {
+			at = thumbQueue.findIndex( available );
+		}
+		if ( at < 0 ) {
+			thumbBusy = false;
+			return;
+		}
+		const [ job ] = thumbQueue.splice( at, 1 );
 		let url = THUMBS.get( job.key );
 		if ( ! url ) {
 			url = job.make();
@@ -634,45 +690,140 @@ function openStudio( ctx ) {
 	};
 	const thumbOf =
 		( layers, extra = {} ) =>
-		() => {
-			thumbEngine.build(
-				cleanParams( {
-					...defaultParams(),
-					photo: { source: 'none' },
-					...extra,
-					layers,
-				} )
-			);
-			thumbEngine.render();
-			return thumbEngine.canvas.toDataURL( 'image/png' );
-		};
-	const presetThumb = ( p ) => () => {
-		thumbEngine.build(
-			cleanParams( {
-				...defaultParams(),
-				photo: { source: 'none' },
-				...p.patch(),
-			} )
-		);
-		thumbEngine.render();
-		return thumbEngine.canvas.toDataURL( 'image/png' );
-	};
+		() =>
+			libraryPreview.elements( layers, extra );
+	const presetThumb = ( p ) => () => libraryPreview.preset( p );
 
-	const famSection = ( title ) => {
-		ui.el( 'div', 'wpiepca-famhead', left, title );
-		return ui.el( 'div', 'wpiepca-libgrid', left );
+	// Every family of the library is a section of its own, with the head the
+	// whole editor uses: uppercase, icon, muted. They were sub-headings on
+	// the bare column before, so the left panel had no sections at all.
+	const famSection = ( title, icon ) =>
+		ui.el(
+			'div',
+			'dsm-picks wpiepca-libgrid',
+			ui.section( libraryScroll, { icon, title } )
+		);
+	const libraryEntries = [];
+	const libraryFilter = { family: 'all', theme: 'all', query: '' };
+	let resultCount = null;
+	const normalizeSearch = ( value ) =>
+		value
+			.normalize( 'NFD' )
+			.replace( /[\u0300-\u036f]/g, '' )
+			.toLowerCase();
+	const oldThemes = {
+		alps: 'mountains',
+		deerwood: 'woodland',
+		nightwolf: 'woodland',
+		ocean: 'coast',
+		whale: 'coast',
+		skyline: 'fantasy',
+		heartmeadow: 'garden',
+		eagle: 'mountains',
+		bearwoods: 'woodland',
+		catwindow: 'fantasy',
+		wordscape: 'fantasy',
+		oasis: 'desert',
+		lakeside: 'coast',
+		foxfield: 'woodland',
+		owlnight: 'woodland',
+		horsehill: 'garden',
+	};
+	const familyFor = ( key ) => {
+		const [ prefix, id ] = key.split( ':' );
+		return (
+			{
+				preset: 'scenes',
+				win: 'frames',
+				tree: 'trees',
+				plant: 'plants',
+				an: 'animals',
+				sky: 'sky',
+				landform: 'landscape',
+				decoration: 'decor',
+				fr: 'framing',
+			}[ prefix ] ||
+			( prefix === 'base' && [ 'full', 'edge' ].includes( id )
+				? 'paper'
+				: 'landscape' )
+		);
+	};
+	const applyLibraryFilter = () => {
+		libraryScroll.scrollTop = 0;
+		const query = normalizeSearch( libraryFilter.query.trim() );
+		let count = 0;
+		for ( const entry of libraryEntries ) {
+			const show =
+				( libraryFilter.family === 'all' ||
+					entry.family === libraryFilter.family ) &&
+				( libraryFilter.theme === 'all' ||
+					entry.theme === libraryFilter.theme ) &&
+				( ! query || entry.search.includes( query ) );
+			entry.el.hidden = ! show;
+			if ( show ) {
+				count++;
+			}
+		}
+		for ( const grid of libraryScroll.querySelectorAll(
+			'.wpiepca-libgrid'
+		) ) {
+			grid.closest( '.dsm-card' ).hidden = ! [ ...grid.children ].some(
+				( el ) => ! el.hidden
+			);
+		}
+		resultCount.textContent = count
+			? `${ count } / ${ libraryEntries.length }`
+			: t( 'No matching motifs' );
+		if ( ! thumbBusy && thumbQueue.length ) {
+			thumbBusy = true;
+			requestAnimationFrame( pumpThumbs );
+		}
 	};
 	const tile = ( grid, label, key, make, onClick ) => {
-		const el = ui.el( 'button', 'wpiepca-tile', grid );
+		const el = ui.el( 'button', 'dsm-pick wpiepca-tile', grid );
 		el.type = 'button';
-		const th = ui.el( 'span', 'wpiepca-tile-thumb', el );
-		ui.el( 'span', 'wpiepca-tile-label', el, label );
+		el.title = label;
+		el.dataset.libraryKey = key;
+		const [ prefix, id ] = key.split( ':' );
+		const meta =
+			prefix === 'preset'
+				? PRESETS.find( ( p ) => p.id === id )
+				: [
+						...EXTRA_WINDOWS,
+						...EXTRA_TREES,
+						...EXTRA_PLANTS,
+						...LANDFORMS,
+						...DECORATIONS,
+				  ].find( ( e ) => e.id === id );
+		libraryEntries.push( {
+			el,
+			family: familyFor( key ),
+			theme:
+				meta?.theme ||
+				( prefix === 'preset' ? oldThemes[ id ] : '' ) ||
+				'',
+			search: normalizeSearch(
+				label +
+					' ' +
+					( meta?.label || '' ) +
+					' ' +
+					( meta?.theme
+						? t(
+								THEMES.find( ( e ) => e.id === meta.theme )
+									?.label || ''
+						  )
+						: '' )
+			),
+		} );
+		const th = ui.el( 'span', 'dsm-pick-thumb wpiepca-tile-thumb', el );
+		ui.el( 'span', 'dsm-pick-label wpiepca-tile-label', el, label );
 		el.onclick = onClick;
 		queueThumb( key, th, make );
 		return el;
 	};
 
-	const cap = ( s ) => t( s.charAt( 0 ).toUpperCase() + s.slice( 1 ) );
+	const cap = ( s ) =>
+		t( LIBRARY_LABELS[ s ] || s.charAt( 0 ).toUpperCase() + s.slice( 1 ) );
 
 	/**
 	 * Ask before a scene wipes the work, in the editor's own dialog.
@@ -703,36 +854,105 @@ function openStudio( ctx ) {
 	}
 
 	const buildLibrary = () => {
+		const filters = ui.section( left, {
+			icon: I.layers,
+			title: t( 'Library' ),
+		} );
+		filters
+			.closest( '.dsm-card' )
+			.classList.add( 'wpiepca-library-filter' );
+		const search = ui.el( 'input', 'dsm-input wpiepca-search', filters );
+		search.type = 'search';
+		search.placeholder = t( 'Search motifs' );
+		search.setAttribute( 'aria-label', t( 'Search motifs' ) );
+		search.oninput = () => {
+			libraryFilter.query = search.value;
+			applyLibraryFilter();
+		};
+		const families = [
+			[ 'all', t( 'All categories' ) ],
+			[ 'scenes', t( 'Start from a scene' ) ],
+			[ 'frames', t( 'Passepartout' ) ],
+			[ 'landscape', t( 'Landscape' ) ],
+			[ 'trees', t( 'Trees' ) ],
+			[ 'plants', t( 'Plants' ) ],
+			[ 'decor', t( 'Architecture & decoration' ) ],
+			[ 'animals', t( 'Animals' ) ],
+			[ 'sky', t( 'Sky' ) ],
+			[ 'paper', t( 'Paper' ) ],
+			[ 'framing', t( 'Framing' ) ],
+		];
+		ui.select( ui.row( filters, t( 'Category' ) ), {
+			options: families.map( ( [ value, label ] ) => ( {
+				value,
+				label,
+			} ) ),
+			value: 'all',
+			onChange: ( value ) => {
+				libraryFilter.family = value;
+				applyLibraryFilter();
+			},
+		} ).setAttribute( 'aria-label', t( 'Category' ) );
+		ui.select( ui.row( filters, t( 'Theme' ) ), {
+			options: [
+				{ value: 'all', label: t( 'All themes' ) },
+				...THEMES.map( ( e ) => ( {
+					value: e.id,
+					label: t( e.label ),
+				} ) ),
+			],
+			value: 'all',
+			onChange: ( value ) => {
+				libraryFilter.theme = value;
+				applyLibraryFilter();
+			},
+		} ).setAttribute( 'aria-label', t( 'Theme' ) );
+		resultCount = ui.el( 'div', 'dsm-note wpiepca-results', filters );
+		resultCount.setAttribute( 'role', 'status' );
+		resultCount.setAttribute( 'aria-live', 'polite' );
 		// Scenes REPLACE everything. They used to sit in the same grid as
 		// the elements, look the same and answer the same click, so one
 		// stray hit wiped the work - with no undo to come back from. They
 		// get their own block, their own colour, and a question.
-		ui.el( 'div', 'wpiepca-famhead', left, t( 'Start from a scene' ) );
+		libraryScroll = ui.el( 'div', 'wpiepca-library-scroll', left );
+		const sceneSec = ui.section( libraryScroll, {
+			icon: I.scene,
+			title: t( 'Start from a scene' ),
+		} );
 		ui.el(
 			'div',
-			'wpiepca-note',
-			left,
+			'dsm-note wpiepca-note',
+			sceneSec,
 			t( 'Picking one replaces what you have.' )
 		);
-		const pf = ui.el( 'div', 'wpiepca-libgrid is-scenes', left );
+		const pf = ui.el( 'div', 'dsm-picks wpiepca-libgrid', sceneSec );
 		for ( const p of PRESETS ) {
-			tile( pf, p.label, 'preset:' + p.id, presetThumb( p ), async () => {
-				const busy = params.layers.some( ( s ) => s.objects.length );
-				if ( busy && ! ( await askReplace() ) ) {
-					return;
+			tile(
+				pf,
+				p.theme ? t( p.label ) : p.label,
+				'preset:' + p.id,
+				presetThumb( p ),
+				async () => {
+					const busy = params.layers.some(
+						( s ) => s.objects.length
+					);
+					if ( busy && ! ( await askReplace() ) ) {
+						return;
+					}
+					pickedStartScene = true;
+					mark();
+					Object.assign(
+						params,
+						cleanParams( { ...params, ...p.patch() } )
+					);
+					selected = null;
+					rebuild();
+					syncAll();
 				}
-				mark();
-				Object.assign(
-					params,
-					cleanParams( { ...params, ...p.patch() } )
-				);
-				selected = null;
-				rebuild();
-				syncAll();
-			} );
+			);
 		}
 
-		const wf = famSection( t( 'Passepartout' ) );
+		const wf = famSection( t( 'Passepartout' ), I.frame );
 		for ( const win of WINDOWS ) {
 			tile(
 				wf,
@@ -753,7 +973,7 @@ function openStudio( ctx ) {
 			);
 		}
 
-		const bf = famSection( t( 'Paper' ) );
+		const bf = famSection( t( 'Paper' ), I.paper );
 		tile(
 			bf,
 			t( 'Backdrop' ),
@@ -772,7 +992,7 @@ function openStudio( ctx ) {
 			() => addObject( defaultObject( 'border' ) )
 		);
 
-		const lf = famSection( t( 'Landscape' ) );
+		const lf = famSection( t( 'Landscape' ), I.hills );
 		const lands = [
 			[ t( 'Mountain ridge' ), 'ridge' ],
 			[ t( 'Rolling hills' ), 'hills' ],
@@ -815,8 +1035,73 @@ function openStudio( ctx ) {
 			);
 		}
 
-		const tf = famSection( t( 'Trees & plants' ) );
+		for ( const entry of LANDFORMS ) {
+			const settings = {
+				variant: entry.id,
+				x: 0.5,
+				y: 0.9,
+				scale: 60,
+				stretch: 100,
+				seed: 91,
+			};
+			tile(
+				lf,
+				t( entry.label ),
+				'landform:' + entry.id,
+				thumbOf( [
+					rawSheet( 'full' ),
+					{ objects: [ defaultObject( 'landform', settings ) ] },
+				] ),
+				() =>
+					addObject(
+						defaultObject( 'landform', {
+							...settings,
+							scale: 50,
+							stretch: 140,
+						} )
+					)
+			);
+		}
+		const df = famSection( t( 'Architecture & decoration' ), I.scene );
+		for ( const entry of DECORATIONS ) {
+			const wide = [
+				'bridge',
+				'boardwalk',
+				'rowboat',
+				'starfield',
+				'aurora',
+			].includes( entry.id );
+			const settings = {
+				variant: entry.id,
+				x: 0.5,
+				y: 0.88,
+				scale: wide ? 55 : 70,
+				stretch: 100,
+				seed: 71,
+			};
+			tile(
+				df,
+				t( entry.label ),
+				'decoration:' + entry.id,
+				thumbOf( [
+					rawSheet( 'full' ),
+					{ objects: [ defaultObject( 'decoration', settings ) ] },
+				] ),
+				() =>
+					addObject(
+						defaultObject( 'decoration', {
+							...settings,
+							scale: wide ? 45 : 34,
+							y: [ 'starfield', 'aurora' ].includes( entry.id )
+								? 0.55
+								: 0.85,
+						} )
+					)
+			);
+		}
+		const tf = famSection( t( 'Trees & plants' ), I.tree );
 		for ( const species of TREE_SPECIES ) {
+			const expanded = EXTRA_TREES.some( ( e ) => e.id === species );
 			tile(
 				tf,
 				cap( species ),
@@ -830,8 +1115,14 @@ function openStudio( ctx ) {
 								species,
 								y: 0.88,
 								spread: 0.8,
-								count: 3,
-								scale: 'palm' === species ? 46 : 40,
+								count: expanded ? 1 : 3,
+								seed: 41,
+								vary: expanded ? 0 : 50,
+								scale: expanded
+									? 67
+									: 'palm' === species
+									? 46
+									: 40,
 							} ),
 						],
 					},
@@ -843,13 +1134,14 @@ function openStudio( ctx ) {
 							x: 0.5,
 							y: 0.86,
 							spread: 40,
-							count: 5,
-							scale: 'palm' === species ? 34 : 26,
+							count: expanded ? 1 : 5,
+							scale: expanded ? 40 : 'palm' === species ? 34 : 26,
 						} )
 					)
 			);
 		}
 		for ( const species of PLANT_SPECIES ) {
+			const expanded = EXTRA_PLANTS.some( ( e ) => e.id === species );
 			tile(
 				tf,
 				cap( species ),
@@ -863,8 +1155,10 @@ function openStudio( ctx ) {
 								species,
 								y: 0.86,
 								spread: 90,
-								count: 10,
-								scale: 26,
+								count: expanded ? 1 : 10,
+								seed: 51,
+								vary: expanded ? 0 : 50,
+								scale: expanded ? 69 : 26,
 							} ),
 						],
 					},
@@ -876,14 +1170,14 @@ function openStudio( ctx ) {
 							x: 0.5,
 							y: 0.9,
 							spread: 60,
-							count: 12,
-							scale: 16,
+							count: expanded ? 3 : 12,
+							scale: expanded ? 22 : 16,
 						} )
 					)
 			);
 		}
 
-		const af = famSection( t( 'Animals' ) );
+		const af = famSection( t( 'Animals' ), I.animal );
 		for ( const species of GROUND_ANIMALS.concat( WATER_ANIMALS ) ) {
 			tile(
 				af,
@@ -915,7 +1209,7 @@ function openStudio( ctx ) {
 			);
 		}
 
-		const sf = famSection( t( 'Sky' ) );
+		const sf = famSection( t( 'Sky' ), I.cloud );
 		const skyItems = [
 			[
 				t( 'Cloud' ),
@@ -975,7 +1269,7 @@ function openStudio( ctx ) {
 			);
 		}
 
-		const ff = famSection( t( 'Framing' ) );
+		const ff = famSection( t( 'Framing' ), I.crop );
 		tile(
 			ff,
 			t( 'Corner branch' ),
@@ -1015,6 +1309,7 @@ function openStudio( ctx ) {
 					defaultObject( 'text', { x: 0.5, y: 0.88, scale: 22 } )
 				)
 		);
+		applyLibraryFilter();
 	};
 
 	/* ---------------------------- side panels --------------------------- */
@@ -1024,6 +1319,7 @@ function openStudio( ctx ) {
 	let ampelEl = null;
 	let lightSlider = null;
 	let histCanvas = null;
+	let histogramSource = null;
 
 	const unmountAll = () => {
 		while ( unmounts.length ) {
@@ -1034,6 +1330,9 @@ function openStudio( ctx ) {
 	};
 
 	const WINDOW_LABEL = {
+		...Object.fromEntries(
+			EXTRA_WINDOWS.map( ( e ) => [ e.id, e.label ] )
+		),
 		circle: 'Circle',
 		oval: 'Oval',
 		heart: 'Heart',
@@ -1073,6 +1372,9 @@ function openStudio( ctx ) {
 			'plants' === o.kind
 		) {
 			return cap( o.species );
+		}
+		if ( 'landform' === o.kind || 'decoration' === o.kind ) {
+			return cap( o.variant );
 		}
 		if ( 'orb' === o.kind ) {
 			return cap( o.variant );
@@ -1117,7 +1419,7 @@ function openStudio( ctx ) {
 	};
 
 	const miniBtn = ( row, icon, title, disabled, onClick ) => {
-		const b = ui.el( 'button', 'wpiepca-mini', row );
+		const b = ui.el( 'button', 'dsm-mini wpiepca-mini', row );
 		b.type = 'button';
 		b.title = title;
 		b.innerHTML = icon;
@@ -1269,7 +1571,8 @@ function openStudio( ctx ) {
 		rows.forEach( ( r, n ) => {
 			const row = ui.el(
 				'div',
-				'wpiepca-lrow' + ( selected === r.id ? ' is-on' : '' ),
+				'dsm-listrow wpiepca-lrow' +
+					( selected === r.id ? ' is-on' : '' ),
 				stackBody
 			);
 			rowsById.set( r.id, row );
@@ -1371,7 +1674,9 @@ function openStudio( ctx ) {
 					.find(
 						( el ) =>
 							el.classList &&
-							( el.classList.contains( 'wpiepca-lrow' ) ||
+							( el.classList.contains(
+								'dsm-listrow wpiepca-lrow'
+							) ||
 								el.classList.contains( 'wpiepca-edge' ) )
 					);
 				if ( ! under || under === row ) {
@@ -1418,8 +1723,45 @@ function openStudio( ctx ) {
 		ui.el( 'div', 'wpiepca-edge is-tail', stackBody, t( 'Back' ) );
 	};
 
-	const sliderRow = ( parent, label, value, min, max, onInput, step = 1 ) =>
-		ui.slider( parent, { label, min, max, step, value, onInput } );
+	const expandedObject = ( o ) =>
+		!! o &&
+		( [ 'landform', 'decoration' ].includes( o.kind ) ||
+			( ( o.kind === 'trees' || o.kind === 'plants' ) &&
+				isExtraBotanical( o ) ) ||
+			( o.kind === 'frame' &&
+				EXTRA_WINDOWS.some( ( e ) => e.id === o.window ) ) );
+	const sliderRow = ( parent, label, value, min, max, onInput, step = 1 ) => {
+		const control = ui.slider( parent, {
+			label,
+			min,
+			max,
+			step,
+			value,
+			onInput,
+		} );
+		// New library controls participate in undo, once per pointer gesture
+		// or keyboard adjustment, before the range input changes the model.
+		if ( expandedObject( selected && findObject( selected )?.object ) ) {
+			control.input.addEventListener( 'pointerdown', mark );
+			control.input.addEventListener( 'keydown', ( event ) => {
+				if (
+					[
+						'ArrowLeft',
+						'ArrowRight',
+						'ArrowUp',
+						'ArrowDown',
+						'Home',
+						'End',
+						'PageUp',
+						'PageDown',
+					].includes( event.key )
+				) {
+					mark();
+				}
+			} );
+		}
+		return control;
+	};
 
 	/**
 	 * The switch that puts the next things on THIS sheet.
@@ -1461,7 +1803,7 @@ function openStudio( ctx ) {
 		if ( ! objHit && ! sheet ) {
 			ui.el(
 				'div',
-				'wpiepca-note',
+				'dsm-note wpiepca-note',
 				selBody,
 				t( 'Pick something in the picture, or add from the left.' )
 			);
@@ -1469,7 +1811,7 @@ function openStudio( ctx ) {
 		}
 		if ( objHit ) {
 			const o = objHit.object;
-			ui.el( 'div', 'wpiepca-note', selBody, objectName( o ) );
+			ui.el( 'div', 'dsm-note wpiepca-note', selBody, objectName( o ) );
 			if ( 'text' === o.kind ) {
 				// A textarea, not an input: several words under each other
 				// are one block, and a single-line field cannot hold a
@@ -1568,6 +1910,47 @@ function openStudio( ctx ) {
 					);
 				}
 			}
+			if ( 'landform' === o.kind || 'decoration' === o.kind ) {
+				const list = o.kind === 'landform' ? LANDFORMS : DECORATIONS;
+				ui.select( ui.row( selBody, t( 'Kind' ) ), {
+					options: list.map( ( e ) => ( {
+						value: e.id,
+						label: t( e.label ),
+					} ) ),
+					value: o.variant,
+					onChange: ( v ) => {
+						mark();
+						o.variant = v;
+						rebuild();
+						syncAll();
+					},
+				} );
+				sliderRow( selBody, t( 'Width' ), o.stretch, 30, 300, ( v ) => {
+					o.stretch = v;
+					rebuildLive();
+				} );
+				if (
+					[
+						'terraces',
+						'fields',
+						'islands',
+						'starfield',
+						'aurora',
+					].includes( o.variant )
+				) {
+					sliderRow(
+						selBody,
+						t( 'Detail density' ),
+						o.detail,
+						0,
+						100,
+						( v ) => {
+							o.detail = v;
+							rebuildLive();
+						}
+					);
+				}
+			}
 			if ( 'border' === o.kind ) {
 				sliderRow( selBody, t( 'Border' ), o.border, 1, 20, ( v ) => {
 					o.border = v;
@@ -1602,6 +1985,45 @@ function openStudio( ctx ) {
 					o.inset = v;
 					rebuildLive();
 				} );
+				if ( ORNAMENT_WINDOWS.includes( o.window ) ) {
+					sliderRow(
+						selBody,
+						t( 'Ornament density' ),
+						o.ornament,
+						0,
+						100,
+						( v ) => {
+							o.ornament = v;
+							rebuildLive();
+						}
+					);
+				}
+				if ( IRREGULAR_WINDOWS.includes( o.window ) ) {
+					sliderRow(
+						selBody,
+						t( 'Irregularity' ),
+						o.irregularity,
+						0,
+						100,
+						( v ) => {
+							o.irregularity = v;
+							rebuildLive();
+						}
+					);
+				}
+				if ( MULTI_WINDOWS.includes( o.window ) ) {
+					sliderRow(
+						selBody,
+						t( 'Window spacing' ),
+						o.spacing,
+						0,
+						100,
+						( v ) => {
+							o.spacing = v;
+							rebuildLive();
+						}
+					);
+				}
 				if ( 'star' === o.window ) {
 					sliderRow(
 						selBody,
@@ -1717,6 +2139,13 @@ function openStudio( ctx ) {
 					} ) ),
 					value: o.species,
 					onChange: ( v ) => {
+						if (
+							expandedObject( o ) ||
+							EXTRA_TREES.some( ( e ) => e.id === v ) ||
+							EXTRA_PLANTS.some( ( e ) => e.id === v )
+						) {
+							mark();
+						}
 						o.species = v;
 						rebuild();
 						syncAll();
@@ -1738,6 +2167,22 @@ function openStudio( ctx ) {
 					100,
 					( v ) => {
 						o.vary = v;
+						rebuildLive();
+					}
+				);
+			}
+			if (
+				( o.kind === 'trees' || o.kind === 'plants' ) &&
+				isExtraBotanical( o )
+			) {
+				sliderRow(
+					selBody,
+					t( 'Growth lean' ),
+					o.lean,
+					-65,
+					65,
+					( v ) => {
+						o.lean = v;
 						rebuildLive();
 					}
 				);
@@ -1821,17 +2266,43 @@ function openStudio( ctx ) {
 				} );
 			}
 			const row = ui.el( 'div', 'wpiepca-row', selBody );
-			ui.el( 'span', 'dsm-label wpiepca-lbl', row, t( 'Variation' ) );
-			miniBtn( row, I.dice, t( 'Roll a new variation' ), false, () => {
-				o.seed = 1 + Math.floor( Math.random() * 999999 );
-				rebuild();
-			} );
+			const seeded =
+				! [ 'landform', 'decoration' ].includes( o.kind ) ||
+				( o.kind === 'landform'
+					? [ 'mesa', 'glacier', 'islands' ]
+					: [ 'starfield', 'aurora' ]
+				).includes( o.variant );
+			ui.el(
+				'span',
+				'dsm-rowline-label wpiepca-lbl',
+				row,
+				seeded ? t( 'Variation' ) : t( 'Shape' )
+			);
+			if ( seeded ) {
+				miniBtn(
+					row,
+					I.dice,
+					t( 'Roll a new variation' ),
+					false,
+					() => {
+						if ( expandedObject( o ) ) {
+							mark();
+						}
+						o.seed = 1 + Math.floor( Math.random() * 999999 );
+						rebuild();
+					}
+				);
+			}
 			if (
 				'orb' !== o.kind &&
 				'cloud' !== o.kind &&
-				'branch' !== o.kind
+				'branch' !== o.kind &&
+				! ( o.kind === 'frame' && expandedObject( o ) )
 			) {
 				miniBtn( row, I.flip, t( 'Flip' ), false, () => {
+					if ( expandedObject( o ) ) {
+						mark();
+					}
 					o.flip = ! o.flip;
 					rebuild();
 				} );
@@ -1872,7 +2343,12 @@ function openStudio( ctx ) {
 		// it yet - which is exactly when the sharing switch below earns
 		// its place.
 		const index = params.layers.indexOf( sheet );
-		ui.el( 'div', 'wpiepca-note', selBody, layerName( sheet, index ) );
+		ui.el(
+			'div',
+			'dsm-note wpiepca-note',
+			selBody,
+			layerName( sheet, index )
+		);
 		sliderRow( selBody, t( 'Shadow' ), sheet.shadow, 0, 200, ( v ) => {
 			sheet.shadow = v;
 			rebuildLive();
@@ -1883,6 +2359,7 @@ function openStudio( ctx ) {
 	/* ------------------------------ photo ------------------------------- */
 
 	let photoExtra = null;
+	let photoSourceControl = null;
 	let photoSrcUrl = '';
 
 	const descendantIds = ( layers, rootId ) => {
@@ -1937,8 +2414,19 @@ function openStudio( ctx ) {
 	 */
 	const applyPhotoSheets = () => {
 		const bands = params.photo.bands;
+		// Also replace the automatic fallback when the first photo is chosen
+		// after startup. Explicit presets and user-edited layers stay intact.
+		const replaceStarter =
+			! editing &&
+			! pickedStartScene &&
+			engine.photoCanvas &&
+			histogramSource === params.photo.source;
 		const keep = params.layers.filter(
-			( s ) => 'elements' === s.source && s.objects.length
+			( s ) =>
+				'elements' === s.source &&
+				s.objects.length &&
+				( ! replaceStarter ||
+					starterLayers.get( s.id ) !== JSON.stringify( s ) )
 		);
 		const fresh = [];
 		for ( let b = bands - 1; b >= 0; b-- ) {
@@ -1985,8 +2473,11 @@ function openStudio( ctx ) {
 		syncStatus();
 	};
 
-	const loadPhotoSource = async () => {
+	const loadPhotoSource = async ( { keepThresholds = false } = {} ) => {
 		const src = params.photo.source;
+		// Pending or failed sources must not display the previous photo's histogram.
+		histogramSource = null;
+		drawHistogram();
 		if ( 'none' === src ) {
 			engine.setPhoto( null );
 			return;
@@ -2006,17 +2497,27 @@ function openStudio( ctx ) {
 					const own = descendantIds( layers, layer.id );
 					layers = layers.filter( ( l ) => ! own.has( l.id ) );
 				}
+				let allLayers = null;
 				if ( 'layer' === src ) {
 					const flat = flattenLayers( layers );
 					const one = flat.find(
 						( l ) => l.id === params.photo.layerId
 					);
-					layers = one ? [ one ] : layers;
+					if ( one ) {
+						// A grouped layer keeps its parent, and the renderer
+						// starts at parent-less roots only (Codex F15).
+						const ownIds = descendantIds( layers, one.id );
+						allLayers = layers.filter( ( l ) =>
+							ownIds.has( l.id )
+						);
+						layers = [ { ...one, parent: null } ];
+					}
 				}
 				c = await bridge.raster.renderToCanvas(
 					editor.state.doc,
 					layers,
 					{
+						...( allLayers ? { allLayers } : {} ),
 						scale: Math.min(
 							1,
 							1200 /
@@ -2036,11 +2537,20 @@ function openStudio( ctx ) {
 			engine.setPhoto( c );
 			photoSrcUrl = c.toDataURL( 'image/png' );
 			const lm = engine.lumaAt( 240, 160, params.photo.blur );
-			params.photo.thresholds = autoThresholds(
-				lm.luma,
-				params.photo.bands
-			);
+			// A reopened group keeps the thresholds the user tuned; only a
+			// new or changed source gets the automatic split.
+			const saved = params.photo.thresholds;
+			const savedFits =
+				Array.isArray( saved ) &&
+				saved.length === params.photo.bands - 1;
+			if ( ! keepThresholds || ! savedFits ) {
+				params.photo.thresholds = autoThresholds(
+					lm.luma,
+					params.photo.bands
+				);
+			}
 			await loadDepth();
+			histogramSource = src;
 			drawHistogram();
 			if ( params.photo.subject ) {
 				await loadSubject();
@@ -2069,13 +2579,21 @@ function openStudio( ctx ) {
 	};
 
 	const drawHistogram = () => {
-		if ( ! histCanvas || ! engine.photoCanvas ) {
+		if ( ! histCanvas ) {
 			return;
 		}
 		const g = histCanvas.getContext( '2d' );
 		const W = histCanvas.width;
 		const H = histCanvas.height;
 		g.clearRect( 0, 0, W, H );
+		histCanvas.hidden = ! (
+			engine.photoCanvas &&
+			'none' !== params.photo.source &&
+			histogramSource === params.photo.source
+		);
+		if ( histCanvas.hidden ) {
+			return;
+		}
 		const lm = engine.lumaAt( 240, 160, params.photo.blur );
 		const bins = histogram( lm.luma );
 		g.fillStyle = 'rgba(140, 150, 170, 0.55)';
@@ -2092,6 +2610,9 @@ function openStudio( ctx ) {
 	const bindHistogram = () => {
 		let dragIdx = -1;
 		histCanvas.addEventListener( 'pointerdown', ( e ) => {
+			if ( histCanvas.hidden || ! params.photo.thresholds.length ) {
+				return;
+			}
 			const r = histCanvas.getBoundingClientRect();
 			const x = ( e.clientX - r.left ) / r.width;
 			let best = 0;
@@ -2107,7 +2628,7 @@ function openStudio( ctx ) {
 			histCanvas.setPointerCapture( e.pointerId );
 		} );
 		histCanvas.addEventListener( 'pointermove', ( e ) => {
-			if ( dragIdx < 0 ) {
+			if ( dragIdx < 0 || histCanvas.hidden ) {
 				return;
 			}
 			const r = histCanvas.getBoundingClientRect();
@@ -2129,6 +2650,9 @@ function openStudio( ctx ) {
 	const syncPhotoExtra = () => {
 		photoExtra.textContent = '';
 		const src = params.photo.source;
+		if ( photoSourceControl ) {
+			photoSourceControl.value = src;
+		}
 		if ( 'layer' === src && editor ) {
 			let layers = editor.state.layers || [];
 			if ( editing && layer ) {
@@ -2204,7 +2728,7 @@ function openStudio( ctx ) {
 			icon: I.photo,
 			title: t( 'Photo' ),
 		} );
-		ui.select( ui.row( photoSec, t( 'Source' ) ), {
+		photoSourceControl = ui.select( ui.row( photoSec, t( 'Source' ) ), {
 			options: [
 				{ value: 'none', label: t( 'None' ) },
 				{ value: 'document', label: t( 'The document' ) },
@@ -2215,6 +2739,8 @@ function openStudio( ctx ) {
 			value: params.photo.source,
 			onChange: async ( v ) => {
 				params.photo.source = v;
+				histogramSource = null;
+				drawHistogram();
 				syncPhotoExtra();
 				if ( 'none' === v ) {
 					engine.setPhoto( null );
@@ -2307,12 +2833,13 @@ function openStudio( ctx ) {
 			} );
 		}
 		histCanvas = ui.el( 'canvas', 'wpiepca-hist', photoSec );
+		histCanvas.hidden = true;
 		histCanvas.width = 280;
 		histCanvas.height = 56;
 		bindHistogram();
 		ui.el(
 			'div',
-			'wpiepca-note',
+			'dsm-note wpiepca-note',
 			photoSec,
 			t( 'Photo sheets replace the current layers.' )
 		);
@@ -2347,7 +2874,7 @@ function openStudio( ctx ) {
 		} );
 		const chips = ui.el( 'div', 'wpiepca-looks', lookSec );
 		for ( const look of LOOKS ) {
-			const chip = ui.el( 'button', 'wpiepca-look', chips );
+			const chip = ui.el( 'button', 'dsm-strip wpiepca-look', chips );
 			chip.type = 'button';
 			chip.title = look.label;
 			chip.style.background = `linear-gradient(135deg, ${ look.front } 0%, ${ look.back } 60%, ${ look.bg[ 1 ] } 100%)`;
@@ -2460,26 +2987,48 @@ function openStudio( ctx ) {
 		const iw = Math.round( doc.w * scale );
 		const ih = Math.round( doc.h * scale );
 		const { images } = engine.layerImages( iw, ih, params );
+		// Update: the saved group keeps its identity - id, name, place in
+		// the stack, parent group, opacity, blend, visibility - and only
+		// its children are rebuilt. A fresh group per update used to lose
+		// the user's renaming and every reference to the old id.
+		let keep = null;
+		let index;
 		if ( editing && layer ) {
 			const old = editor.state.layers || [];
+			keep = old.find( ( l ) => l.id === layer.id ) || layer;
+			const at = old.indexOf( keep );
 			const gone = descendantIds( old, layer.id );
-			editor.dispatch( {
-				type: 'SET_LAYERS',
-				layers: old.filter( ( l ) => ! gone.has( l.id ) ),
-			} );
+			const rest = old.filter( ( l ) => ! gone.has( l.id ) );
+			if ( at >= 0 ) {
+				index = old
+					.slice( 0, at )
+					.filter( ( l ) => ! gone.has( l.id ) ).length;
+			}
+			editor.dispatch( { type: 'SET_LAYERS', layers: rest } );
 		}
 		const group = bridge.documents.makeGroup( {
-			name: 'Papercut Art',
+			name: keep ? keep.name : 'Papercut Art',
 			x: 0,
 			y: 0,
 			w: doc.w,
 			h: doc.h,
 		} );
+		if ( keep ) {
+			group.id = keep.id;
+			group.parent = keep.parent || null;
+			[ 'opacity', 'blend', 'visible', 'locked', 'isOpen' ].forEach(
+				( k ) => {
+					if ( undefined !== keep[ k ] ) {
+						group[ k ] = keep[ k ];
+					}
+				}
+			);
+		}
 		group.generator = {
 			id: GEN_ID,
 			params: JSON.parse( JSON.stringify( params ) ),
 		};
-		editor.dispatch( { type: 'ADD_LAYER', layer: group } );
+		editor.dispatch( { type: 'ADD_LAYER', layer: group, index } );
 		images.forEach( ( { layer: built, src }, i ) => {
 			const child = bridge.documents.makeImage( {
 				name:
@@ -2531,15 +3080,32 @@ function openStudio( ctx ) {
 	requestAnimationFrame( async () => {
 		fitCanvas();
 		if ( 'none' !== params.photo.source ) {
-			await loadPhotoSource();
+			const source = params.photo.source;
+			await loadPhotoSource( { keepThresholds: editing } );
+			if ( closed ) {
+				return;
+			}
 			// A fresh scene lays the picture out as depth layers right
 			// away - that IS the first step. An existing group keeps the
 			// layers it was saved with, and a run without a readable
 			// document quietly falls back to the built-in scene.
-			if ( ! editing ) {
-				if ( engine.photoCanvas ) {
+			if (
+				! editing &&
+				! pickedStartScene &&
+				params.photo.source === source
+			) {
+				const photo = engine.photoCanvas;
+				const hasPicture =
+					photo &&
+					histogramSource === source &&
+					photo
+						.getContext( '2d' )
+						.getImageData( 0, 0, photo.width, photo.height )
+						.data.some( ( v, i ) => i % 4 === 3 && v > 0 );
+				if ( hasPicture ) {
 					applyPhotoSheets();
 				} else {
+					engine.setPhoto( null );
 					params.photo.source = 'none';
 					syncPhotoExtra();
 				}
@@ -2572,6 +3138,7 @@ function openStudio( ctx ) {
 		applyPreset: ( id ) => {
 			const p = PRESETS.find( ( x ) => x.id === id );
 			if ( p ) {
+				pickedStartScene = true;
 				// Through cleanParams, exactly like the tile does. Assigning
 				// a patch RAW leaves the v2 `base` on the layer, and every
 				// later clean (undo, insert, reopen) then builds that base's

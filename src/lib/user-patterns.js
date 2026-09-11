@@ -7,18 +7,14 @@
  * Legacy localStorage tiles migrate to the server on first load.
  */
 
+import { siteStorage } from './local-storage';
 import { library } from './api';
 
 const LEGACY_KEY = 'wpie-patterns';
 const MIGRATED_KEY = 'wpie-patterns-migrated';
 export const PATTERN_CAP = 24;
 
-let storage = null;
-try {
-	storage = window.localStorage;
-} catch ( e ) {
-	storage = null;
-}
+let storage = siteStorage;
 
 /** Test hook. */
 export const __setPatternStorage = ( s ) => {
@@ -97,7 +93,13 @@ export function ensurePatterns() {
 				notify();
 				return cache;
 			} )
-			.catch( () => listPatterns() );
+			.catch( () => {
+				// Not cached: a server that was unreachable once used to be
+				// unreachable for the whole session, and every save after it
+				// stacked on an empty list. The next call asks again.
+				loading = null;
+				return listPatterns();
+			} );
 	}
 	return loading;
 }
@@ -118,10 +120,22 @@ export async function savePattern( name, dataUrl ) {
 		name: clean,
 		dataUrl,
 	} );
-	cache = [
+	const next = [
 		...( cache || [] ).filter( ( p ) => p.name !== clean ),
 		saved,
-	].slice( -PATTERN_CAP );
+	];
+	// The cap used to exist only in this cache: the 25th tile pushed another
+	// out of the picture while the server kept it, and the next session
+	// showed a different 24. What falls off here goes on the server too.
+	for ( const gone of next.slice(
+		0,
+		Math.max( 0, next.length - PATTERN_CAP )
+	) ) {
+		if ( gone.id ) {
+			library.remove( 'pattern', gone.id ).catch( () => {} );
+		}
+	}
+	cache = next.slice( -PATTERN_CAP );
 	notify();
 	return cache;
 }

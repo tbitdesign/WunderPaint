@@ -8330,10 +8330,14 @@ export const DYNAMIC_SHAPES = [
 	},
 ];
 
+// Prototype-free: a document's `shape` is data, and `"constructor"` or
+// `"__proto__"` used to come back as a Function from a plain object and
+// throw in the paint loop. Every lookup below and in the panels goes
+// through this map, so the fix lives in the map, not at each site.
 export const DYNAMIC_SHAPE_MAP = DYNAMIC_SHAPES.reduce( ( map, s ) => {
 	map[ s.id ] = s;
 	return map;
-}, {} );
+}, Object.create( null ) );
 
 /** Whether this shape keyword has a dynamic (parametric) definition. */
 export const isDynamicShape = ( id ) => !! DYNAMIC_SHAPE_MAP[ id ];
@@ -8351,6 +8355,11 @@ export function dynamicDefaults( id ) {
 		out[ prm.key ] = prm.def;
 	}
 	return out;
+}
+
+/** Every dynamic family id in the registry (Design Markup catalog). */
+export function dynamicShapeIds() {
+	return Object.keys( DYNAMIC_SHAPE_MAP );
 }
 
 /**

@@ -11,7 +11,6 @@ import { STARTERS, starterById } from './starters.js';
 import { resolveTheme } from './engine/theme.js';
 import { sheetSize } from './engine/units.js';
 import { embedFonts } from './engine/fonts-embed.js';
-import { ICON_BRAND } from './ui/icons.js';
 import { buildLeft } from './ui/left.js';
 import { buildView } from './ui/view.js';
 import { buildMaterial } from './ui/material.js';
@@ -110,10 +109,8 @@ function openStudio( ctx ) {
 		onClose: () => cleanup(),
 	} );
 	modal.dialog.classList.add( 'wpiepp-dialog' );
-	const badge = document.createElement( 'span' );
-	badge.className = 'dsm-badge';
-	badge.innerHTML = ICON_BRAND;
-	modal.head.insertBefore( badge, modal.head.firstChild );
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( modal );
 	const body = ui.el( 'div', 'wpiepp-body', modal.body );
 	const left = ui.el( 'div', 'wpiepp-left', body );
 	const mid = ui.el( 'div', 'wpiepp-mid', body );
@@ -648,7 +645,6 @@ function openStudio( ctx ) {
 	function cleanup() {
 		clearTimeout( S.timer );
 		S.token++;
-		leftUi.closePicker();
 		matUi.unmountAll();
 		sideUi.unmountAll();
 		window.__wpieppState = null;

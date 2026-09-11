@@ -34,6 +34,7 @@ const ALIGN_MODES = [
  * Align & distribute flyout for the context bar (v1.24.13), the same grid as
  * the properties panel, one tap away above the layer. A single layer aligns to
  * the canvas; a multi-selection aligns to its own bounds (distribute needs 3+).
+ * Keep it open for consecutive alignments; outside click and Escape dismiss it.
  */
 function AlignFlyout( { editor, tip } ) {
 	const [ pos, setPos ] = useState( null ); // {left, top} | null
@@ -112,7 +113,6 @@ function AlignFlyout( { editor, tip } ) {
 								aria-label={ label }
 								onClick={ () => {
 									Ops.alignLayersOp( editor, mode );
-									setPos( null );
 								} }
 							>
 								{ I[ icon ]( { size: 14 } ) }
@@ -132,7 +132,6 @@ function AlignFlyout( { editor, tip } ) {
 							) }
 							onClick={ () => {
 								Ops.distributeLayersOp( editor, true );
-								setPos( null );
 							} }
 						>
 							{ I.distributeH( { size: 14 } ) }
@@ -149,7 +148,6 @@ function AlignFlyout( { editor, tip } ) {
 							) }
 							onClick={ () => {
 								Ops.distributeLayersOp( editor, false );
-								setPos( null );
 							} }
 						>
 							{ I.distributeV( { size: 14 } ) }

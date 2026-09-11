@@ -75,11 +75,18 @@ async function readPsdTree( buffer ) {
 		);
 	}
 	if ( hasOffscreen() ) {
-		const { runPsdWorker } = await import( './psd-worker-client' );
-		const { psd } = await runPsdWorker( { cmd: 'read', buffer }, [
-			buffer,
-		] );
-		return hydrateBitmaps( psd );
+		// The buffer is transferred away; keep a copy so the main-thread
+		// path can take over when the worker dies or times out.
+		const copy = buffer.slice( 0 );
+		try {
+			const { runPsdWorker } = await import( './psd-worker-client' );
+			const { psd } = await runPsdWorker( { cmd: 'read', buffer }, [
+				buffer,
+			] );
+			return hydrateBitmaps( psd );
+		} catch ( err ) {
+			buffer = copy;
+		}
 	}
 	const ag = await import( /* webpackChunkName: "agpsd" */ 'ag-psd' );
 	return ag.readPsd( buffer, { skipThumbnail: true } );
@@ -88,13 +95,17 @@ async function readPsdTree( buffer ) {
 /** Write an ag-psd tree to an ArrayBuffer (worker or main thread). */
 async function writePsdTree( tree ) {
 	if ( hasOffscreen() ) {
-		const { runPsdWorker } = await import( './psd-worker-client' );
-		const { transfers, prepared } = await dehydrateCanvases( tree );
-		const { buffer } = await runPsdWorker(
-			{ cmd: 'write', psd: prepared },
-			transfers
-		);
-		return buffer;
+		try {
+			const { runPsdWorker } = await import( './psd-worker-client' );
+			const { transfers, prepared } = await dehydrateCanvases( tree );
+			const { buffer } = await runPsdWorker(
+				{ cmd: 'write', psd: prepared },
+				transfers
+			);
+			return buffer;
+		} catch ( err ) {
+			// The tree itself was not transferred; the main thread writes it.
+		}
 	}
 	const ag = await import( /* webpackChunkName: "agpsd" */ 'ag-psd' );
 	return ag.writePsd( tree, {

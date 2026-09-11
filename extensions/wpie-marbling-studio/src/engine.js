@@ -183,6 +183,112 @@ void main() {
 }
 `;
 
+/*
+ * The surface pass (v1.3): the exact bath is rendered once into a
+ * texture, and this cheap pass shows it as WATER - a gentle sway, a
+ * band of light wandering over the surface, the dark rim of the tray.
+ * Preview only: stills and films come straight from the bath shader.
+ */
+const SURFACE_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+uniform sampler2D uBathTex;
+uniform vec2  uRes;
+uniform float uAspect;
+uniform float uTime;
+uniform float uSway;      // 0..1, eased off while a tool is in the bath
+uniform float uSheen;     // 0..1
+uniform float uRim;       // 0..1
+uniform vec4  uRipples[ 6 ]; // x, y, age (s), start radius
+uniform int   uRippleN;
+uniform float uLift;      // 0..1: the sheet lifted off the bath
+uniform vec4  uBathCol;   // premultiplied bath colour (clean water)
+out vec4 outColor;
+
+float shash( vec2 q ) {
+	return fract( sin( dot( q, vec2( 127.1, 311.7 ) ) ) * 43758.5453 );
+}
+
+float snoise( vec2 q ) {
+	vec2 i = floor( q );
+	vec2 f = fract( q );
+	f = f * f * ( 3.0 - 2.0 * f );
+	return mix(
+		mix( shash( i ), shash( i + vec2( 1.0, 0.0 ) ), f.x ),
+		mix(
+			shash( i + vec2( 0.0, 1.0 ) ),
+			shash( i + vec2( 1.0, 1.0 ) ),
+			f.x
+		),
+		f.y
+	);
+}
+
+void main() {
+	vec2 uv = gl_FragCoord.xy / uRes;
+	vec2 p = vec2( uv.x * uAspect, 1.0 - uv.y );
+	// Two slow crossed sways, whole cycles - the family's living water.
+	float th = uTime * 0.7;
+	vec2 d = vec2(
+		0.0045 * sin( 6.2831853 * p.y / 0.43 + th ) +
+			0.002 * sin( 6.2831853 * p.x / 0.21 - th * 1.7 ),
+		0.0032 * sin( 6.2831853 * p.x / 0.57 - th ) +
+			0.0015 * sin( 6.2831853 * p.y / 0.19 + th * 1.3 )
+	) * uSway;
+	// Drops plop: a ring of real water runs out from where the drop fell,
+	// bending the picture under it as it passes, and dies away.
+	float light = 0.0;
+	for ( int i = 0; i < 6; i++ ) {
+		if ( i >= uRippleN ) {
+			break;
+		}
+		vec4 rp = uRipples[ i ];
+		vec2 dv = p - rp.xy;
+		float dist = length( dv );
+		float R = rp.w + rp.z * 0.30;
+		float env = exp( -rp.z * 1.8 ) *
+			exp( -pow( ( dist - R ) / 0.03, 2.0 ) );
+		float ph = ( dist - R ) * 180.0;
+		d += ( dv / max( dist, 0.0001 ) ) * 0.011 * env * sin( ph );
+		light += env * 0.11 * cos( ph );
+	}
+	vec2 suv = clamp( uv + vec2( d.x / uAspect, -d.y ), 0.0, 1.0 );
+	vec4 c = texture( uBathTex, suv );
+	// A faint shimmer of small ripples - no band of light: a gradient
+	// wandering over the bath read as a glitch, not as water (Thomas).
+	float glint =
+		( snoise( p * 22.0 + vec2( -uTime * 0.4, uTime * 0.3 ) ) - 0.5 ) *
+		0.028 * uSheen;
+	// The tray: water darkens towards the walls, a hair of light at the lip.
+	vec2 e = min( uv, 1.0 - uv );
+	float edge = min( e.x * uAspect, e.y );
+	float rim = 1.0 - uRim * 0.3 * ( 1.0 - smoothstep( 0.0, 0.12, edge ) );
+	float lip = uRim * 0.10 * ( 1.0 - smoothstep( 0.0, 0.006, edge ) );
+	// Premultiplied: light only where there is water or ink.
+	outColor = vec4( ( c.rgb * rim + ( glint + lip + light ) * c.a ), c.a );
+	// The print (v1.4): the sheet peels off from the top edge, curling
+	// towards the viewer; what it leaves behind is clean water.
+	if ( uLift > 0.0 ) {
+		float front = uLift * 1.32 - 0.02;
+		float w = 0.11;
+		float y = 1.0 - uv.y;
+		if ( y < front - w ) {
+			outColor = uBathCol * ( 0.94 + 0.06 * snoise( p * 30.0 ) );
+		} else if ( y < front ) {
+			float k = ( front - y ) / w; // 0 at the fold, 1 at the rim
+			float src = y + k * w * 0.85;
+			vec2 cuv = vec2( uv.x, clamp( 1.0 - src, 0.0, 1.0 ) );
+			vec4 cc = texture( uBathTex, cuv );
+			float shade = 0.55 + 0.45 * cos( k * 3.1416 ) +
+				0.35 * exp( -pow( ( k - 0.18 ) / 0.1, 2.0 ) );
+			outColor = vec4( cc.rgb * shade, cc.a );
+		} else {
+			float sh = 1.0 - 0.28 * exp( -( y - front ) / 0.035 );
+			outColor = vec4( outColor.rgb * sh, outColor.a );
+		}
+	}
+}
+`;
+
 const hexRgb = ( h ) => [
 	parseInt( h.slice( 1, 3 ), 16 ) / 255,
 	parseInt( h.slice( 3, 5 ), 16 ) / 255,
@@ -332,7 +438,7 @@ export function canRecordVideo( video ) {
  * @param {Object}            [opts.video]         bridge.video, when there is one.
  * @return {{ stop: Function, blob: Promise<Blob>, extension: string }} Recorder.
  */
-function startRecorder( canvas, { fps, bitsPerSecond, video } ) {
+export function startRecorder( canvas, { fps, bitsPerSecond, video } ) {
 	if ( video && video.recordCanvas ) {
 		const bridged = video.recordCanvas( canvas, { fps, bitsPerSecond } );
 		return {
@@ -474,12 +580,145 @@ export class MarblingEngine {
 			packOps( [] )
 		);
 		gl.uniform1i( this.loc.uOps, 0 );
+
+		// The surface pass (v1.3): its own program, a texture the bath is
+		// rendered into, and a framebuffer around it.
+		const sprog = gl.createProgram();
+		gl.attachShader( sprog, make( gl.VERTEX_SHADER, VERT ) );
+		gl.attachShader( sprog, make( gl.FRAGMENT_SHADER, SURFACE_FRAG ) );
+		gl.linkProgram( sprog );
+		if ( ! gl.getProgramParameter( sprog, gl.LINK_STATUS ) ) {
+			throw new Error( gl.getProgramInfoLog( sprog ) || 'link' );
+		}
+		this.sprog = sprog;
+		this.sloc = {};
+		for ( const name of [
+			'uBathTex',
+			'uRes',
+			'uAspect',
+			'uTime',
+			'uSway',
+			'uSheen',
+			'uRim',
+			'uRippleN',
+			'uLift',
+			'uBathCol',
+		] ) {
+			this.sloc[ name ] = gl.getUniformLocation( sprog, name );
+		}
+		this.sloc.uRipples =
+			gl.getUniformLocation( sprog, 'uRipples[0]' ) ||
+			gl.getUniformLocation( sprog, 'uRipples' );
+		this.ripples = [];
+		this.bathTex = gl.createTexture();
+		gl.activeTexture( gl.TEXTURE1 );
+		gl.bindTexture( gl.TEXTURE_2D, this.bathTex );
+		gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR );
+		gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR );
+		gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
+		gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+		gl.activeTexture( gl.TEXTURE0 );
+		this.fbo = gl.createFramebuffer();
+		this._fboSize = [ 0, 0 ];
+		// surface: { on, sway, sheen, rim } - the preview turns it on; a
+		// still or a film renders the bare bath.
+		this.surface = { on: false, sway: 1, sheen: 1, rim: 1, lift: 0 };
+		this._bathDirty = true;
+	}
+
+	/** The surface look of the preview (see SURFACE_FRAG). */
+	setSurface( s ) {
+		this.surface = { ...this.surface, ...s };
+	}
+
+	/** Live ripples: [ [ x, y, ageSeconds, startRadius ], ... ], up to 6. */
+	setRipples( list ) {
+		this.ripples = ( list || [] ).slice( 0, 6 );
+	}
+
+	/** The bath as water: the cached bath under the moving surface. */
+	renderSurface( timeSec ) {
+		if ( this._disposed || this.cpu || ! this.surface.on ) {
+			return;
+		}
+		if ( this._bathDirty ) {
+			this.render( timeSec );
+			return;
+		}
+		this._drawSurface( timeSec );
+	}
+
+	_ensureFbo( w, h ) {
+		const gl = this.gl;
+		if ( this._fboSize[ 0 ] === w && this._fboSize[ 1 ] === h ) {
+			return;
+		}
+		gl.activeTexture( gl.TEXTURE1 );
+		gl.bindTexture( gl.TEXTURE_2D, this.bathTex );
+		gl.texImage2D(
+			gl.TEXTURE_2D,
+			0,
+			gl.RGBA8,
+			w,
+			h,
+			0,
+			gl.RGBA,
+			gl.UNSIGNED_BYTE,
+			null
+		);
+		gl.activeTexture( gl.TEXTURE0 );
+		gl.bindFramebuffer( gl.FRAMEBUFFER, this.fbo );
+		gl.framebufferTexture2D(
+			gl.FRAMEBUFFER,
+			gl.COLOR_ATTACHMENT0,
+			gl.TEXTURE_2D,
+			this.bathTex,
+			0
+		);
+		gl.bindFramebuffer( gl.FRAMEBUFFER, null );
+		this._fboSize = [ w, h ];
+	}
+
+	_drawSurface( timeSec ) {
+		const gl = this.gl;
+		const w = this.canvas.width;
+		const h = this.canvas.height;
+		gl.bindFramebuffer( gl.FRAMEBUFFER, null );
+		gl.viewport( 0, 0, w, h );
+		gl.useProgram( this.sprog );
+		gl.activeTexture( gl.TEXTURE1 );
+		gl.bindTexture( gl.TEXTURE_2D, this.bathTex );
+		gl.uniform1i( this.sloc.uBathTex, 1 );
+		gl.uniform2f( this.sloc.uRes, w, h );
+		gl.uniform1f( this.sloc.uAspect, this.state.aspect );
+		gl.uniform1f( this.sloc.uTime, timeSec || 0 );
+		gl.uniform1f( this.sloc.uSway, this.surface.sway );
+		gl.uniform1f( this.sloc.uSheen, this.surface.sheen );
+		gl.uniform1f( this.sloc.uRim, this.surface.rim );
+		gl.uniform1f( this.sloc.uLift, this.surface.lift || 0 );
+		const bc = hexRgb( this.state.bath );
+		const clear = this.state.bathClear;
+		gl.uniform4f(
+			this.sloc.uBathCol,
+			clear ? 0 : bc[ 0 ],
+			clear ? 0 : bc[ 1 ],
+			clear ? 0 : bc[ 2 ],
+			clear ? 0 : 1
+		);
+		const rp = new Float32Array( 24 );
+		this.ripples.forEach( ( r, i ) => rp.set( r.slice( 0, 4 ), i * 4 ) );
+		gl.uniform4fv( this.sloc.uRipples, rp );
+		gl.uniform1i( this.sloc.uRippleN, this.ripples.length );
+		gl.drawArrays( gl.TRIANGLES, 0, 3 );
+		gl.activeTexture( gl.TEXTURE0 );
+		gl.bindTexture( gl.TEXTURE_2D, this.tex );
 	}
 
 	/** The bath's full state; uploads the history texture. */
 	setState( s ) {
 		this.state = { ...this.state, ...s };
 		this.partial = { count: this.state.ops.length, lastT: 1 };
+		this._bathDirty = true;
 		if ( ! this.cpu ) {
 			const gl = this.gl;
 			gl.bindTexture( gl.TEXTURE_2D, this.tex );
@@ -500,10 +739,12 @@ export class MarblingEngine {
 	/** Replay progress: render only `count` ops, the newest grown to t. */
 	setPartial( count, lastT ) {
 		this.partial = { count, lastT };
+		this._bathDirty = true;
 	}
 
 	setLive( amp, theta ) {
 		this.live = { amp, theta };
+		this._bathDirty = true;
 	}
 
 	resize( w, h ) {
@@ -516,9 +757,10 @@ export class MarblingEngine {
 		const k = Math.min( 1, cap / Math.max( bw, bh ) );
 		this.canvas.width = Math.round( bw * k );
 		this.canvas.height = Math.round( bh * k );
+		this._bathDirty = true;
 	}
 
-	render() {
+	render( timeSec ) {
 		if ( this._disposed ) {
 			return;
 		}
@@ -530,8 +772,17 @@ export class MarblingEngine {
 		const gl = this.gl;
 		const w = this.canvas.width;
 		const h = this.canvas.height;
+		const toSurface = this.surface.on;
+		if ( toSurface ) {
+			this._ensureFbo( w, h );
+			gl.bindFramebuffer( gl.FRAMEBUFFER, this.fbo );
+		} else {
+			gl.bindFramebuffer( gl.FRAMEBUFFER, null );
+		}
 		gl.viewport( 0, 0, w, h );
 		gl.useProgram( this.prog );
+		gl.activeTexture( gl.TEXTURE0 );
+		gl.bindTexture( gl.TEXTURE_2D, this.tex );
 		gl.uniform1i( this.loc.uCount, this.partial.count );
 		gl.uniform1f( this.loc.uLastT, this.partial.lastT );
 		const flat = new Float32Array( 24 );
@@ -555,6 +806,10 @@ export class MarblingEngine {
 		gl.uniform1f( this.loc.uVeins, this.state.veins );
 		gl.uniform1f( this.loc.uPaper, this.state.paper );
 		gl.drawArrays( gl.TRIANGLES, 0, 3 );
+		this._bathDirty = false;
+		if ( toSurface ) {
+			this._drawSurface( timeSec || 0 );
+		}
 	}
 
 	_renderCpu( ops, inks, bath, bathClear, aspect ) {
@@ -636,7 +891,12 @@ export class MarblingEngine {
 		const k = Math.min( 1, cap / Math.max( w, h ) );
 		this.canvas.width = Math.round( w * k );
 		this.canvas.height = Math.round( h * k );
+		// The still is the bare bath, never the water's sheen.
+		const wasOn = this.surface.on;
+		this.surface.on = false;
 		this.render();
+		this.surface.on = wasOn;
+		this._bathDirty = true;
 		const out = document.createElement( 'canvas' );
 		out.width = w;
 		out.height = h;
@@ -668,9 +928,19 @@ export class MarblingEngine {
 			}
 			const ow = this.canvas.width;
 			const oh = this.canvas.height;
+			const wasOn = this.surface.on;
+			const wasSurface = { ...this.surface };
+			// The print is filmed through the surface pass (it carries the
+			// lift); the other modes record the bare bath.
+			const print = 'print' === mode;
+			this.surface.on = print;
+			if ( print ) {
+				this.setSurface( { sway: 0, sheen: 0, rim: 0, lift: 0 } );
+			}
 			const restore = () => {
 				this.canvas.width = ow;
 				this.canvas.height = oh;
+				this.surface = { ...wasSurface, on: wasOn };
 				this.setPartial( this.state.ops.length, 1 );
 				this.setLive( 0, 0 );
 				this.render();
@@ -703,8 +973,11 @@ export class MarblingEngine {
 			);
 			const ops = this.state.ops;
 			const sched = replaySchedule( ops );
+			const LIFT_SECS = 2.2;
 			const total =
-				'water' === mode ? params.loop : sched.total + sched.hold;
+				'water' === mode
+					? params.loop
+					: sched.total + sched.hold + ( print ? LIFT_SECS : 0 );
 			let start = 0;
 			const step = ( now ) => {
 				if ( this._disposed ) {
@@ -736,6 +1009,12 @@ export class MarblingEngine {
 						}
 					}
 					this.setPartial( count, lastT );
+					if ( print ) {
+						const k = ( t - sched.total - sched.hold ) / LIFT_SECS;
+						this.setSurface( {
+							lift: k <= 0 ? 0 : Math.min( 1, ease( k ) ),
+						} );
+					}
 				}
 				this.render();
 				if ( t >= total + 0.1 ) {

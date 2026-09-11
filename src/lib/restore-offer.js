@@ -13,7 +13,12 @@ const WINDOW_MS = 600;
 
 let pending = [];
 let timer = null;
-let shown = false;
+// Kinds already shown this page load. A late offer of a NEW kind gets its
+// own toast; one of a kind already shown is a re-mounted effect and is
+// ignored. (It used to be one boolean: after the first toast every later
+// offer was dropped whole, and a tabs record that arrived a moment after
+// the autosave's toast was never offered at all.)
+const shownKinds = new Set();
 
 const messageFor = ( offers ) => {
 	const tabs = offers.find( ( o ) => 'tabs' === o.kind );
@@ -55,12 +60,12 @@ const messageFor = ( offers ) => {
 
 const flush = ( toasts ) => {
 	timer = null;
-	if ( shown || ! pending.length ) {
+	if ( ! pending.length ) {
 		return;
 	}
-	shown = true;
 	const offers = pending;
 	pending = [];
+	offers.forEach( ( o ) => shownKinds.add( o.kind ) );
 	const { text, link } = messageFor( offers );
 	// Restore exactly once, however often the link handler fires.
 	let restored = false;
@@ -87,12 +92,20 @@ const flush = ( toasts ) => {
  * @param {Object}   toasts        Toast API.
  */
 export function offerRestore( offer, toasts ) {
-	if ( shown || pending.some( ( o ) => o.kind === offer.kind ) ) {
+	if (
+		shownKinds.has( offer.kind ) ||
+		pending.some( ( o ) => o.kind === offer.kind )
+	) {
 		return;
 	}
 	pending.push( offer );
 	if ( timer ) {
 		clearTimeout( timer );
+	}
+	if ( shownKinds.size ) {
+		// The merge window is over; this one stands on its own.
+		flush( toasts );
+		return;
 	}
 	timer = setTimeout( () => flush( toasts ), WINDOW_MS );
 }
@@ -100,7 +113,7 @@ export function offerRestore( offer, toasts ) {
 /** Test hook: reset the per-page-load state. */
 export function resetRestoreOffers() {
 	pending = [];
-	shown = false;
+	shownKinds.clear();
 	if ( timer ) {
 		clearTimeout( timer );
 		timer = null;

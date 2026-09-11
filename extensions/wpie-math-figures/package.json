@@ -1,6 +1,6 @@
 {
 	"name": "wpie-math-figures",
-	"version": "0.4.0",
+	"version": "0.7.3",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: Math Figures - formulas, function graphs, geometry, number lines, fractions",

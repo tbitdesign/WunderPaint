@@ -3,6 +3,7 @@
  * their windows sit. Persisted per browser so a workspace survives reloads.
  */
 
+import { siteStorage } from './local-storage';
 const KEY = 'wpie-panel-floats';
 
 const MARGIN = 70; // px of a float that must stay reachable
@@ -24,7 +25,7 @@ export function clampFloat( pos, vw, vh ) {
 
 export function loadFloats() {
 	try {
-		const raw = JSON.parse( window.localStorage.getItem( KEY ) || '{}' );
+		const raw = JSON.parse( siteStorage.getItem( KEY ) || '{}' );
 		const out = {};
 		for ( const [ id, pos ] of Object.entries( raw ) ) {
 			if (
@@ -43,6 +44,6 @@ export function loadFloats() {
 
 export function saveFloats( floats ) {
 	try {
-		window.localStorage.setItem( KEY, JSON.stringify( floats ) );
+		siteStorage.setItem( KEY, JSON.stringify( floats ) );
 	} catch ( e ) {}
 }

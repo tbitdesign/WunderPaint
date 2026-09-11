@@ -51,6 +51,7 @@ export class FlatSession {
 			motif: o.motif || null,
 			pigment: ( o.kit && o.kit.pigment ) || null,
 			mixed: !! o.mixed,
+			ensemble: o.ensemble || [],
 		} );
 		this.world.motifImage = ( o.motif && o.motif.image ) || null;
 		// Pieces are treated on demand and cached per piece and effect.
@@ -74,6 +75,7 @@ export class FlatSession {
 			createCanvas: o.createCanvas,
 			aspect: o.aspect,
 			height: o.height || 1100,
+			width: o.width,
 			kit: o.kit || null,
 		} );
 		this.stage.lightAngle =

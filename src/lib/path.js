@@ -129,6 +129,13 @@ export function normalizePathD( d ) {
 		if ( /[a-zA-Z]/.test( tokens[ i ] ) ) {
 			cmd = tokens[ i++ ];
 		}
+		if ( ! cmd ) {
+			// Numbers before the first command letter ("1,2 L 3,4"): the
+			// grammar has nothing to attach them to, and nor do we. Skip
+			// them instead of throwing on `null.toLowerCase()`.
+			i++;
+			continue;
+		}
 		const rel = cmd === cmd.toLowerCase() && 'z' !== cmd.toLowerCase();
 		const C = cmd.toUpperCase();
 		switch ( C ) {
@@ -239,8 +246,25 @@ export function normalizePathD( d ) {
 				const rx = num();
 				const ry = num();
 				const rot = num();
-				const large = !! num();
-				const sweep = !! num();
+				// The two flags are ONE character each and the next number
+				// may follow without a space ("a2 2 0 01 2-2", "0150"), which
+				// is how minified icon SVGs write them. Read as plain numbers
+				// they swallowed the digits behind them, the endpoint became
+				// NaN and the icon vanished on import.
+				const flag = () => {
+					const t = String( tokens[ i ] ?? '' );
+					if ( /^[01]$/.test( t ) ) {
+						i++;
+						return '1' === t;
+					}
+					if ( /^[01]/.test( t ) ) {
+						tokens[ i ] = t.slice( 1 );
+						return '1' === t[ 0 ];
+					}
+					return !! num();
+				};
+				const large = flag();
+				const sweep = flag();
 				const nx = num() + ( rel ? x : 0 );
 				const ny = num() + ( rel ? y : 0 );
 				for ( const seg of arcToCubics(

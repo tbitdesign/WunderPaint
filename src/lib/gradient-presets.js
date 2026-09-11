@@ -6,15 +6,11 @@
  * the small, synchronous localStorage layer for gradients the user saves.
  */
 
+import { siteStorage } from './local-storage';
 const KEY = 'wpie-gradients';
 export const GRADIENT_CAP = 12;
 
-let storage = null;
-try {
-	storage = window.localStorage;
-} catch ( e ) {
-	storage = null;
-}
+let storage = siteStorage;
 
 /** Test hook. */
 export const __setGradientStorage = ( s ) => {

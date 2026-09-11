@@ -15,6 +15,7 @@
  * localStorage; this is a personal preference, not stored server-side.
  */
 
+import { siteStorage } from './local-storage';
 import { catalogKeySet } from './workspace-registry';
 
 const STORE_KEY = 'wpie-workspaces';
@@ -99,7 +100,7 @@ function load() {
 		return state;
 	}
 	try {
-		const raw = window.localStorage.getItem( STORE_KEY );
+		const raw = siteStorage.getItem( STORE_KEY );
 		state = raw ? JSON.parse( raw ) : defaults();
 	} catch ( e ) {
 		state = defaults();
@@ -133,7 +134,7 @@ function load() {
 
 function persist() {
 	try {
-		window.localStorage.setItem( STORE_KEY, JSON.stringify( state ) );
+		siteStorage.setItem( STORE_KEY, JSON.stringify( state ) );
 	} catch ( e ) {
 		/* storage full or blocked: keep the in-memory state. */
 	}

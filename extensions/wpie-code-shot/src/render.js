@@ -13,6 +13,12 @@ const STACK =
 	"'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace";
 const SS = 2; // supersample for crisp glyphs
 const MAX_LINES = 500;
+// A minified file is one line of tens of thousands of characters; at
+// 18 px a character that is a canvas wider than any browser draws, and
+// getContext() answered null (EXTSEC-02, 10.09.2026). Cut the line and
+// keep the picture inside a safe area.
+const MAX_COLS = 400;
+const MAX_AREA = 32 * 1000 * 1000;
 const ASPECTS = { '16:9': 16 / 9, '1:1': 1, '4:3': 4 / 3, '9:16': 9 / 16 };
 
 let fontReady = null;
@@ -111,7 +117,11 @@ export function bakeCanvas( params ) {
 		types = d.types;
 	}
 	raw = expandTabs( raw, params.tabSize || 2 );
-	let srcLines = raw.split( '\n' );
+	let srcLines = raw
+		.split( '\n' )
+		.map( ( ln ) =>
+			ln.length > MAX_COLS ? ln.slice( 0, MAX_COLS ) + '…' : ln
+		);
 	if ( srcLines.length > MAX_LINES ) {
 		srcLines = srcLines.slice( 0, MAX_LINES );
 		if ( types ) {
@@ -167,6 +177,22 @@ export function bakeCanvas( params ) {
 		Y = Math.round( ( H - winH ) / 2 );
 
 	const c = document.createElement( 'canvas' );
+	if ( W * H > MAX_AREA ) {
+		// Too many long lines for one bitmap: draw fewer lines rather than
+		// a canvas the browser refuses. The cut is visible (the last line
+		// is an ellipsis), the crash was not.
+		const keep = Math.max(
+			1,
+			Math.floor(
+				( MAX_AREA / W - outer * 2 - titleH - pad * 2 ) / lineH
+			)
+		);
+		return bakeCanvas( {
+			...params,
+			code: srcLines.slice( 0, keep - 1 ).join( '\n' ) + '\n…',
+			diff: false,
+		} );
+	}
 	c.width = W;
 	c.height = H;
 	const g = c.getContext( '2d' );

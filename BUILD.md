@@ -30,7 +30,7 @@ unreadable.
 | `build/vtracer.<hash>.wasm` | not built here: the npm package `vtracer-wasm`, copied verbatim | see "Files copied from npm" below |
 | `build/ort.wasm.min.<hash>.mjs` | not built here: the npm package `onnxruntime-web`, copied verbatim | see "Files copied from npm" below |
 | `bundled-extensions/<slug>/extension.js` | `extensions/<slug>/src/` | `bash tools/bundle-free-extensions.sh` |
-| `languages/*.mo`, `languages/*-<hash>.json` | `languages/*.po` | `wp i18n make-mo languages languages` and `wp i18n make-json languages` |
+| `languages/*.mo`, `languages/*-<hash>.json` | `languages/*.po` | `wp i18n make-mo languages languages` and `wp i18n make-json languages`; built for the repository only, the release ZIP ships no `languages/` (wordpress.org delivers language packs) |
 
 `npm run build` is a chain, and each link writes something a reader may
 otherwise wonder about:
@@ -52,9 +52,10 @@ builds itself with esbuild:
     npm ci
     npm run build          # esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js
 
-`bash tools/bundle-free-extensions.sh` does that for all of them and copies
-the result into `bundled-extensions/`, which is why that folder is build
-output and is not tracked here.
+`bash tools/bundle-free-extensions.sh` collects the built studios into
+`bundled-extensions/`, which is why that folder is build output and is not
+tracked here. It does not build them: run the two commands above in every
+studio first, the collector stops at the first one without an `extension.js`.
 
 Premium studios and the Pro plugin are separate products and are not part of
 this repository. Everything the free plugin ships is.

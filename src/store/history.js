@@ -114,7 +114,17 @@ export const goTo = ( h, index ) => {
 };
 
 /**
- * Mark the present snapshot as saved (dirty = false until the next push).
+ * Mark a snapshot as saved (dirty = false until the next push). By default
+ * the present one. A save that FINISHED later than it started passes the
+ * snapshot it actually uploaded: it used to mark whatever was present when
+ * the response came back, so work committed during a slow upload was
+ * declared saved by an old response - and the autosave watcher then threw
+ * the rescue copy away.
+ *
  * @param h
+ * @param snapshot
  */
-export const markSaved = ( h ) => ( { ...h, savedRef: h.present } );
+export const markSaved = ( h, snapshot = null ) => ( {
+	...h,
+	savedRef: snapshot || h.present,
+} );

@@ -334,6 +334,7 @@ export function CollageDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Collage & Photo Grid', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

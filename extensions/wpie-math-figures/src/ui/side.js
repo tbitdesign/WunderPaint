@@ -73,7 +73,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 		{ allowEmpty = false } = {}
 	) => {
 		const host = ui.row( parent, label );
-		const input = ui.el( 'input', 'wpiemf-input', host );
+		const input = ui.el( 'input', 'dsm-input wpiemf-input', host );
 		input.type = 'text';
 		input.inputMode = 'decimal';
 		const cur = get();
@@ -96,7 +96,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	};
 	const textFor = ( parent, label, key, get, set ) => {
 		const host = ui.row( parent, label );
-		const input = ui.el( 'input', 'wpiemf-input', host );
+		const input = ui.el( 'input', 'dsm-input wpiemf-input', host );
 		input.type = 'text';
 		input.dataset.key = key;
 		input.value = get() || '';

@@ -161,6 +161,7 @@ export function QuickInsert( { onClose, extras } ) {
 			<div
 				className="quick-insert"
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Quick insert', 'wunderpaint' ) }
 				onClick={ ( e ) => e.stopPropagation() }
 			>

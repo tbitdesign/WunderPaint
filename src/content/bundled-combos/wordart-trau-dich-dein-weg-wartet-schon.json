@@ -1,0 +1,150 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-trau-dich-dein-weg-wartet-schon",
+	"label": "Trau dich dein Weg wartet schon",
+	"category": "wordart",
+	"w": 737,
+	"h": 598,
+	"layers": [
+		{
+			"id": "waf-trau-dich-dein-weg-wartet-schon-0",
+			"type": "text",
+			"name": "TRAU DICH DEIN WEG WARTET SCHON",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 86,
+			"y": 60.73,
+			"w": 560,
+			"h": 460,
+			"rot": -8,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fcebdc",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "TRAU DICH\nDEIN WEG\nWARTET SCHON",
+			"fontSize": 100,
+			"fontFamily": "Bebas Neue",
+			"weight": 400,
+			"color": "#a979b5",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "TRAU DICH\n",
+					"s": {
+						"color": "#a979b5"
+					}
+				},
+				{
+					"text": "DEIN WEG\n",
+					"s": {
+						"color": "#629eab"
+					}
+				},
+				{
+					"text": "WARTET SCHON",
+					"s": {
+						"color": "#df9c71"
+					}
+				}
+			],
+			"textFX": {
+				"skew": {
+					"x": 9,
+					"y": 0
+				},
+				"echo": {
+					"count": 2,
+					"gap": 4,
+					"angle": 0
+				}
+			}
+		},
+		{
+			"id": "waf-trau-dich-dein-weg-wartet-schon-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 201,
+			"y": 560.73,
+			"w": 330,
+			"h": 4,
+			"rot": -3,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#629eab",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 2,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-trau-dich-dein-weg-wartet-schon-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 685,
+			"y": 120.73,
+			"w": 25,
+			"h": 25,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "transparent",
+			"stroke": "#df9c71",
+			"strokeW": 3,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

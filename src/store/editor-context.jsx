@@ -4,6 +4,7 @@
  * `commit(label)` ONCE on gesture end, which pushes a serialized snapshot.
  */
 
+import { readLocal, siteStorage } from '../lib/local-storage';
 import {
 	createContext,
 	useContext,
@@ -283,7 +284,7 @@ const scrubChildren = ( layers, removed ) =>
 
 export function initialState( { doc, layers, WPIE } ) {
 	const theme =
-		window.localStorage?.getItem( 'wpie-theme' ) ||
+		readLocal( 'wpie-theme' ) ||
 		( 'system' === ( WPIE?.theme || 'dark' )
 			? window.matchMedia &&
 			  window.matchMedia( '(prefers-color-scheme: light)' ).matches
@@ -333,27 +334,24 @@ export function initialState( { doc, layers, WPIE } ) {
 		// Demo installs show the navigator to first-time visitors
 		// (v1.308); a visitor's own toggle sticks via localStorage.
 		showNavigator:
-			null ===
-			( window.localStorage?.getItem( 'wpie-navigator' ) ?? null )
+			null === ( readLocal( 'wpie-navigator' ) ?? null )
 				? !! WPIE?.demo
-				: '1' === window.localStorage?.getItem( 'wpie-navigator' ),
+				: '1' === readLocal( 'wpie-navigator' ),
 		// The brush panel is ON by default: it is the whole point of the
 		// brush rebuild, and a panel nobody finds is a panel nobody uses.
 		// It only SHOWS for paint tools, so it costs nothing elsewhere.
 		showBrushPanel:
-			null ===
-			( window.localStorage?.getItem( 'wpie-brush-panel' ) ?? null )
+			null === ( readLocal( 'wpie-brush-panel' ) ?? null )
 				? true
-				: '1' === window.localStorage?.getItem( 'wpie-brush-panel' ),
+				: '1' === readLocal( 'wpie-brush-panel' ),
 		// The shape panel follows it, for the same reason: shapes are held
 		// and tuned like a brush, not configured once in a dialog. It only
 		// SHOWS in shape context - the shape tool, or a shape layer picked
 		// up with move/select - so it costs nothing elsewhere.
 		showShapePanel:
-			null ===
-			( window.localStorage?.getItem( 'wpie-shape-panel' ) ?? null )
+			null === ( readLocal( 'wpie-shape-panel' ) ?? null )
 				? true
-				: '1' === window.localStorage?.getItem( 'wpie-shape-panel' ),
+				: '1' === readLocal( 'wpie-shape-panel' ),
 		compare: false,
 		revealPasteboard: false, // v1.379.1: paint off-canvas content
 		proof: null, // CVD proofing mode (view-only, v1.1)
@@ -361,8 +359,7 @@ export function initialState( { doc, layers, WPIE } ) {
 		timeline: { on: false, onion: false }, // animation bar (v1.1)
 		// Bottom docks (v1.35): the library tray + pages bar stack with the
 		// timeline and can be shown/hidden from the View menu.
-		libraryHidden:
-			'1' === window.localStorage?.getItem( 'wpie-library-hidden' ),
+		libraryHidden: '1' === readLocal( 'wpie-library-hidden' ),
 		pagesHidden: false,
 		freeTransformId: null,
 	};
@@ -436,7 +433,7 @@ export function reducer( state, action ) {
 			// paint bars must end with the panel up, never close it.
 			const showBrushPanel = action.show ?? ! state.showBrushPanel;
 			try {
-				window.localStorage?.setItem(
+				siteStorage.setItem(
 					'wpie-brush-panel',
 					showBrushPanel ? '1' : '0'
 				);
@@ -451,7 +448,7 @@ export function reducer( state, action ) {
 			// had it open.
 			const showShapePanel = action.show ?? ! state.showShapePanel;
 			try {
-				window.localStorage?.setItem(
+				siteStorage.setItem(
 					'wpie-shape-panel',
 					showShapePanel ? '1' : '0'
 				);
@@ -461,7 +458,7 @@ export function reducer( state, action ) {
 		case 'TOGGLE_NAVIGATOR': {
 			const showNavigator = ! state.showNavigator;
 			try {
-				window.localStorage?.setItem(
+				siteStorage.setItem(
 					'wpie-navigator',
 					showNavigator ? '1' : '0'
 				);
@@ -497,7 +494,7 @@ export function reducer( state, action ) {
 		case 'TOGGLE_LIBRARY': {
 			const libraryHidden = ! state.libraryHidden;
 			try {
-				window.localStorage?.setItem(
+				siteStorage.setItem(
 					'wpie-library-hidden',
 					libraryHidden ? '1' : '0'
 				);
@@ -734,7 +731,22 @@ export function reducer( state, action ) {
 				maskEditId: null,
 				// Page switches keep the pages strip; real document loads
 				// (template, PSD, attachment) leave pages mode (v1.11).
-				pages: action.keepPages ? state.pages : null,
+				// Page switches keep the strip (keepPages), a real document
+				// load drops it - unless the document BRINGS one. The write
+				// side has carried pages through serializeDocument() since
+				// F02 was closed, and the comment above the autosave call even
+				// says a rescue copy must not restore a single page over the
+				// real thing; the read side then threw them away right here,
+				// so a restored or reopened multi-page design came back with
+				// one page and the next save wrote that back to the server.
+				pages: action.pages
+					? {
+							list: action.pages,
+							current: action.currentPage ?? 0,
+					  }
+					: action.keepPages
+					? state.pages
+					: null,
 				history: History.createHistory( snapshot ),
 			};
 		}
@@ -794,7 +806,13 @@ export function reducer( state, action ) {
 				? { ...state, layers: action.layers }
 				: state;
 		case 'MARK_SAVED':
-			return { ...state, history: History.markSaved( state.history ) };
+			return {
+				...state,
+				history: History.markSaved(
+					state.history,
+					action.snapshot || null
+				),
+			};
 		default:
 			return state;
 	}

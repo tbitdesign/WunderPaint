@@ -185,6 +185,7 @@ export function StockDialog( { onClose, extras } ) {
 				className="stock-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Stock Images', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -301,7 +302,7 @@ export function StockDialog( { onClose, extras } ) {
 								ref={ inputRef }
 								type="search"
 								placeholder={ __(
-									'Search free photos…',
+									'Search free photos',
 									'wunderpaint'
 								) }
 								value={ query }

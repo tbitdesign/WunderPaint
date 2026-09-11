@@ -1,0 +1,150 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-let-your-courage-be-louder-than-your-doubt",
+	"label": "Let your courage be louder than your doubt",
+	"category": "wordart",
+	"w": 739,
+	"h": 598,
+	"layers": [
+		{
+			"id": "waf-let-your-courage-be-louder-than-your-doubt-0",
+			"type": "text",
+			"name": "LET YOUR COURAGE BE LOUDER THAN YOUR DOUBT",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 89,
+			"y": 60.73,
+			"w": 560,
+			"h": 460,
+			"rot": -8,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fff0df",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "LET YOUR COURAGE\nBE LOUDER\nTHAN YOUR DOUBT",
+			"fontSize": 100,
+			"fontFamily": "Bebas Neue",
+			"weight": 400,
+			"color": "#d7638a",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "LET YOUR COURAGE\n",
+					"s": {
+						"color": "#d7638a"
+					}
+				},
+				{
+					"text": "BE LOUDER\n",
+					"s": {
+						"color": "#45a4a1"
+					}
+				},
+				{
+					"text": "THAN YOUR DOUBT",
+					"s": {
+						"color": "#edbb56"
+					}
+				}
+			],
+			"textFX": {
+				"skew": {
+					"x": 9,
+					"y": 0
+				},
+				"echo": {
+					"count": 2,
+					"gap": 4,
+					"angle": 0
+				}
+			}
+		},
+		{
+			"id": "waf-let-your-courage-be-louder-than-your-doubt-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 204,
+			"y": 560.73,
+			"w": 330,
+			"h": 4,
+			"rot": -3,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#45a4a1",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 2,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-let-your-courage-be-louder-than-your-doubt-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 688,
+			"y": 120.73,
+			"w": 25,
+			"h": 25,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "transparent",
+			"stroke": "#edbb56",
+			"strokeW": 3,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

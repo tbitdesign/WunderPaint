@@ -114,6 +114,10 @@ const DICT = {
 		'Silver Night': 'Silbernacht',
 		Emerald: 'Smaragd',
 		Amethyst: 'Amethyst',
+		'Could not save your settings.':
+			'Deine Einstellungen konnten nicht gespeichert werden.',
+		'The search failed. Try again.':
+			'Die Suche ist fehlgeschlagen. Versuche es noch einmal.',
 	},
 	fr: {
 		'Computed birth charts, moon phases and zodiac art, as editable layers.':
@@ -199,6 +203,9 @@ const DICT = {
 		'Silver Night': 'Nuit d’argent',
 		Emerald: 'Émeraude',
 		Amethyst: 'Améthyste',
+		'Could not save your settings.':
+			'Tes réglages n’ont pas pu être enregistrés.',
+		'The search failed. Try again.': 'La recherche a échoué. Réessaie.',
 	},
 	es: {
 		'Computed birth charts, moon phases and zodiac art, as editable layers.':
@@ -284,6 +291,9 @@ const DICT = {
 		'Silver Night': 'Noche de plata',
 		Emerald: 'Esmeralda',
 		Amethyst: 'Amatista',
+		'Could not save your settings.': 'No se pudo guardar tu configuración.',
+		'The search failed. Try again.':
+			'La búsqueda falló. Inténtalo de nuevo.',
 	},
 	it: {
 		'Computed birth charts, moon phases and zodiac art, as editable layers.':
@@ -368,6 +378,9 @@ const DICT = {
 		'Silver Night': 'Notte d’argento',
 		Emerald: 'Smeraldo',
 		Amethyst: 'Ametista',
+		'Could not save your settings.':
+			'Impossibile salvare le tue impostazioni.',
+		'The search failed. Try again.': 'La ricerca non è riuscita. Riprova.',
 	},
 	pt: {
 		'Computed birth charts, moon phases and zodiac art, as editable layers.':
@@ -453,6 +466,9 @@ const DICT = {
 		'Silver Night': 'Noite de prata',
 		Emerald: 'Esmeralda',
 		Amethyst: 'Ametista',
+		'Could not save your settings.':
+			'Não foi possível salvar suas configurações.',
+		'The search failed. Try again.': 'A pesquisa falhou. Tente novamente.',
 	},
 	nl: {
 		'Computed birth charts, moon phases and zodiac art, as editable layers.':
@@ -538,6 +554,10 @@ const DICT = {
 		'Silver Night': 'Zilvernacht',
 		Emerald: 'Smaragd',
 		Amethyst: 'Amethist',
+		'Could not save your settings.':
+			'Je instellingen konden niet worden opgeslagen.',
+		'The search failed. Try again.':
+			'Het zoeken is mislukt. Probeer het opnieuw.',
 	},
 };
 

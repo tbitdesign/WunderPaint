@@ -180,8 +180,15 @@ export const mediaLib = {
 			data: { ids },
 		} ),
 
-	/** Attachment ids whose file is missing on disk. */
-	broken: () => request( { path: '/media-library/broken', method: 'GET' } ),
+	/**
+	 * One page of attachment ids whose file is missing on disk: { ids, next }.
+	 * Walk with `after = next` until next is null.
+	 */
+	broken: ( after = 0, per = 500 ) =>
+		request( {
+			path: `/media-library/broken?after=${ after }&per=${ per }`,
+			method: 'GET',
+		} ),
 
 	smart: {
 		list: () => request( { path: '/media-library/smart', method: 'GET' } ),

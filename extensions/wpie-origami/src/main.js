@@ -300,6 +300,15 @@ function openStudio( ctx ) {
 			'Design the paper, watch it fold itself, print sheet and instructions.'
 		),
 		width: 1460,
+		// Without this, Escape took the kit's own way out: it removes the
+		// backdrop and its key listener and nothing else. Our close() never
+		// ran, so the render loop kept calling engine.render() sixty times a
+		// second on a live WebGL context until the page was reloaded, and the
+		// context stayed allocated. A few of those and the browser starts
+		// dropping the oldest one - which is how the OTHER 3D studios go
+		// black. The x button was already wired up by hand below; Escape was
+		// not, and that is the whole difference.
+		onClose: () => close(),
 	} );
 	modal.dialog.classList.add( 'wpieog' );
 
@@ -314,29 +323,47 @@ function openStudio( ctx ) {
 	const engine = new OrigamiEngine( canvas );
 	ui.el(
 		'div',
-		'wpieog-hint',
+		'dsm-viewhint wpieog-hint',
 		view,
 		t( 'Drag to turn the scene, wheel to zoom.' )
 	);
 
-	const viewBtns = ui.el( 'div', 'wpieog-views', view );
+	// Die Knoepfe tragen ein WORT, keinen Icon: `has-label` gibt dem
+	// Pillenknopf Breite und Polster - ohne das behaelt er den festen
+	// 24x24-Kreis des Icon-Knopfs und die Beschriftung wird
+	// herausgequetscht. Und sie zeigen jetzt, welche Ansicht gilt; vorher
+	// war das eine Wahl ohne jeden Zustand.
+	const viewBtns = ui.el( 'div', 'dsm-pillbar wpieog-views', view );
+	const viewButtons = {};
+	const markView = ( key ) => {
+		for ( const [ k, b ] of Object.entries( viewButtons ) ) {
+			b.setAttribute( 'aria-pressed', k === key ? 'true' : 'false' );
+		}
+	};
 	for ( const [ key, label ] of [
 		[ 'reader', 'Angled' ],
 		[ 'front', 'Front' ],
 		[ 'quarter', 'Three-quarter' ],
 		[ 'flat', 'From above' ],
 	] ) {
-		ui.btn( viewBtns, {
-			label: t( label ),
-			onClick: () => {
-				const fig = figureOf( state.figure );
-				engine.setView( {
-					...VIEWS[ key ],
-					zoom: fig.view.zoom || 1,
-				} );
-			},
-		} );
+		const vb = ui.el(
+			'button',
+			'dsm-pillbtn has-label',
+			viewBtns,
+			t( label )
+		);
+		vb.type = 'button';
+		viewButtons[ key ] = vb;
+		vb.onclick = () => {
+			const fig = figureOf( state.figure );
+			engine.setView( {
+				...VIEWS[ key ],
+				zoom: fig.view.zoom || 1,
+			} );
+			markView( key );
+		};
 	}
+	markView( 'reader' );
 
 	// Orbit.
 	let dragging = null;
@@ -388,7 +415,7 @@ function openStudio( ctx ) {
 	progress.min = '0';
 	progress.max = '1000';
 	progress.value = '1000';
-	const stepLabel = ui.el( 'span', 'wpieog-steplabel dsm-mono', bar, '' );
+	const stepLabel = ui.el( 'span', 'dsm-time wpieog-steplabel', bar, '' );
 	progress.oninput = () => {
 		engine.stop();
 		const fig = figureOf( state.figure );
@@ -432,7 +459,6 @@ function openStudio( ctx ) {
 		g.drawImage( backViewCanvas, 0, 0 );
 		g.restore();
 		engine.setPaper( frontCanvas, backMirror );
-		paintPreviews();
 	};
 
 	/* ------------------------------- left column --------------------------- */
@@ -444,7 +470,7 @@ function openStudio( ctx ) {
 	const figGrid = ui.el( 'div', 'wpieog-figures', figBody );
 	const figTiles = {};
 	for ( const fig of FIGURES ) {
-		const tile = ui.el( 'button', 'wpieog-figure', figGrid );
+		const tile = ui.el( 'button', 'dsm-pick wpieog-figure', figGrid );
 		tile.type = 'button';
 		const thumb = ui.el( 'canvas', 'wpieog-figthumb', tile );
 		thumb.width = 96;
@@ -455,16 +481,18 @@ function openStudio( ctx ) {
 			w: 88,
 			h: 88,
 		} );
-		ui.el( 'span', null, tile, t( fig.label ) );
+		ui.el( 'span', 'dsm-pick-label', tile, t( fig.label ) );
 		tile.onclick = () => selectFigure( fig.id );
 		figTiles[ fig.id ] = tile;
 	}
 
-	const paperBody = ui.section( left, {
+	// Das Papier ist eine Einstellung, keine Auswahl: es gehoert nach
+	// rechts zu den Reglern, nicht in die Figurengalerie. Es steht dort
+	// zuerst, weil man das Blatt vor der Buehne einrichtet.
+	const paperBody = ui.section( side, {
 		icon: ICONS.paper,
 		title: t( 'The paper' ),
 	} );
-	const sidePreviews = {};
 	const colorMounts = [];
 	const swatches = {};
 
@@ -489,23 +517,15 @@ function openStudio( ctx ) {
 	};
 
 	const sideBlock = ( key, label ) => {
-		const box = ui.el( 'div', 'wpieog-sidebox', paperBody );
-		const head = ui.el( 'div', 'wpieog-sidehead', box );
-		ui.el( 'span', null, head, t( label ) );
-		const preview = ui.el( 'canvas', 'wpieog-paperview', head );
-		preview.width = 72;
-		preview.height = 72;
-		sidePreviews[ key ] = preview;
-
-		swatches[ key ] = colour(
-			box,
-			t( 'Colour' ),
-			state[ key ].color,
-			( c ) => {
-				state[ key ].color = c;
-				repaint();
-			}
-		);
+		const box = ui.el( 'div', 'dsm-card wpieog-sidebox', paperBody );
+		// Kein Vorschaufeld mehr und keine Zwischenueberschrift: das
+		// 44px-Quadrat zeigte dieselbe Farbe, die der Farbknopf daneben
+		// schon zeigt, und der Titel darueber sagte dasselbe noch einmal.
+		// Die Farbzeile traegt jetzt den Namen der Seite.
+		swatches[ key ] = colour( box, t( label ), state[ key ].color, ( c ) => {
+			state[ key ].color = c;
+			repaint();
+		} );
 		const btnRow = ui.el( 'div', 'wpieog-btnrow', box );
 		ui.btn( btnRow, {
 			label: t( 'Pick a picture' ),
@@ -542,7 +562,7 @@ function openStudio( ctx ) {
 		} );
 		colour(
 			box,
-			t( 'Pattern colour' ),
+			t( 'Pattern color' ),
 			state[ key ].patternColor,
 			( c ) => {
 				state[ key ].patternColor = c;
@@ -550,8 +570,8 @@ function openStudio( ctx ) {
 			}
 		);
 	};
-	sideBlock( 'front', 'Front side' );
-	sideBlock( 'back', 'Back side' );
+	sideBlock( 'front', 'Front color' );
+	sideBlock( 'back', 'Back color' );
 
 	// Brand kit: front and back take the first two brand colours, so a
 	// company crane comes out in the company's own paper. window.WPIE is
@@ -638,28 +658,7 @@ function openStudio( ctx ) {
 		},
 	} );
 
-	function paintPreviews() {
-		for ( const key of [ 'front', 'back' ] ) {
-			const c = sidePreviews[ key ];
-			const g = c.getContext( '2d' );
-			g.clearRect( 0, 0, c.width, c.height );
-			g.drawImage(
-				'front' === key ? frontCanvas : backViewCanvas,
-				0,
-				0,
-				c.width,
-				c.height
-			);
-		}
-	}
-
 	/* ------------------------------ right column --------------------------- */
-
-	const stepsBody = ui.section( side, {
-		icon: ICONS.steps,
-		title: t( 'Instructions' ),
-	} );
-	const stepsList = ui.el( 'div', 'wpieog-steps', stepsBody );
 
 	const sceneBody = ui.section( side, {
 		icon: ICONS.scene,
@@ -713,6 +712,14 @@ function openStudio( ctx ) {
 
 	/* ------------------------------ steps list ----------------------------- */
 
+	// Ganz unten: die Anleitung liest man, nachdem Papier und Buehne
+	// stehen, und sie ist die laengste Sektion der Spalte.
+	const stepsBody = ui.section( side, {
+		icon: ICONS.steps,
+		title: t( 'Instructions' ),
+	} );
+	const stepsList = ui.el( 'div', 'wpieog-steps', stepsBody );
+
 	let stepItems = [];
 
 	function buildSteps() {
@@ -720,7 +727,7 @@ function openStudio( ctx ) {
 		stepsList.replaceChildren();
 		stepItems = [];
 		const mk = ( label, at, thumbAt ) => {
-			const item = ui.el( 'button', 'wpieog-step', stepsList );
+			const item = ui.el( 'button', 'dsm-listrow wpieog-step', stepsList );
 			item.type = 'button';
 			const thumb = ui.el( 'canvas', 'wpieog-stepthumb', item );
 			thumb.width = 64;
@@ -781,6 +788,7 @@ function openStudio( ctx ) {
 		}
 		engine.setFigure( fig );
 		engine.setView( { ...VIEWS.reader, ...fig.view } );
+		markView( 'reader' );
 		buildSteps();
 		repaint();
 		// Show the finished figure at rest - folding only plays on Play
@@ -790,7 +798,7 @@ function openStudio( ctx ) {
 
 	/* -------------------------------- output ------------------------------- */
 
-	const status = ui.el( 'div', 'wpieog-status', modal.foot, '' );
+	const status = ui.el( 'div', 'dsm-hint wpieog-status', modal.foot, '' );
 	const setStatus = ( msg, bad ) => {
 		status.textContent = msg || '';
 		status.classList.toggle( 'is-bad', !! bad );
@@ -986,7 +994,14 @@ function openStudio( ctx ) {
 	} );
 	ro.observe( canvas );
 
+	let closed = false;
 	function close() {
+		// Reachable twice now: the x calls it directly (below) and the kit
+		// calls it through onClose. engine.dispose() twice is not free.
+		if ( closed ) {
+			return;
+		}
+		closed = true;
 		cancelAnimationFrame( raf );
 		ro.disconnect();
 		engine.dispose();

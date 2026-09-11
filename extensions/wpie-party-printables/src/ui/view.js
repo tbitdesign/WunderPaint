@@ -8,14 +8,14 @@ export function buildView( mid, { ui, t, onToggleDoc } ) {
 	canvas.width = 1600;
 	canvas.height = 400;
 	view.appendChild( canvas );
-	const docBtn = ui.el( 'button', 'wpiepp-doc', view );
+	const docBtn = ui.el( 'button', 'dsm-viewbtn wpiepp-doc', view );
 	docBtn.type = 'button';
 	docBtn.innerHTML = ICONS.eye + ' ' + t( 'Show document' );
 	docBtn.setAttribute( 'aria-pressed', 'false' );
 	docBtn.onclick = () => onToggleDoc();
 	const hint = ui.el(
 		'div',
-		'wpiepp-hint',
+		'dsm-viewhint wpiepp-hint',
 		view,
 		t( 'Solid lines are cuts, dashed lines are folds.' )
 	);

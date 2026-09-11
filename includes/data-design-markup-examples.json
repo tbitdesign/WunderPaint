@@ -1,0 +1,647 @@
+[
+	{
+		"name": "hero-title",
+		"why": "A full-bleed photo, duotoned and grained and darkened by a scrim, carries a bottom-left stack of eyebrow, bound title, bound excerpt and button: loud, but readable, because the copy stays in one corner and the ground under it is darkened on purpose.",
+		"markup": {
+			"v": 1,
+			"name": "Midnight drop",
+			"concept": {
+				"idea": "Ein nächtlicher Stadtausschnitt in Duotone trägt einen Titel-Stapel unten links wie ein Filmplakat",
+				"mood": "dark",
+				"loud": 4,
+				"imagery": "photo-hero"
+			},
+			"canvas": {
+				"w": 1080,
+				"h": 1080
+			},
+			"tokens": {
+				"palette": {
+					"source": "intent",
+					"intent": "dark"
+				},
+				"type": {
+					"pairing": {
+						"hero": [
+							"Anton",
+							400
+						],
+						"support": [
+							"Inter",
+							500
+						]
+					},
+					"scale": 1.3
+				},
+				"space": {
+					"margin": 0.06,
+					"gap": 0.02,
+					"radius": 0.02
+				}
+			},
+			"grid": {
+				"cols": 12,
+				"rows": 12,
+				"margin": 0.06,
+				"gutter": 0.02
+			},
+			"areas": [
+				{
+					"id": "hero",
+					"cell": [
+						0,
+						0,
+						12,
+						12
+					]
+				},
+				{
+					"id": "copy",
+					"cell": [
+						0,
+						4,
+						9,
+						12
+					]
+				}
+			],
+			"assets": [
+				{
+					"id": "city",
+					"kind": "stock",
+					"query": "city street at night neon",
+					"orientation": "square"
+				}
+			],
+			"elements": [
+				{
+					"id": "bg",
+					"kind": "background",
+					"style": "mesh",
+					"colors": [
+						"bg",
+						"surface",
+						"accent2"
+					],
+					"seed": 11,
+					"grain": 0.15,
+					"place": {
+						"cover": true
+					}
+				},
+				{
+					"id": "photo",
+					"kind": "photo",
+					"asset": "city",
+					"role": "hero",
+					"place": {
+						"cover": true
+					},
+					"fit": "cover",
+					"focus": [
+						0.5,
+						0.4
+					],
+					"treat": [
+						{
+							"fx": "duotone",
+							"shadow": "bg",
+							"highlight": "accent2"
+						},
+						{
+							"fx": "grain",
+							"amount": 18
+						}
+					],
+					"blend": "screen",
+					"opacity": 0.9,
+					"scrim": {
+						"color": "bg",
+						"from": "b",
+						"strength": 0.85,
+						"height": 0.7
+					}
+				},
+				{
+					"id": "stack",
+					"kind": "group",
+					"role": "hero",
+					"stack": {
+						"dir": "col",
+						"gap": 1,
+						"align": "start",
+						"justify": "end"
+					},
+					"place": {
+						"area": "copy",
+						"inset": [
+							0,
+							0.02,
+							0.03,
+							0.13
+						],
+						"size": [
+							"fill",
+							"fill"
+						]
+					}
+				},
+				{
+					"id": "eyebrow",
+					"kind": "text",
+					"parent": "stack",
+					"voice": "eyebrow",
+					"content": "New drop",
+					"chip": "accent",
+					"fill": "onAccent",
+					"size": [
+						0.3,
+						"auto"
+					]
+				},
+				{
+					"id": "title",
+					"kind": "text",
+					"parent": "stack",
+					"voice": "hero",
+					"content": "Midnight Run Collection",
+					"lines": 3,
+					"fit": "fluid",
+					"emph": {
+						"rule": "salient",
+						"style": "accent"
+					},
+					"bind": {
+						"id": "post.title",
+						"fit": "fluid"
+					},
+					"size": [
+						"fill",
+						"auto"
+					]
+				},
+				{
+					"id": "sub",
+					"kind": "text",
+					"parent": "stack",
+					"voice": "sub",
+					"content": "Reflective shells, storm-proof seams, out at midnight.",
+					"lines": 5,
+					"fill": "muted",
+					"bind": {
+						"id": "post.excerpt",
+						"fit": "fluid"
+					},
+					"size": [
+						"fill",
+						"auto"
+					]
+				},
+				{
+					"id": "cta",
+					"kind": "component",
+					"parent": "stack",
+					"type": "button",
+					"props": {
+						"label": "Shop the drop",
+						"pill": true,
+						"arrow": true,
+						"maxW": "fill"
+					},
+					"size": [
+						"auto",
+						"auto"
+					]
+				}
+			]
+		}
+	},
+	{
+		"name": "arch-photo",
+		"why": "A photo clipped into an arch on top, a centred text stack below: quiet, generous margins, exactly one emphasis (an italic word), and the shape carries the whole idea - no effect, no rotation.",
+		"markup": {
+			"v": 1,
+			"name": "Quieter morning",
+			"concept": {
+				"idea": "Ein Foto im Bogen sitzt wie ein Fenster über einem ruhigen, warmen Textblock; ein kleiner Chip datiert das Haus",
+				"mood": "earthy",
+				"loud": 2,
+				"imagery": "photo-hero"
+			},
+			"canvas": {
+				"w": 1080,
+				"h": 1350
+			},
+			"tokens": {
+				"palette": {
+					"source": "intent",
+					"intent": "earthy"
+				},
+				"type": {
+					"pairing": {
+						"hero": [
+							"Playfair Display",
+							700
+						],
+						"support": [
+							"Inter",
+							400
+						]
+					},
+					"scale": 1.25
+				},
+				"space": {
+					"margin": 0.07,
+					"gap": 0.02,
+					"radius": 0.02
+				}
+			},
+			"grid": {
+				"cols": 12,
+				"rows": 12,
+				"margin": 0.07,
+				"gutter": 0.02
+			},
+			"areas": [
+				{
+					"id": "window",
+					"cell": [
+						1,
+						0,
+						11,
+						7
+					]
+				},
+				{
+					"id": "copy",
+					"cell": [
+						1,
+						7,
+						11,
+						12
+					]
+				}
+			],
+			"assets": [
+				{
+					"id": "cup",
+					"kind": "stock",
+					"query": "coffee cup morning light window",
+					"orientation": "portrait"
+				}
+			],
+			"elements": [
+				{
+					"id": "bg",
+					"kind": "background",
+					"style": "solid",
+					"colors": [
+						"bg"
+					],
+					"place": {
+						"cover": true
+					}
+				},
+				{
+					"id": "photo",
+					"kind": "photo",
+					"asset": "cup",
+					"role": "hero",
+					"place": {
+						"area": "window",
+						"anchor": "t",
+						"size": [
+							0.8,
+							"fill"
+						]
+					},
+					"fit": "cover",
+					"focus": [
+						0.5,
+						0.45
+					],
+					"maskShape": {
+						"family": "arch",
+						"params": {}
+					}
+				},
+				{
+					"id": "chip",
+					"kind": "component",
+					"type": "chip",
+					"role": "decor",
+					"props": {
+						"label": "Since 1998",
+						"tilt": -4
+					},
+					"place": {
+						"area": "window",
+						"anchor": "tl",
+						"size": [
+							"auto",
+							"auto"
+						]
+					}
+				},
+				{
+					"id": "stack",
+					"kind": "group",
+					"role": "hero",
+					"stack": {
+						"dir": "col",
+						"gap": 1,
+						"align": "center",
+						"justify": "start"
+					},
+					"place": {
+						"area": "copy",
+						"size": [
+							"fill",
+							"fill"
+						]
+					}
+				},
+				{
+					"id": "eyebrow",
+					"kind": "text",
+					"parent": "stack",
+					"voice": "eyebrow",
+					"content": "Field notes",
+					"fill": "accent",
+					"align": "center",
+					"size": [
+						"fill",
+						"auto"
+					]
+				},
+				{
+					"id": "title",
+					"kind": "text",
+					"parent": "stack",
+					"voice": "hero",
+					"content": "A quieter kind of morning",
+					"lines": 3,
+					"fit": "fluid",
+					"align": "center",
+					"emph": {
+						"rule": "word",
+						"word": "quieter",
+						"style": "italic"
+					},
+					"size": [
+						0.55,
+						"auto"
+					]
+				},
+				{
+					"id": "detail",
+					"kind": "text",
+					"parent": "stack",
+					"voice": "detail",
+					"content": "Slow coffee, no rush, just the first light.",
+					"lines": 2,
+					"fill": "muted",
+					"align": "center",
+					"size": [
+						0.7,
+						"auto"
+					]
+				},
+				{
+					"id": "cta",
+					"kind": "component",
+					"parent": "stack",
+					"type": "button",
+					"props": {
+						"label": "Read the story",
+						"pill": false,
+						"arrow": true,
+						"maxW": "fill"
+					},
+					"size": [
+						"auto",
+						"auto"
+					]
+				}
+			]
+		}
+	},
+	{
+		"name": "split-stat",
+		"why": "A landscape canvas split into two areas: on the left a huge number in front of a tilted burst (`for` is what allows the overlap), on the right a circle-masked, bound featured image - one idea, two halves, everything hung off `rel`.",
+		"markup": {
+			"v": 1,
+			"name": "Half price",
+			"concept": {
+				"idea": "Links schreit eine Zahl vor einem Zackenkreis, rechts trägt ein rundes Produktfoto den Beweis; ein diagonaler Verlauf verbindet beide",
+				"mood": "vibrant",
+				"loud": 5,
+				"imagery": "photo-cutout"
+			},
+			"canvas": {
+				"w": 1200,
+				"h": 630
+			},
+			"tokens": {
+				"palette": {
+					"source": "intent",
+					"intent": "vibrant",
+					"roles": {
+						"accent": "#a3004f",
+						"accent2": "#e658a1"
+					}
+				},
+				"type": {
+					"pairing": {
+						"hero": [
+							"Bebas Neue",
+							400
+						],
+						"support": [
+							"Montserrat",
+							500
+						]
+					},
+					"scale": 1.4
+				},
+				"space": {
+					"margin": 0.06,
+					"gap": 0.02,
+					"radius": 0.03
+				}
+			},
+			"grid": {
+				"cols": 12,
+				"rows": 6,
+				"margin": 0.06,
+				"gutter": 0.02
+			},
+			"areas": [
+				{
+					"id": "left",
+					"cell": [
+						0,
+						0,
+						7,
+						6
+					]
+				},
+				{
+					"id": "right",
+					"cell": [
+						7,
+						0,
+						12,
+						6
+					]
+				}
+			],
+			"assets": [],
+			"elements": [
+				{
+					"id": "bg",
+					"kind": "background",
+					"style": "gradient",
+					"colors": [
+						"bg",
+						"surface"
+					],
+					"direction": "diag",
+					"place": {
+						"cover": true
+					}
+				},
+				{
+					"id": "burst",
+					"kind": "shape",
+					"role": "decor",
+					"for": "stat",
+					"family": "burst",
+					"params": {},
+					"fill": "accent2",
+					"opacity": 0.9,
+					"rot": 12,
+					"place": {
+						"area": "left",
+						"anchor": "tl",
+						"size": [
+							0.42,
+							0.38
+						]
+					}
+				},
+				{
+					"id": "stat",
+					"kind": "text",
+					"role": "hero",
+					"voice": "stat",
+					"content": "50%",
+					"lines": 1,
+					"fit": "fluid",
+					"fill": "ink",
+					"place": {
+						"area": "left",
+						"anchor": "l",
+						"inset": [
+							0.05,
+							0,
+							0.35,
+							0.02
+						],
+						"size": [
+							0.4,
+							"auto"
+						]
+					}
+				},
+				{
+					"id": "title",
+					"kind": "text",
+					"voice": "hero",
+					"content": "Off everything this weekend",
+					"lines": 2,
+					"fit": "fluid",
+					"fill": "ink",
+					"place": {
+						"rel": {
+							"to": "stat",
+							"side": "below",
+							"gap": 2.8
+						},
+						"anchor": "l",
+						"size": [
+							0.5,
+							"auto"
+						]
+					}
+				},
+				{
+					"id": "cta",
+					"kind": "component",
+					"type": "button",
+					"props": {
+						"label": "Grab yours",
+						"pill": true,
+						"arrow": true,
+						"maxW": 0.3
+					},
+					"place": {
+						"rel": {
+							"to": "title",
+							"side": "below",
+							"gap": 1.5
+						},
+						"anchor": "l",
+						"size": [
+							"auto",
+							"auto"
+						]
+					}
+				},
+				{
+					"id": "product",
+					"kind": "photo",
+					"role": "hero",
+					"bind": {
+						"id": "post.featured"
+					},
+					"place": {
+						"area": "right",
+						"anchor": "c",
+						"size": [
+							0.34,
+							0.85
+						]
+					},
+					"fit": "cover",
+					"focus": [
+						0.5,
+						0.5
+					],
+					"maskShape": {
+						"family": "ellipse",
+						"params": {}
+					}
+				},
+				{
+					"id": "tag",
+					"kind": "component",
+					"type": "chip",
+					"role": "decor",
+					"props": {
+						"label": "48H ONLY",
+						"tilt": 6
+					},
+					"place": {
+						"area": "right",
+						"anchor": "tr",
+						"size": [
+							"auto",
+							"auto"
+						]
+					}
+				}
+			]
+		}
+	}
+]

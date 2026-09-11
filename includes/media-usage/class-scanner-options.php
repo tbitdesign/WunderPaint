@@ -124,7 +124,9 @@ class Scanner_Options extends Usage_Scanner {
 
 		// Theme mods keep the logo as an id and the header and background as URLs.
 		if ( 0 === strpos( $name, 'theme_mods_' ) ) {
-			$mods = maybe_unserialize( $value );
+			// allowed_classes => false, siehe class-usage-scanner.php: der
+			// Sweep liest den ROHEN Optionswert und deserialisiert selbst.
+			$mods = unserialize( $value, array( 'allowed_classes' => false ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- allowed_classes => false, so no object is ever constructed.
 			$ids  = array();
 			if ( is_array( $mods ) ) {
 				foreach ( array( 'custom_logo', 'site_logo' ) as $key ) {
@@ -140,7 +142,8 @@ class Scanner_Options extends Usage_Scanner {
 
 		// Media widgets name their attachment plainly.
 		if ( 0 === strpos( $name, 'widget_media_' ) ) {
-			return $this->refs_from_data( maybe_unserialize( $value ), self::MODE_BLOCK );
+			// allowed_classes => false, siehe oben.
+			return $this->refs_from_data( unserialize( $value, array( 'allowed_classes' => false ) ), self::MODE_BLOCK ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- allowed_classes => false, so no object is ever constructed.
 		}
 
 		if ( ! $this->mentions_uploads( $value ) ) {
@@ -157,33 +160,73 @@ class Scanner_Options extends Usage_Scanner {
 	 * @return array[]
 	 */
 	public function find_for( $attachment_id, $needles ) {
+		return $this->lookup( $attachment_id, $needles );
+	}
+
+	/**
+	 * Row cap of one lookup.
+	 *
+	 * @return int
+	 */
+	protected function lookup_rows() {
+		return max( 1, (int) apply_filters( 'wpie_media_usage_lookup_rows', 200, $this->key() ) );
+	}
+
+	/**
+	 * Prefilter: options whose value mentions a needle.
+	 *
+	 * @param string[] $needles Fragments.
+	 * @param int      $limit   Row cap.
+	 * @return array{rows:array,truncated:bool}
+	 */
+	protected function candidates( $needles, $limit ) {
 		global $wpdb;
 
 		$args = array();
 		$like = $this->needle_sql( 'option_value', $needles, $args );
 		if ( '' === $like ) {
-			return array();
-		}
-		$sql = "SELECT option_name, option_value FROM {$wpdb->options} WHERE " . $this->where() . " AND $like LIMIT 200";
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- assembled from fixed fragments, all values prepared.
-		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ) );
-
-		$out = array();
-		foreach ( $rows as $row ) {
-			$refs = $this->refs_from_option( (string) $row->option_name, (string) $row->option_value );
-			if ( ! $refs || ! Media_Usage::refs_match( $refs, $attachment_id, $this->resolver ) ) {
-				continue;
-			}
-			$out[] = $this->hit(
-				$attachment_id,
-				'',
-				0,
-				$this->pretty_name( (string) $row->option_name ),
-				$this->link_for( (string) $row->option_name ),
-				__( 'Site setting', 'wunderpaint' )
+			return array(
+				'rows'      => array(),
+				'truncated' => false,
 			);
 		}
-		return $out;
+		$args[] = (int) $limit;
+		$rows   = $this->rows(
+			"SELECT option_name, option_value FROM {$wpdb->options} WHERE " . $this->where() . " AND $like LIMIT %d",
+			$args
+		);
+		return array(
+			'rows'      => $rows,
+			'truncated' => count( $rows ) >= (int) $limit,
+		);
+	}
+
+	/**
+	 * References in one option.
+	 *
+	 * @param object $row Row.
+	 * @return array|null
+	 */
+	protected function row_refs( $row ) {
+		return $this->refs_from_option( (string) $row->option_name, (string) $row->option_value );
+	}
+
+	/**
+	 * Hit for one option.
+	 *
+	 * @param object $row           Row.
+	 * @param int    $attachment_id Attachment.
+	 * @return array
+	 */
+	protected function row_hit( $row, $attachment_id ) {
+		return $this->hit(
+			$attachment_id,
+			'',
+			0,
+			$this->pretty_name( (string) $row->option_name ),
+			$this->link_for( (string) $row->option_name ),
+			__( 'Site setting', 'wunderpaint' )
+		);
 	}
 
 	/**

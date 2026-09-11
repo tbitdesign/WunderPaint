@@ -10,20 +10,36 @@ const MODEL = 'Xenova/slimsam-77-uniform';
 
 let model = null;
 let processor = null;
+// One load, however many clicks. Two clicks in a row are normal use, and
+// the second used to arrive while the first was still waiting for the
+// processor: it saw `model` set, skipped the block and called a `null`
+// processor. Same shape as ml.js loadTransformers - a single promise,
+// forgotten again on failure so the next click can retry.
+let loading = null;
 
-async function ensureModel() {
-	const TF = await loadTransformers();
-	if ( ! model ) {
-		// Device comes from the central blocklist in ml.js: 'smart-select'
-		// is pinned to WASM there because SAM returns garbage masks on the
-		// WebGPU execution provider (re-verified on an RTX 4090, Chrome).
-		model = await TF.SamModel.from_pretrained( MODEL, {
-			dtype: 'q8',
-			device: deviceForModel( 'smart-select' ),
+function ensureModel() {
+	if ( ! loading ) {
+		loading = ( async () => {
+			const TF = await loadTransformers();
+			// Device comes from the central blocklist in ml.js: 'smart-select'
+			// is pinned to WASM there because SAM returns garbage masks on
+			// the WebGPU execution provider (re-verified on an RTX 4090,
+			// Chrome).
+			const m = await TF.SamModel.from_pretrained( MODEL, {
+				dtype: 'q8',
+				device: deviceForModel( 'smart-select' ),
+			} );
+			const p = await TF.AutoProcessor.from_pretrained( MODEL );
+			// Both or neither: nothing reads a half-loaded pair.
+			model = m;
+			processor = p;
+			return TF;
+		} )().catch( ( err ) => {
+			loading = null;
+			throw err;
 		} );
-		processor = await TF.AutoProcessor.from_pretrained( MODEL );
 	}
-	return TF;
+	return loading;
 }
 
 /**

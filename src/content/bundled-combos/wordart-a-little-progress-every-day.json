@@ -1,0 +1,173 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-a-little-progress-every-day",
+	"label": "A Little Progress Every Day",
+	"category": "wordart",
+	"w": 710,
+	"h": 520,
+	"layers": [
+		{
+			"id": "waf-a-little-progress-every-day-0",
+			"type": "text",
+			"name": "A LITTLE\nPROGRESS\nEVERY DAY",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 118.46,
+			"y": 47.16,
+			"w": 550,
+			"h": 425,
+			"rot": -5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fff2d9",
+					"size": 2,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "A LITTLE\nPROGRESS\nEVERY DAY",
+			"fontSize": 100,
+			"fontFamily": "Archivo",
+			"weight": 900,
+			"color": "#ed814b",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "A LITTLE\n",
+					"s": {
+						"color": "#428a84"
+					}
+				},
+				{
+					"text": "PROGRESS\n",
+					"s": null
+				},
+				{
+					"text": "EVERY DAY",
+					"s": {
+						"color": "#428a84"
+					}
+				}
+			],
+			"textFX": {
+				"dotShadow": {
+					"angle": 45,
+					"offset": 8,
+					"color": "#245a5d"
+				}
+			}
+		},
+		{
+			"id": "waf-a-little-progress-every-day-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.46,
+			"y": 353.16,
+			"w": 15,
+			"h": 126,
+			"rot": -5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#ed814b",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 63,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-a-little-progress-every-day-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 58.46,
+			"y": 318.16,
+			"w": 15,
+			"h": 161,
+			"rot": -5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#d8b447",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 80.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-a-little-progress-every-day-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 87.46,
+			"y": 283.16,
+			"w": 15,
+			"h": 196,
+			"rot": -5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#428a84",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 98,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

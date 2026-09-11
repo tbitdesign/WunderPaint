@@ -1,7 +1,4 @@
 /** Brand mark (shared house icon) and small stroke icons for tiles and sections. */
-export const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V4.99C0,2.99,1.62,1.37,3.62,1.37h10.22c2,0,3.62,1.62,3.62,3.62v10.22c0,2-1.62,3.62-3.62,3.62ZM3.62,2.87c-1.17,0-2.12.95-2.12,2.12v10.22c0,1.17.95,2.12,2.12,2.12h10.22c1.17,0,2.12-.95,2.12-2.12V4.99c0-1.17-.95-2.12-2.12-2.12H3.62Z"/><path fill="#3b66ff" d="M13.21,7.17h-1.71v-1.71c0-.41-.34-.75-.75-.75s-.75.34-.75.75v1.71h-1.71c-.41,0-.75.34-.75.75s.34.75.75.75h1.71v1.71c0,.41.34.75.75.75s.75-.34.75-.75v-1.71h1.71c.41,0,.75-.34.75-.75s-.34-.75-.75-.75Z"/><path fill="currentColor" d="M18.08,18.83c-.41,0-.75-.34-.75-.75V.75c0-.41.34-.75.75-.75s.75.34.75.75v17.33c0,.41-.34.75-.75.75Z"/></svg>';
-
 const stroke = ( d, size = 16 ) =>
 	`<svg width="${ size }" height="${ size }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ d }</svg>`;
 

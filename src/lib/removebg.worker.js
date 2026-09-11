@@ -16,7 +16,7 @@ const STD = [ 0.229, 0.224, 0.225 ];
 
 let sessionPromise = null;
 
-async function getSession( wasmPath, modelUrl ) {
+async function getSession( wasmPath, modelUrl, version ) {
 	if ( ! sessionPromise ) {
 		sessionPromise = ( async () => {
 			const ort = await import(
@@ -30,7 +30,8 @@ async function getSession( wasmPath, modelUrl ) {
 			// this returns null.
 			try {
 				const buf = await cachedRuntimeBuffer(
-					wasmPath + ORT_WASM_FILE
+					wasmPath + ORT_WASM_FILE,
+					version
 				);
 				if ( buf ) {
 					ort.env.wasm.wasmBinary = buf;
@@ -46,9 +47,13 @@ async function getSession( wasmPath, modelUrl ) {
 }
 
 self.onmessage = async ( event ) => {
-	const { bitmap, wasmPath, modelUrl } = event.data;
+	const { bitmap, wasmPath, modelUrl, version } = event.data;
 	try {
-		const { ort, session } = await getSession( wasmPath, modelUrl );
+		const { ort, session } = await getSession(
+			wasmPath,
+			modelUrl,
+			version || ''
+		);
 
 		// Preprocess: draw to 320×320, normalize CHW float32.
 		const canvas = new OffscreenCanvas( SIZE, SIZE );

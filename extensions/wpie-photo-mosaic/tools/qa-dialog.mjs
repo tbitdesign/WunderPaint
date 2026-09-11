@@ -24,6 +24,10 @@ await baseline( qa, {
 	startsEmpty: true,
 	settle: 700,
 	allowInert: 0,
+	// The mock document has no layers: nudging the main-image select
+	// lands on the media library and the mock picker then covers the
+	// dialog. The source is covered by the editor tests.
+	skip: [ 'main image', 'hauptbild' ],
 } );
 await qa.shot( 'qa-dialog.png' );
 

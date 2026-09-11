@@ -9,6 +9,8 @@
  */
 
 /** Perceived lightness of an rgb triple in 0..1. */
+import { gridSize } from '../core/frame.js';
+
 export const lum = ( c ) => 0.2126 * c[ 0 ] + 0.7152 * c[ 1 ] + 0.0722 * c[ 2 ];
 
 /** Hue in 0..1 (undefined for grays -> -1) and saturation 0..1. */
@@ -39,8 +41,9 @@ export function hueSat( c ) {
 export class SenseMap {
 	constructor( aspect, rows = 36 ) {
 		this.aspect = aspect;
-		this.rows = rows;
-		this.cols = Math.max( 4, Math.round( rows * aspect ) );
+		const size = gridSize( aspect, rows );
+		this.rows = size.rows;
+		this.cols = size.cols;
 		const n = this.rows * this.cols;
 		this.rgb = new Float32Array( n * 3 );
 		this.cover = new Float32Array( n ); // 0 = ground, 1 = fully painted

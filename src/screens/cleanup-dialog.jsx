@@ -47,7 +47,16 @@ export function CleanupDialog( { onClose, onChanged, extras } ) {
 	const [ note, setNote ] = useState( '' );
 	const cancel = useRef( { cancelled: false } );
 
-	useEscape( onClose );
+	// Escape used to walk around the busy lock the other close paths have,
+	// closing the dialog over a running sweep. While something runs it
+	// cancels that instead; the dialog closes on the next press.
+	useEscape( () => {
+		if ( busy ) {
+			cancel.current.cancelled = true;
+			return;
+		}
+		onClose();
+	} );
 
 	const loadStatus = useCallback( () => {
 		mediaUsage
@@ -95,6 +104,7 @@ export function CleanupDialog( { onClose, onChanged, extras } ) {
 				className="wpie-mlm-cluster-panel wide wpie-cleanup"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Clean up the library', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -794,7 +804,14 @@ function HeldTab( { onChanged } ) {
 	const load = useCallback( () => {
 		quarantine
 			.list()
-			.then( setData )
+			.then( ( d ) => {
+				setData( d );
+				// The note about rescued images is shown once; the list route
+				// no longer clears it on read (a GET must not write).
+				if ( d?.rescued?.length ) {
+					quarantine.ackRescued().catch( () => {} );
+				}
+			} )
 			.catch( () => setData( { items: [] } ) );
 		orphans
 			.held()

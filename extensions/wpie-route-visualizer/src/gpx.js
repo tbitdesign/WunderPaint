@@ -81,7 +81,12 @@ function pointsIn( block ) {
 		const pt = {
 			lat,
 			lon,
-			ele: null === ele ? null : parseFloat( ele ),
+			// An empty <ele></ele> parsed to NaN and the profile silently
+			// vanished (ZAHL-2): only a finite number counts.
+			ele:
+				null !== ele && Number.isFinite( parseFloat( ele ) )
+					? parseFloat( ele )
+					: null,
 			time: time ? Date.parse( time ) || null : null,
 		};
 		if ( null !== hr && ! Number.isNaN( parseFloat( hr ) ) ) {

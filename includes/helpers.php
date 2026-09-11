@@ -96,6 +96,9 @@ class Helpers {
 
 	const KEY_PREFIX = 'wpie1:';
 
+	// Independent of the release version: repair guards weakened by old writers.
+	const UPLOAD_GUARD_REVISION = 2;
+
 	/**
 	 * Secret option fields (stored obfuscated).
 	 *
@@ -114,11 +117,18 @@ class Helpers {
 	 * One deliberate difference: wpie-quarantine needs the deny rule like
 	 * every other store, but uninstall.php leaves it alone on purpose. It
 	 * holds the user's own media waiting to be restored, not plugin data.
+	 * tests/php/uninstall-cover.php holds the two lists together, so that
+	 * exception stays the only one instead of becoming the first of several.
+	 *
+	 * wpie-ai-tmp joined on 2026-09-10. AI_Provider::externalize_images()
+	 * had been creating it while it stood in NEITHER list: no deny rule, so
+	 * it was our one store without the last line of defence against an
+	 * uploaded .php, and no cleanup, so generated images stayed behind.
 	 *
 	 * @return string[]
 	 */
 	public static function upload_dirs() {
-		return array( 'wpie-versions', 'wpie-quarantine', 'wpie-fonts', 'wpie-fonts/library', 'wpie-extensions', 'wpie-3d-models', 'wpie-models', 'wpie-runtime', 'wpie-live', 'wpie-content' );
+		return array( 'wpie-versions', 'wpie-quarantine', 'wpie-fonts', 'wpie-fonts/library', 'wpie-extensions', 'wpie-3d-models', 'wpie-models', 'wpie-runtime', 'wpie-live', 'wpie-content', 'wpie-ai-tmp' );
 	}
 
 	/**
@@ -193,6 +203,13 @@ class Helpers {
 		$file = trailingslashit( (string) $dir ) . '.htaccess';
 		if ( ! is_dir( $dir ) ) {
 			return;
+		}
+		// A generic caller must never weaken a private store or a deny-all
+		// rule previously written by us. Custom server rules remain untouched.
+		$deny_all = $deny_all || in_array( basename( rtrim( $dir, '/\\' ) ), self::deny_all_dirs(), true );
+		if ( ! $deny_all && is_file( $file ) ) {
+			$existing = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$deny_all = 0 === strpos( $existing, '# WunderPaint: served only through the plugin, never over HTTP.' );
 		}
 		$block = static function () {
 			return "\t<IfModule mod_authz_core.c>\n\t\tRequire all denied\n\t</IfModule>\n"

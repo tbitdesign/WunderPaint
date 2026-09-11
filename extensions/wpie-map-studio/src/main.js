@@ -91,9 +91,16 @@ const FALLBACK_PLACE = {
 // setups that serve the file from elsewhere - the seed is then skipped
 // and the studio simply fetches as before.
 const SCRIPT_BASE = ( () => {
-	const tag = document.querySelector(
-		'script[src*="/wpie-extensions/wpie-map-studio/"]'
-	);
+	// The free plugin serves its studios from bundled-extensions/, the
+	// installer from wpie-extensions/: the selector knew only the second,
+	// so the shipped excerpt was never found (BRIDGE-01).
+	const tag =
+		document.querySelector(
+			'script[src*="/wpie-extensions/wpie-map-studio/"]'
+		) ||
+		document.querySelector(
+			'script[src*="/bundled-extensions/wpie-map-studio/"]'
+		);
 	return tag ? tag.src.replace( /[^/]*(\?.*)?$/, '' ) : '';
 } )();
 
@@ -127,12 +134,12 @@ const SEC_ICONS = {
 	dot: svgIc( '<circle cx="12" cy="12" r="7"/>' ),
 };
 function section( parent, label, iconKey ) {
-	const card = el( 'div', 'wpiemap-card', parent );
+	const card = el( 'div', 'dsm-card wpiemap-card', parent );
 	if ( label ) {
-		const head = el( 'div', 'wpiemap-card-head', card );
+		const head = el( 'div', 'dsm-card-head wpiemap-card-head', card );
 		head.innerHTML = ( SEC_ICONS[ iconKey ] || SEC_ICONS.dot ) + '<span>' + label + '</span>';
 	}
-	return el( 'div', 'wpiemap-card-body', card );
+	return el( 'div', 'dsm-card-body wpiemap-card-body', card );
 }
 
 function debounced( fn, ms ) {
@@ -169,11 +176,14 @@ async function openStudio( { editor, extras, layer } ) {
 	} catch ( e ) {
 		store = {};
 	}
-	const storeSave = () => {
-		try {
-			bridge.storage.set( NS, store );
-		} catch ( e ) {}
-	};
+	// A promise: the old try/catch caught nothing, a failed write vanished
+	// (BRIDGE-03, EXTFEHLER-09).
+	const storeSave = () =>
+		bridge.storage.set( NS, store ).catch( () => {
+			if ( extras && extras.toasts ) {
+				extras.toasts.error( t( 'Could not save your settings.' ) );
+			}
+		} );
 	const geo = bridge && bridge.api && bridge.api.geo;
 	if ( ! geo ) {
 		if ( extras && extras.toasts ) {
@@ -231,12 +241,10 @@ async function openStudio( { editor, extras, layer } ) {
 
 	// The editor's brand mark (every core modal badges with it) and the
 	// Tabler x icon, inline because packs are framework-free.
-	const ICON_BRAND =
-		'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
 	const ICON_CLOSE =
 		'<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>';
 
-	// Mount inside the editor root: the modal then follows the editor's
+		// Mount inside the editor root: the modal then follows the editor's
 	// modal design (dsm family), theme variables and custom scrollbars.
 	const host = document.getElementById( 'wpie-root' ) || document.body;
 	const backdrop = el( 'div', 'modal-backdrop', host );
@@ -245,8 +253,8 @@ async function openStudio( { editor, extras, layer } ) {
 	dialog.setAttribute( 'aria-label', 'Map Posters' );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	const headTitleRow = el( 'div', 'dsm-title-row', titles );
 	const title = el( 'span', 'dsm-title', headTitleRow );
@@ -273,19 +281,19 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const searchSec = section( side, t( 'Location' ), 'location' );
 	const searchWrap = el( 'div', 'wpiemap-search', searchSec );
-	const searchInput = el( 'input', null, searchWrap );
-	searchInput.type = 'text';
-	searchInput.placeholder = t( 'Search a place, e.g. Hamburg' );
+	const searchInput = window.WPIE.bridge.ui.search( searchWrap, {
+		placeholder: t( 'Search a place, e.g. Hamburg' ),
+	} ).input;
 	const results = el( 'div', 'wpiemap-results', searchWrap );
 	results.style.display = 'none';
-	const coordsLine = el( 'div', 'wpiemap-coords', searchSec );
+	const coordsLine = el( 'div', 'dsm-note wpiemap-coords', searchSec );
 
 	// Status/errors float over the preview (not inside the form).
-	const status = el( 'div', 'wpiemap-status', view );
+	const status = el( 'div', 'dsm-viewhint wpiemap-status', view );
 	const setStatus = ( text, isError ) => {
 		status.textContent = text || '';
 		status.className =
-			'wpiemap-status' +
+			'dsm-viewhint wpiemap-status' +
 			( text ? ' on' : '' ) +
 			( isError ? ' err' : '' );
 	};
@@ -327,7 +335,7 @@ async function openStudio( { editor, extras, layer } ) {
 	// appear; two implementations drift.
 	const colorRow = ( key, label, into = params.overrides, where = colorSec ) => {
 		const row = el( 'div', 'wpiemap-row', where );
-		const span = el( 'span', null, row );
+		const span = el( 'span', 'dsm-rowline-label', row );
 		span.textContent = label;
 		const slot = el( 'span', 'wpiemap-swatch', row );
 		const onChange = ( c ) => {
@@ -351,7 +359,7 @@ async function openStudio( { editor, extras, layer } ) {
 				},
 			};
 		}
-		const reset = el( 'button', 'wpiemap-reset', row );
+		const reset = el( 'button', 'ai-btn secondary wpiemap-reset', row );
 		reset.textContent = t( 'Auto' );
 		reset.title = t( 'Back to the theme color' );
 		reset.onclick = ( e ) => {
@@ -368,11 +376,11 @@ async function openStudio( { editor, extras, layer } ) {
 
 	// v2.0 - foil / gradient roads (gold streets on black) + glow.
 	const gradRow = el( 'div', 'wpiemap-gradrow', colorSec );
-	el( 'span', 'wpiemap-gradlbl', gradRow ).textContent = t( 'Road foil' );
+	el( 'span', 'dsm-fieldlabel wpiemap-gradlbl', gradRow ).textContent = t( 'Road foil' );
 	const gradWrap = el( 'div', 'wpiemap-grads', gradRow );
 	const gradBtns = new Map();
 	const gradTile = ( id, label, background ) => {
-		const b = el( 'button', 'wpiemap-grad', gradWrap );
+		const b = el( 'button', 'dsm-strip wpiemap-grad', gradWrap );
 		b.type = 'button';
 		b.title = label;
 		b.setAttribute( 'aria-label', label );
@@ -393,7 +401,7 @@ async function openStudio( { editor, extras, layer } ) {
 		gradTile( g.id, g.label, `linear-gradient(90deg, ${ g.stops.join( ', ' ) })` );
 	}
 	const flowRow = el( 'label', 'wpiemap-row', colorSec );
-	el( 'span', null, flowRow ).textContent = t( 'Color flow' );
+	el( 'span', 'dsm-rowline-label', flowRow ).textContent = t( 'Color flow' );
 	const flowSel = el( 'select', 'dsm-select', flowRow );
 	for ( const [ value, label ] of [
 		[ 'class', t( 'By road class' ) ],
@@ -416,7 +424,7 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 	syncGrads();
 	const glowRow = el( 'label', 'wpiemap-row', colorSec );
-	el( 'span', null, glowRow ).textContent = t( 'Glow' );
+	el( 'span', 'dsm-rowline-label', glowRow ).textContent = t( 'Glow' );
 	const glowInput = el( 'input', null, glowRow );
 	glowInput.type = 'range';
 	glowInput.min = '0';
@@ -459,7 +467,7 @@ async function openStudio( { editor, extras, layer } ) {
 		} );
 	};
 	if ( brandKits.length || ( ( window.WPIE.brand && window.WPIE.brand.colors ) || [] ).length ) {
-		const brandLbl = el( 'label', 'wpiemap-check', colorSec );
+		const brandLbl = el( 'label', 'dsm-checkrow wpiemap-check', colorSec );
 		const brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
 		brandCb.checked = params.useBrand;
@@ -561,7 +569,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const optSec = section( side, t( 'Map' ), 'map' );
 
 	const zoomRow = el( 'label', 'wpiemap-row', optSec );
-	el( 'span', null, zoomRow ).textContent = t( 'Zoom' );
+	el( 'span', 'dsm-rowline-label', zoomRow ).textContent = t( 'Zoom' );
 	const zoomInput = el( 'input', null, zoomRow );
 	zoomInput.type = 'range';
 	zoomInput.min = '0';
@@ -580,7 +588,7 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 
 	const weightRow = el( 'label', 'wpiemap-row', optSec );
-	el( 'span', null, weightRow ).textContent = t( 'Line weight' );
+	el( 'span', 'dsm-rowline-label', weightRow ).textContent = t( 'Line weight' );
 	const weightInput = el( 'input', null, weightRow );
 	weightInput.type = 'range';
 	weightInput.min = '50';
@@ -595,7 +603,7 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 
 	const shapeRow = el( 'div', 'wpiemap-shaperow', optSec );
-	el( 'span', null, shapeRow ).textContent = t( 'Shape' );
+	el( 'span', 'dsm-fieldlabel', shapeRow ).textContent = t( 'Shape' );
 	const shapeGrid = el( 'div', 'wpiemap-shapes', shapeRow );
 	const SHAPE_ICONS = {
 		none: '<rect x="4.5" y="4.5" width="15" height="15" rx="1"/>',
@@ -622,7 +630,7 @@ async function openStudio( { editor, extras, layer } ) {
 		[ 'arch', t( 'Arch' ) ],
 		[ 'star', t( 'Star' ) ],
 	] ) {
-		const tile = el( 'button', 'wpiemap-shape', shapeGrid );
+		const tile = el( 'button', 'dsm-mini wpiemap-shape', shapeGrid );
 		tile.title = label;
 		tile.setAttribute( 'aria-label', label );
 		tile.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${ SHAPE_ICONS[ value ] }</svg>`;
@@ -641,7 +649,7 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const checks = {};
 	const checkRow = ( key, label ) => {
-		const row = el( 'label', 'wpiemap-check', optSec );
+		const row = el( 'label', 'dsm-checkrow wpiemap-check', optSec );
 		const input = el( 'input', null, row );
 		input.type = 'checkbox';
 		input.checked = !! params.show[ key ];
@@ -673,9 +681,9 @@ async function openStudio( { editor, extras, layer } ) {
 	/* -------------------------------- pins ------------------------------- */
 
 	const pinSec = section( side, t( 'Pins' ), 'pins' );
-	const pinBtn = el( 'button', 'wpiemap-btn wpiemap-addpin', pinSec );
+	const pinBtn = el( 'button', 'ai-btn secondary wpiemap-btn wpiemap-addpin', pinSec );
 	pinBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>${ t( 'Add pin' ) }</span>`;
-	const pinNote = el( 'div', 'wpiemap-coords', pinSec );
+	const pinNote = el( 'div', 'dsm-note wpiemap-coords', pinSec );
 	pinNote.textContent = t(
 		'Pins land in the middle of the map, drag them into place.'
 	);
@@ -693,7 +701,7 @@ async function openStudio( { editor, extras, layer } ) {
 				pin.label = label.value;
 				paint();
 			};
-			const remove = el( 'button', 'wpiemap-reset', row );
+			const remove = el( 'button', 'ai-btn secondary wpiemap-reset', row );
 			remove.textContent = '✕';
 			remove.title = t( 'Remove pin' );
 			remove.onclick = () => {
@@ -720,7 +728,7 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 
 	const routeRow = el( 'label', 'wpiemap-row', pinSec );
-	el( 'span', null, routeRow ).textContent = t( 'Route' );
+	el( 'span', 'dsm-rowline-label', routeRow ).textContent = t( 'Route' );
 	routeRow.style.gridTemplateColumns = '78px 1fr';
 	const routeSelect = el( 'select', 'dsm-select wpiemap-select', routeRow );
 	for ( const [ value, label ] of [
@@ -737,7 +745,7 @@ async function openStudio( { editor, extras, layer } ) {
 		params.route = routeSelect.value;
 		paint();
 	};
-	const distRow = el( 'label', 'wpiemap-check', pinSec );
+	const distRow = el( 'label', 'dsm-checkrow wpiemap-check', pinSec );
 	const distInput = el( 'input', null, distRow );
 	distInput.type = 'checkbox';
 	distInput.checked = params.showDistance;
@@ -756,7 +764,7 @@ async function openStudio( { editor, extras, layer } ) {
 	if ( ! editing ) {
 		const textSec = section( side, t( 'Text block' ), 'text' );
 		const layoutRow = el( 'label', 'wpiemap-row', textSec );
-		el( 'span', null, layoutRow ).textContent = t( 'Layout' );
+		el( 'span', 'dsm-rowline-label', layoutRow ).textContent = t( 'Layout' );
 		layoutRow.style.gridTemplateColumns = '78px 1fr';
 		layoutSelect = el( 'select', 'dsm-select wpiemap-select', layoutRow );
 		for ( const [ value, label ] of [
@@ -778,7 +786,7 @@ async function openStudio( { editor, extras, layer } ) {
 		// Placement of the on-map title/coords: a 3x3 alignment grid, shown
 		// only for the "On the map" layout. Value is <v><h> (t|m|b, l|c|r).
 		const anchorRow = el( 'div', 'wpiemap-anchorrow', textSec );
-		el( 'span', null, anchorRow ).textContent = t( 'Alignment' );
+		el( 'span', 'dsm-fieldlabel', anchorRow ).textContent = t( 'Alignment' );
 		const anchorGrid = el( 'div', 'wpiemap-anchors', anchorRow );
 		const anchorTiles = new Map();
 		const anchorIcon = ( h, v ) => {
@@ -792,7 +800,7 @@ async function openStudio( { editor, extras, layer } ) {
 		for ( const v of [ 't', 'm', 'b' ] ) {
 			for ( const h of [ 'l', 'c', 'r' ] ) {
 				const value = v + h;
-				const tile = el( 'button', 'wpiemap-anchor', anchorGrid );
+				const tile = el( 'button', 'dsm-mini wpiemap-anchor', anchorGrid );
 				tile.setAttribute( 'aria-label', value );
 				tile.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">${ anchorIcon(
 					h,
@@ -839,7 +847,7 @@ async function openStudio( { editor, extras, layer } ) {
 		};
 		const textRow = ( labelText ) => {
 			const row = el( 'div', 'wpiemap-text-row', textSec );
-			el( 'span', null, row ).textContent = labelText;
+			el( 'span', 'dsm-fieldlabel', row ).textContent = labelText;
 			const wrap = el( 'div', 'wpiemap-var-wrap', row );
 			const input = el( 'input', null, wrap );
 			input.type = 'text';
@@ -884,7 +892,7 @@ async function openStudio( { editor, extras, layer } ) {
 		);
 
 		if ( titleVar ) {
-			const varHint = el( 'div', 'wpiemap-varhint', textSec );
+			const varHint = el( 'div', 'dsm-note wpiemap-varhint', textSec );
 			varHint.textContent = t(
 				'Variables like {{post.title}} resolve per post when the poster runs in a dynamic template.'
 			);
@@ -899,7 +907,7 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 
 		const sizeRow2 = el( 'label', 'wpiemap-row', textSec );
-		el( 'span', null, sizeRow2 ).textContent = t( 'Text size' );
+		el( 'span', 'dsm-rowline-label', sizeRow2 ).textContent = t( 'Text size' );
 		const sizeInput2 = el( 'input', null, sizeRow2 );
 		sizeInput2.type = 'range';
 		sizeInput2.min = '60';
@@ -913,7 +921,7 @@ async function openStudio( { editor, extras, layer } ) {
 			paint();
 		};
 
-		const coordsRow = el( 'label', 'wpiemap-check', textSec );
+		const coordsRow = el( 'label', 'dsm-checkrow wpiemap-check', textSec );
 		coordsCheck = el( 'input', null, coordsRow );
 		coordsCheck.type = 'checkbox';
 		coordsCheck.checked = true;
@@ -923,7 +931,7 @@ async function openStudio( { editor, extras, layer } ) {
 
 	/* ------------------------------- footer ------------------------------ */
 
-	const attrNote = el( 'div', 'wpiemap-attr', side );
+	const attrNote = el( 'div', 'dsm-note wpiemap-attr', side );
 	attrNote.textContent = t( 'Map data © OpenStreetMap contributors (ODbL)' );
 
 	// Standard modal footer: hint left, Cancel + primary action right.

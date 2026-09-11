@@ -1,0 +1,177 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-dance-like-the-kitchen-is-a-stage",
+	"label": "Dance like the kitchen is a stage",
+	"category": "wordart",
+	"w": 766,
+	"h": 576,
+	"layers": [
+		{
+			"id": "waf-dance-like-the-kitchen-is-a-stage-0",
+			"type": "text",
+			"name": "DANCE LIKE THE KITCHEN IS A STAGE",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 110.8,
+			"y": 47.53,
+			"w": 560,
+			"h": 460,
+			"rot": 5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#594044",
+					"size": 1,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "DANCE LIKE\nTHE KITCHEN\nIS A STAGE",
+			"fontSize": 100,
+			"fontFamily": "Outfit",
+			"weight": 800,
+			"color": "#de7652",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "DANCE LIKE\n",
+					"s": {
+						"color": "#de7652"
+					}
+				},
+				{
+					"text": "THE KITCHEN\n",
+					"s": {
+						"color": "#398f87"
+					}
+				},
+				{
+					"text": "IS A STAGE",
+					"s": {
+						"color": "#e8ba50"
+					}
+				}
+			],
+			"textFX": {
+				"sticker": {
+					"size": 5,
+					"color": "#fff0d2",
+					"shadow": 28
+				}
+			}
+		},
+		{
+			"id": "waf-dance-like-the-kitchen-is-a-stage-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 416.53,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e8ba50",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-dance-like-the-kitchen-is-a-stage-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 85.53,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#398f87",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-dance-like-the-kitchen-is-a-stage-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 548.53,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#de7652",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

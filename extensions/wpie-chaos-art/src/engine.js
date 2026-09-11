@@ -9,6 +9,7 @@
  */
 
 import * as THREE from 'three';
+import { aspectOf, frameSize } from './core/frame.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -762,7 +763,7 @@ export class ChaosEngine {
 
 	mount( host, aspect ) {
 		this.host = host;
-		this.aspect = Math.max( 0.2, Math.min( 5, aspect || 1 ) );
+		this.aspect = aspectOf( aspect );
 		this.renderer = new THREE.WebGLRenderer( {
 			antialias: true,
 			preserveDrawingBuffer: false,
@@ -1589,22 +1590,41 @@ export class ChaosEngine {
 		const w0 = this.renderer.domElement.width;
 		const h0 = this.renderer.domElement.height;
 		const dpr0 = this.renderer.getPixelRatio();
-		let w = edge;
-		let h = Math.round( edge / this.aspect );
-		if ( this.aspect < 1 ) {
-			h = edge;
-			w = Math.round( edge * this.aspect );
+		const { w, h } = frameSize( this.aspect, edge * edge, edge );
+		// Remembering a frame must not erase the live feedback trails.
+		// Export uses temporary buffers seeded from that history.
+		const feedback = this.feedbackPass;
+		const memory = [ feedback.memA, feedback.memB ];
+		feedback.memA = null;
+		feedback.memB = null;
+		try {
+			this.renderer.setPixelRatio( 1 );
+			this.renderer.setSize( w, h, false );
+			this.composer.setSize( w, h );
+			if ( feedback.enabled && memory[ 0 ] ) {
+				const amount = feedback.uniforms.uAmount.value;
+				feedback.uniforms.tDiffuse.value = memory[ 0 ].texture;
+				feedback.uniforms.tPrev.value = memory[ 0 ].texture;
+				feedback.uniforms.uAmount.value = 0;
+				try {
+					this.renderer.setRenderTarget( feedback.memA );
+					feedback.fsQuad.render( this.renderer );
+				} finally {
+					feedback.uniforms.uAmount.value = amount;
+				}
+			}
+			this.composer.render();
+			return { url: this.canvas.toDataURL( 'image/png' ), w, h };
+		} finally {
+			this.renderer.setPixelRatio( dpr0 );
+			this.renderer.setSize( w0 / dpr0, h0 / dpr0, false );
+			this.composer.setSize( w0, h0 );
+			feedback.memA.dispose();
+			feedback.memB.dispose();
+			feedback.memA = memory[ 0 ];
+			feedback.memB = memory[ 1 ];
+			this.composer.render();
 		}
-		this.renderer.setPixelRatio( 1 );
-		this.renderer.setSize( w, h, false );
-		this.composer.setSize( w, h );
-		this.composer.render();
-		const url = this.canvas.toDataURL( 'image/png' );
-		this.renderer.setPixelRatio( dpr0 );
-		this.renderer.setSize( w0 / dpr0, h0 / dpr0, false );
-		this.composer.setSize( w0, h0 );
-		this.composer.render();
-		return { url, w, h };
 	}
 
 	painted() {

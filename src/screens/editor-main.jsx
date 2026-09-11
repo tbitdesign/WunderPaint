@@ -12,10 +12,12 @@ import {
 	makeImage,
 	loadImage,
 	serializeLayers,
+	serializeDocument,
 } from '../store/document';
 import { renderToCanvas, sharedImageCache } from '../lib/raster';
 import { importPsdFileOp, downloadProjectOp } from '../store/ops';
 import { createAutosave } from '../lib/autosave';
+import { onUserContentError } from '../lib/user-content';
 import { registerLastResort } from '../lib/last-resort';
 import { ErrorBoundary } from '../components/error-boundary';
 import { offerRestore } from '../lib/restore-offer';
@@ -34,6 +36,7 @@ import { VignetteDialog } from './vignette-dialog';
 import { registerCoreGenerators } from '../lib/core-generators';
 import {
 	listExtensionGenerators,
+	packageSlugOf,
 	listExtensionMenuItems,
 } from '../lib/extensions';
 import { registerGrowthPack } from '../content/growth-pack';
@@ -135,6 +138,16 @@ export function EditorScreen( {
 	const toasts = useToasts();
 	// Always-fresh editor for memoised closures (extras is useMemo'd).
 	const editorLiveRef = useRef( editor );
+	// The active tab's own dirty dot, for the autosave below. A re-hydrated
+	// tab starts with a fresh history, so `editor.dirty` says clean while the
+	// parked work was never saved; the tab remembers (raise-only, see the
+	// sync effect). The autosave has to write in that case too: it used to
+	// skip, so the record under the shared key still held ANOTHER document
+	// while the tab restore excluded this one as "covered by the autosave"
+	// (Codex F03) - gone after a reload, the other one offered twice.
+	const tabDirtyRef = useRef( false );
+	tabDirtyRef.current = !! ( tabs || [] ).find( ( t ) => t.id === activeTab )
+		?.dirty;
 	editorLiveRef.current = editor;
 	// The running autosave instance, set once it starts below. Lets the
 	// language switch (extras.setEditorLocale) force an immediate snapshot
@@ -171,8 +184,14 @@ export function EditorScreen( {
 			! nested &&
 			savedRefSeen.current !== editor.state.history?.savedRef
 		) {
-			// MARK_SAVED ran: the document is saved, clear the dot for real.
-			tabsApi?.syncActive?.( { dirty: false } );
+			// MARK_SAVED ran. Since history.js marks the snapshot that was
+			// actually UPLOADED, a save that finished after more work was
+			// committed leaves the document dirty - and this used to clear
+			// the tab's dot regardless, so the close button asked nothing
+			// and the later work went with the tab (Codex C04). The dot
+			// follows the real state, which on this render is derived from
+			// the same history the reference just changed in.
+			tabsApi?.syncActive?.( { dirty: !! editor.dirty } );
 		}
 		savedRefSeen.current = editor.state.history?.savedRef;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +214,97 @@ export function EditorScreen( {
 		if ( window.WPIE.canManageKits ) {
 			window.WPIE.openBrandKits = () => setShowBrandKits( true );
 		}
+		// Design Markup: Fixtures (Stufe 1) und seit Stufe 2a auch ein
+		// Modellaufruf im echten Editor kompilieren und einfügen.
+		// Diagnose-Einstieg ohne Oberfläche; die Studio-Karte kommt in
+		// Stufe 3.
+		//
+		//   await window.WPIE.designMarkup.run( 'hero-title' )
+		//   await window.WPIE.designMarkup.generate( 'Poster für ein
+		//       Sommerfest am Fluss', { k: 2, provider: 'gemini' } )
+		//
+		// `generate( brief, opts )` ruft das Modell (Serveraktion
+		// `design_markup`), kompiliert jede Antwort und fügt die erste
+		// gültige ein; `opts`: k 1..4, provider ('anthropic' | 'openai' |
+		// 'gemini'), bindings, previewPostId, previewContext, product,
+		// lang, image (Data-URL), variation, insert: false. Zurück kommt
+		// { designs, inserted } - mit dem ROHEN Markup jedes Entwurfs, auch
+		// dem eines abgelehnten; lehnt die Quelle selbst ab (kein
+		// Schlüssel, falsche IP), steht ihr Satz wörtlich in `error`.
+		//
+		// Ohne `provider` wählt der Server: Voreinstellung, sonst die erste
+		// konfigurierte Textquelle - auf dev ist das OpenAI, und dessen
+		// Schlüssel gilt hier nicht.
+		//
+		// Der Compiler und die drei Fixture-JSONs liegen in einem EIGENEN
+		// Bündel (`design-markup`) und werden erst beim ersten Aufruf
+		// geholt: ein Diagnose-Haken, den niemand aufruft, gehört nicht in
+		// das Bündel, das jeder Editor-Aufruf lädt. Deshalb ist auch
+		// `fixtures` eine Funktion und keine Liste - `await
+		// window.WPIE.designMarkup.fixtures()` nennt die Namen.
+		const dm = () =>
+			Promise.all( [
+				import(
+					/* webpackChunkName: "design-markup" */ '../lib/design-markup/compile'
+				),
+				import(
+					/* webpackChunkName: "design-markup" */ '../lib/design-markup/insert'
+				),
+				import(
+					/* webpackChunkName: "design-markup" */ '../lib/design-markup/editor-ctx'
+				),
+				import(
+					/* webpackChunkName: "design-markup" */ '../lib/design-markup/fixtures'
+				),
+				import(
+					/* webpackChunkName: "design-markup" */ '../lib/design-markup/generate'
+				),
+			] );
+		const dmCompile = async ( markup, opts ) => {
+			const [ compile, , editorCtx ] = await dm();
+			return compile.compileDesign(
+				markup,
+				await editorCtx.contextFromEditor( editorLiveRef.current, opts )
+			);
+		};
+		window.WPIE.designMarkup = {
+			compile: dmCompile,
+			insert: async ( compiled ) => {
+				const [ , insert ] = await dm();
+				return insert.insertDesign( editorLiveRef.current, compiled );
+			},
+			run: async ( name, opts = {} ) => {
+				const [ , insert, editorCtx, fixtures ] = await dm();
+				const fx = fixtures.fixtureByName( name );
+				const compiled = await dmCompile( fx, {
+					bindings: fx.meta.bindings,
+					...editorCtx.previewOptsFor( fx, opts ),
+				} );
+				if ( 'valid' === compiled.status ) {
+					await insert.insertDesign(
+						editorLiveRef.current,
+						compiled
+					);
+				}
+				return {
+					status: compiled.status,
+					layers: compiled.layers.length,
+					report: compiled.report,
+				};
+			},
+			generate: async ( brief, opts = {} ) => {
+				const [ , , , , generate ] = await dm();
+				return generate.generateDesigns(
+					editorLiveRef.current,
+					brief,
+					opts
+				);
+			},
+			fixtures: async () => {
+				const [ , , , fixtures ] = await dm();
+				return Object.keys( fixtures.FIXTURES );
+			},
+		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
@@ -743,11 +853,17 @@ export function EditorScreen( {
 			// Fonts, Banner Studio) has no generator to find, so those two
 			// deeplinks used to fall through to the Create dialog.
 			const items = listExtensionMenuItems().filter( ( i ) => i.id );
+			// A package may register its generators under other prefixes
+			// (generatorPrefixes in its manifest): the 3D Mockup Studio's
+			// deeplink names the package, its generators start with
+			// 'mockup/', and this used to find nothing (BRIDGE-02).
 			const gen =
 				gens.find( ( g ) => g.id === want ) ||
 				gens.find( ( g ) => g.id.startsWith( want + '/' ) ) ||
+				gens.find( ( g ) => packageSlugOf( g.id ) === want ) ||
 				items.find( ( i ) => i.id === want ) ||
-				items.find( ( i ) => i.id.startsWith( want + '/' ) );
+				items.find( ( i ) => i.id.startsWith( want + '/' ) ) ||
+				items.find( ( i ) => packageSlugOf( i.id ) === want );
 			if ( gen ) {
 				window.clearInterval( tick );
 				if ( deeplinkDone.current ) {
@@ -862,6 +978,15 @@ export function EditorScreen( {
 			if ( e.origin !== window.location.origin ) {
 				return;
 			}
+			// And from the window that embedded us, not from any window that
+			// happens to share the origin. The origin check alone let a
+			// same-origin frame reopen the picker and swap the reply token, so
+			// the choice would be reported to the wrong host. The counterpart
+			// checks the token for exactly this reason
+			// (src/lib/embed-overlay.js); this side took it.
+			if ( window.parent && e.source !== window.parent ) {
+				return;
+			}
 			const m = e.data;
 			if ( ! m || 'wpie-host' !== m.source || 'pick-open' !== m.type ) {
 				return;
@@ -915,6 +1040,19 @@ export function EditorScreen( {
 		markEditorRequests();
 	}, [] );
 
+	// A refused library write (rename, delete, re-categorise) reverts on
+	// screen and says so here, instead of vanishing in an empty catch.
+	useEffect( () => {
+		onUserContentError( ( err ) =>
+			toasts.error(
+				__( 'The library change was not saved.', 'wunderpaint' ) +
+					( err?.message ? ' ' + err.message : '' )
+			)
+		);
+		return () => onUserContentError( null );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [] );
+
 	// Autosave & crash recovery (v0.2): dirty snapshots to IndexedDB.
 	useEffect( () => {
 		if ( nested ) {
@@ -924,13 +1062,12 @@ export function EditorScreen( {
 			attachmentId: editor.WPIE.attachmentId,
 			getSnapshot: () => {
 				const current = ctxRef.current.editor;
-				if ( ! current.dirty ) {
+				if ( ! current.dirty && ! tabDirtyRef.current ) {
 					return null;
 				}
-				return {
-					doc: current.state.doc,
-					layers: serializeLayers( current.state.layers ),
-				};
+				// Pages included, or the rescue copy of a multi-page design
+				// would restore a single page over the real thing.
+				return serializeDocument( current.state );
 			},
 			// Once, on the first failed write: a blocked store (private
 			// mode, quota) used to fail in silence while the user trusted
@@ -945,6 +1082,13 @@ export function EditorScreen( {
 				),
 		} );
 		autosave.start();
+		// Leaving the page (a reload, a closed tab) used to take whatever
+		// the last tick had; up to thirty seconds of work were not in the
+		// rescue copy. pagehide still gets a write out on every browser.
+		const onHide = () => {
+			autosave.writeNow().catch( () => {} );
+		};
+		window.addEventListener( 'pagehide', onHide );
 
 		// The language switch reloads and needs a snapshot beforehand, not
 		// whichever tick happens to land in up to 30 seconds.
@@ -961,15 +1105,23 @@ export function EditorScreen( {
 		// finds a record. Leaving it for the .then() would let it survive
 		// a failed load() (e.g. no IndexedDB) and silently swallow the
 		// NEXT recovery too, including one after a real crash.
-		const afterLocaleSwitch = takeIntentionalReload();
-
 		// Offer restore when a crashed session left a record behind - but
 		// only on the FIRST screen mount of this page load. Tab switches
 		// remount the screen, and the live session writes snapshots
 		// itself, so later mounts would "find" their own records and spam
 		// the restore toast (v1.107.5).
-		const offer = ! window.wpieAutosaveOffered && ! window.WPIE?.pickEmbed;
+		const firstMount = ! window.wpieAutosaveOffered;
 		window.wpieAutosaveOffered = true;
+		const offer = firstMount && ! window.WPIE?.pickEmbed;
+		// The language-switch answer is latched for the whole page load on
+		// purpose (two readers, see lib/editor-locale.js), so every later
+		// mount reads true as well. Applied without the first-mount gate, a
+		// tab switch after the switch loaded the autosave into the freshly
+		// woken tab - and new documents of one window share one autosave
+		// key, so tab B came up as document A (Codex C03). The automatic
+		// restore belongs to the document that was active at the switch,
+		// which is the one the page boots with: once.
+		const afterLocaleSwitch = takeIntentionalReload() && firstMount;
 		autosave
 			.load()
 			.then( async ( record ) => {
@@ -985,6 +1137,12 @@ export function EditorScreen( {
 						type: 'LOAD_DOCUMENT',
 						doc: record.doc,
 						layers,
+						// Die Seiten stehen im Datensatz und wurden beim Laden
+						// weggeworfen: ein mehrseitiger Entwurf kam mit einer
+						// Seite zurueck, und der naechste Speichervorgang schrieb
+						// genau das auf den Server (F02).
+						pages: record.pages,
+						currentPage: record.currentPage,
 					} );
 					return;
 				}
@@ -1003,6 +1161,8 @@ export function EditorScreen( {
 								type: 'LOAD_DOCUMENT',
 								doc: record.doc,
 								layers,
+								pages: record.pages,
+								currentPage: record.currentPage,
 								label: __( 'Restore autosave', 'wunderpaint' ),
 							} );
 						},
@@ -1025,6 +1185,7 @@ export function EditorScreen( {
 		return () => {
 			autosave.stop();
 			clearInterval( watcher );
+			window.removeEventListener( 'pagehide', onHide );
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );

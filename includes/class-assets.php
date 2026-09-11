@@ -19,6 +19,10 @@ class Assets {
 	 */
 	public function hooks() {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ) );
+		// Just before the footer scripts print, on both sides of wp-admin.
+		add_action( 'wp_print_footer_scripts', array( $this, 'attach_runtime_bootstrap' ), 5 );
+		add_action( 'admin_print_footer_scripts', array( $this, 'attach_runtime_bootstrap' ), 5 );
+		add_action( 'wp_print_scripts', array( $this, 'attach_runtime_bootstrap' ), 5 );
 		// Standalone render runtime (v1.157.0): REGISTERED (not enqueued)
 		// wherever Pro's dynamic-image blocks might need the engine - the
 		// block editor and the front end. Consumers list it as dependency.
@@ -47,11 +51,10 @@ class Assets {
 			$asset['version'],
 			true
 		);
-		wp_add_inline_script(
-			'wpie-render-runtime',
-			'window.WPIE = Object.assign( ' . wp_json_encode( self::runtime_bootstrap() ) . ', window.WPIE || {} );',
-			'before'
-		);
+		// The bootstrap (settings, nonce, content cache) is built only when
+		// the runtime is really printed - see attach_runtime_bootstrap(). It
+		// used to be assembled on every public page load for a handle that
+		// most pages never enqueue.
 		// Canvas text needs the self-hosted @font-face rules on this page
 		// too; custom uploaded fonts ride on the same handle.
 		wp_register_style( 'wpie-runtime-fonts', WPIE_URL . 'assets/fonts.css', array(), WPIE_VERSION );
@@ -61,6 +64,23 @@ class Assets {
 		if ( $custom_css ) {
 			wp_add_inline_style( 'wpie-runtime-fonts', $custom_css );
 		}
+	}
+
+	/**
+	 * Hand the runtime its bootstrap, once, and only when something on this
+	 * page enqueued it.
+	 */
+	public function attach_runtime_bootstrap() {
+		static $done = false;
+		if ( $done || ! wp_script_is( 'wpie-render-runtime', 'enqueued' ) ) {
+			return;
+		}
+		$done = true;
+		wp_add_inline_script(
+			'wpie-render-runtime',
+			'window.WPIE = Object.assign( ' . wp_json_encode( self::runtime_bootstrap() ) . ', window.WPIE || {} );',
+			'before'
+		);
 	}
 
 	/**
@@ -83,6 +103,7 @@ class Assets {
 			'nonce'           => wp_create_nonce( 'wp_rest' ),
 			'restUrl'         => untrailingslashit( rest_url( WPIE_REST_NS ) ),
 			'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+			'siteKey'         => substr( md5( home_url() ), 0, 8 ),
 			'proxyUrl'        => rest_url( WPIE_REST_NS . '/proxy-image' ),
 			'pluginUrl'       => WPIE_URL,
 			'contentCacheUrl' => Content_Cache::ready_url(),

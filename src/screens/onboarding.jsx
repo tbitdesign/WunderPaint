@@ -4,6 +4,7 @@
  * Shown once (localStorage), restartable via Help → Show Tour.
  */
 
+import { siteStorage } from '../lib/local-storage';
 import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
@@ -44,7 +45,7 @@ const STEPS = [
 		selector: '[data-menu="assets"]',
 		title: __( 'Assets', 'wunderpaint' ),
 		body: __(
-			'Everything you design with: the Asset Library, stock photos, the Asset Generator, your Brand Kits and the Media Library Manager.',
+			'Everything you design with: the Asset Library, stock photos, the Asset Generator, the Design Generator, your Brand Kits and the Media Library Manager.',
 			'wunderpaint'
 		),
 	},
@@ -66,11 +67,11 @@ const STEPS = [
 		body: () =>
 			window.WPIE?.pro?.active
 				? __(
-						'Generate Content writes complete draft posts, Featured Images fills whole archives with branded thumbnails, the Design Generator turns a brief into a design, and the Image Processor batch-edits your library.',
+						'Generate Content writes complete draft posts, Featured Images fills whole archives with branded thumbnails, and the Image Processor batch-edits your library.',
 						'wunderpaint'
 				  )
 				: __(
-						'The Design Generator turns a brief into a finished design, Batch Watermark stamps many images in one run, and the Metadata Assistant fills in alt text across your library. Pro adds the bulk runs on top: featured images across a whole archive, draft posts, CSV series and the Image Processor.',
+						'Batch Watermark stamps many images in one run, and the Metadata Assistant fills in alt text across your library. Pro adds the bulk runs on top: featured images across a whole archive, draft posts, CSV series and the Image Processor.',
 						'wunderpaint'
 				  ),
 	},
@@ -94,7 +95,7 @@ const STEPS = [
 
 export const tourDone = () => {
 	try {
-		return '1' === window.localStorage?.getItem( 'wpie-tour-done' );
+		return '1' === siteStorage.getItem( 'wpie-tour-done' );
 	} catch ( e ) {
 		return true;
 	}
@@ -140,6 +141,7 @@ export function SpotlightTour( { steps, onClose, editor, extras, doneLabel } ) {
 		<div
 			className="wpie-tour"
 			role="dialog"
+			aria-modal="true"
 			aria-label={ __( 'Editor tour', 'wunderpaint' ) }
 		>
 			{ ! rect && <div className="wpie-tour-veil" /> }
@@ -197,7 +199,7 @@ export function OnboardingTour( { onClose } ) {
 			steps={ STEPS }
 			onClose={ () => {
 				try {
-					window.localStorage?.setItem( 'wpie-tour-done', '1' );
+					siteStorage.setItem( 'wpie-tour-done', '1' );
 				} catch ( e ) {}
 				onClose();
 			} }

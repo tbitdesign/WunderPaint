@@ -1692,6 +1692,10 @@ let smartSeg = null;
 let smartPoints = [];
 let smartSegLayers = null;
 let smartSegDoc = null;
+// One run at a time: onDown is async, and a second click during the encode
+// used to start a second full encode; both wrote the module state above in
+// turn, and the slower, older result overwrote the newer selection.
+let smartBusy = false;
 
 export const smartSelectTool = {
 	async onDown( tc, e, p ) {
@@ -1710,6 +1714,16 @@ export const smartSelectTool = {
 			return;
 		}
 		const { doc, layers, selection } = tc.editor.state;
+		if ( smartBusy ) {
+			toasts?.toast(
+				__(
+					'Smart Select is still working on the last click.',
+					'wunderpaint'
+				)
+			);
+			return;
+		}
+		smartBusy = true;
 		// Alt/Option-click = negative point (subtract from the mask).
 		const point = {
 			x: p.x / doc.w,
@@ -1787,6 +1801,8 @@ export const smartSelectTool = {
 					' ' +
 					( err?.message || '' )
 			);
+		} finally {
+			smartBusy = false;
 		}
 	},
 };

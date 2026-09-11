@@ -89,3 +89,17 @@ export const FORMATS = [
 		on: false,
 	},
 ];
+
+/**
+ * Which platform a format belongs to. Ten formats in one flat list read
+ * as a heap; grouped they read as a choice per platform - and the group
+ * head doubles as a select-all for that platform.
+ */
+export const GROUPS = [
+	{ id: 'instagram', label: 'Instagram', ids: [ 'ig-square', 'ig-portrait', 'story' ] },
+	{ id: 'pinterest', label: 'Pinterest', ids: [ 'pinterest' ] },
+	{ id: 'youtube', label: 'YouTube', ids: [ 'youtube' ] },
+	{ id: 'facebook', label: 'Facebook', ids: [ 'og', 'fb-cover' ] },
+	{ id: 'x', label: 'X', ids: [ 'x-post', 'x-header' ] },
+	{ id: 'linkedin', label: 'LinkedIn', ids: [ 'linkedin' ] },
+];

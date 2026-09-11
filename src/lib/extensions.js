@@ -16,6 +16,8 @@
  */
 
 import { doAction } from '@wordpress/hooks';
+import { __, sprintf } from '@wordpress/i18n';
+import { logEvent } from './debug-log';
 
 /**
  * Semver of the JS extension API. Bumped when registration points are
@@ -57,8 +59,23 @@ import { doAction } from '@wordpress/hooks';
  * The model has been in the editor since v1.27 for depth blur; a studio
  * that wants to slice a picture INTO its depth (Papercut Art) had no way
  * to reach it. Additive and optional: feature-detect and fall back.
+ * 2.23.0 (v1.430.0): the CI release. bridge.ui gains the components every
+ * studio needs and each package used to draw for itself - pill/pills
+ * (category filters), pick/picks (preview cards), pickrow/picklist (type
+ * cards with the explanation inside the card), mini (26px icon button),
+ * add, note, textarea, transport (play/scrub/time) and pressed() as the
+ * one way to write "this is selected". The look is central, in
+ * src/styles/editor/ext-kit.css; a package writes CSS for its layout and
+ * nothing else. Additive: docs/extension-ci.md.
+ * 2.24.0 (v1.430.0): ui.opts/ui.opt - the option grid for a choice with
+ * more than three options (the segmented control wraps into a block past
+ * three), and pickrow( { compact } ) - the half-height list card for an
+ * icon-and-name choice without an explanation. Additive.
+ Also dsm-rows, the class
+ * for a group of rows inside a section: a plain wrapper div is a block
+ * box, so its controls touch and the section reads as gapless.
  */
-export const API_VERSION = '2.22.0';
+export const API_VERSION = '2.24.0';
 
 const NS_RE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
 
@@ -178,6 +195,26 @@ export function installPlaceholders( slug, snap, load ) {
 		if ( ! g || ! g.id || registries.generators.has( g.id ) ) {
 			continue;
 		}
+		// The bundle may fail to arrive: a dropped connection, a 502 from the
+		// edge. Nothing above this layer catches - the menu calls run() and
+		// never looks at what comes back - so the placeholder has to say so
+		// itself. It gets `extras` handed in, which is where the toasts live.
+		const missing = ( args ) => {
+			const toasts = args && args.extras && args.extras.toasts;
+			if ( toasts && toasts.error ) {
+				toasts.error(
+					sprintf(
+						/* translators: %s: name of the studio. */
+						__(
+							'%s could not be loaded. Check your connection and try again.',
+							'wunderpaint'
+						),
+						g.label
+					)
+				);
+			}
+			return undefined;
+		};
 		const ph = {
 			id: g.id,
 			label: g.label,
@@ -185,14 +222,14 @@ export function installPlaceholders( slug, snap, load ) {
 			run: ( args ) =>
 				load().then( () => {
 					const r = real( g.id );
-					return r ? r.run( args ) : undefined;
+					return r ? r.run( args ) : missing( args );
 				} ),
 		};
 		if ( g.edit ) {
 			ph.edit = ( args ) =>
 				load().then( () => {
 					const r = real( g.id );
-					return r ? ( r.edit || r.run )( args ) : undefined;
+					return r ? ( r.edit || r.run )( args ) : missing( args );
 				} );
 		}
 		if ( g.resolve ) {
@@ -227,15 +264,37 @@ export function installPlaceholders( slug, snap, load ) {
 			lazy: slug,
 			run: ( args ) =>
 				load().then( () => {
+					// By id when the item has one: a label that changed
+					// without a version bump used to cost a dead click.
 					const r = (
 						registries.menuItems.get( m.menuId ) || []
 					).find(
 						( i ) =>
 							! i.lazy &&
-							i.label === m.label &&
-							( i.id || '' ) === ( m.id || '' )
+							( m.id
+								? ( i.id || '' ) === m.id
+								: i.label === m.label )
 					);
-					return r ? r.run( args ) : undefined;
+					if ( ! r ) {
+						return undefined;
+					}
+					// The placeholder cannot carry the real item's `when`
+					// gate (a function does not serialize); it applies now
+					// that the real one is here, instead of the click
+					// walking around it.
+					if (
+						'function' === typeof r.when &&
+						! r.when( { editor: args?.editor } )
+					) {
+						args?.extras?.toasts?.toast?.(
+							__(
+								'This action is not available right now.',
+								'wunderpaint'
+							)
+						);
+						return undefined;
+					}
+					return r.run( args );
 				} ),
 		} );
 		registries.menuItems.set( m.menuId, list );
@@ -341,7 +400,7 @@ function guard( source, fn, fallback, what ) {
 	return function ( ...args ) {
 		const fail = ( err ) => {
 			recordExtensionIssue(
-				String( source ).split( '/' )[ 0 ],
+				packageSlugOf( source ),
 				what + ': ' + ( ( err && err.message ) || err )
 			);
 			if ( RETHROW === fallback ) {
@@ -437,7 +496,14 @@ function registerMenuItem( menuId, item ) {
 	const list = registries.menuItems.get( menuId ) || [];
 	list.push( {
 		...item,
-		run: guard( menuId, item.run, undefined, 'menu item' ),
+		// Attributed to the PACKAGE, not to the menu: a throw used to land
+		// under "file" or "edit", where the manager never looks.
+		run: guard(
+			currentPackageSlug() || item.id || menuId,
+			item.run,
+			undefined,
+			'menu item'
+		),
 	} );
 	registries.menuItems.set( menuId, list );
 	notify();
@@ -972,7 +1038,38 @@ const issues = [];
 
 export function recordExtensionIssue( source, message ) {
 	issues.push( { source, message: String( message || 'Error' ) } );
+	// Into the debug log as well: the status dialog said "see the log
+	// below" about a log these never reached, and the support report had
+	// no trace of them.
+	logEvent(
+		'error',
+		'extension',
+		String( source ),
+		String( message || 'Error' )
+	);
 	notify();
+}
+
+/**
+ * The package a namespaced id belongs to. Normally the first segment; a
+ * package may register generators under other prefixes it declares
+ * (`generatorPrefixes` in its manifest), and those used to be attributed
+ * to a package that does not exist.
+ *
+ * @param {string} id Namespaced id or slug.
+ * @return {string} Package slug.
+ */
+export function packageSlugOf( id ) {
+	const prefix = String( id || '' ).split( '/' )[ 0 ];
+	const list =
+		( 'undefined' !== typeof window && window.WPIE?.extensions ) || [];
+	const owner = list.find(
+		( e ) =>
+			e &&
+			Array.isArray( e.generatorPrefixes ) &&
+			e.generatorPrefixes.includes( prefix )
+	);
+	return owner ? owner.slug : prefix;
 }
 
 export const listExtensionIssues = () => issues.slice();

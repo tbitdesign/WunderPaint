@@ -607,6 +607,10 @@ export function lut3d( img, { table = null, intensity = 100 } = {} ) {
 	let f32 = lutTableCache.get( table.data );
 	if ( ! f32 ) {
 		f32 = decodeLutTable( table );
+		if ( ! f32 ) {
+			// Undecodable table (see decodeLutTable): leave the pixels alone.
+			return img;
+		}
 		if ( lutTableCache.size > 3 ) {
 			lutTableCache.clear();
 		}

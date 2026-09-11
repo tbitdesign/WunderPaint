@@ -1,16 +1,19 @@
 {
 	"name": "wpie-marbling-studio",
-	"version": "1.2.1",
+	"version": "1.7.3",
 	"private": true,
 	"type": "module",
-	"description": "WPIE extension: paper marbling on a virtual water bath - drops, combs, vortices and waves with exact mathematics",
+	"description": "WPIE extension: classic paper marbling and a continuously running fluid laboratory",
 	"scripts": {
-		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js && esbuild src/runtime.js --bundle --format=iife --minify --outfile=runtime.js",
 		"test": "node --test tests/*.test.js",
 		"qa": "node tools/qa-dialog.mjs",
-		"pack": "npm run build && mkdir -p dist && rm -f dist/marbling-studio.zip && zip -r dist/marbling-studio.zip manifest.json extension.js style.css"
+		"pack": "npm run build && mkdir -p dist && rm -f dist/marbling-studio.zip && zip -r dist/marbling-studio.zip manifest.json extension.js runtime.js style.css",
+		"qa:fluid": "node tools/qa-fluid.mjs",
+		"qa:surface": "node tools/qa-fluid-surface.mjs"
 	},
 	"devDependencies": {
-		"esbuild": "^0.28.1"
+		"esbuild": "^0.28.1",
+		"three": "0.185.1"
 	}
 }

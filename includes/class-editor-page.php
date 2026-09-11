@@ -282,6 +282,10 @@ class Editor_Page {
 			'nonce'           => wp_create_nonce( 'wp_rest' ),
 			'restUrl'         => untrailingslashit( rest_url( WPIE_REST_NS ) ),
 			'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+			// Browser storage is per origin; two installations on one origin
+			// (/shop and /blog) used to share autosaves, tabs and every panel
+			// state. Every key the editor stores carries this.
+			'siteKey'         => substr( md5( home_url() ), 0, 8 ),
 			'attachmentId'    => (int) $attachment_id,
 			'isNew'           => (bool) $is_new,
 			'doc'             => $doc,
@@ -341,9 +345,18 @@ class Editor_Page {
 			'seoPlugins'      => apply_filters( 'wpie_seo_plugins', array() ), // Pro's Automation fills this (v1.79).
 			'bindings'        => Post_Data::binding_catalog(),
 			'defaultProvider' => $settings['default_provider'],
+			// The Design Generator lets people pick the text provider like the
+			// AI panel does. 'Automatic' means the site's default text provider
+			// (falling back to the first configured one, see
+			// AI_Provider::resolve_text_provider()). Provider names only: the
+			// model behind each one lives in Settings.
+			'defaultTextProvider' => (string) ( $settings['default_text_provider'] ?? '' ),
 			'versioning'      => (bool) $settings['versioning'],
 			'versionsToKeep'  => (int) $settings['versions_to_keep'],
 			'maxUploadMb'     => (int) round( wp_max_upload_size() / MB_IN_BYTES ),
+			// Whether the Google Fonts CDN is switched on; a studio that would
+			// embed a font from Google reads this before it contacts anyone.
+			'fontsGoogle'     => ! empty( $settings['fonts_google'] ),
 			// Where fetch-pack.js may look for the gzipped content packs.
 			// These were only ever in the render-runtime payload, which is
 			// the FRONT END handle - the editor never saw them, so it always

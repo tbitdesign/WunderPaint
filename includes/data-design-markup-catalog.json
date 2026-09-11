@@ -1,0 +1,834 @@
+{
+	"_readme": "Generiert von tools/design-markup/export-catalog.mjs aus src/lib/design-markup/catalog.js. Nicht von Hand ändern; `node tools/design-markup/export-catalog.mjs --check` vergleicht die Datei mit einem frischen Export.",
+	"version": 1,
+	"root": {
+		"required": [
+			"v",
+			"concept",
+			"canvas",
+			"tokens",
+			"grid",
+			"areas",
+			"assets",
+			"elements"
+		],
+		"optional": [
+			"name"
+		]
+	},
+	"concept": {
+		"moods": [
+			"warm",
+			"cool",
+			"earthy",
+			"vibrant",
+			"pastel",
+			"dark",
+			"mono"
+		],
+		"imagery": [
+			"none",
+			"photo-hero",
+			"photo-cutout",
+			"photo-texture",
+			"illustration",
+			"pattern"
+		],
+		"loud": {
+			"min": 1,
+			"max": 5,
+			"default": 3
+		}
+	},
+	"tokens": {
+		"paletteSources": [
+			"brand",
+			"intent",
+			"custom"
+		],
+		"paletteRoles": [
+			"bg",
+			"surface",
+			"ink",
+			"muted",
+			"accent",
+			"accent2",
+			"onAccent"
+		],
+		"typeScale": {
+			"min": 1.1,
+			"max": 1.6,
+			"default": 1.25
+		},
+		"typePairings": [
+			{
+				"hero": [
+					"Anton",
+					400
+				],
+				"support": [
+					"Inter",
+					500
+				],
+				"shipped": true
+			},
+			{
+				"hero": [
+					"Archivo",
+					900
+				],
+				"support": [
+					"Archivo",
+					400
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Playfair Display",
+					700
+				],
+				"support": [
+					"Inter",
+					300
+				],
+				"shipped": true
+			},
+			{
+				"hero": [
+					"Bebas Neue",
+					400
+				],
+				"support": [
+					"Montserrat",
+					500
+				],
+				"shipped": true
+			},
+			{
+				"hero": [
+					"Oswald",
+					600
+				],
+				"support": [
+					"Lora",
+					500
+				],
+				"shipped": true
+			},
+			{
+				"hero": [
+					"DM Serif Display",
+					400
+				],
+				"support": [
+					"Barlow Condensed",
+					500
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Montserrat",
+					800
+				],
+				"support": [
+					"Montserrat",
+					400
+				],
+				"shipped": true
+			},
+			{
+				"hero": [
+					"Abril Fatface",
+					400
+				],
+				"support": [
+					"Poppins",
+					400
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Barlow Condensed",
+					800
+				],
+				"support": [
+					"Inter",
+					400
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Lora",
+					600
+				],
+				"support": [
+					"Inter",
+					500
+				],
+				"shipped": true
+			},
+			{
+				"hero": [
+					"Space Grotesk",
+					700
+				],
+				"support": [
+					"Space Grotesk",
+					400
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Bitter",
+					800
+				],
+				"support": [
+					"Bitter",
+					400
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Caveat",
+					700
+				],
+				"support": [
+					"Archivo",
+					700
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Cormorant Garamond",
+					600
+				],
+				"support": [
+					"Montserrat",
+					400
+				],
+				"shipped": false
+			},
+			{
+				"hero": [
+					"Amatic SC",
+					700
+				],
+				"support": [
+					"Inter",
+					400
+				],
+				"shipped": false
+			}
+		],
+		"space": {
+			"margin": {
+				"min": 0,
+				"max": 0.2,
+				"default": 0.06
+			},
+			"gap": {
+				"min": 0,
+				"max": 0.2,
+				"default": 0.02
+			},
+			"radius": {
+				"min": 0,
+				"max": 0.2,
+				"default": 0.02
+			}
+		}
+	},
+	"grid": {
+		"cols": {
+			"min": 1,
+			"max": 24,
+			"default": 12
+		},
+		"rows": {
+			"min": 1,
+			"max": 24,
+			"default": 12
+		},
+		"margin": {
+			"min": 0,
+			"max": 0.2,
+			"default": 0.06
+		},
+		"gutter": {
+			"min": 0,
+			"max": 0.2,
+			"default": 0.02
+		}
+	},
+	"place": {
+		"forms": [
+			"area",
+			"rect",
+			"rel",
+			"cover"
+		],
+		"anchors": [
+			"tl",
+			"t",
+			"tr",
+			"l",
+			"c",
+			"r",
+			"bl",
+			"b",
+			"br"
+		],
+		"sides": [
+			"above",
+			"below",
+			"left",
+			"right"
+		],
+		"sizeKeywords": [
+			"fill",
+			"match",
+			"auto"
+		],
+		"relGap": {
+			"min": 0,
+			"max": 6,
+			"default": 1
+		}
+	},
+	"element": {
+		"kinds": [
+			"background",
+			"photo",
+			"text",
+			"shape",
+			"component",
+			"group"
+		],
+		"roles": [
+			"hero",
+			"support",
+			"decor",
+			"frame",
+			"scrim"
+		],
+		"blends": [
+			"normal",
+			"multiply",
+			"screen",
+			"overlay",
+			"soft-light",
+			"hard-light",
+			"color-dodge",
+			"color-burn",
+			"darken",
+			"lighten",
+			"difference",
+			"exclusion",
+			"hue",
+			"saturation",
+			"color",
+			"luminosity"
+		],
+		"layerStyles": [
+			"dropShadow",
+			"innerShadow",
+			"outerGlow",
+			"innerGlow",
+			"bevel",
+			"stroke",
+			"satin",
+			"longShadow"
+		],
+		"layerStyleFields": [
+			"color",
+			"opacity",
+			"blur",
+			"distance",
+			"angle",
+			"spread",
+			"size"
+		],
+		"rot": {
+			"free": 15,
+			"max": 45
+		}
+	},
+	"background": {
+		"styles": [
+			"solid",
+			"gradient",
+			"mesh",
+			"organic",
+			"geo",
+			"poly",
+			"topo",
+			"halftone",
+			"rings",
+			"confetti"
+		],
+		"directions": [
+			"down",
+			"right",
+			"diag"
+		]
+	},
+	"photo": {
+		"fits": [
+			"cover",
+			"contain"
+		],
+		"instances": [
+			"full",
+			"cutout"
+		],
+		"scrimFrom": [
+			"t",
+			"b",
+			"l",
+			"r"
+		],
+		"treats": {
+			"duotone": {
+				"fx": "duotone",
+				"params": {
+					"shadow": "bg",
+					"highlight": "accent"
+				}
+			},
+			"halftone": {
+				"fx": "halftone",
+				"params": {
+					"cell": 8,
+					"angle": 45
+				}
+			},
+			"grain": {
+				"fx": "add-noise",
+				"params": {
+					"amount": 12,
+					"size": 1,
+					"monochrome": true
+				}
+			},
+			"blur": {
+				"fx": "gaussian-blur",
+				"params": {
+					"radius": 4
+				}
+			},
+			"vignette": {
+				"fx": "vignette",
+				"params": {
+					"amount": 40,
+					"size": 55,
+					"softness": 50
+				}
+			}
+		}
+	},
+	"text": {
+		"voices": [
+			"eyebrow",
+			"hero",
+			"sub",
+			"detail",
+			"cta",
+			"quote",
+			"stat"
+		],
+		"fits": [
+			"fluid",
+			"fixed"
+		],
+		"aligns": [
+			"left",
+			"center",
+			"right"
+		],
+		"emphRules": [
+			"salient",
+			"number",
+			"longest",
+			"word"
+		],
+		"emphStyles": [
+			"accent",
+			"italic"
+		],
+		"lines": {
+			"min": 1,
+			"max": 6
+		},
+		"boundMaxLines": {
+			"hero": 3,
+			"quote": 4,
+			"sub": 4,
+			"detail": 5,
+			"eyebrow": 1,
+			"cta": 1,
+			"stat": 1
+		}
+	},
+	"shape": {
+		"families": [
+			"rect",
+			"ellipse",
+			"triangle",
+			"diamond",
+			"cross",
+			"arrow",
+			"burst",
+			"chevron",
+			"gear",
+			"ring",
+			"squircle",
+			"frame",
+			"ticket",
+			"wave",
+			"cloud",
+			"crescent",
+			"tag",
+			"ribbon",
+			"shield",
+			"arch",
+			"bolt",
+			"heart",
+			"blob",
+			"grid",
+			"flower",
+			"shooting",
+			"speech",
+			"crown",
+			"pine",
+			"seal",
+			"arcarrow",
+			"chevrons",
+			"parallelogram",
+			"trapezoid",
+			"stairs",
+			"lshape",
+			"bookmark",
+			"label",
+			"flag",
+			"mountain",
+			"clover",
+			"leaf",
+			"drop",
+			"check",
+			"xmark",
+			"thought",
+			"sun",
+			"shout",
+			"medal",
+			"moon",
+			"spiral",
+			"layers",
+			"cube",
+			"target",
+			"gearpair",
+			"gem",
+			"rhombus",
+			"kite",
+			"polyframe",
+			"funnel",
+			"bars",
+			"compass",
+			"hourglass",
+			"cornerband",
+			"stamp",
+			"superform",
+			"blobgen",
+			"rose",
+			"guilloche",
+			"truchet",
+			"fractal",
+			"stroke",
+			"splat",
+			"shard",
+			"scatter",
+			"divider",
+			"rays",
+			"lissajous",
+			"starpoly",
+			"phyllotaxis",
+			"mandala",
+			"galaxy",
+			"honeycomb",
+			"branch",
+			"metaball",
+			"skyline",
+			"moire",
+			"packing",
+			"stripes",
+			"voronoi",
+			"flowfield",
+			"hilbert",
+			"maze",
+			"halftone",
+			"scales",
+			"treerings",
+			"gridwarp",
+			"heartcurve",
+			"constellation",
+			"argyle",
+			"interference",
+			"harmonograph",
+			"chladni",
+			"epitrochoid",
+			"butterfly",
+			"sierpinski",
+			"dragon",
+			"delaunay",
+			"startile",
+			"herringbone",
+			"isoblocks",
+			"datablocks",
+			"filmstrip",
+			"tornstrip",
+			"hatching"
+		],
+		"staticFamilies": [
+			"rect",
+			"ellipse"
+		],
+		"modelFamilies": {
+			"rect": [],
+			"ellipse": [
+				"sliceStart",
+				"sliceSpan"
+			],
+			"squircle": [
+				"curve"
+			],
+			"triangle": [
+				"apex"
+			],
+			"diamond": [
+				"balance"
+			],
+			"parallelogram": [
+				"skew"
+			],
+			"frame": [
+				"thickness",
+				"sliceStart",
+				"sliceSpan"
+			],
+			"polyframe": [
+				"sidesP",
+				"thickness"
+			],
+			"arch": [
+				"rise"
+			],
+			"ring": [
+				"thickness",
+				"sliceStart",
+				"sliceSpan"
+			],
+			"blob": [
+				"variation",
+				"softness"
+			],
+			"blobgen": [
+				"lobes",
+				"entropy",
+				"smoothness"
+			],
+			"wave": [
+				"amp",
+				"waves"
+			],
+			"cloud": [
+				"puffs",
+				"puffiness"
+			],
+			"crescent": [
+				"fullness"
+			],
+			"sun": [
+				"rays",
+				"core",
+				"rayW"
+			],
+			"leaf": [
+				"width"
+			],
+			"drop": [
+				"point"
+			],
+			"heart": [
+				"lobes",
+				"taper"
+			],
+			"flower": [
+				"petals",
+				"width"
+			],
+			"spiral": [
+				"turns",
+				"thickness"
+			],
+			"burst": [
+				"points",
+				"depth"
+			],
+			"starpoly": [
+				"pointsN",
+				"skip",
+				"thickness"
+			],
+			"rays": [
+				"rays",
+				"span",
+				"rayW"
+			],
+			"arrow": [
+				"head",
+				"headW",
+				"shaft"
+			],
+			"arcarrow": [
+				"sweep",
+				"thickness",
+				"head"
+			],
+			"chevron": [
+				"cut"
+			],
+			"ticket": [
+				"notch"
+			],
+			"tag": [
+				"cut",
+				"eyelet"
+			],
+			"label": [
+				"ends"
+			],
+			"ribbon": [
+				"notch"
+			],
+			"flag": [
+				"notch",
+				"pole"
+			],
+			"seal": [
+				"bumps",
+				"depth",
+				"bore"
+			],
+			"shield": [
+				"point"
+			],
+			"speech": [
+				"tailX",
+				"tailW",
+				"lean"
+			],
+			"divider": [
+				"waves",
+				"amp",
+				"thickness"
+			],
+			"cornerband": [
+				"thickness",
+				"inset"
+			],
+			"stripes": [
+				"bars",
+				"variance",
+				"gap"
+			],
+			"scatter": [
+				"count",
+				"sizeS",
+				"variance"
+			],
+			"halftone": [
+				"grid",
+				"angle",
+				"small"
+			]
+		},
+		"strokeW": {
+			"min": 0,
+			"max": 0.05
+		}
+	},
+	"component": {
+		"button": {
+			"label": "Learn more",
+			"pill": true,
+			"arrow": true,
+			"maxW": "fill"
+		},
+		"chip": {
+			"label": "NEW",
+			"tilt": 0
+		},
+		"scrim": {
+			"from": "b",
+			"strength": 0.6,
+			"height": 0.5
+		}
+	},
+	"group": {
+		"stackDirs": [
+			"col",
+			"row"
+		],
+		"stackAligns": [
+			"start",
+			"center",
+			"end"
+		]
+	},
+	"assets": {
+		"kinds": [
+			"stock",
+			"ai",
+			"media",
+			"logo",
+			"placeholder"
+		],
+		"orientations": [
+			"landscape",
+			"portrait",
+			"square"
+		]
+	},
+	"bindings": {
+		"text": [
+			"post.title",
+			"post.excerpt",
+			"post.content",
+			"post.author",
+			"post.category",
+			"post.date",
+			"site.name"
+		],
+		"image": [
+			"post.featured",
+			"brand.logo"
+		]
+	},
+	"limits": {
+		"elements": 24,
+		"photos": 3,
+		"texts": 6,
+		"heroes": 2,
+		"depth": 3,
+		"layers": 60,
+		"lines": 6,
+		"rotFree": 15,
+		"rotMax": 45
+	}
+}

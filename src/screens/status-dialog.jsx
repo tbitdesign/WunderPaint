@@ -344,6 +344,7 @@ export function StatusDialog( { onClose, extras } ) {
 				className="export-dialog status-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'System Status', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

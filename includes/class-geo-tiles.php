@@ -81,6 +81,9 @@ class Geo_Tiles {
 	/** A tile is a file, not a query: it may be cached for a long time. */
 	const TILE_TTL = 30 * DAY_IN_SECONDS;
 
+	/** Decoded tiles kept in the options table at most (filter wpie_geo_max_cached_tiles). */
+	const MAX_CACHED_TILES = 4000;
+
 	/** Per-tile fetch timeout. A CDN answering slower than this is down. */
 	const TILE_TIMEOUT = 8;
 
@@ -98,6 +101,17 @@ class Geo_Tiles {
 	 * aims for a 3x3 to 4x4 block; this is the backstop if it is ever wrong.
 	 */
 	const MAX_TILES = 25;
+
+	/** Tile extent when a layer does not say, per the MVT spec. */
+	const DEFAULT_EXTENT = 4096;
+
+	/**
+	 * Seconds one viewport request may spend fetching tiles, all of them
+	 * together. MAX_TILES caps how many, this caps how long: without it a
+	 * slow CDN turned 25 tiles at TILE_TIMEOUT into 200 seconds in one
+	 * request. Same shape as Geo::TOTAL_BUDGET on the Overpass path.
+	 */
+	const TOTAL_BUDGET = 20;
 
 	/**
 	 * Layers worth decoding, and what they become.
@@ -170,30 +184,39 @@ class Geo_Tiles {
 	 */
 	private static function walk( $buf, $start, $end, $each ) {
 		$pos = $start;
+		// A length that points past the buffer used to hand this an $end
+		// beyond the bytes: varint() then returned 0 without moving, the
+		// field read as "number 0, wire 0", nothing consumed it, and the
+		// loop spun on one request until PHP's time limit. Clamp the end to
+		// the bytes there are, and never stand still.
+		$end = min( (int) $end, strlen( $buf ) );
 		while ( $pos < $end ) {
-			$key  = self::varint( $buf, $pos );
-			$wire = $key & 0x07;
-			$num  = $key >> 3;
-			$mine = $each( $num, $wire, $buf, $pos );
-			if ( $mine ) {
-				continue;
+			$before = $pos;
+			$key    = self::varint( $buf, $pos );
+			$wire   = $key & 0x07;
+			$num    = $key >> 3;
+			$mine   = $each( $num, $wire, $buf, $pos );
+			if ( ! $mine ) {
+				switch ( $wire ) {
+					case 0:
+						self::varint( $buf, $pos );
+						break;
+					case 1:
+						$pos += 8;
+						break;
+					case 2:
+						$pos += self::varint( $buf, $pos );
+						break;
+					case 5:
+						$pos += 4;
+						break;
+					default:
+						// Unknown wire type: the rest cannot be trusted.
+						return;
+				}
 			}
-			switch ( $wire ) {
-				case 0:
-					self::varint( $buf, $pos );
-					break;
-				case 1:
-					$pos += 8;
-					break;
-				case 2:
-					$pos += self::varint( $buf, $pos );
-					break;
-				case 5:
-					$pos += 4;
-					break;
-				default:
-					// Unknown wire type: the rest cannot be trusted.
-					return;
+			if ( $pos <= $before ) {
+				return;
 			}
 		}
 	}
@@ -250,6 +273,22 @@ class Geo_Tiles {
 	}
 
 	/**
+	 * Whether a tile URL template may be used: https, the TileJSON's own
+	 * host, and the three placeholders.
+	 *
+	 * @param string $url Template.
+	 * @return bool
+	 */
+	public static function valid_template( $url ) {
+		if ( ! is_string( $url ) || false === strpos( $url, '{z}' ) || false === strpos( $url, '{x}' ) || false === strpos( $url, '{y}' ) ) {
+			return false;
+		}
+		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$own  = strtolower( (string) wp_parse_url( self::TILEJSON, PHP_URL_HOST ) );
+		return 'https' === strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) ) && '' !== $host && $host === $own;
+	}
+
+	/**
 	 * The current tile URL template.
 	 *
 	 * The build stamp in the path changes when the source re-imports the
@@ -261,15 +300,18 @@ class Geo_Tiles {
 	 */
 	private static function source() {
 		$cached = get_transient( 'wpie_geo_tilesrc' );
-		if ( is_string( $cached ) && '' !== $cached ) {
+		if ( is_string( $cached ) && self::valid_template( $cached ) ) {
 			return $cached;
 		}
 		$url      = self::TILES_FALLBACK;
-		$response = wp_remote_get( self::TILEJSON, array( 'timeout' => self::TILE_TIMEOUT ) );
+		$response = wp_safe_remote_get( self::TILEJSON, array( 'timeout' => self::TILE_TIMEOUT ) );
 		if ( ! is_wp_error( $response ) && 200 === (int) wp_remote_retrieve_response_code( $response ) ) {
 			$json = json_decode( wp_remote_retrieve_body( $response ), true );
+			// The template comes from a third party's answer and is fetched
+			// a thousand times a day afterwards. It is taken only when it
+			// points where the TileJSON itself lives, over https.
 			if ( isset( $json['tiles'][0] ) && is_string( $json['tiles'][0] )
-				&& false !== strpos( $json['tiles'][0], '{z}' ) ) {
+				&& self::valid_template( $json['tiles'][0] ) ) {
 				$url = $json['tiles'][0];
 			}
 		}
@@ -307,7 +349,7 @@ class Geo_Tiles {
 			array( $z, $x, $y ),
 			self::source()
 		);
-		$response = wp_remote_get(
+		$response = wp_safe_remote_get(
 			$url,
 			array(
 				'timeout'    => self::TILE_TIMEOUT,
@@ -319,16 +361,67 @@ class Geo_Tiles {
 		}
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 404 === $code || 204 === $code ) {
-			set_transient( $key, '', self::TILE_TTL );
+			// The ceiling belongs on every write, not only on the one below.
+			// Ocean and desert tiles answer 404, and each one used to add two
+			// rows to the options table for thirty days no matter how full the
+			// cache already was: the cap closed for hits and grew for misses.
+			if ( ! self::cache_full() ) {
+				set_transient( $key, '', self::TILE_TTL );
+			}
 			return array();
 		}
 		if ( 200 !== $code ) {
 			return null;
 		}
 
-		$elements = self::decode( wp_remote_retrieve_body( $response ), $z, $x, $y );
+		$seen     = false;
+		$elements = self::decode( wp_remote_retrieve_body( $response ), $z, $x, $y, $seen );
+		if ( ! $seen ) {
+			// A 200 without a single layer is not an empty tile, it is a body
+			// that could not be read - an HTML error page, a truncated
+			// download. It used to be remembered as "empty" for thirty days;
+			// five minutes keep a flapping edge from hammering, no more.
+			set_transient( $key, '', 5 * MINUTE_IN_SECONDS );
+			return $elements;
+		}
+		if ( self::cache_full() ) {
+			// Served, not stored: the tile cache is bounded. An editor user
+			// scrolling the whole planet used to fill the options table.
+			return $elements;
+		}
 		set_transient( $key, $elements ? wp_json_encode( $elements ) : '', self::TILE_TTL );
 		return $elements;
+	}
+
+	/**
+	 * Whether the tile cache has reached its ceiling.
+	 *
+	 * Transients live in the options table unless an object cache holds
+	 * them, so the count is one query there and no concern otherwise.
+	 *
+	 * @return bool
+	 */
+	private static function cache_full() {
+		if ( wp_using_ext_object_cache() ) {
+			return false;
+		}
+		global $wpdb;
+		$max = (int) apply_filters( 'wpie_geo_max_cached_tiles', self::MAX_CACHED_TILES );
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one COUNT on a cache miss, prepared.
+		$n = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s",
+				$wpdb->esc_like( '_transient_wpie_geo_t' ) . '%'
+			)
+		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			// A count that failed answers "full": the tile is still served,
+			// it is just not cached, and the ceiling cannot be walked past
+			// on a database that does not answer.
+			return true;
+		}
+		return $n >= $max;
 	}
 
 	/**
@@ -340,19 +433,21 @@ class Geo_Tiles {
 	 * @param int    $y   Row.
 	 * @return array
 	 */
-	public static function decode( $buf, $z, $x, $y ) {
-		$out = array();
-		$end = strlen( $buf );
+	public static function decode( $buf, $z, $x, $y, &$seen = null ) {
+		$out  = array();
+		$end  = strlen( $buf );
+		$seen = false;
 
 		// Tile.layers = field 3, length-delimited.
 		self::walk(
 			$buf,
 			0,
 			$end,
-			function ( $num, $wire, $b, &$pos ) use ( &$out, $z, $x, $y ) {
+			function ( $num, $wire, $b, &$pos ) use ( &$out, &$seen, $z, $x, $y ) {
 				if ( 3 !== $num || 2 !== $wire ) {
 					return false;
 				}
+				$seen  = true;
 				$len   = self::varint( $b, $pos );
 				$start = $pos;
 				$pos  += $len;
@@ -376,7 +471,7 @@ class Geo_Tiles {
 	 */
 	private static function layer( $b, $start, $end, $z, $x, $y, &$out ) {
 		$name     = '';
-		$extent   = 4096;
+		$extent   = self::DEFAULT_EXTENT;
 		$keys     = array();
 		$values   = array();
 		$features = array();
@@ -403,7 +498,17 @@ class Geo_Tiles {
 					return true;
 				}
 				if ( 5 === $num && 0 === $wire ) {
-					$extent = self::varint( $buf, $pos );
+					// The decoder checks wire type and field number everywhere
+					// and a value range nowhere. extent is the last field of a
+					// layer message, so a download that stops right after its
+					// key byte leaves varint() returning 0 - and geometry()
+					// divides by it. On PHP 8 that is an uncaught
+					// DivisionByZeroError and a 500; on 7.4 it is INF, then
+					// NAN, and wp_json_encode(NAN) is false, which reaches the
+					// browser as quietly broken JSON. A tile with no extent
+					// keeps the default.
+					$read   = self::varint( $buf, $pos );
+					$extent = $read > 0 ? $read : $extent;
 					return true;
 				}
 				return false;
@@ -523,11 +628,22 @@ class Geo_Tiles {
 					return true;
 				}
 				if ( 2 === $wire && ( 2 === $num || 4 === $num ) ) {
-					$len  = self::varint( $buf, $pos );
-					$stop = $pos + $len;
+					$len = self::varint( $buf, $pos );
+					// Clamped and guarded the same way walk() is. varint()
+					// returns 0 at the end of the buffer WITHOUT moving the
+					// cursor, so a length that points past the end left $pos
+					// standing while $pos < $stop stayed true forever: the
+					// loop appended zeroes until the memory ran out, and with
+					// memory_limit = -1 (CLI, cron) it simply never returned.
+					// A truncated 200 from the tile CDN is all it takes.
+					$stop = min( $pos + max( 0, $len ), strlen( $buf ) );
 					$list = array();
 					while ( $pos < $stop ) {
+						$before = $pos;
 						$list[] = self::varint( $buf, $pos );
+						if ( $pos <= $before ) {
+							break;
+						}
 					}
 					if ( 2 === $num ) {
 						$tags = $list;
@@ -738,7 +854,12 @@ class Geo_Tiles {
 	 * @return array List of flat coordinate arrays.
 	 */
 	private static function geometry( $geom, $extent, $z, $x, $y ) {
-		$scale = pow( 2, $z );
+		// The divisor, guarded where the division happens and not only where
+		// the value is read. A truncated layer message can leave extent at 0,
+		// and on PHP 8 that is an uncaught DivisionByZeroError, on 7.4 an INF
+		// that turns into NAN and then into JSON that will not encode.
+		$extent = (int) $extent > 0 ? (int) $extent : self::DEFAULT_EXTENT;
+		$scale  = pow( 2, $z );
 		$rings = array();
 		$ring  = array();
 		$tile  = array();
@@ -865,8 +986,19 @@ class Geo_Tiles {
 
 		$elements = array();
 		$got      = false;
+		// A total budget, the same reasoning as the Overpass path right next
+		// door (Geo::TOTAL_BUDGET, and the comment there spells it out). This
+		// loop fetched up to MAX_TILES tiles in series at TILE_TIMEOUT each
+		// and only ever did `continue` on a timeout, so a slow CDN held one
+		// PHP worker for 25 times 8 seconds in a single request. Whatever came
+		// back before the budget ran out is still drawn; what matters is that
+		// the request ends.
+		$deadline = microtime( true ) + self::TOTAL_BUDGET;
 		for ( $x = min( $x0, $x1 ); $x <= max( $x0, $x1 ); $x++ ) {
 			for ( $y = min( $y0, $y1 ); $y <= max( $y0, $y1 ); $y++ ) {
+				if ( microtime( true ) >= $deadline ) {
+					break 2;
+				}
 				$tile = self::tile( $z, $x, $y );
 				if ( null === $tile ) {
 					continue;

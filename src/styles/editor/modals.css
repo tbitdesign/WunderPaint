@@ -3129,12 +3129,19 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	color: var( --ed-text-muted, #9aa3ad );
 }
 
-/* Brand mark in a floating panel's head. */
+/*
+ * Die Marke im Panelkopf, in derselben Tinte wie im Dialog. Die Kopfzeile
+ * faerbt sich auf --ed-text-dim, weil ihr Versaltitel gedimmt sein soll -
+ * und das Zeichen erbte das ueber currentColor, also erschienen seine
+ * hellen Flaechen graublau statt weiss. Der Titel bleibt gedimmt, nur das
+ * Zeichen nicht (dieselbe Farbe wie .dsm-badge).
+ */
 #wpie-root .ed-float-icon {
 	display: inline-flex;
 	align-items: center;
 	margin-right: 6px;
 	line-height: 0;
+	color: var(--text-primary);
 }
 
 /* Colour wheel: every hue at once, the shade square inside it. */

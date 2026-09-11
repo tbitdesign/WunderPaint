@@ -3,15 +3,11 @@
  * localStorage, shared by the Export dialog and Batch processing.
  */
 
+import { siteStorage } from './local-storage';
 const KEY = 'wpie-export-presets';
 export const EXPORT_PRESET_CAP = 10;
 
-let storage = null;
-try {
-	storage = window.localStorage;
-} catch ( e ) {
-	storage = null;
-}
+let storage = siteStorage;
 
 /** Test hook. */
 export const __setExportPresetStorage = ( s ) => {

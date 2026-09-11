@@ -10,8 +10,9 @@
  *
  * Two access shapes:
  *
- *   find_for( id )   live lookup for one image, always fresh, no scan needed
- *   run_chunk()      the full sweep, resumable, one slice per request
+ *   find_for( id )        live lookup for one image, always fresh, no scan needed
+ *   find_for_many( ids )  the same for a list, each table read once per batch
+ *   run_chunk()           the full sweep, resumable, one slice per request
  *
  * The sweep writes into `_wpie_usage_run` and only promotes that to
  * `_wpie_usage_count` when a run completes, so the previous verdict stays
@@ -51,6 +52,9 @@ class Media_Usage {
 
 	/** Progress of the running sweep. */
 	const STATE_OPTION = 'wpie_usage_scan';
+
+	/** Cached verdict counts (see counts()). */
+	const COUNTS_TRANSIENT = 'wpie_usage_counts';
 
 	/** Summary of the last completed sweep. */
 	const LAST_OPTION = 'wpie_usage_last';
@@ -214,23 +218,128 @@ class Media_Usage {
 	 */
 	public static function find_for( $attachment_id ) {
 		$attachment_id = (int) $attachment_id;
-		if ( $attachment_id <= 0 || 'attachment' !== get_post_type( $attachment_id ) ) {
-			return array();
+		$partial       = array();
+		$by            = self::find_for_many( array( $attachment_id ), $partial );
+		if ( is_wp_error( $by ) ) {
+			// The display callers keep their old answer on a failed or
+			// incomplete query - whatever was found is still worth showing.
+			// The ones that move or delete read the WP_Error and stop.
+			return $partial[ $attachment_id ] ?? array();
 		}
+		return $by[ $attachment_id ] ?? array();
+	}
 
-		$needles = self::resolver()->needles_for( $attachment_id );
-		$out     = array();
-		foreach ( self::scanners() as $scanner ) {
-			$hits = $scanner->find_for( $attachment_id, $needles );
-			foreach ( (array) $hits as $hit ) {
-				$out[] = $hit;
+	/** Images per pass of the batch lookup. */
+	const LOOKUP_CHUNK = 20;
+
+	/**
+	 * Every place each of several attachments is referenced, in one pass.
+	 *
+	 * The quarantine's second look used to call find_for() per image, and
+	 * each call ran the prefilter of every scanner: five LIKE scans over the
+	 * big tables per image, each a full read. The scans differ only in their
+	 * needles, so a batch runs each once with all needles and parses each row
+	 * once. A scanner whose batch hits its row cap is asked per image again.
+	 *
+	 * A failed query is an error, not an empty list: to the quarantine, empty
+	 * means "unused", and a database hiccup must never read like that.
+	 *
+	 * @param int[] $ids     Attachment ids.
+	 * @param array $partial Filled with what was found when the return is a WP_Error.
+	 * @return array<int,array[]>|\WP_Error Hit records per id; ids that are not attachments are left out.
+	 */
+	public static function find_for_many( $ids, &$partial = null ) {
+		$valid = array();
+		foreach ( array_map( 'intval', (array) $ids ) as $id ) {
+			if ( $id > 0 && ! isset( $valid[ $id ] ) && 'attachment' === get_post_type( $id ) ) {
+				$valid[ $id ] = true;
 			}
 		}
+		$ids = array_keys( $valid );
+		$out = array();
+		foreach ( $ids as $id ) {
+			$out[ $id ] = array();
+		}
+		if ( ! $ids ) {
+			return $out;
+		}
 
-		// One line per place, not per matching row.
+		$resolver = self::resolver();
+		$needles  = array();
+		foreach ( $ids as $id ) {
+			$needles[ $id ] = $resolver->needles_for( $id );
+		}
+
+		$scanners   = self::scanners();
+		$incomplete = false;
+		try {
+			foreach ( array_chunk( $ids, self::LOOKUP_CHUNK ) as $chunk ) {
+				$chunk_needles = array_intersect_key( $needles, array_flip( $chunk ) );
+				foreach ( $scanners as $scanner ) {
+					$hits = count( $chunk ) > 1 ? $scanner->find_for_many( $chunk, $chunk_needles ) : null;
+					if ( null === $hits ) {
+						// No batch path, or the batch was cut off: per image, as before.
+						$hits = array();
+						foreach ( $chunk as $id ) {
+							$hits[ $id ] = (array) $scanner->find_for( $id, $needles[ $id ] );
+							// The per-image retry uses the same row cap as the
+							// batch it is standing in for. If it is cut off too,
+							// the honest answer is "I do not know" - and to the
+							// quarantine that must not look like "unused".
+							if ( method_exists( $scanner, 'was_cut' ) && $scanner->was_cut() ) {
+								$incomplete = true;
+							}
+						}
+					}
+					foreach ( $hits as $id => $list ) {
+						if ( ! isset( $out[ $id ] ) ) {
+							continue;
+						}
+						foreach ( (array) $list as $hit ) {
+							$out[ $id ][] = $hit;
+						}
+					}
+				}
+			}
+		} catch ( \RuntimeException $e ) {
+			$partial = self::unique_all( $out );
+			return new \WP_Error( 'wpie_usage_lookup', $e->getMessage() );
+		}
+
+		$out = self::unique_all( $out );
+		if ( $incomplete ) {
+			$partial = $out;
+			return new \WP_Error(
+				'wpie_usage_incomplete',
+				__( 'The reference search hit its row limit, so this answer is incomplete. Nothing was moved or deleted.', 'wunderpaint' )
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * One line per place, for every id at once.
+	 *
+	 * @param array<int,array[]> $by Hits per id.
+	 * @return array<int,array[]>
+	 */
+	private static function unique_all( $by ) {
+		foreach ( $by as $id => $hits ) {
+			$by[ $id ] = self::unique_places( $hits );
+		}
+		return $by;
+	}
+
+	/**
+	 * One line per place, not per matching row.
+	 *
+	 * @param array[] $hits Hit records.
+	 * @return array[]
+	 */
+	private static function unique_places( $hits ) {
 		$seen   = array();
 		$unique = array();
-		foreach ( $out as $hit ) {
+		foreach ( $hits as $hit ) {
 			$key = $hit['src'] . '|' . $hit['obj'] . '|' . $hit['ctx'];
 			if ( isset( $seen[ $key ] ) ) {
 				continue;
@@ -310,6 +419,14 @@ class Media_Usage {
 	public static function counts() {
 		global $wpdb;
 
+		// Every poll during a run and every status read used to run this
+		// aggregation over the whole library. The numbers only move when a
+		// run finishes or something is deleted; a minute is fresh enough.
+		$cached = get_transient( self::COUNTS_TRANSIENT );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		$mimes = "'" . implode( "','", array_map( 'esc_sql', Media_Library::MIMES ) ) . "'";
 		$last  = self::last_run();
 		$out   = array(
@@ -362,6 +479,7 @@ class Media_Usage {
 			$out['unused']   = 0;
 			$out['fresh']    = 0;
 		}
+		set_transient( self::COUNTS_TRANSIENT, $out, MINUTE_IN_SECONDS );
 		return $out;
 	}
 
@@ -499,6 +617,28 @@ class Media_Usage {
 	 * @return array Status for the client.
 	 */
 	public static function run_chunk() {
+		// One chunk at a time. Two requests at once (a second tab, a double
+		// click) used to walk the same cursor: each advanced the shared state
+		// past rows the other had not scanned, and the run still reported
+		// itself complete. The other caller gets "busy" and asks again.
+		$lock = 'wpie_usage_chunk_lock';
+		if ( get_transient( $lock ) ) {
+			return array_merge( self::status(), array( 'busy' => true ) );
+		}
+		set_transient( $lock, 1, (int) ceil( self::CHUNK_BUDGET ) + 5 );
+		try {
+			return self::run_chunk_locked();
+		} finally {
+			delete_transient( $lock );
+		}
+	}
+
+	/**
+	 * The sweep proper; run_chunk() holds the lock around it.
+	 *
+	 * @return array Status for the client.
+	 */
+	private static function run_chunk_locked() {
 		$state = get_option( self::STATE_OPTION, array() );
 		if ( ! is_array( $state ) || empty( $state['running'] ) ) {
 			$state = self::start();
@@ -602,10 +742,13 @@ class Media_Usage {
 
 		if ( $paths ) {
 			// A path that fails to resolve loses its image the same way a
-			// failed insert does, so this read is checked too.
-			$wpdb->last_error = '';
-			$resolved         = self::resolver()->resolve_paths( array_unique( $paths ) );
-			if ( '' !== (string) $wpdb->last_error ) {
+			// failed insert does, so this read is checked too - inside
+			// resolve_paths(), per query. Checking last_error out here once
+			// would only ever see the last block, because wpdb::query()
+			// clears the flag on every new query.
+			try {
+				$resolved = self::resolver()->resolve_paths( array_unique( $paths ) );
+			} catch ( \RuntimeException $e ) {
 				return false;
 			}
 			foreach ( $resolved as $id ) {
@@ -651,6 +794,13 @@ class Media_Usage {
 	 * @return void
 	 */
 	private static function flush_meta_cache() {
+		delete_transient( self::COUNTS_TRANSIENT );
+		// The default object cache lives and dies with the request; there is
+		// nothing stale to drop and nothing to lose. Only a persistent cache
+		// needs the flush, and only one without group support the big one.
+		if ( ! wp_using_ext_object_cache() ) {
+			return;
+		}
 		if ( function_exists( 'wp_cache_flush_group' ) && wp_cache_supports( 'flush_group' ) ) {
 			wp_cache_flush_group( 'post_meta' );
 			return;
@@ -675,9 +825,14 @@ class Media_Usage {
 		$wpdb->last_error = '';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.DirectDelete, WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- bulk maintenance of our own meta key.
 		$wpdb->delete( $wpdb->postmeta, array( 'meta_key' => self::COUNT_KEY ) );
+		// last_error covers ONE query. Read it after each of the pair, or a
+		// failed delete hides behind a clean rename: every old verdict row
+		// stays, the new ones land beside them, and the run reports ok.
+		$loesch_ok        = '' === (string) $wpdb->last_error;
+		$wpdb->last_error = '';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- bulk maintenance of our own meta key.
 		$wpdb->update( $wpdb->postmeta, array( 'meta_key' => self::COUNT_KEY ), array( 'meta_key' => self::RUN_KEY ) );
-		$tausch_ok = '' === (string) $wpdb->last_error;
+		$tausch_ok = $loesch_ok && '' === (string) $wpdb->last_error;
 
 		// Everything the sweep never touched is a zero, and a zero has to exist
 		// as a row for the meta query behind the Unused folder to find it.
@@ -873,6 +1028,15 @@ class Media_Usage {
 	 */
 	public function rest_scan( \WP_REST_Request $req ) {
 		if ( $req->get_param( 'restart' ) ) {
+			// A restart throws the site-wide tally away and rescans. Any
+			// editor may ask for one, but not more often than every ten
+			// minutes; administrators are not held.
+			if ( ! current_user_can( 'manage_options' ) ) {
+				if ( get_transient( 'wpie_usage_restart_lock' ) ) {
+					return new \WP_Error( 'wpie_usage_restart_wait', __( 'The usage scan was restarted a moment ago. Try again in a few minutes.', 'wunderpaint' ), array( 'status' => 429 ) );
+				}
+				set_transient( 'wpie_usage_restart_lock', 1, 10 * MINUTE_IN_SECONDS );
+			}
 			self::start();
 		}
 		wp_raise_memory_limit( 'admin' );
@@ -885,6 +1049,19 @@ class Media_Usage {
 	 * @return array
 	 */
 	public function rest_reset() {
+		// Dieselbe Drossel wie ein Neustart, und aus demselben Grund. reset()
+		// ist ein site-weites DELETE ueber wp_postmeta plus - auf einem Host
+		// mit externem Objekt-Cache ohne Gruppenunterstuetzung - ein
+		// wp_cache_flush() fuer die ganze Seite. Die Route hing an der blossen
+		// Editor-Faehigkeit und war beliebig oft aufrufbar: in einer Schleife
+		// eine glaubwuerdige Last von innen, und nebenbei wurde der Lauf eines
+		// Administrators nie fertig.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			if ( get_transient( 'wpie_usage_reset_lock' ) ) {
+				return new \WP_Error( 'wpie_usage_reset_wait', __( 'The usage scan was reset a moment ago. Try again in a few minutes.', 'wunderpaint' ), array( 'status' => 429 ) );
+			}
+			set_transient( 'wpie_usage_reset_lock', 1, 10 * MINUTE_IN_SECONDS );
+		}
 		return self::reset();
 	}
 }

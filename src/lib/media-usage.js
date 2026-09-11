@@ -48,6 +48,9 @@ export const quarantine = {
 			data: { ids },
 		} ),
 	purge: () => request( { path: '/media-quarantine/purge', method: 'POST' } ),
+	/** The "rescued" note was shown; the list route does not clear it itself. */
+	ackRescued: () =>
+		request( { path: '/media-quarantine/rescued', method: 'POST' } ),
 };
 
 export const orphans = {
@@ -120,6 +123,11 @@ export async function runSweep( onProgress, ctl = {} ) {
 			return { ...status, running: false, cancelled: true };
 		}
 		status = await mediaUsage.step();
+		// The server holds one chunk at a time; a second runner (another tab)
+		// gets "busy" and waits instead of hammering the route.
+		if ( status?.busy ) {
+			await new Promise( ( r ) => setTimeout( r, 1000 ) );
+		}
 		onProgress?.( status );
 	}
 	return status;

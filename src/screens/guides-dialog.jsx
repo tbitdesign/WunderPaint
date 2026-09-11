@@ -66,6 +66,7 @@ export function GuidesDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Guides & Grid', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

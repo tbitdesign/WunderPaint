@@ -230,6 +230,28 @@ const DEFAULTS = {
 
 import { t } from './i18n.js';
 
+/**
+ * Upload through wp.apiFetch, which carries and refreshes the nonce; a
+ * hand-built fetch with the boot nonce failed after the first rotation
+ * (BRIDGE-04, 10.09.2026). Same shape as the fetch Response the callers read.
+ */
+async function wpieMediaPost( restRoot, init ) {
+	try {
+		const json = await window.wp.apiFetch( {
+			url: restRoot + 'wp/v2/media',
+			method: 'POST',
+			...init,
+		} );
+		return { ok: true, status: 201, json: () => Promise.resolve( json ) };
+	} catch ( e ) {
+		return {
+			ok: false,
+			status: ( e && e.data && e.data.status ) || 0,
+			json: () => Promise.resolve( e ),
+		};
+	}
+}
+
 /* -------------------------------- helpers -------------------------------- */
 
 function el( tag, cls, parent, text ) {
@@ -245,9 +267,6 @@ function el( tag, cls, parent, text ) {
 	}
 	return node;
 }
-
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
 
 const tabIcon = ( d, size = 15 ) =>
 	'<svg xmlns="http://www.w3.org/2000/svg" width="' +
@@ -370,6 +389,7 @@ const splitLines = ( s, maxLines = 40 ) =>
 function openStudio( ctx ) {
 	const { editor, extras, layer } = ctx;
 	const bridge = window.WPIE && window.WPIE.bridge;
+	const ui = bridge && bridge.ui;
 	if ( ! bridge || ! bridge.documents ) {
 		return;
 	}
@@ -407,8 +427,8 @@ function openStudio( ctx ) {
 	const dialog = el( 'div', 'dsm wpieta-dialog', backdrop );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	el( 'span', 'dsm-title', titles, 'Text Art' );
 	el(
@@ -424,41 +444,48 @@ function openStudio( ctx ) {
 	closeBtn.setAttribute( 'aria-label', t( 'Close' ) );
 
 	const body = el( 'div', 'wpieta-body', dialog );
-	const view = el( 'div', 'wpieta-view', body );
+	const library = el( 'div', 'dsm-col start wpieta-library', body );
+	const view = el( 'div', 'dsm-view wpieta-view', body );
 	const canvas = el( 'canvas', null, view );
-	const side = el( 'div', 'wpieta-side', body );
-	const status = el( 'div', 'wpieta-status', view );
+	const side = el( 'div', 'dsm-col end wpieta-side', body );
+	const status = el( 'div', 'dsm-viewhint wpieta-status', view );
 	const setStatus = ( msg, isErr ) => {
 		status.textContent = msg || '';
 		status.classList.toggle( 'on', !! msg );
 		status.classList.toggle( 'err', !! isErr );
 	};
 
-	const section = ( parent, icon, label ) => {
-		const card = el( 'div', 'wpieta-card', parent );
-		const h = el( 'div', 'wpieta-card-head', card );
-		h.innerHTML = icon + '<span>' + label + '</span>';
-		return el( 'div', 'wpieta-card-body', card );
+	const section = ( parent, icon, title ) => {
+		const body = ui.section( parent, { icon, title } );
+		body.classList.add( 'wpieta-card-body' );
+		body.parentElement.classList.add( 'wpieta-card' );
+		return body;
 	};
 
-	/* ------------------------------ type cards ---------------------------- */
+	/* ------------------------------ type library -------------------------- */
 
-	const modeSec = section( side, ICONS.type, t( 'Type' ) );
-	const modeGrid = el( 'div', 'wpieta-cards', modeSec );
+	const srcSec = section( library, ICONS.source, t( 'Source' ) );
+	srcSec.parentElement.classList.add( 'wpieta-source' );
+	const modeSec = section( library, ICONS.type, t( 'Type' ) );
+	const modeGrid = ui.picks( modeSec, { cell: 110, cls: 'wpieta-cards' } );
 	const modeTiles = new Map();
 	for ( const m of MODES ) {
-		const card = el( 'button', 'wpieta-tcard', modeGrid );
-		card.type = 'button';
-		card.title = t( m.label );
-		const thumb = el( 'canvas', 'wpieta-tthumb', card );
+		const thumb = document.createElement( 'canvas' );
+		thumb.className = 'wpieta-tthumb';
 		thumb.width = 132;
 		thumb.height = 92;
-		el( 'span', 'wpieta-tlabel', card, t( m.label ) );
-		card.onclick = () => {
-			params.mode = m.id;
-			syncUi();
-			schedule();
-		};
+		const { node: card } = ui.pick( modeGrid, {
+			label: t( m.label ),
+			thumb,
+			cls: 'wpieta-tcard',
+			on: m.id === params.mode,
+			onClick: () => {
+				params.mode = m.id;
+				syncUi();
+				schedule();
+			},
+		} );
+		card.dataset.mode = m.id;
 		modeTiles.set( m.id, { card, thumb } );
 	}
 
@@ -705,9 +732,8 @@ function openStudio( ctx ) {
 
 	/* ------------------------------- source ------------------------------- */
 
-	const srcSec = section( side, ICONS.source, t( 'Source' ) );
 	const srcSel = el( 'select', 'dsm-select wpieta-wide', srcSec );
-	const srcNote = el( 'div', 'wpieta-info', srcSec );
+	const srcNote = el( 'div', 'dsm-note wpieta-info', srcSec );
 
 	function fillSourceOptions() {
 		srcSel.innerHTML = '';
@@ -717,19 +743,25 @@ function openStudio( ctx ) {
 			o.textContent = label;
 		};
 		add( 'doc', t( 'Whole document' ) );
-		const walk = ( layers, depth ) => {
-			for ( const l of layers || [] ) {
-				if ( 'group' === l.type ) {
-					walk( l.children, depth + 1 );
+		// Der Kern haelt EINE FLACHE Ebenenliste, und group.children sind
+		// IDs, keine Objekte. Die alte Rekursion lief damit ueber Strings:
+		// l.type und l.name waren undefined, jedes Kind wurde als
+		// "layer:undefined" mit der Beschriftung "undefined" angeboten - und
+		// danach standen dieselben Ebenen noch einmal flach in der Liste,
+		// weil sie dort ohnehin schon drin sind. (Codex F15.)
+		const walk = ( layers ) => {
+			const list = layers || [];
+			for ( const l of list ) {
+				if ( ! l || ! l.id || 'group' === l.type ) {
 					continue;
 				}
 				add(
 					'layer:' + l.id,
-					' '.repeat( depth * 2 ) + ( l.name || l.type )
+					( l.parent ? '  ' : '' ) + ( l.name || l.type )
 				);
 			}
 		};
-		walk( editor.state.layers, 0 );
+		walk( editor.state.layers );
 		add( 'media', t( 'Media library…' ) );
 		add( 'shape', t( 'Shape (no image)' ) );
 	}
@@ -741,7 +773,7 @@ function openStudio( ctx ) {
 			: 'doc';
 	params.source = srcSel.value;
 	const shapeRow = el( 'label', 'wpieta-row', srcSec );
-	el( 'span', null, shapeRow ).textContent = t( 'Shape' );
+	el( 'span', 'dsm-fieldlabel', shapeRow ).textContent = t( 'Shape' );
 	const shapeSel = el( 'select', 'dsm-select', shapeRow );
 	for ( const [ v, l ] of [
 		[ 'heart', t( 'Heart' ) ],
@@ -762,8 +794,13 @@ function openStudio( ctx ) {
 		loadSource();
 	};
 	const shapeTextRow = el( 'label', 'wpieta-text-row', srcSec );
-	el( 'span', null, shapeTextRow ).textContent = t( 'Letter or emoji' );
-	const shapeTextInput = el( 'input', 'wpieta-input', shapeTextRow );
+	el( 'span', 'dsm-fieldlabel', shapeTextRow ).textContent =
+		t( 'Letter or emoji' );
+	const shapeTextInput = el(
+		'input',
+		'dsm-input wpieta-input',
+		shapeTextRow
+	);
 	shapeTextInput.type = 'text';
 	shapeTextInput.maxLength = 4;
 	shapeTextInput.value = params.shapeText;
@@ -863,31 +900,60 @@ function openStudio( ctx ) {
 					srcNote.textContent = params.image.title || '';
 				}
 			} else if ( 'doc' === desc ) {
+				// Editing: the document WITHOUT this studio's own layer, or
+				// every update bakes the previous result into the next one
+				// (EXTZUSTAND-01, 10.09.2026).
+				const own = new Set(
+					editing && layer
+						? [ layer.id, ...( layer.children || [] ) ]
+						: []
+				);
 				c = await bridge.raster.renderToCanvas(
 					editor.state.doc,
-					editor.state.layers,
-					{ scale: Math.min( 1, 900 / editor.state.doc.w ) }
+					( editor.state.layers || [] ).filter(
+						( l ) => ! own.has( l.id ) && ! own.has( l.parent )
+					),
+					{
+						scale: Math.min( 1, 900 / editor.state.doc.w ),
+						cache: bridge.raster.sharedImageCache,
+					}
 				);
 			} else if ( desc.startsWith( 'layer:' ) ) {
 				const id = desc.slice( 6 );
-				const find = ( layers ) => {
-					for ( const l of layers || [] ) {
-						if ( String( l.id ) === id ) {
-							return l;
-						}
-						const hit = l.children && find( l.children );
-						if ( hit ) {
-							return hit;
-						}
-					}
-					return null;
-				};
-				const target = find( editor.state.layers );
+				const flat = editor.state.layers || [];
+				const target = flat.find( ( l ) => String( l.id ) === id );
 				if ( target ) {
+					// The layer may be the child of a group: the renderer
+					// starts at roots without a parent and never reached it,
+					// so a grouped photo arrived as an empty canvas (Codex
+					// F15, 10.09.2026). Render a parent-less copy and hand the
+					// renderer its descendants for a group.
+					const byId = new Map(
+						flat.map( ( l ) => [ String( l.id ), l ] )
+					);
+					const members = new Set();
+					const collect = ( item ) => {
+						if ( ! item || members.has( item.id ) ) {
+							return;
+						}
+						members.add( item.id );
+						( item.children || [] ).forEach( ( cid ) =>
+							collect( byId.get( String( cid ) ) )
+						);
+					};
+					collect( target );
+					const selected = flat.filter( ( l ) =>
+						members.has( l.id )
+					);
+					await bridge.raster.sharedImageCache?.warm?.( selected );
 					c = await bridge.raster.renderToCanvas(
 						editor.state.doc,
-						[ target ],
-						{ scale: Math.min( 1, 900 / editor.state.doc.w ) }
+						[ { ...target, parent: null } ],
+						{
+							scale: Math.min( 1, 900 / editor.state.doc.w ),
+							cache: bridge.raster.sharedImageCache,
+							allLayers: selected,
+						}
 					);
 					srcNote.textContent = target.name || '';
 				}
@@ -986,7 +1052,7 @@ function openStudio( ctx ) {
 
 	const colSec = section( side, ICONS.colors, t( 'Colors' ) );
 	const cmRow = el( 'label', 'wpieta-row', colSec );
-	el( 'span', null, cmRow ).textContent = t( 'Color mode' );
+	el( 'span', 'dsm-fieldlabel', cmRow ).textContent = t( 'Color mode' );
 	const cmSel = el( 'select', 'dsm-select', cmRow );
 	for ( const [ v, l ] of [
 		[ 'image', t( 'Image colors' ) ],
@@ -1005,7 +1071,7 @@ function openStudio( ctx ) {
 		schedule();
 	};
 	const bgRow = el( 'label', 'wpieta-row', colSec );
-	el( 'span', null, bgRow ).textContent = t( 'Background' );
+	el( 'span', 'dsm-fieldlabel', bgRow ).textContent = t( 'Background' );
 	const bgSel = el( 'select', 'dsm-select', bgRow );
 	for ( const [ v, l ] of [
 		[ 'dark', t( 'Dark' ) ],
@@ -1025,7 +1091,7 @@ function openStudio( ctx ) {
 	const palWrap = el( 'div', 'wpieta-pals', colSec );
 	const palBtns = new Map();
 	for ( const p of PALETTES ) {
-		const b = el( 'button', 'wpieta-pal', palWrap );
+		const b = el( 'button', 'dsm-strip wpieta-pal', palWrap );
 		b.type = 'button';
 		b.title = p.label;
 		b.style.background = `linear-gradient(90deg, ${ p.colors.join(
@@ -1056,7 +1122,7 @@ function openStudio( ctx ) {
 	};
 	let brandCb = null;
 	if ( brandKits.length ) {
-		const brandLbl = el( 'label', 'wpieta-check', colSec );
+		const brandLbl = el( 'label', 'dsm-checkrow wpieta-check', colSec );
 		brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
 		brandCb.checked = !! params.useBrand;
@@ -1088,7 +1154,8 @@ function openStudio( ctx ) {
 		}
 	}
 	const customRow = el( 'div', 'wpieta-row wpieta-customrow', colSec );
-	el( 'span', null, customRow ).textContent = t( 'Custom colors' );
+	el( 'span', 'dsm-fieldlabel', customRow ).textContent =
+		t( 'Custom colors' );
 	const customWrap = el( 'span', 'wpieta-customs', customRow );
 	const mountSwatch = bridge.components && bridge.components.mountColorButton;
 	const customCtls = [];
@@ -1120,7 +1187,7 @@ function openStudio( ctx ) {
 			customCtls.push( { set: ( hex ) => ( input.value = hex ) } );
 		}
 	}
-	const resetBtn = el( 'button', 'wpieta-reset', customRow );
+	const resetBtn = el( 'button', 'ai-btn secondary wpieta-reset', customRow );
 	resetBtn.textContent = t( 'Auto' );
 	resetBtn.onclick = ( e ) => {
 		e.preventDefault();
@@ -1151,13 +1218,13 @@ function openStudio( ctx ) {
 	const setSec = section( side, ICONS.settings, t( 'Settings' ) );
 	function sliderRowIn( parent, label, min, max, get, set, unit ) {
 		const row = el( 'label', 'wpieta-row', parent );
-		el( 'span', null, row ).textContent = label;
-		const input = el( 'input', null, row );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const input = el( 'input', 'dsm-range', row );
 		input.type = 'range';
 		input.min = String( min );
 		input.max = String( max );
 		input.value = String( get() );
-		const out = el( 'output', null, row );
+		const out = el( 'output', 'dsm-sliderrow-val', row );
 		const suffix = unit || '';
 		out.textContent = String( get() ) + suffix;
 		input.oninput = () => {
@@ -1169,7 +1236,7 @@ function openStudio( ctx ) {
 	}
 	function selectRow( parent, label, pairs, get, set ) {
 		const row = el( 'label', 'wpieta-row', parent );
-		el( 'span', null, row ).textContent = label;
+		el( 'span', 'dsm-fieldlabel', row ).textContent = label;
 		const sel = el( 'select', 'dsm-select', row );
 		for ( const [ v, l ] of pairs ) {
 			const o = el( 'option', null, sel );
@@ -1185,11 +1252,11 @@ function openStudio( ctx ) {
 		return row;
 	}
 	function checkRow( parent, label, get, set ) {
-		const row = el( 'label', 'wpieta-check', parent );
+		const row = el( 'label', 'dsm-checkrow wpieta-check', parent );
 		const cb = el( 'input', null, row );
 		cb.type = 'checkbox';
 		cb.checked = !! get();
-		el( 'span', null, row ).textContent = label;
+		el( 'span', 'dsm-fieldlabel', row ).textContent = label;
 		cb.onchange = () => {
 			set( cb.checked );
 			schedule();
@@ -1198,8 +1265,8 @@ function openStudio( ctx ) {
 	}
 	function textAreaRow( parent, label, rows, get, set ) {
 		const row = el( 'label', 'wpieta-text-row', parent );
-		el( 'span', null, row ).textContent = label;
-		const area = el( 'textarea', 'wpieta-names', row );
+		el( 'span', 'dsm-fieldlabel', row ).textContent = label;
+		const area = el( 'textarea', 'dsm-input wpieta-names', row );
 		area.rows = rows;
 		area.value = get();
 		area.oninput = () => {
@@ -1243,8 +1310,13 @@ function openStudio( ctx ) {
 		( v ) => ( params.charset = v )
 	);
 	const customCharsRow = el( 'label', 'wpieta-text-row', setSec );
-	el( 'span', null, customCharsRow ).textContent = t( 'Own characters' );
-	const customCharsInput = el( 'input', 'wpieta-input', customCharsRow );
+	el( 'span', 'dsm-fieldlabel', customCharsRow ).textContent =
+		t( 'Own characters' );
+	const customCharsInput = el(
+		'input',
+		'dsm-input wpieta-input',
+		customCharsRow
+	);
 	customCharsInput.type = 'text';
 	customCharsInput.value = params.customChars;
 	customCharsInput.oninput = () => {
@@ -1280,8 +1352,13 @@ function openStudio( ctx ) {
 		( v ) => ( params.emojiSet = v )
 	);
 	const customEmojiRow = el( 'label', 'wpieta-text-row', setSec );
-	el( 'span', null, customEmojiRow ).textContent = t( 'Own emoji' );
-	const customEmojiInput = el( 'input', 'wpieta-input', customEmojiRow );
+	el( 'span', 'dsm-fieldlabel', customEmojiRow ).textContent =
+		t( 'Own emoji' );
+	const customEmojiInput = el(
+		'input',
+		'dsm-input wpieta-input',
+		customEmojiRow
+	);
 	customEmojiInput.type = 'text';
 	customEmojiInput.value = params.customEmoji;
 	customEmojiInput.oninput = () => {
@@ -1339,12 +1416,12 @@ function openStudio( ctx ) {
 		( v ) => ( params.text = v )
 	);
 	const postRow = el( 'div', 'wpieta-text-row', setSec );
-	el( 'span', null, postRow ).textContent = t( 'Find post…' );
-	const postInput = el( 'input', 'wpieta-input', postRow );
-	postInput.type = 'text';
-	postInput.placeholder = t( 'Search posts' );
+	el( 'span', 'dsm-fieldlabel', postRow ).textContent = t( 'Find post…' );
+	const postInput = window.WPIE.bridge.ui.search( postRow, {
+		placeholder: t( 'Search posts' ),
+	} ).input;
 	const postList = el( 'div', 'wpieta-postlist', postRow );
-	const postPicked = el( 'div', 'wpieta-info', postRow );
+	const postPicked = el( 'div', 'dsm-note wpieta-info', postRow );
 	const syncPostPicked = () => {
 		postPicked.textContent = params.postTitle
 			? `✓ ${ params.postTitle }`
@@ -1357,7 +1434,7 @@ function openStudio( ctx ) {
 		if ( ! ( window.wp && window.wp.apiFetch ) ) {
 			el(
 				'div',
-				'wpieta-info',
+				'dsm-note wpieta-info',
 				postList,
 				t( 'Posts need WordPress (not available here).' )
 			);
@@ -1371,21 +1448,34 @@ function openStudio( ctx ) {
 			} );
 			postList.innerHTML = '';
 			if ( ! posts.length ) {
-				el( 'div', 'wpieta-info', postList, t( 'No posts found.' ) );
+				el(
+					'div',
+					'dsm-note wpieta-info',
+					postList,
+					t( 'No posts found.' )
+				);
 				return;
 			}
 			for ( const p of posts ) {
-				const b = el( 'button', 'wpieta-postitem', postList );
+				const b = el(
+					'button',
+					'dsm-listrow wpieta-postitem',
+					postList
+				);
 				b.type = 'button';
 				b.textContent = p.title?.rendered
 					? p.title.rendered.replace( /<[^>]+>/g, '' )
 					: `#${ p.id }`;
 				b.onclick = () => {
-					const div = document.createElement( 'div' );
-					div.innerHTML = ( p.content && p.content.rendered ) || '';
+					// Parsed as an inert document: assigning innerHTML on a live
+					// element fetched every image of the post (EXTSEC-06).
+					const parsed = new window.DOMParser().parseFromString(
+						( p.content && p.content.rendered ) || '',
+						'text/html'
+					);
 					params.postId = p.id;
 					params.postTitle = b.textContent;
-					params.postText = ( div.textContent || '' )
+					params.postText = ( parsed.body.textContent || '' )
 						.replace( /\s+/g, ' ' )
 						.trim()
 						.slice( 0, 8000 );
@@ -1396,7 +1486,12 @@ function openStudio( ctx ) {
 			}
 		} catch ( e ) {
 			postList.innerHTML = '';
-			el( 'div', 'wpieta-info', postList, t( 'No posts found.' ) );
+			el(
+				'div',
+				'dsm-note wpieta-info',
+				postList,
+				t( 'No posts found.' )
+			);
 		}
 	}
 	postInput.oninput = () => {
@@ -1413,7 +1508,7 @@ function openStudio( ctx ) {
 	};
 
 	const fontRow = el( 'div', 'wpieta-text-row', setSec );
-	el( 'span', null, fontRow ).textContent = t( 'Font' );
+	el( 'span', 'dsm-fieldlabel', fontRow ).textContent = t( 'Font' );
 	const fontMount = el( 'div', null, fontRow );
 	let fontCtl = null;
 	const onFont = ( fam ) => {
@@ -1489,7 +1584,7 @@ function openStudio( ctx ) {
 	);
 	const maskInfo = el(
 		'div',
-		'wpieta-info',
+		'dsm-note wpieta-info',
 		setSec,
 		t( 'Cut-out layers use their transparency as the shape.' )
 	);
@@ -1664,8 +1759,10 @@ function openStudio( ctx ) {
 		( v ) => ( params.capCell = v )
 	);
 	const capTextRow = el( 'label', 'wpieta-text-row', setSec );
-	el( 'span', null, capTextRow ).textContent = t( 'Key text (optional)' );
-	const capTextInput = el( 'input', 'wpieta-input', capTextRow );
+	el( 'span', 'dsm-fieldlabel', capTextRow ).textContent = t(
+		'Key text (optional)'
+	);
+	const capTextInput = el( 'input', 'dsm-input wpieta-input', capTextRow );
 	capTextInput.type = 'text';
 	capTextInput.value = params.capText;
 	capTextInput.oninput = () => {
@@ -1832,24 +1929,24 @@ function openStudio( ctx ) {
 	);
 	// your tile
 	const tmLayerRow = el( 'label', 'wpieta-row', setSec );
-	el( 'span', null, tmLayerRow ).textContent = t( 'Tile layer' );
+	el( 'span', 'dsm-fieldlabel', tmLayerRow ).textContent = t( 'Tile layer' );
 	const tmLayerSel = el( 'select', 'dsm-select', tmLayerRow );
 	{
 		const none = el( 'option', null, tmLayerSel );
 		none.value = '';
 		none.textContent = t( 'Pick a layer…' );
-		const walk = ( layers, depth ) => {
+		// Flache Kernliste, group.children sind IDs - siehe oben (F15).
+		const walk = ( layers ) => {
 			for ( const l of layers || [] ) {
-				if ( 'group' === l.type ) {
-					walk( l.children, depth + 1 );
+				if ( ! l || ! l.id || 'group' === l.type ) {
 					continue;
 				}
 				const o = el( 'option', null, tmLayerSel );
 				o.value = String( l.id );
-				o.textContent = ' '.repeat( depth * 2 ) + ( l.name || l.type );
+				o.textContent = ( l.parent ? '  ' : '' ) + ( l.name || l.type );
 			}
 		};
-		walk( editor.state.layers, 0 );
+		walk( editor.state.layers );
 	}
 	tmLayerSel.value = params.tileLayerId || '';
 	tmLayerSel.onchange = () => {
@@ -1940,10 +2037,11 @@ function openStudio( ctx ) {
 		( v ) => ( params.cloudShape = v )
 	);
 	const cloudShapeTextRow = el( 'label', 'wpieta-text-row', setSec );
-	el( 'span', null, cloudShapeTextRow ).textContent = t( 'Letter or emoji' );
+	el( 'span', 'dsm-fieldlabel', cloudShapeTextRow ).textContent =
+		t( 'Letter or emoji' );
 	const cloudShapeTextInput = el(
 		'input',
-		'wpieta-input',
+		'dsm-input wpieta-input',
 		cloudShapeTextRow
 	);
 	cloudShapeTextInput.type = 'text';
@@ -1955,8 +2053,10 @@ function openStudio( ctx ) {
 	};
 	// qr portrait
 	const qrTextRow = el( 'label', 'wpieta-text-row', setSec );
-	el( 'span', null, qrTextRow ).textContent = t( 'QR content (URL or text)' );
-	const qrTextInput = el( 'input', 'wpieta-input', qrTextRow );
+	el( 'span', 'dsm-fieldlabel', qrTextRow ).textContent = t(
+		'QR content (URL or text)'
+	);
+	const qrTextInput = el( 'input', 'dsm-input wpieta-input', qrTextRow );
 	qrTextInput.type = 'text';
 	qrTextInput.maxLength = 116;
 	qrTextInput.placeholder =
@@ -1991,7 +2091,7 @@ function openStudio( ctx ) {
 	);
 	const qrInfo = el(
 		'div',
-		'wpieta-info',
+		'dsm-note wpieta-info',
 		setSec,
 		t( 'Always test the finished code with your phone before printing.' )
 	);
@@ -2045,7 +2145,7 @@ function openStudio( ctx ) {
 			const doc = editor.state.doc;
 			const full = await bridge.raster.renderToCanvas(
 				{ ...doc, bg: 'transparent' },
-				[ target ],
+				[ { ...target, parent: null } ],
 				{ scale: Math.min( 1, 700 / doc.w ) }
 			);
 			// Crop to solid pixels, then shrink to tile size.
@@ -2097,7 +2197,7 @@ function openStudio( ctx ) {
 
 	const syncUi = () => {
 		modeTiles.forEach( ( { card }, id ) =>
-			card.classList.toggle( 'sel', id === params.mode )
+			ui.pressed( card, id === params.mode )
 		);
 		palBtns.forEach( ( b, id ) =>
 			b.classList.toggle(
@@ -2256,7 +2356,7 @@ function openStudio( ctx ) {
 	animLib.textContent = LB_ALIB;
 	el(
 		'div',
-		'wpieta-info',
+		'dsm-note wpieta-info',
 		animSec,
 		t(
 			'The artwork builds itself piece by piece and ends on the full picture.'
@@ -2423,24 +2523,28 @@ function openStudio( ctx ) {
 			};
 			drawFrame( 0 );
 			const stream = rec.captureStream( 30 );
-			const mimes = [
-				'video/webm;codecs=vp9',
-				'video/webm;codecs=vp8',
-				'video/webm',
+			// mp4 first, as the core's recorder does: WebKit writes no WebM at
+			// all, and a WebM-only chain could only fail there (EXPORT-9).
+			const CANDIDATES = [
+				[ 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'mp4' ],
+				[ 'video/mp4', 'mp4' ],
+				[ 'video/webm;codecs=vp9', 'webm' ],
+				[ 'video/webm', 'webm' ],
 			];
-			const mime = mimes.find(
-				( m2 ) =>
+			const found = CANDIDATES.find(
+				( [ m ] ) =>
 					window.MediaRecorder &&
 					window.MediaRecorder.isTypeSupported &&
-					window.MediaRecorder.isTypeSupported( m2 )
-			);
-			if ( ! mime ) {
-				throw new Error( 'unsupported' );
-			}
+					window.MediaRecorder.isTypeSupported( m )
+			) || [ 'video/webm', 'webm' ];
+			const mime = found[ 0 ];
+			const ext = found[ 1 ];
+			recExt = ext;
 			const recorder = new window.MediaRecorder( stream, {
 				mimeType: mime,
 				videoBitsPerSecond: 9000000,
 			} );
+			activeRecorder = recorder;
 			const chunks = [];
 			recorder.ondataavailable = ( ev ) => {
 				if ( ev.data && ev.data.size ) {
@@ -2455,6 +2559,10 @@ function openStudio( ctx ) {
 			const t0 = performance.now();
 			await new Promise( ( resolve ) => {
 				const step = ( now ) => {
+					if ( closedFlag ) {
+						resolve();
+						return;
+					}
 					const s2 = ( now - t0 ) / 1000;
 					drawFrame( Math.min( 1, s2 / ( total - tail ) ) );
 					if ( s2 >= total ) {
@@ -2467,9 +2575,16 @@ function openStudio( ctx ) {
 			} );
 			recorder.stop();
 			await done;
+			activeRecorder = null;
+			if ( closedFlag ) {
+				return;
+			}
 			await sink( new Blob( chunks, { type: mime } ) );
 		} catch ( e ) {
-			setStatus( t( 'Recording failed.' ), true );
+			activeRecorder = null;
+			if ( ! closedFlag ) {
+				setStatus( t( 'Recording failed.' ), true );
+			}
 		}
 		animBtn.disabled = false;
 		animLib.disabled = false;
@@ -2491,12 +2606,12 @@ function openStudio( ctx ) {
 			/wpie\/v1\/?$/,
 			''
 		);
-		const res = await window.fetch( restRoot + 'wp/v2/media', {
-			method: 'POST',
-			credentials: 'same-origin',
+		const res = await wpieMediaPost( restRoot, {
 			headers: {
-				'X-WP-Nonce': boot.nonce || '',
-				'Content-Disposition': 'attachment; filename="text-art.webm"',
+				'Content-Disposition':
+					'attachment; filename="text-art.' +
+					( recExt || 'webm' ) +
+					'"',
 				'Content-Type': blob.type || 'video/webm',
 			},
 			body: blob,
@@ -2851,7 +2966,25 @@ function openStudio( ctx ) {
 			close();
 		}
 	};
+	let activeRecorder = null;
+	let closedFlag = false;
+	let recExt = 'webm';
+
 	function close() {
+		closedFlag = true;
+		if ( activeRecorder ) {
+			// The reveal recording used to run on after the dialog was
+			// gone, recorder and stream never stopped (LECK-7).
+			try {
+				activeRecorder.stream
+					.getTracks()
+					.forEach( ( tr ) => tr.stop() );
+				activeRecorder.stop();
+			} catch ( e ) {
+				// Already stopped.
+			}
+			activeRecorder = null;
+		}
 		window.clearTimeout( timer );
 		window.clearTimeout( thumbTimer );
 		bakeToken++;

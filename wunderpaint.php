@@ -3,7 +3,7 @@
  * Plugin Name:       WunderPaint
  * Plugin URI:        https://wp-image-editor.com
  * Description:       Design graphics, edit photos and automate your images.
- * Version:           1.429.0
+ * Version:           1.430.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            TBIT DESIGN - Thomas Breher
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPIE_VERSION', '1.429.0' );
+define( 'WPIE_VERSION', '1.430.0' );
 define( 'WPIE_FILE', __FILE__ );
 define( 'WPIE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPIE_URL', plugin_dir_url( __FILE__ ) );
@@ -98,31 +98,62 @@ function wpie_write_json_file( $path, $json ) {
 	if ( false === $data ) {
 		$data = (string) $json;
 	}
-	return false !== file_put_contents( $path, $data ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	// Stage beside the target, then rename. A full disk or a killed request
+	// used to leave a truncated sidecar under the real name and report it as
+	// a success, and the next open found a corrupt design with no way back.
+	// rename() is atomic on the same filesystem, so the old file stays whole
+	// until the new one is complete - and a short write is a failure.
+	$tmp     = $path . '.' . uniqid( '', true ) . '.incoming';
+	$written = @file_put_contents( $tmp, $data ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPress.PHP.NoSilencedErrors.Discouraged
+	if ( strlen( $data ) !== $written ) {
+		if ( file_exists( $tmp ) ) {
+			wp_delete_file( $tmp );
+		}
+		return false;
+	}
+	if ( file_exists( $path ) ) {
+		@chmod( $tmp, fileperms( $path ) & 0777 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod, WordPress.PHP.NoSilencedErrors.Discouraged
+	}
+	if ( ! @rename( $tmp, $path ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename, WordPress.PHP.NoSilencedErrors.Discouraged
+		wp_delete_file( $tmp );
+		return false;
+	}
+	return true;
 }
 
 /**
  * Read a JSON sidecar written by wpie_write_json_file() OR any older
- * plain file: the gzip magic bytes decide, a failed inflate falls back
- * to the raw bytes.
+ * plain file: the gzip magic bytes decide, and a failed inflate is a read
+ * failure, not a licence to hand back the compressed bytes.
  *
  * @param string $path Absolute file path.
  * @return string|false JSON string, or false when unreadable.
  */
 function wpie_read_json_file( $path ) {
+	// A sidecar that was never written is the normal case, not an incident:
+	// asking first keeps the error log free of the warning file_get_contents
+	// raises for every missing file.
+	if ( ! is_file( $path ) || ! is_readable( $path ) ) {
+		return false;
+	}
 	$raw = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	if ( false === $raw ) {
 		return false;
 	}
-	if ( "\x1f\x8b" === substr( $raw, 0, 2 ) && function_exists( 'gzdecode' ) ) {
-		$out = @gzdecode( $raw ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-		if ( false !== $out ) {
-			return $out;
-		}
+	if ( "\x1f\x8b" === substr( $raw, 0, 2 ) ) {
+		// The magic bytes say gzip, so the caller must not be handed the
+		// compressed bytes as if they were JSON. That fallback used to look
+		// harmless - json_decode() simply returns null - but the usage
+		// scanner searches the string for a file name, and searching binary
+		// rubbish finds nothing, which reads as "this image is not used".
+		// A file that says it is gzipped and will not inflate is unreadable.
+		$out = function_exists( 'gzdecode' ) ? @gzdecode( $raw ) : false; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		return false === $out ? false : $out;
 	}
 	return $raw;
 }
 
 register_activation_hook( __FILE__, array( \WPImageEditor\Plugin::class, 'activate' ) );
+register_deactivation_hook( __FILE__, array( \WPImageEditor\Plugin::class, 'deactivate' ) );
 
 add_action( 'plugins_loaded', array( \WPImageEditor\Plugin::class, 'instance' ) );

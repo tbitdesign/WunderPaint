@@ -2,6 +2,7 @@
  * Title bar (spec 04.1), ported from the prototype and fully wired.
  */
 
+import { siteStorage } from '../lib/local-storage';
 import { useEffect, useRef } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { confirmDialog } from '../lib/dialogs';
@@ -11,7 +12,7 @@ import { useToasts } from '../components/toasts';
 
 import { I } from '../icons';
 import { WpieLogo } from '../components/logo';
-import { attachBlasterTrigger } from '../lib/blaster';
+import { attachPixelstormTrigger } from '../lib/pixelstorm';
 import { getPsdExporter } from '../lib/psd-registry';
 import { runWetFlush } from '../lib/wet-hooks';
 import {
@@ -28,14 +29,25 @@ export function EditorTitleBar( { onExport, nested, extras } ) {
 	const toasts = useToasts();
 	const { doc, theme } = state;
 
-	// Five quick clicks on the brand mark start the Pixel Blaster easter egg.
+	// Three quick clicks on the brand mark open Pixelstorm.
 	const brandRef = useRef( null );
-	useEffect( () => attachBlasterTrigger( brandRef.current ), [] );
+	useEffect(
+		() =>
+			attachPixelstormTrigger( brandRef.current, () =>
+				toasts.error(
+					__(
+						'Pixelstorm could not start. Please try again.',
+						'wunderpaint'
+					)
+				)
+			),
+		[ toasts ]
+	);
 
 	const setTheme = ( next ) => {
 		dispatch( { type: 'SET_THEME', theme: next } );
 		try {
-			window.localStorage.setItem( 'wpie-theme', next );
+			siteStorage.setItem( 'wpie-theme', next );
 		} catch ( e ) {}
 	};
 
@@ -130,9 +142,8 @@ export function EditorTitleBar( { onExport, nested, extras } ) {
 							settings = {
 								...settings,
 								...JSON.parse(
-									window.localStorage?.getItem(
-										'wpie-last-export'
-									) || '{}'
+									siteStorage.getItem( 'wpie-last-export' ) ||
+										'{}'
 								),
 							};
 						} catch ( e ) {}
@@ -182,7 +193,10 @@ export function EditorTitleBar( { onExport, nested, extras } ) {
 							const blob = await renderToBlob(
 								quickDoc,
 								state.layers,
-								{ ...settings, cache: sharedImageCache }
+								{
+									...settings,
+									cache: sharedImageCache,
+								}
 							);
 							downloadBlob(
 								blob,

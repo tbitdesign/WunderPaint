@@ -2,6 +2,8 @@
  * Document + layer factories and (de)serialization (spec 02).
  * All coordinates are document pixels.
  */
+import { __ } from '@wordpress/i18n';
+
 import { sizedSvgUrl } from '../lib/svg-intrinsic';
 
 export const uid = () => Math.random().toString( 36 ).slice( 2, 9 );
@@ -486,6 +488,32 @@ export async function hydrateLayers( layers ) {
 	return Promise.all(
 		layers.map( async ( layer ) => {
 			const copy = { ...layer };
+			if (
+				copy.embedded &&
+				( copy.embedded.bytesB64 || copy.embedded.bytes )
+			) {
+				copy.embedded = { ...copy.embedded };
+				const b = copy.embedded.bytes;
+				if ( copy.embedded.bytesB64 ) {
+					copy.embedded.bytes = base64ToBytes(
+						copy.embedded.bytesB64
+					);
+					delete copy.embedded.bytesB64;
+				} else if (
+					b &&
+					'object' === typeof b &&
+					! ( b instanceof ArrayBuffer ) &&
+					! ArrayBuffer.isView( b )
+				) {
+					// A typed array that went through JSON before this fix:
+					// an object of numeric keys, or `{}` for an ArrayBuffer
+					// whose bytes are gone for good.
+					const keys = Object.keys( b );
+					copy.embedded.bytes = keys.length
+						? Uint8Array.from( keys.map( ( k ) => b[ k ] ) )
+						: null;
+				}
+			}
 			// Defence-in-depth (security): text run/line styles can arrive
 			// verbatim from an opened project/template; scrub their string
 			// fields so no value can ever carry markup into the edit overlay.
@@ -530,4 +558,128 @@ export async function hydrateLayers( layers ) {
 			return copy;
 		} )
 	);
+}
+
+/**
+ * The whole document, pages included, in the shape every transport uses.
+ *
+ * A multi-page design keeps the OPEN page in `state.doc`/`state.layers` and
+ * the others in `state.pages.list`. Three transports serialized only the open
+ * one: parking a tab (app.jsx), the autosave (editor-main.jsx) and the .wpie
+ * download, whose own comment says "the whole document". So switching tabs and
+ * back left a five-page design with one page, and saving that over the stored
+ * design made the loss permanent. saveDesignOp() had it right all along -
+ * this is that code, in one place the others can use.
+ *
+ * @param {Object} state Editor state.
+ * @return {Object} { doc, layers, pages?, currentPage? }
+ */
+export function serializeDocument( state ) {
+	const out = {
+		doc: { ...state.doc },
+		layers: portableLayers( serializeLayers( state.layers ) ),
+	};
+	if ( state.pages ) {
+		// The live page is the authority for its slot; the stored copy in the
+		// list is whatever it looked like when the user last left it.
+		const list = state.pages.list.map( ( page ) =>
+			page && page.layers
+				? { ...page, layers: portableLayers( page.layers ) }
+				: page
+		);
+		list[ state.pages.current ] = {
+			doc: { ...state.doc },
+			layers: out.layers,
+		};
+		out.pages = list;
+		out.currentPage = state.pages.current;
+	}
+	return out;
+}
+
+/* ------------------------- portable binary fields ----------------------- */
+
+const B64_CHUNK = 0x8000;
+
+/** Bytes (ArrayBuffer or view) as base64, in chunks so a 20 MB buffer does not blow the call stack. */
+export function bytesToBase64( bytes ) {
+	const u8 =
+		bytes instanceof Uint8Array
+			? bytes
+			: new Uint8Array( bytes.buffer || bytes );
+	let s = '';
+	for ( let i = 0; i < u8.length; i += B64_CHUNK ) {
+		s += String.fromCharCode.apply( null, u8.subarray( i, i + B64_CHUNK ) );
+	}
+	return window.btoa( s );
+}
+
+export function base64ToBytes( b64 ) {
+	const s = window.atob( b64 );
+	const u8 = new Uint8Array( s.length );
+	for ( let i = 0; i < s.length; i++ ) {
+		u8[ i ] = s.charCodeAt( i );
+	}
+	return u8;
+}
+
+/**
+ * Serialized layers made safe for JSON. The history keeps a smart object's
+ * embedded bytes by reference (cheap, immutable), but JSON turns a typed
+ * array into an object of numeric keys and an ArrayBuffer into `{}` - and
+ * every transport of a document goes through JSON at some point (a parked
+ * tab, a .wpie file, a saved design). So the transports carry the bytes as
+ * base64 and hydrateLayers() turns them back.
+ *
+ * @param {Array} layers Serialized layers.
+ * @return {Array} Layers, embedded bytes as `bytesB64`.
+ */
+export function portableLayers( layers ) {
+	return ( layers || [] ).map( ( layer ) => {
+		const bytes = layer?.embedded?.bytes;
+		if (
+			! bytes ||
+			! ( bytes instanceof ArrayBuffer || ArrayBuffer.isView( bytes ) )
+		) {
+			return layer;
+		}
+		return {
+			...layer,
+			embedded: {
+				...layer.embedded,
+				bytes: null,
+				bytesB64: bytesToBase64( bytes ),
+			},
+		};
+	} );
+}
+
+/* ------------------------------ format ---------------------------------- */
+
+/**
+ * The project format this build writes: a saved design, a template, a
+ * .wpie file. The number travels as `wpie` in every payload (LUECKE-04,
+ * 10.09.2026). The designs and templates on the server carried no marker at
+ * all, so an older editor opened whatever a newer one had saved and
+ * silently dropped what it did not know. A payload without the field is
+ * format 1; one from a later format is refused instead of half-hydrated.
+ */
+export const PROJECT_FORMAT = 2;
+
+/**
+ * @param {Object} data Parsed project payload.
+ * @return {Object} The same payload.
+ * @throws {Error} When it comes from a newer format than this build knows.
+ */
+export function checkProjectFormat( data ) {
+	const format = Number( data?.wpie ) || 1;
+	if ( format > PROJECT_FORMAT ) {
+		throw new Error(
+			__(
+				'This design was saved by a newer version of WunderPaint. Update the plugin to open it.',
+				'wunderpaint'
+			)
+		);
+	}
+	return data;
 }

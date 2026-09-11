@@ -106,7 +106,13 @@ export async function loadTransformers() {
 				{}
 			);
 			return mod;
-		} )();
+		} )().catch( ( err ) => {
+			// A chunk that failed to load once (a dropped connection) used
+			// to be the answer for the whole session. Forget it; the next
+			// call asks again.
+			loading = null;
+			throw err;
+		} );
 	}
 	return loading;
 }

@@ -293,7 +293,8 @@ class Scanner_Postmeta extends Usage_Scanner {
 			return $out;
 		}
 		if ( is_serialized( $value ) ) {
-			$un  = maybe_unserialize( $value );
+			// allowed_classes => false, siehe class-usage-scanner.php.
+			$un  = unserialize( $value, array( 'allowed_classes' => false ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- allowed_classes => false, so no object is ever constructed.
 			$out = array();
 			if ( is_array( $un ) ) {
 				array_walk_recursive(
@@ -318,44 +319,70 @@ class Scanner_Postmeta extends Usage_Scanner {
 	 * @return array[]
 	 */
 	public function find_for( $attachment_id, $needles ) {
+		return $this->lookup( $attachment_id, $needles );
+	}
+
+	/**
+	 * Prefilter: meta rows of non-revisions that mention a needle.
+	 *
+	 * @param string[] $needles Fragments.
+	 * @param int      $limit   Row cap.
+	 * @return array{rows:array,truncated:bool}
+	 */
+	protected function candidates( $needles, $limit ) {
 		global $wpdb;
 
 		$args = array();
 		$like = $this->needle_sql( 'm.meta_value', $needles, $args );
 		if ( '' === $like ) {
-			return array();
+			return array(
+				'rows'      => array(),
+				'truncated' => false,
+			);
 		}
-		$sql = "SELECT m.post_id, m.meta_key, m.meta_value, p.post_title, p.post_type
+		$args[] = (int) $limit;
+		$rows   = $this->rows(
+			"SELECT m.post_id, m.meta_key, m.meta_value, p.post_title, p.post_type
 				FROM {$wpdb->postmeta} m
 				INNER JOIN {$wpdb->posts} p ON p.ID = m.post_id
 				WHERE p.post_type <> 'revision' AND $like
-				LIMIT 400";
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- assembled from fixed fragments, all values prepared.
-		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ) );
+				LIMIT %d",
+			$args
+		);
+		return array(
+			'rows'      => $rows,
+			'truncated' => count( $rows ) >= (int) $limit,
+		);
+	}
 
-		$out  = array();
-		$seen = array();
-		foreach ( $rows as $row ) {
-			$refs = $this->refs_from_row( (string) $row->meta_key, (string) $row->meta_value );
-			if ( ! $refs || ! Media_Usage::refs_match( $refs, $attachment_id, $this->resolver ) ) {
-				continue;
-			}
-			$post_id = (int) $row->post_id;
-			if ( isset( $seen[ $post_id . '|' . $row->meta_key ] ) ) {
-				continue;
-			}
-			$seen[ $post_id . '|' . $row->meta_key ] = true;
+	/**
+	 * References in one meta row.
+	 *
+	 * @param object $row Row.
+	 * @return array|null
+	 */
+	protected function row_refs( $row ) {
+		return $this->refs_from_row( (string) $row->meta_key, (string) $row->meta_value );
+	}
 
-			$out[] = $this->hit(
-				$attachment_id,
-				'',
-				$post_id,
-				$row->post_title ? $row->post_title : __( '(no title)', 'wunderpaint' ),
-				(string) get_edit_post_link( $post_id, 'raw' ),
-				$this->context_for( (string) $row->meta_key )
-			);
-		}
-		return $out;
+	/**
+	 * Hit for one meta row. Several rows of one post and key collapse into
+	 * one place in Media_Usage, which keys places by source, object and context.
+	 *
+	 * @param object $row           Row.
+	 * @param int    $attachment_id Attachment.
+	 * @return array
+	 */
+	protected function row_hit( $row, $attachment_id ) {
+		$post_id = (int) $row->post_id;
+		return $this->hit(
+			$attachment_id,
+			'',
+			$post_id,
+			$row->post_title ? $row->post_title : __( '(no title)', 'wunderpaint' ),
+			(string) get_edit_post_link( $post_id, 'raw' ),
+			$this->context_for( (string) $row->meta_key )
+		);
 	}
 
 	/**

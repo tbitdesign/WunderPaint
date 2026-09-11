@@ -70,7 +70,7 @@ export class SheetPanel {
 		const step1 = ui.section( this.root, { icon: 'print', title: t( 'Print the sheet' ) } );
 		ui.el(
 			'p',
-			'wpiehw-hint',
+			'dsm-note wpiehw-hint',
 			step1,
 			t(
 				'Print at one hundred percent, do not let the printer scale the page. Write one character per box, standing on the stronger baseline. The printed rules are removed again when the sheet is read back.'
@@ -90,7 +90,7 @@ export class SheetPanel {
 		} );
 		ui.el(
 			'p',
-			'wpiehw-hint',
+			'dsm-note wpiehw-hint',
 			step1,
 			t( 'The selection has to match the sheet you are about to read.' )
 		);
@@ -102,7 +102,7 @@ export class SheetPanel {
 		const step2 = ui.section( this.root, { icon: 'image', title: t( 'Read the photo back' ) } );
 		ui.el(
 			'p',
-			'wpiehw-hint',
+			'dsm-note wpiehw-hint',
 			step2,
 			t(
 				'Photograph the finished sheet from above with all four corner squares visible. An angled shot is fine, the corners straighten it out.'
@@ -143,12 +143,12 @@ export class SheetPanel {
 		const pages = this.layout();
 		this.pagesRow.innerHTML = '';
 		if ( ! pages[ 0 ].cells.length ) {
-			this.ui.el( 'p', 'wpiehw-hint', this.pagesRow, t( 'Nothing left to write.' ) );
+			this.ui.el( 'p', 'dsm-note wpiehw-hint', this.pagesRow, t( 'Nothing left to write.' ) );
 			return;
 		}
 		this.ui.el(
 			'p',
-			'wpiehw-hint',
+			'dsm-note wpiehw-hint',
 			this.pagesRow,
 			t( '%1$d characters on %2$d sheet(s).' )
 				.replace( '%1$d', pages.reduce( ( n, p ) => n + p.cells.length, 0 ) )
@@ -205,6 +205,11 @@ export class SheetPanel {
 		}
 		pages.forEach( ( page, i ) => {
 			this.pageCanvas( page ).toBlob( ( blob ) => {
+				if ( ! blob ) {
+					// toBlob answers null on a tainted or oversized canvas;
+					// the download used to die silently (EXPORT-7).
+					return;
+				}
 				const url = URL.createObjectURL( blob );
 				const a = document.createElement( 'a' );
 				a.href = url;
@@ -333,7 +338,7 @@ export class SheetPanel {
 		const sec = this.ui.section( this.resultBox, { icon: 'check', title: t( 'What was found' ) } );
 		this.ui.el(
 			'p',
-			'wpiehw-hint',
+			'dsm-note wpiehw-hint',
 			sec,
 			t( 'Click a character to leave it out. The rest are taken over when you confirm.' )
 		);

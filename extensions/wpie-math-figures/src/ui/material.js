@@ -10,13 +10,13 @@ import { blockFields } from '../figure.js';
 import { ICONS } from './icons.js';
 
 export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
-	const panel = ui.el( 'div', 'wpiemf-material', host );
-	const head = ui.el( 'div', 'wpiemf-material-head', panel );
+	const panel = ui.el( 'div', 'dsm-card wpiemf-material', host );
+	const head = ui.el( 'div', 'dsm-card-head wpiemf-material-head', panel );
 	const headIcon = ui.el( 'span', 'wpiemf-material-ic', head );
 	const headLabel = ui.el( 'b', null, head, '' );
-	const headHint = ui.el( 'span', 'wpiemf-material-hint', head, '' );
-	const body = ui.el( 'div', 'wpiemf-material-body', panel );
-	const errors = ui.el( 'div', 'wpiemf-errors', panel, '' );
+	const headHint = ui.el( 'span', 'dsm-note wpiemf-material-hint', head, '' );
+	const body = ui.el( 'div', 'dsm-card-body wpiemf-material-body', panel );
+	const errors = ui.el( 'div', 'dsm-note wpiemf-errors', panel, '' );
 	const mounts = [];
 
 	const selected = () =>
@@ -47,7 +47,7 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 		headHint.textContent = t( def.note );
 		const row = ui.el( 'div', 'wpiemf-material-row', body );
 		const main = ui.el( 'div', 'wpiemf-material-main', row );
-		const textarea = ui.el( 'textarea', 'wpiemf-text', main );
+		const textarea = ui.el( 'textarea', 'dsm-input wpiemf-text', main );
 		textarea.spellcheck = false;
 		textarea.value = b[ key ] || '';
 		textarea.placeholder = def.placeholder;
@@ -58,7 +58,7 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 		};
 		if ( 'formula' === b.type ) {
 			const aside = ui.el( 'div', 'wpiemf-material-aside', row );
-			const notes = ui.el( 'textarea', 'wpiemf-notes', aside );
+			const notes = ui.el( 'textarea', 'dsm-input wpiemf-notes', aside );
 			notes.spellcheck = false;
 			notes.value = b.notes || '';
 			notes.placeholder =
@@ -69,7 +69,7 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 			};
 			ui.el(
 				'div',
-				'wpiemf-note',
+				'dsm-note wpiemf-note',
 				aside,
 				t(
 					'Notes: one line per mark, key "label" above or below, an optional color.'
@@ -85,7 +85,7 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 				[ 'pc', 'c' ],
 			] ) {
 				const line = ui.row( fields, label );
-				const input = ui.el( 'input', 'wpiemf-input', line );
+				const input = ui.el( 'input', 'dsm-input wpiemf-input', line );
 				input.type = 'number';
 				input.step = '0.1';
 				input.value = String( b[ k ] );
@@ -96,7 +96,7 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 			}
 			ui.el(
 				'div',
-				'wpiemf-note',
+				'dsm-note wpiemf-note',
 				aside,
 				t(
 					'Parameters a, b and c for use in the functions, for example a x^2 + b x + c.'

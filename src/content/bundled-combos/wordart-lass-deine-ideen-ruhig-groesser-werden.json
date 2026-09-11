@@ -1,0 +1,183 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-lass-deine-ideen-ruhig-groesser-werden",
+	"label": "Lass deine Ideen ruhig größer werden",
+	"category": "wordart",
+	"w": 766,
+	"h": 571,
+	"layers": [
+		{
+			"id": "waf-lass-deine-ideen-ruhig-groesser-werden-0",
+			"type": "text",
+			"name": "LASS DEINE IDEEN RUHIG GRÖSSER WERDEN",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 110.8,
+			"y": 42.97,
+			"w": 560,
+			"h": 460,
+			"rot": -4,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fff0df",
+					"size": 2,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "LASS DEINE\nIDEEN RUHIG\nGRÖSSER WERDEN",
+			"fontSize": 100,
+			"fontFamily": "Oswald",
+			"weight": 700,
+			"color": "#d7638a",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "LASS DEINE\n",
+					"s": {
+						"color": "#d7638a"
+					}
+				},
+				{
+					"text": "IDEEN RUHIG\n",
+					"s": {
+						"color": "#45a4a1"
+					}
+				},
+				{
+					"text": "GRÖSSER WERDEN",
+					"s": {
+						"color": "#edbb56"
+					}
+				}
+			],
+			"textFX": {
+				"twoTone": {
+					"angle": 12,
+					"split": 51,
+					"color": "#d7638a",
+					"color2": "#45a4a1"
+				},
+				"extrude": {
+					"angle": 40,
+					"depth": 7,
+					"color": "#573c62"
+				}
+			}
+		},
+		{
+			"id": "waf-lass-deine-ideen-ruhig-groesser-werden-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 411.97,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#edbb56",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-lass-deine-ideen-ruhig-groesser-werden-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 80.97,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#45a4a1",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-lass-deine-ideen-ruhig-groesser-werden-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 543.97,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#d7638a",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

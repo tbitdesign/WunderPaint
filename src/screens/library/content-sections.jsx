@@ -511,7 +511,7 @@ export function IconsSection( { editor, extras, onClose } ) {
 				<input
 					ref={ inputRef }
 					type="search"
-					placeholder={ __( 'Search icons…', 'wunderpaint' ) }
+					placeholder={ __( 'Search icons', 'wunderpaint' ) }
 					value={ query }
 					onChange={ ( e ) => {
 						setQuery( e.target.value );
@@ -645,7 +645,7 @@ export function EmojiSection( { editor, extras, onClose } ) {
 				<input
 					ref={ inputRef }
 					type="search"
-					placeholder={ __( 'Search emoji…', 'wunderpaint' ) }
+					placeholder={ __( 'Search emoji', 'wunderpaint' ) }
 					value={ query }
 					onChange={ ( e ) => {
 						setQuery( e.target.value );

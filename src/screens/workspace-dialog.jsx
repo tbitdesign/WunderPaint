@@ -74,6 +74,7 @@ export function WorkspaceDialog( { extras, onClose } ) {
 				className="export-dialog wpie-ws-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Workspace', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

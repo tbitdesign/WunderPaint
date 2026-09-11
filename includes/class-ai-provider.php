@@ -177,12 +177,13 @@ class AI_Provider {
 			return $request && 'design' === $request->get_param( 'tier' ) ? 'design' : 'caption';
 		}
 		$map = array(
-			'caption'  => 'caption',
-			'seo'      => 'caption',
-			'layout'   => 'caption',
-			'design'   => 'design',
-			'template' => 'design',
-			'svg'      => 'design',
+			'caption'       => 'caption',
+			'seo'           => 'caption',
+			'layout'        => 'caption',
+			'design'        => 'design',
+			'design_markup' => 'design',
+			'template'      => 'design',
+			'svg'           => 'design',
 		);
 		return $map[ $action ] ?? (string) $action;
 	}
@@ -224,7 +225,7 @@ class AI_Provider {
 	 * Register /ai/* routes.
 	 */
 	public function register_routes() {
-		$actions = array( 'generate', 'edit', 'remove-bg', 'inpaint', 'outpaint', 'enhance', 'variations', 'caption', 'design', 'template', 'layout', 'seo', 'svg', 'complete' );
+		$actions = array( 'generate', 'edit', 'remove-bg', 'inpaint', 'outpaint', 'enhance', 'variations', 'caption', 'design', 'design_markup', 'template', 'layout', 'seo', 'svg', 'complete' );
 		foreach ( $actions as $action ) {
 			register_rest_route(
 				WPIE_REST_NS,
@@ -270,7 +271,17 @@ class AI_Provider {
 	 * @return array|\WP_Error
 	 */
 	public function job_status( \WP_REST_Request $request ) {
-		$id  = (string) $request['id'];
+		// The URL match, and then checked again against the pattern. The route
+		// constrains `id` to wpie_job_[a-z0-9]{10,64}, but $request['id'] runs
+		// get_parameter_order(), where GET ranks above URL - so `?id=` beat the
+		// regex and this handler read, and then DELETED, any transient whose
+		// name the caller chose. Rights were not the issue (an editor user may
+		// poll their own jobs); reaching every other plugin's job rows was.
+		// Same class as the one class-extension-store.php:75-87 documents.
+		$id = (string) ( $request->get_url_params()['id'] ?? '' );
+		if ( ! preg_match( '/^wpie_job_[a-z0-9]{10,64}$/', $id ) ) {
+			return new \WP_Error( 'wpie_job_unknown', __( 'The AI job expired or does not exist.', 'wunderpaint' ), array( 'status' => 404 ) );
+		}
 		$job = get_transient( $id );
 		if ( ! is_array( $job ) || ! isset( $job['status'] ) ) {
 			return new \WP_Error( 'wpie_job_unknown', __( 'The AI job expired or does not exist.', 'wunderpaint' ), array( 'status' => 404 ) );
@@ -283,9 +294,17 @@ class AI_Provider {
 		}
 		delete_transient( $id );
 		if ( 'error' === $job['status'] ) {
+			$code = ! empty( $job['code'] ) ? (string) $job['code'] : 'wpie_ai_failed';
+			// Same rule as in detach(): a message is never empty on the way
+			// out, or the client shows its own generic fallback and the real
+			// reason is lost for good.
+			$message = isset( $job['message'] ) ? (string) $job['message'] : '';
+			if ( '' === trim( $message ) ) {
+				$message = $code;
+			}
 			return new \WP_Error(
-				! empty( $job['code'] ) ? $job['code'] : 'wpie_ai_failed',
-				$job['message'],
+				$code,
+				$message,
 				array( 'status' => isset( $job['http'] ) ? (int) $job['http'] : 502 )
 			);
 		}
@@ -345,7 +364,11 @@ class AI_Provider {
 		self::detach(
 			function () use ( $action, $request ) {
 				return $this->execute( $action, $request );
-			}
+			},
+			array(
+				'action'   => $action,
+				'provider' => sanitize_key( (string) $request->get_param( 'provider' ) ),
+			)
 		);
 	}
 
@@ -367,9 +390,12 @@ class AI_Provider {
 	 * for GET /ai/job/{id}. Exits when flushing worked; only returns in
 	 * environments where the flush functions are stubbed (tests).
 	 *
-	 * @param callable $work Long-running work, returns array|\WP_Error.
+	 * @param callable $work    Long-running work, returns array|\WP_Error.
+	 * @param array    $context Optional { action, provider } for the error
+	 *                          record and the log line - a failed job that
+	 *                          says only "Request failed." is a dead end.
 	 */
-	public static function detach( $work ) {
+	public static function detach( $work, $context = array() ) {
 		$job = 'wpie_job_' . strtolower( wp_generate_password( 24, false ) );
 		set_transient(
 			$job,
@@ -401,17 +427,42 @@ class AI_Provider {
 
 		$result = $work();
 		if ( is_wp_error( $result ) ) {
-			$data = $result->get_error_data();
+			$data     = $result->get_error_data();
+			$code     = (string) $result->get_error_code();
+			$action   = isset( $context['action'] ) ? (string) $context['action'] : '';
+			$provider = isset( $context['provider'] ) ? (string) $context['provider'] : '';
+			// NEVER an empty message. A WP_Error may carry only a code, and
+			// an empty message reaches the client as the generic "Request
+			// failed." - which is what the whole Gemini debugging round of
+			// stage 2i was spent on. Code beats nothing.
+			$message = (string) $result->get_error_message();
+			if ( '' === trim( $message ) ) {
+				$message = '' !== $code ? $code : 'unknown error';
+			}
 			set_transient(
 				$job,
 				array(
-					'status'  => 'error',
-					'user'    => get_current_user_id(),
-					'code'    => $result->get_error_code(),
-					'message' => $result->get_error_message(),
-					'http'    => is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 502,
+					'status'   => 'error',
+					'user'     => get_current_user_id(),
+					'code'     => $code,
+					'message'  => $message,
+					'action'   => $action,
+					'provider' => $provider,
+					'http'     => is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 502,
 				),
 				HOUR_IN_SECONDS
+			);
+			// One line, so a failed background job leaves a trace at all:
+			// action, provider, code, message. No key, no prompt text, no
+			// user data - and only on the error path, never on success.
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- a failed background job is exactly the case error_log() exists for; no keys, no prompt text.
+				sprintf(
+					'wpie ai job failed: %s %s %s %s',
+					'' !== $action ? $action : '-',
+					'' !== $provider ? $provider : '-',
+					'' !== $code ? $code : '-',
+					$message
+				)
 			);
 		} else {
 			$payload = $result instanceof \WP_REST_Response ? $result->get_data() : $result;
@@ -558,12 +609,15 @@ class AI_Provider {
 		// Text/vision actions run on any text-capable provider (v1.71):
 		// explicit provider param > default_text_provider > first configured.
 		$text_actions = array(
-			'caption'  => array( 'text_caption', 'caption' ),
-			'seo'      => array( 'text_seo', 'caption' ),
-			'design'   => array( 'text_design', 'design' ),
-			'template' => array( 'text_template', 'design' ),
-			'layout'   => array( 'text_layout', 'caption' ),
-			'svg'      => array( 'text_svg', 'design' ),
+			'caption'       => array( 'text_caption', 'caption' ),
+			'seo'           => array( 'text_seo', 'caption' ),
+			'design'        => array( 'text_design', 'design' ),
+			// Design Markup (stage 2a): the model composes a whole design in
+			// the markup language instead of filling a recipe.
+			'design_markup' => array( 'text_design_markup', 'design' ),
+			'template'      => array( 'text_template', 'design' ),
+			'layout'        => array( 'text_layout', 'caption' ),
+			'svg'           => array( 'text_svg', 'design' ),
 		);
 		if ( isset( $text_actions[ $action ] ) ) {
 			$provider = $this->resolve_text_provider( (string) $request->get_param( 'provider' ) );
@@ -610,6 +664,19 @@ class AI_Provider {
 	 * in WordPress itself and we borrow it rather than asking for a second one.
 	 */
 	const CORE_PROVIDER = 'wp-core';
+
+	/**
+	 * Das Ausgabe-Dach fuer den EINEN Wiederholungsversuch, wenn Gemini ein
+	 * Design Markup mit `MAX_TOKENS` abgebrochen hat.
+	 *
+	 * Ein vollstaendiger Entwurf sind 1 500 bis 3 000 Token JSON, vier davon
+	 * passen knapp in die 16 000 der Aktion - und wenn das Modell mitten im
+	 * Objekt aufhoert, ist die Antwort unlesbar und der Nutzer sieht einen
+	 * Fehlschlag, den mehr Platz vermieden haette. `structured_opts()`
+	 * deckelt ohnehin bei 64 000, das hier ist die bewusst kleine Stufe
+	 * darunter.
+	 */
+	const GEMINI_RETRY_TOKENS = 24000;
 
 	private function resolve_provider( $action, $requested ) {
 		$capabilities = array(
@@ -801,6 +868,16 @@ class AI_Provider {
 			// article calls (text_structured, v1.81) pass an even higher
 			// budget explicitly.
 			'timeout' => $timeout,
+			// Kein Sprung mit dem Schluessel im Gepaeck. WordPress folgt sonst
+			// bis zu fuenf Weiterleitungen und reicht dabei DIESELBEN Kopfzeilen
+			// weiter (WP_Http::handle_redirects), also ginge das Authorization-
+			// oder x-api-key-Feld an das Ziel - bei 307 und 308 zusaetzlich der
+			// ganze Rumpf mit Prompt und Bild. Die Hosts sind fest verdrahtet,
+			// aber diese Pruefung gilt nur fuer den ERSTEN Sprung.
+			'redirection' => 0,
+			// Der Anbieter antwortet mit JSON; ohne Grenze liest json_decode
+			// alles, was er schickt.
+			'limit_response_size' => 64 * MB_IN_BYTES,
 			'headers' => array_merge( array( 'Content-Type' => 'application/json' ), $headers ),
 			'body'    => is_string( $body ) ? $body : wp_json_encode( $body ),
 		);
@@ -833,6 +910,13 @@ class AI_Provider {
 		}
 		if ( '' === $message ) {
 			$message = sprintf( /* translators: %d: HTTP status code. */ __( 'AI provider error (HTTP %d).', 'wunderpaint' ), $code );
+		} else {
+			// A provider's text goes into a toast as it is. No markup, and
+			// no essay: a sentence's worth.
+			$message = trim( wp_strip_all_tags( (string) $message ) );
+			if ( strlen( $message ) > 300 ) {
+				$message = substr( $message, 0, 297 ) . '...';
+			}
 		}
 		$is_auth = in_array( $code, array( 401, 403 ), true );
 		return new \WP_Error(
@@ -1315,6 +1399,41 @@ class AI_Provider {
 		if ( ! function_exists( 'imagecreatefromstring' ) ) {
 			return $png_bytes;
 		}
+
+		/*
+		 * Ask the header first, and only then hand the bytes to GD.
+		 *
+		 * The mask comes from the client as a data URL, and the only check it
+		 * passed was the `data:image/...` prefix - no size, no dimensions. A
+		 * single-colour PNG of 11500 by 11500 pixels compresses to a few
+		 * hundred kilobytes and expands to two truecolor buffers plus a PHP
+		 * loop over 130 million pixels: minutes of one core, per request. With
+		 * `async=1` that runs behind ignore_user_abort() and a 900 second time
+		 * limit, so hanging up does not stop it, and the rate limit allows
+		 * sixty of them per five minutes per account. An author could hold
+		 * every FPM worker on the site.
+		 *
+		 * getimagesize() reads only the header. Nothing else in this plugin
+		 * asked it before a GD call, and this is the one place where the bytes
+		 * come straight from a request.
+		 */
+		$info = @getimagesizefromstring( $png_bytes ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		if ( ! is_array( $info ) || empty( $info[0] ) || empty( $info[1] ) ) {
+			return $png_bytes;
+		}
+		/**
+		 * Largest mask this conversion will look at, in pixels.
+		 *
+		 * 40 megapixels is far above any editor canvas and far below the size
+		 * at which the loop below becomes a denial of service.
+		 *
+		 * @param int $pixels Width times height.
+		 */
+		$max_pixels = (int) apply_filters( 'wpie_ai_mask_max_pixels', 40000000 );
+		if ( (int) $info[0] * (int) $info[1] > $max_pixels ) {
+			return $png_bytes;
+		}
+
 		$src = @imagecreatefromstring( $png_bytes ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		if ( ! $src ) {
 			return $png_bytes;
@@ -1389,6 +1508,16 @@ class AI_Provider {
 
 		$args = array(
 			'timeout' => 180,
+			// Kein Sprung mit dem Schluessel im Gepaeck. WordPress folgt sonst
+			// bis zu fuenf Weiterleitungen und reicht dabei DIESELBEN Kopfzeilen
+			// weiter (WP_Http::handle_redirects), also ginge das Authorization-
+			// oder x-api-key-Feld an das Ziel - bei 307 und 308 zusaetzlich der
+			// ganze Rumpf mit Prompt und Bild. Die Hosts sind fest verdrahtet,
+			// aber diese Pruefung gilt nur fuer den ERSTEN Sprung.
+			'redirection' => 0,
+			// Der Anbieter antwortet mit JSON; ohne Grenze liest json_decode
+			// alles, was er schickt.
+			'limit_response_size' => 64 * MB_IN_BYTES,
 			'headers' => array_merge( array( 'Content-Type' => 'multipart/form-data; boundary=' . $boundary ), $headers ),
 			'body'    => $body,
 		);
@@ -2036,10 +2165,33 @@ class AI_Provider {
 			$usage['in']  += $res['usage']['in'];
 			$usage['out'] += $res['usage']['out'];
 			$data          = Json_Repair::to_array( $res['text'] );
+			$stop          = (string) ( $res['finish'] ?? '' );
+			// A whole design markup is long, and when the model runs out of
+			// room mid-object the answer is unparseable - the user sees a
+			// failure that a bigger ceiling would have avoided. ONE retry,
+			// only for design_markup, only on MAX_TOKENS.
+			if ( ! is_array( $data ) && 'MAX_TOKENS' === $stop
+				&& 'design_markup' === (string) ( $opts['action'] ?? '' )
+				&& $o['max_tokens'] < self::GEMINI_RETRY_TOKENS ) {
+				$retry = $this->gemini_generate(
+					$model,
+					$system,
+					$user,
+					array_merge( $o, array( 'max_tokens' => self::GEMINI_RETRY_TOKENS ) ),
+					array( 'schema' => $schema )
+				);
+				if ( ! is_wp_error( $retry ) ) {
+					$usage['in']  += $retry['usage']['in'];
+					$usage['out'] += $retry['usage']['out'];
+					$data          = Json_Repair::to_array( $retry['text'] );
+					$stop          = (string) ( $retry['finish'] ?? '' );
+				}
+			}
 		}
 
 		if ( ! is_array( $data ) ) {
-			return self::err_no_structured_result( '' );
+			$detail = isset( $stop ) && '' !== $stop ? 'Gemini stopped: ' . $stop : '';
+			return self::err_no_structured_result( $detail );
 		}
 		return array(
 			'data'  => $data,
@@ -2103,8 +2255,12 @@ class AI_Provider {
 			}
 		}
 		return array(
-			'text'  => $text,
-			'usage' => array(
+			'text' => $text,
+			// Why the call stopped. Without it, a run that hit the output
+			// ceiling is indistinguishable from a broken answer - both
+			// reached the client as "Request failed." (stage 2i).
+			'finish' => (string) ( $json['candidates'][0]['finishReason'] ?? '' ),
+			'usage'  => array(
 				'in'  => (int) ( $json['usageMetadata']['promptTokenCount'] ?? 0 ),
 				'out' => (int) ( $json['usageMetadata']['candidatesTokenCount'] ?? 0 ),
 			),
@@ -2281,25 +2437,10 @@ class AI_Provider {
 		}
 		$brief_text = 'Design brief: ' . $brief . ( $product ? "\nProduct/context details: " . $product : '' );
 
-		// Variation impulse (v1.172.2): every "Regenerate" sends a fresh
-		// integer, and we steer the model toward a DELIBERATELY different
-		// creative angle so re-generating the same brief does not collapse
-		// to the identical plan. Stateless, so we rotate concrete angles.
+		// Variation impulse (v1.172.2): see variation_angle().
 		$variation = (int) $request->get_param( 'variation' );
-		if ( $variation ) {
-			$angles = array(
-				'Lead with a bold number, price or offer as the hook.',
-				'Lead with an emotional, benefit-driven promise.',
-				'Take a minimalist, understated, premium approach.',
-				'Take a playful, conversational, human tone.',
-				'Emphasize urgency and scarcity.',
-				'Emphasize trust, craft and quality.',
-				'Open with a question or a provocation as the headline.',
-				'Use a confident one- or two-word statement as the headline.',
-				'Frame it as a bold announcement or reveal.',
-				'Frame it around a concrete outcome or result.',
-			);
-			$angle       = $angles[ abs( $variation ) % count( $angles ) ];
+		$angle     = self::variation_angle( $variation );
+		if ( '' !== $angle ) {
 			$brief_text .= "\n\nRegeneration variant #" . abs( $variation )
 				. ': produce a DISTINCTLY different take than the most obvious one. '
 				. $angle
@@ -2395,6 +2536,278 @@ class AI_Provider {
 			'designs' => $designs,
 			'usage'   => isset( $res['usage'] ) ? $res['usage'] : array(),
 		);
+	}
+
+	/**
+	 * One creative angle for a regeneration (v1.172.2): every "Regenerate"
+	 * sends a fresh integer and we steer the model toward a DELIBERATELY
+	 * different take, so re-running the same brief does not collapse to the
+	 * identical plan. Stateless, hence a rotation through concrete angles.
+	 *
+	 * @param int $variation Variation counter (0 = first run).
+	 * @return string The angle, '' when this is not a regeneration.
+	 */
+	private static function variation_angle( $variation ) {
+		$variation = abs( (int) $variation );
+		if ( ! $variation ) {
+			return '';
+		}
+		$angles = array(
+			'Lead with a bold number, price or offer as the hook.',
+			'Lead with an emotional, benefit-driven promise.',
+			'Take a minimalist, understated, premium approach.',
+			'Take a playful, conversational, human tone.',
+			'Emphasize urgency and scarcity.',
+			'Emphasize trust, craft and quality.',
+			'Open with a question or a provocation as the headline.',
+			'Use a confident one- or two-word statement as the headline.',
+			'Frame it as a bold announcement or reveal.',
+			'Frame it around a concrete outcome or result.',
+		);
+		return $angles[ $variation % count( $angles ) ];
+	}
+
+	/**
+	 * The sanitised inputs of one design_markup request. Separate from the
+	 * action itself so the clamps can be tested without a provider, a key or
+	 * a single token spent (tests/php/design-markup-action.php).
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return array|\WP_Error { brief, w, h, k, product, colors, fonts, lang, bindings, variation }
+	 */
+	private static function design_markup_input( \WP_REST_Request $request ) {
+		$brief = sanitize_textarea_field( (string) $request->get_param( 'brief' ) );
+		if ( '' === trim( $brief ) ) {
+			return new \WP_Error( 'wpie_ai_brief', __( 'Describe the design you want first.', 'wunderpaint' ), array( 'status' => 400 ) );
+		}
+		$brand = $request->get_param( 'brand' );
+		if ( is_string( $brand ) ) {
+			$brand = json_decode( $brand, true );
+		}
+		$colors = array();
+		$fonts  = array();
+		if ( is_array( $brand ) ) {
+			foreach ( (array) ( $brand['colors'] ?? array() ) as $c ) {
+				if ( preg_match( '/^#[0-9a-f]{3,8}$/i', (string) $c ) ) {
+					$colors[] = (string) $c;
+				}
+			}
+			foreach ( (array) ( $brand['fonts'] ?? array() ) as $f ) {
+				$family = is_array( $f ) ? ( $f['family'] ?? $f['name'] ?? '' ) : $f;
+				$family = sanitize_text_field( (string) $family );
+				if ( '' !== $family ) {
+					$fonts[] = $family;
+				}
+			}
+		}
+		// The Studio sends the bindings the USER picked, either as ids or as
+		// the {id, kind} rows of bindingGroups(). Both arrive here as ids:
+		// this list is a contract ("each of these sits on exactly one
+		// element"), and validateMarkup() rejects a design that loses one.
+		$bindings = array();
+		foreach ( (array) $request->get_param( 'bindings' ) as $binding ) {
+			$id = is_array( $binding ) ? ( $binding['id'] ?? '' ) : $binding;
+			$id = sanitize_text_field( (string) $id );
+			if ( '' !== $id && ! in_array( $id, $bindings, true ) ) {
+				$bindings[] = $id;
+			}
+		}
+		$w    = (int) $request->get_param( 'w' );
+		$h    = (int) $request->get_param( 'h' );
+		$lang = sanitize_text_field( (string) $request->get_param( 'lang' ) );
+		return array(
+			'brief'     => $brief,
+			'w'         => $w > 0 ? max( 16, min( 12000, $w ) ) : 1080,
+			'h'         => $h > 0 ? max( 16, min( 12000, $h ) ) : 1080,
+			// K is a cost multiplier, not a wish: four full markups already
+			// fill the output budget of the big tier.
+			'k'         => max( 1, min( 4, (int) $request->get_param( 'k' ) ) ),
+			'product'   => sanitize_textarea_field( (string) $request->get_param( 'product' ) ),
+			'colors'    => $colors,
+			'fonts'     => $fonts,
+			'lang'      => '' !== $lang ? $lang : get_locale(),
+			'bindings'  => $bindings,
+			'variation' => (int) $request->get_param( 'variation' ),
+		);
+	}
+
+	/**
+	 * Design Markup (stage 2a of the design-markup rebuild): the model
+	 * COMPOSES a whole design in the markup language - concept, tokens,
+	 * grid, areas, elements - and the compiler in src/lib/design-markup/
+	 * turns it into real, editable layers. No recipes, no coordinates
+	 * handed back to a template.
+	 *
+	 * The system prompt (includes/data-design-markup-prompt.php) and the
+	 * response schema (includes/data-design-markup-schema.json) both come
+	 * from the compiler's own catalog, generated by
+	 * tools/design-markup/export-catalog.mjs. The schema stays LOOSE
+	 * (strict: false) on purpose: the real validation is cleanMarkup() and
+	 * validateMarkup() in the client, which know the language far better
+	 * than a provider's schema dialect can.
+	 *
+	 * @param string           $provider Provider id.
+	 * @param \WP_REST_Request $request  brief, w, h, k, product, brand, lang, bindings, image, variation.
+	 * @return array|\WP_Error { designs: Markup[], usage }
+	 */
+	private function text_design_markup( $provider, \WP_REST_Request $request ) {
+		$in = self::design_markup_input( $request );
+		if ( is_wp_error( $in ) ) {
+			return $in;
+		}
+		require_once WPIE_DIR . 'includes/data-design-markup-prompt.php';
+		$markup_schema = design_markup_data( 'schema' );
+		if ( ! $markup_schema ) {
+			return new \WP_Error( 'wpie_ai_design_markup', __( 'The design language is not available in this installation.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
+
+		$image  = $request->get_param( 'image' );
+		$system = design_markup_prompt(
+			array(
+				'w'        => $in['w'],
+				'h'        => $in['h'],
+				'k'        => $in['k'],
+				'lang'     => $in['lang'],
+				'colors'   => $in['colors'],
+				'fonts'    => $in['fonts'],
+				'blurb'    => self::brand_blurb( self::brand_context( $request ) ),
+				'product'  => $in['product'],
+				'bindings' => $in['bindings'],
+				'image'    => ! empty( $image ),
+			)
+		);
+
+		$brief_text = 'Design brief: ' . $in['brief'] . ( $in['product'] ? "\nProduct/context details: " . $in['product'] : '' );
+		$angle      = self::variation_angle( $in['variation'] );
+		if ( '' !== $angle ) {
+			$brief_text .= "\n\nRegeneration variant #" . abs( $in['variation'] )
+				. ': produce a DISTINCTLY different take than the most obvious one. '
+				. $angle
+				. ' Vary the concept, the layout family, the background style, the photo treatment and the type pairing from a safe default. '
+				. 'The core message stays true to the brief; the design should feel like a fresh option, not a reworded one.';
+		}
+
+		// Reference image: Anthropic takes it as a content block before the
+		// text (spec 8.2). The OpenAI and Gemini image paths are stage 2b;
+		// until then those providers get the brief without the picture
+		// rather than a broken request body.
+		$content = array();
+		if ( $image ) {
+			$split = self::split_data_url( $image );
+			if ( ! is_wp_error( $split ) ) {
+				$content[] = array(
+					'type'   => 'image',
+					'source' => array(
+						'type'       => 'base64',
+						'media_type' => $split[0],
+						'data'       => $split[1],
+					),
+				);
+				$content[] = array(
+					'type' => 'text',
+					'text' => 'Use this reference image for palette, light, mood and subject.',
+				);
+			}
+		}
+		$content[] = array(
+			'type' => 'text',
+			'text' => $brief_text,
+		);
+		$user = ( $image && 'anthropic' === $provider && count( $content ) > 1 ) ? $content : $brief_text;
+
+		$schema = array(
+			'type'       => 'object',
+			'required'   => array( 'designs' ),
+			'properties' => array(
+				'designs' => array(
+					'type'     => 'array',
+					'minItems' => $in['k'],
+					'maxItems' => $in['k'],
+					'items'    => $markup_schema,
+				),
+			),
+		);
+		$res = $this->text_structured(
+			$provider,
+			'',
+			$system,
+			$user,
+			$schema,
+			array(
+				'action'       => 'design_markup',
+				// Composing a layout is the big tier's job; the caption tier
+				// writes copy, it does not art-direct.
+				'tier'         => 'design',
+				'thinking'     => 'none',
+				'max_tokens'   => 16000,
+				'strict'       => false,
+				// One markup is a few thousand tokens; four of them plus the
+				// prompt can outlive a stock PHP execution limit.
+				'long_running' => true,
+			)
+		);
+		if ( is_wp_error( $res ) ) {
+			return $res;
+		}
+		$designs = self::design_markup_designs( $res['data'] ?? null, $in['w'], $in['h'] );
+		if ( ! $designs ) {
+			return new \WP_Error( 'wpie_ai_parse', __( 'Could not parse the design response. Please try again.', 'wunderpaint' ), array( 'status' => 502 ) );
+		}
+		return array(
+			'designs' => $designs,
+			'usage'   => isset( $res['usage'] ) ? $res['usage'] : array(),
+		);
+	}
+
+	/**
+	 * The design list out of a provider answer: unwrapped, filtered, and
+	 * with the three fields the SERVER owns written over whatever the model
+	 * wrote.
+	 *
+	 * The canvas belongs to the open document, not to the model - it was
+	 * asked to copy it and left it out of seven of eight designs in the
+	 * first real run (stage 2a); a missing `assets` list turns every photo
+	 * into a `missing-ref`, and a missing `v` into a version guess. None of
+	 * that is worth a second call, and none of it is a design decision.
+	 * Everything that IS one stays with the compiler's validation in JS.
+	 *
+	 * @param mixed $data Parsed provider answer.
+	 * @param int   $w    Canvas width of the request.
+	 * @param int   $h    Canvas height of the request.
+	 * @return array|null Design list, or null when nothing usable came back.
+	 */
+	private static function design_markup_designs( $data, $w, $h ) {
+		$designs = null;
+		if ( is_array( $data ) ) {
+			if ( isset( $data['designs'] ) && is_array( $data['designs'] ) ) {
+				$designs = $data['designs'];
+			} elseif ( isset( $data[0] ) ) {
+				$designs = $data; // Model returned a bare array of markups.
+			} elseif ( isset( $data['elements'] ) ) {
+				$designs = array( $data ); // Model returned ONE bare markup.
+			}
+		}
+		if ( ! is_array( $designs ) ) {
+			return null;
+		}
+		$out = array();
+		foreach ( $designs as $design ) {
+			if ( ! is_array( $design ) || empty( $design['elements'] ) ) {
+				continue;
+			}
+			$design['canvas'] = array(
+				'w' => (int) $w,
+				'h' => (int) $h,
+			);
+			if ( ! isset( $design['assets'] ) || ! is_array( $design['assets'] ) ) {
+				$design['assets'] = array();
+			}
+			if ( empty( $design['v'] ) ) {
+				$design['v'] = 1;
+			}
+			$out[] = $design;
+		}
+		return $out ? $out : null;
 	}
 
 	/**

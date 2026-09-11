@@ -1333,7 +1333,7 @@ export async function removeObjectLocal( editor ) {
 	if ( ! state.selection ) {
 		throw new Error( __( 'Make a selection first.', 'wunderpaint' ) );
 	}
-	const { inpaintRegion } = await import( './inpaint' );
+	const { inpaintOffThread } = await import( './inpaint-client' );
 	const composite = await renderToCanvas( state.doc, refLayers( state ), {
 		cache: sharedImageCache,
 	} );
@@ -1354,10 +1354,16 @@ export async function removeObjectLocal( editor ) {
 		mask[ p ] = maskData[ p * 4 + 3 ] > 64 ? 1 : 0;
 	}
 
-	inpaintRegion(
+	// Off the main thread where a Worker exists: this used to run
+	// synchronously at full document size and froze the editor for the
+	// duration on a big photo.
+	const filled = await inpaintOffThread(
 		{ data: img.data, width: state.doc.w, height: state.doc.h },
 		mask
 	);
+	if ( filled !== img.data ) {
+		img.data.set( filled );
+	}
 	ctx.putImageData( img, 0, 0 );
 
 	// Result replaces the stack as a single image layer (like AI inpaint).

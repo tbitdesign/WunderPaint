@@ -106,44 +106,84 @@ class Scanner_Content extends Usage_Scanner {
 	 * @return array[]
 	 */
 	public function find_for( $attachment_id, $needles ) {
+		return $this->lookup( $attachment_id, $needles );
+	}
+
+	/**
+	 * Row cap of one lookup: content rows are big.
+	 *
+	 * @return int
+	 */
+	protected function lookup_rows() {
+		return max( 1, (int) apply_filters( 'wpie_media_usage_lookup_rows', 200, $this->key() ) );
+	}
+
+	/**
+	 * Prefilter: posts whose content mentions a needle.
+	 *
+	 * @param string[] $needles Fragments.
+	 * @param int      $limit   Row cap.
+	 * @return array{rows:array,truncated:bool}
+	 */
+	protected function candidates( $needles, $limit ) {
 		global $wpdb;
 
 		$args = array();
 		$like = $this->needle_sql( 'post_content', $needles, $args );
 		if ( '' === $like ) {
-			return array();
-		}
-		$sql = "SELECT ID, post_title, post_type, post_status, post_content FROM {$wpdb->posts} WHERE " . $this->where() . " AND $like ORDER BY ID ASC LIMIT 200";
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- assembled from fixed fragments, all values prepared.
-		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ) );
-
-		$out = array();
-		foreach ( $rows as $row ) {
-			$refs = $this->refs_from_text( $row->post_content );
-			if ( ! Media_Usage::refs_match( $refs, $attachment_id, $this->resolver ) ) {
-				continue;
-			}
-			$obj = get_post_type_object( $row->post_type );
-			$ctx = $obj && ! empty( $obj->labels->singular_name ) ? $obj->labels->singular_name : $row->post_type;
-			if ( 'trash' === $row->post_status ) {
-				/* translators: %s: post type name. */
-				$ctx = sprintf( __( '%s (in the trash)', 'wunderpaint' ), $ctx );
-			} elseif ( 'publish' !== $row->post_status ) {
-				$status = get_post_status_object( $row->post_status );
-				if ( $status && ! empty( $status->label ) ) {
-					/* translators: 1: post type name, 2: post status. */
-					$ctx = sprintf( __( '%1$s (%2$s)', 'wunderpaint' ), $ctx, $status->label );
-				}
-			}
-			$out[] = $this->hit(
-				$attachment_id,
-				'',
-				(int) $row->ID,
-				$row->post_title ? $row->post_title : __( '(no title)', 'wunderpaint' ),
-				(string) get_edit_post_link( (int) $row->ID, 'raw' ),
-				$ctx
+			return array(
+				'rows'      => array(),
+				'truncated' => false,
 			);
 		}
-		return $out;
+		$args[] = (int) $limit;
+		$rows   = $this->rows(
+			"SELECT ID, post_title, post_type, post_status, post_content FROM {$wpdb->posts} WHERE " . $this->where() . " AND $like ORDER BY ID ASC LIMIT %d",
+			$args
+		);
+		return array(
+			'rows'      => $rows,
+			'truncated' => count( $rows ) >= (int) $limit,
+		);
+	}
+
+	/**
+	 * References in one post's content.
+	 *
+	 * @param object $row Row.
+	 * @return array
+	 */
+	protected function row_refs( $row ) {
+		return $this->refs_from_text( $row->post_content );
+	}
+
+	/**
+	 * Hit for one post, with its type and status as the context.
+	 *
+	 * @param object $row           Row.
+	 * @param int    $attachment_id Attachment.
+	 * @return array
+	 */
+	protected function row_hit( $row, $attachment_id ) {
+		$obj = get_post_type_object( $row->post_type );
+		$ctx = $obj && ! empty( $obj->labels->singular_name ) ? $obj->labels->singular_name : $row->post_type;
+		if ( 'trash' === $row->post_status ) {
+			/* translators: %s: post type name. */
+			$ctx = sprintf( __( '%s (in the trash)', 'wunderpaint' ), $ctx );
+		} elseif ( 'publish' !== $row->post_status ) {
+			$status = get_post_status_object( $row->post_status );
+			if ( $status && ! empty( $status->label ) ) {
+				/* translators: 1: post type name, 2: post status. */
+				$ctx = sprintf( __( '%1$s (%2$s)', 'wunderpaint' ), $ctx, $status->label );
+			}
+		}
+		return $this->hit(
+			$attachment_id,
+			'',
+			(int) $row->ID,
+			$row->post_title ? $row->post_title : __( '(no title)', 'wunderpaint' ),
+			(string) get_edit_post_link( (int) $row->ID, 'raw' ),
+			$ctx
+		);
 	}
 }

@@ -150,8 +150,10 @@ class Usage_Resolver {
 		$chunks = array_chunk( $keys, 200 );
 		foreach ( $chunks as $chunk ) {
 			$ph = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
+			$wpdb->last_error = '';
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $ph is a list of %s placeholders built from a counted array, values passed through prepare below.
 			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value IN ($ph)", $chunk ) );
+			$this->assert_query();
 			foreach ( $rows as $row ) {
 				$rel = (string) $row->meta_value;
 				if ( ! isset( $want[ $rel ] ) ) {
@@ -179,8 +181,10 @@ class Usage_Resolver {
 				$args[]  = '%/' . $wpdb->esc_like( wp_basename( $rel ) );
 			}
 			$sql = "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND (" . implode( ' OR ', $where ) . ')';
+			$wpdb->last_error = '';
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $sql is assembled from fixed fragments, all values go through prepare.
 			$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ) );
+			$this->assert_query();
 
 			// A basename can belong to several attachments in different year
 			// folders. Every candidate counts as used: keeping one image too
@@ -199,6 +203,29 @@ class Usage_Resolver {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Fail loudly when the query that just ran did not.
+	 *
+	 * resolve_paths() runs one query per block of paths, and wpdb::query()
+	 * calls flush(), which clears last_error. A caller that checks the flag
+	 * once at the end therefore only ever sees the LAST block: a failed first
+	 * block resolved to nothing, the run reported itself complete, and the
+	 * images behind those paths ended up in the cleanup dialog as unused.
+	 * So the check belongs here, after every single query.
+	 *
+	 * @return void
+	 * @throws \RuntimeException When the last query failed.
+	 */
+	private function assert_query() {
+		global $wpdb;
+		if ( '' !== (string) $wpdb->last_error ) {
+			// Escaped because the text travels into a WP_Error and on to the
+			// browser; Plugin Check reads a raw $wpdb string in an exception
+			// as unescaped output.
+			throw new \RuntimeException( esc_html( $wpdb->last_error ) );
+		}
 	}
 
 	/**

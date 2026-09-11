@@ -1,0 +1,177 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-weekend-plans-absolutely-nothing",
+	"label": "Weekend plans absolutely nothing",
+	"category": "wordart",
+	"w": 766,
+	"h": 598,
+	"layers": [
+		{
+			"id": "waf-weekend-plans-absolutely-nothing-0",
+			"type": "text",
+			"name": "WEEKEND PLANS ABSOLUTELY NOTHING",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 173.8,
+			"y": 40,
+			"w": 434,
+			"h": 510,
+			"rot": 4,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#faf4dc",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "WEEKEND PLANS\nABSOLUTELY\nNOTHING",
+			"fontSize": 100,
+			"fontFamily": "Teko",
+			"weight": 700,
+			"color": "#7d9d53",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "WEEKEND PLANS\n",
+					"s": {
+						"color": "#7d9d53"
+					}
+				},
+				{
+					"text": "ABSOLUTELY\n",
+					"s": {
+						"color": "#ba7a68"
+					}
+				},
+				{
+					"text": "NOTHING",
+					"s": {
+						"color": "#d3ae50"
+					}
+				}
+			],
+			"textFX": {
+				"longShadow": {
+					"angle": 45,
+					"length": 8,
+					"color": "#4f5d43"
+				}
+			}
+		},
+		{
+			"id": "waf-weekend-plans-absolutely-nothing-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 439,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#d3ae50",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-weekend-plans-absolutely-nothing-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 108,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#ba7a68",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-weekend-plans-absolutely-nothing-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 571,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#7d9d53",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

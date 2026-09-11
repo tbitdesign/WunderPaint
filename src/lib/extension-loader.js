@@ -6,6 +6,7 @@
  * letting them die silently in the console.
  */
 
+import { siteStorage } from './local-storage';
 import { request } from './api';
 import {
 	API_VERSION,
@@ -111,6 +112,13 @@ export function injectExtension( ext, { onLoad, onError } = {} ) {
 			ext.slug,
 			`Failed to load ${ ext.main.split( '/' ).pop() }`
 		);
+		// Take the attempt back, or there can never be another one: `injected`
+		// and the dead tag both make the next call answer "already on the
+		// page" - which resolves TRUE, retires the placeholders and loses the
+		// entry after all. The failed script element is removed with it, since
+		// it is what the selector above looks for.
+		injected.delete( ext.slug );
+		script.remove();
 		if ( onError ) {
 			onError();
 		}
@@ -139,13 +147,7 @@ export function injectExtension( ext, { onLoad, onError } = {} ) {
 const INVENTORY_PREFIX = 'wpie-ext-inv:';
 const LAZY_KINDS = new Set( [ 'generator', 'menuItem' ] );
 
-const storage = () => {
-	try {
-		return window.localStorage;
-	} catch ( e ) {
-		return null;
-	}
-};
+const storage = () => siteStorage;
 
 export const inventoryKey = ( slug ) => INVENTORY_PREFIX + slug;
 
@@ -215,7 +217,23 @@ export function loadExtension( ext ) {
 	}
 	const p = new Promise( ( resolve ) => {
 		const done = ( ok ) => {
-			retirePlaceholders( ext.slug );
+			if ( ok ) {
+				retirePlaceholders( ext.slug );
+			} else {
+				// A failed load used to retire the placeholders anyway, so the
+				// menu entry VANISHED - and because the pending entry stayed,
+				// every later click got the same settled promise back and a
+				// second attempt was impossible until the page was reloaded.
+				// One dropped connection or one 502 from the edge and the
+				// studio was gone for the rest of the session, without a word.
+				// Keep the entry, forget the attempt, let the next click try
+				// again.
+				pending.delete( ext.slug );
+				recordExtensionIssue(
+					ext.slug,
+					`Could not load ${ ext.slug }: the script did not run.`
+				);
+			}
 			resolve( ok );
 		};
 		const started = injectExtension( ext, {
@@ -254,6 +272,14 @@ export function bootExtensions( list, { locale = '' } = {} ) {
 	} );
 	const report = { eager: [], lazy: [] };
 	for ( const ext of packages ) {
+		if ( ext.enqueued ) {
+			// PHP put its script tag on the page (eager mode). The tag sits
+			// below the editor bundle and is not parsed yet while this runs,
+			// so the DOM probe in injectExtension() cannot see it - every
+			// package used to load and register twice. It registers itself.
+			report.eager.push( ext.slug );
+			continue;
+		}
 		const inv = readInventory( ext, locale );
 		if ( canBeLazy( inv ) ) {
 			installPlaceholders( ext.slug, inv, () => loadExtension( ext ) );
@@ -263,7 +289,9 @@ export function bootExtensions( list, { locale = '' } = {} ) {
 		}
 	}
 	for ( const slug of report.eager ) {
-		loadExtension( bySlug.get( slug ) );
+		if ( ! bySlug.get( slug ).enqueued ) {
+			loadExtension( bySlug.get( slug ) );
+		}
 	}
 	return report;
 }

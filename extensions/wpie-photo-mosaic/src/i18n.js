@@ -43,6 +43,64 @@ const DE = {
 	'Could not load the image.': 'Bild konnte nicht geladen werden.',
 	'Everything is computed locally in your browser.':
 		'Alles wird lokal in deinem Browser berechnet.',
+	'Wheel to zoom the preview · drag to move the picture in the frame':
+		'Rad zoomt die Vorschau · Ziehen verschiebt das Bild im Rahmen',
+	Presets: 'Presets',
+	'Build the picture from itself': 'Bild aus sich selbst bauen',
+	Cells: 'Zellen',
+	'Mask and frame': 'Maske und Rahmen',
+	Color: 'Farbe',
+	Crops: 'Ausschnitte',
+	Gap: 'Fuge',
+	'Corner rounding': 'Eckenrundung',
+	Mask: 'Maske',
+	'Picture zoom': 'Bild-Zoom',
+	'Center the picture': 'Bild zentrieren',
+	'Drag the picture in the preview to place it; the wheel zooms the preview to check single tiles.':
+		'Zieh das Bild in der Vorschau an seinen Platz; das Rad zoomt die Vorschau, um einzelne Kacheln zu prüfen.',
+	'Transparent background': 'Transparenter Hintergrund',
+	Background: 'Hintergrund',
+	Tint: 'Tönung',
+	'Tint strength': 'Tönungsstärke',
+	'Photo Mosaic': 'Photo Mosaic',
+	'%d crops of the picture': '%d Ausschnitte des Bildes',
+	'Photo wall': 'Fotowand',
+	'Square cells edge to edge, the classic.':
+		'Quadratische Zellen Kante an Kante, der Klassiker.',
+	Gallery: 'Galerie',
+	'Rounded prints with a thin white gap.':
+		'Abgerundete Abzüge mit schmaler weißer Fuge.',
+	Honeycomb: 'Wabe',
+	'Hexagons, a hair of dark between them.':
+		'Sechsecke, ein Hauch Dunkel dazwischen.',
+	Diamonds: 'Rauten',
+	'A rhombus lattice, tight.': 'Ein Rautengitter, dicht.',
+	Dots: 'Punkte',
+	'Round photos on a dark ground.': 'Runde Fotos auf dunklem Grund.',
+	Scales: 'Schuppen',
+	'Fish scales, each row over the last.':
+		'Fischschuppen, jede Reihe über der vorigen.',
+	'Heart poster': 'Herz-Poster',
+	'A heart of photos, transparent around it.':
+		'Ein Herz aus Fotos, drumherum transparent.',
+	'Self-portrait': 'Selbstportrait',
+	'The picture built from crops of itself.':
+		'Das Bild aus Ausschnitten seiner selbst.',
+	'Duotone wash': 'Duotone-Schleier',
+	'A warm tint over the whole mosaic.':
+		'Eine warme Tönung über dem ganzen Mosaik.',
+	Squares: 'Quadrate',
+	Rounded: 'Abgerundet',
+	Triangles: 'Dreiecke',
+	'Brick bond': 'Ziegelversatz',
+	None: 'Keine',
+	Heart: 'Herz',
+	Circle: 'Kreis',
+	Oval: 'Oval',
+	Star: 'Stern',
+	Hexagon: 'Sechseck',
+	Diamond: 'Raute',
+	'Rounded corners': 'Abgerundete Ecken',
 };
 
 const ES = {
@@ -76,6 +134,64 @@ const ES = {
 	'Could not load the image.': 'No se pudo cargar la imagen.',
 	'Everything is computed locally in your browser.':
 		'Todo se calcula localmente en tu navegador.',
+	'Wheel to zoom the preview · drag to move the picture in the frame':
+		'Rueda para ampliar la vista · arrastra para mover la imagen en el marco',
+	Presets: 'Preajustes',
+	'Build the picture from itself': 'Construir la imagen a partir de sí misma',
+	Cells: 'Celdas',
+	'Mask and frame': 'Máscara y marco',
+	Color: 'Color',
+	Crops: 'Recortes',
+	Gap: 'Separación',
+	'Corner rounding': 'Redondeo de esquinas',
+	Mask: 'Máscara',
+	'Picture zoom': 'Zoom de la imagen',
+	'Center the picture': 'Centrar la imagen',
+	'Drag the picture in the preview to place it; the wheel zooms the preview to check single tiles.':
+		'Arrastra la imagen en la vista previa para colocarla; la rueda amplía la vista para revisar teselas sueltas.',
+	'Transparent background': 'Fondo transparente',
+	Background: 'Fondo',
+	Tint: 'Tinte',
+	'Tint strength': 'Intensidad del tinte',
+	'Photo Mosaic': 'Photo Mosaic',
+	'%d crops of the picture': '%d recortes de la imagen',
+	'Photo wall': 'Muro de fotos',
+	'Square cells edge to edge, the classic.':
+		'Celdas cuadradas borde con borde, el clásico.',
+	Gallery: 'Galería',
+	'Rounded prints with a thin white gap.':
+		'Copias redondeadas con una fina separación blanca.',
+	Honeycomb: 'Panal',
+	'Hexagons, a hair of dark between them.':
+		'Hexágonos con un hilo oscuro entre ellos.',
+	Diamonds: 'Rombos',
+	'A rhombus lattice, tight.': 'Una retícula de rombos, apretada.',
+	Dots: 'Puntos',
+	'Round photos on a dark ground.': 'Fotos redondas sobre fondo oscuro.',
+	Scales: 'Escamas',
+	'Fish scales, each row over the last.':
+		'Escamas de pez, cada fila sobre la anterior.',
+	'Heart poster': 'Póster corazón',
+	'A heart of photos, transparent around it.':
+		'Un corazón de fotos, transparente alrededor.',
+	'Self-portrait': 'Autorretrato',
+	'The picture built from crops of itself.':
+		'La imagen construida con recortes de sí misma.',
+	'Duotone wash': 'Velo duotono',
+	'A warm tint over the whole mosaic.':
+		'Un tinte cálido sobre todo el mosaico.',
+	Squares: 'Cuadrados',
+	Rounded: 'Redondeados',
+	Triangles: 'Triángulos',
+	'Brick bond': 'Ladrillo',
+	None: 'Ninguna',
+	Heart: 'Corazón',
+	Circle: 'Círculo',
+	Oval: 'Óvalo',
+	Star: 'Estrella',
+	Hexagon: 'Hexágono',
+	Diamond: 'Rombo',
+	'Rounded corners': 'Esquinas redondeadas',
 };
 
 const FR = {
@@ -109,6 +225,64 @@ const FR = {
 	'Could not load the image.': "Impossible de charger l'image.",
 	'Everything is computed locally in your browser.':
 		'Tout est calculé localement dans votre navigateur.',
+	'Wheel to zoom the preview · drag to move the picture in the frame':
+		"Molette pour zoomer l'aperçu · glisser pour déplacer l'image dans le cadre",
+	Presets: 'Préréglages',
+	'Build the picture from itself': "Construire l'image à partir d'elle-même",
+	Cells: 'Cellules',
+	'Mask and frame': 'Masque et cadre',
+	Color: 'Couleur',
+	Crops: 'Extraits',
+	Gap: 'Écart',
+	'Corner rounding': 'Arrondi des coins',
+	Mask: 'Masque',
+	'Picture zoom': "Zoom de l'image",
+	'Center the picture': "Centrer l'image",
+	'Drag the picture in the preview to place it; the wheel zooms the preview to check single tiles.':
+		"Glissez l'image dans l'aperçu pour la placer ; la molette zoome l'aperçu pour vérifier chaque tuile.",
+	'Transparent background': 'Fond transparent',
+	Background: 'Fond',
+	Tint: 'Teinte',
+	'Tint strength': 'Force de la teinte',
+	'Photo Mosaic': 'Photo Mosaic',
+	'%d crops of the picture': "%d extraits de l'image",
+	'Photo wall': 'Mur de photos',
+	'Square cells edge to edge, the classic.':
+		'Cellules carrées bord à bord, le classique.',
+	Gallery: 'Galerie',
+	'Rounded prints with a thin white gap.':
+		'Tirages arrondis avec un fin liseré blanc.',
+	Honeycomb: "Nid d'abeille",
+	'Hexagons, a hair of dark between them.':
+		'Des hexagones, un fil sombre entre eux.',
+	Diamonds: 'Losanges',
+	'A rhombus lattice, tight.': 'Un réseau de losanges, serré.',
+	Dots: 'Points',
+	'Round photos on a dark ground.': 'Photos rondes sur fond sombre.',
+	Scales: 'Écailles',
+	'Fish scales, each row over the last.':
+		'Écailles de poisson, chaque rangée sur la précédente.',
+	'Heart poster': 'Affiche cœur',
+	'A heart of photos, transparent around it.':
+		'Un cœur de photos, transparent autour.',
+	'Self-portrait': 'Autoportrait',
+	'The picture built from crops of itself.':
+		"L'image construite avec ses propres extraits.",
+	'Duotone wash': 'Voile bichrome',
+	'A warm tint over the whole mosaic.':
+		'Une teinte chaude sur toute la mosaïque.',
+	Squares: 'Carrés',
+	Rounded: 'Arrondis',
+	Triangles: 'Triangles',
+	'Brick bond': 'Appareil de briques',
+	None: 'Aucun',
+	Heart: 'Cœur',
+	Circle: 'Cercle',
+	Oval: 'Ovale',
+	Star: 'Étoile',
+	Hexagon: 'Hexagone',
+	Diamond: 'Losange',
+	'Rounded corners': 'Coins arrondis',
 };
 
 const PT = {
@@ -142,6 +316,65 @@ const PT = {
 	'Could not load the image.': 'Não foi possível carregar a imagem.',
 	'Everything is computed locally in your browser.':
 		'Tudo é calculado localmente no seu navegador.',
+	'Wheel to zoom the preview · drag to move the picture in the frame':
+		'Roda para ampliar a pré-visualização · arrastar para mover a imagem na moldura',
+	Presets: 'Predefinições',
+	'Build the picture from itself':
+		'Construir a imagem a partir de si própria',
+	Cells: 'Células',
+	'Mask and frame': 'Máscara e moldura',
+	Color: 'Cor',
+	Crops: 'Recortes',
+	Gap: 'Intervalo',
+	'Corner rounding': 'Arredondamento dos cantos',
+	Mask: 'Máscara',
+	'Picture zoom': 'Zoom da imagem',
+	'Center the picture': 'Centrar a imagem',
+	'Drag the picture in the preview to place it; the wheel zooms the preview to check single tiles.':
+		'Arrasta a imagem na pré-visualização para a colocar; a roda amplia a pré-visualização para verificar peças isoladas.',
+	'Transparent background': 'Fundo transparente',
+	Background: 'Fundo',
+	Tint: 'Tonalidade',
+	'Tint strength': 'Força da tonalidade',
+	'Photo Mosaic': 'Photo Mosaic',
+	'%d crops of the picture': '%d recortes da imagem',
+	'Photo wall': 'Parede de fotos',
+	'Square cells edge to edge, the classic.':
+		'Células quadradas lado a lado, o clássico.',
+	Gallery: 'Galeria',
+	'Rounded prints with a thin white gap.':
+		'Impressões arredondadas com uma fina margem branca.',
+	Honeycomb: 'Favo',
+	'Hexagons, a hair of dark between them.':
+		'Hexágonos com um fio escuro entre eles.',
+	Diamonds: 'Losangos',
+	'A rhombus lattice, tight.': 'Uma grelha de losangos, apertada.',
+	Dots: 'Pontos',
+	'Round photos on a dark ground.': 'Fotos redondas sobre fundo escuro.',
+	Scales: 'Escamas',
+	'Fish scales, each row over the last.':
+		'Escamas de peixe, cada fila sobre a anterior.',
+	'Heart poster': 'Póster coração',
+	'A heart of photos, transparent around it.':
+		'Um coração de fotos, transparente à volta.',
+	'Self-portrait': 'Autorretrato',
+	'The picture built from crops of itself.':
+		'A imagem construída com recortes de si própria.',
+	'Duotone wash': 'Véu duotone',
+	'A warm tint over the whole mosaic.':
+		'Uma tonalidade quente sobre todo o mosaico.',
+	Squares: 'Quadrados',
+	Rounded: 'Arredondados',
+	Triangles: 'Triângulos',
+	'Brick bond': 'Tijolo',
+	None: 'Nenhuma',
+	Heart: 'Coração',
+	Circle: 'Círculo',
+	Oval: 'Oval',
+	Star: 'Estrela',
+	Hexagon: 'Hexágono',
+	Diamond: 'Losango',
+	'Rounded corners': 'Cantos arredondados',
 };
 
 const IT = {
@@ -175,6 +408,64 @@ const IT = {
 	'Could not load the image.': "Impossibile caricare l'immagine.",
 	'Everything is computed locally in your browser.':
 		'Tutto viene calcolato localmente nel tuo browser.',
+	'Wheel to zoom the preview · drag to move the picture in the frame':
+		"Rotellina per ingrandire l'anteprima · trascina per spostare l'immagine nella cornice",
+	Presets: 'Preset',
+	'Build the picture from itself': "Costruisci l'immagine da sé stessa",
+	Cells: 'Celle',
+	'Mask and frame': 'Maschera e cornice',
+	Color: 'Colore',
+	Crops: 'Ritagli',
+	Gap: 'Spazio',
+	'Corner rounding': 'Arrotondamento angoli',
+	Mask: 'Maschera',
+	'Picture zoom': 'Zoom immagine',
+	'Center the picture': "Centra l'immagine",
+	'Drag the picture in the preview to place it; the wheel zooms the preview to check single tiles.':
+		"Trascina l'immagine nell'anteprima per posizionarla; la rotellina ingrandisce l'anteprima per controllare le singole tessere.",
+	'Transparent background': 'Sfondo trasparente',
+	Background: 'Sfondo',
+	Tint: 'Tinta',
+	'Tint strength': 'Intensità della tinta',
+	'Photo Mosaic': 'Photo Mosaic',
+	'%d crops of the picture': "%d ritagli dell'immagine",
+	'Photo wall': 'Parete di foto',
+	'Square cells edge to edge, the classic.':
+		'Celle quadrate bordo a bordo, il classico.',
+	Gallery: 'Galleria',
+	'Rounded prints with a thin white gap.':
+		'Stampe arrotondate con un sottile bordo bianco.',
+	Honeycomb: "Nido d'ape",
+	'Hexagons, a hair of dark between them.':
+		'Esagoni, un filo di scuro tra loro.',
+	Diamonds: 'Rombi',
+	'A rhombus lattice, tight.': 'Un reticolo di rombi, fitto.',
+	Dots: 'Punti',
+	'Round photos on a dark ground.': 'Foto rotonde su fondo scuro.',
+	Scales: 'Squame',
+	'Fish scales, each row over the last.':
+		'Squame di pesce, ogni fila sopra la precedente.',
+	'Heart poster': 'Poster cuore',
+	'A heart of photos, transparent around it.':
+		'Un cuore di foto, trasparente intorno.',
+	'Self-portrait': 'Autoritratto',
+	'The picture built from crops of itself.':
+		"L'immagine costruita con ritagli di sé stessa.",
+	'Duotone wash': 'Velo bicromia',
+	'A warm tint over the whole mosaic.':
+		'Una tinta calda su tutto il mosaico.',
+	Squares: 'Quadrati',
+	Rounded: 'Arrotondati',
+	Triangles: 'Triangoli',
+	'Brick bond': 'Mattoni',
+	None: 'Nessuna',
+	Heart: 'Cuore',
+	Circle: 'Cerchio',
+	Oval: 'Ovale',
+	Star: 'Stella',
+	Hexagon: 'Esagono',
+	Diamond: 'Rombo',
+	'Rounded corners': 'Angoli arrotondati',
 };
 
 const NL = {
@@ -208,6 +499,64 @@ const NL = {
 	'Could not load the image.': 'Kon de afbeelding niet laden.',
 	'Everything is computed locally in your browser.':
 		'Alles wordt lokaal in je browser berekend.',
+	'Wheel to zoom the preview · drag to move the picture in the frame':
+		'Wiel zoomt het voorbeeld · slepen verplaatst de foto in het kader',
+	Presets: 'Voorinstellingen',
+	'Build the picture from itself': 'Beeld uit zichzelf opbouwen',
+	Cells: 'Cellen',
+	'Mask and frame': 'Masker en kader',
+	Color: 'Kleur',
+	Crops: 'Uitsneden',
+	Gap: 'Voeg',
+	'Corner rounding': 'Hoekafronding',
+	Mask: 'Masker',
+	'Picture zoom': 'Beeldzoom',
+	'Center the picture': 'Beeld centreren',
+	'Drag the picture in the preview to place it; the wheel zooms the preview to check single tiles.':
+		'Sleep de foto in het voorbeeld op zijn plaats; het wiel zoomt het voorbeeld om losse tegels te bekijken.',
+	'Transparent background': 'Transparante achtergrond',
+	Background: 'Achtergrond',
+	Tint: 'Tint',
+	'Tint strength': 'Tintsterkte',
+	'Photo Mosaic': 'Photo Mosaic',
+	'%d crops of the picture': '%d uitsneden van het beeld',
+	'Photo wall': 'Fotowand',
+	'Square cells edge to edge, the classic.':
+		'Vierkante cellen rand aan rand, de klassieker.',
+	Gallery: 'Galerie',
+	'Rounded prints with a thin white gap.':
+		'Afgeronde afdrukken met een smalle witte voeg.',
+	Honeycomb: 'Honingraat',
+	'Hexagons, a hair of dark between them.':
+		'Zeshoeken met een haarlijn donker ertussen.',
+	Diamonds: 'Ruiten',
+	'A rhombus lattice, tight.': 'Een ruitenrooster, dicht.',
+	Dots: 'Stippen',
+	'Round photos on a dark ground.': "Ronde foto's op een donkere grond.",
+	Scales: 'Schubben',
+	'Fish scales, each row over the last.':
+		'Visschubben, elke rij over de vorige.',
+	'Heart poster': 'Hartposter',
+	'A heart of photos, transparent around it.':
+		"Een hart van foto's, transparant eromheen.",
+	'Self-portrait': 'Zelfportret',
+	'The picture built from crops of itself.':
+		'Het beeld opgebouwd uit uitsneden van zichzelf.',
+	'Duotone wash': 'Duotoon-waas',
+	'A warm tint over the whole mosaic.':
+		'Een warme tint over het hele mozaïek.',
+	Squares: 'Vierkanten',
+	Rounded: 'Afgerond',
+	Triangles: 'Driehoeken',
+	'Brick bond': 'Steensverband',
+	None: 'Geen',
+	Heart: 'Hart',
+	Circle: 'Cirkel',
+	Oval: 'Ovaal',
+	Star: 'Ster',
+	Hexagon: 'Zeshoek',
+	Diamond: 'Ruit',
+	'Rounded corners': 'Afgeronde hoeken',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

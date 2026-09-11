@@ -187,10 +187,21 @@ export function decodeLutTable( table ) {
 	if ( table.data instanceof Float32Array ) {
 		return table.data;
 	}
-	const bytes = b64decode( table.data );
-	return new Float32Array(
-		bytes.buffer,
-		bytes.byteOffset,
-		bytes.byteLength / 4
-	);
+	// A project file can carry anything here. Garbage used to throw out of
+	// atob() in the middle of the render loop and take the whole paint with
+	// it; a table that does not decode is no table, and the effect is a
+	// no-op for that layer.
+	try {
+		const bytes = b64decode( table.data );
+		if ( ! bytes.byteLength || bytes.byteLength % 4 ) {
+			return null;
+		}
+		return new Float32Array(
+			bytes.buffer,
+			bytes.byteOffset,
+			bytes.byteLength / 4
+		);
+	} catch ( e ) {
+		return null;
+	}
 }

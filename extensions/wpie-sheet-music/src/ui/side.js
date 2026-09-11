@@ -71,7 +71,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	};
 	const textFor = ( parent, cards, label, get, set ) => {
 		const host = rowFor( parent, cards, label );
-		const input = ui.el( 'input', 'wpiesm-input', host );
+		const input = ui.el( 'input', 'dsm-input wpiesm-input', host );
 		input.type = 'text';
 		input.value = get() || '';
 		input.oninput = () => {

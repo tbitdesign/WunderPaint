@@ -384,6 +384,7 @@ export function BeautifyDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Screenshot Beautifier', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

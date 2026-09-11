@@ -150,6 +150,14 @@ class Templates {
 		if ( ! is_array( $decoded ) || empty( $decoded['doc'] ) || ! isset( $decoded['layers'] ) ) {
 			return new \WP_Error( 'wpie_bad_template', __( 'Malformed project data.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
+		$too_big = self::size_error( $project );
+		if ( is_wp_error( $too_big ) ) {
+			return $too_big;
+		}
+		$limit = self::template_limit_error();
+		if ( is_wp_error( $limit ) ) {
+			return $limit;
+		}
 
 		$id = strtolower( wp_generate_password( 12, false, false ) );
 		if ( ! \wpie_write_json_file( self::dir() . '/' . $id . '.json', $project ) ) {
@@ -186,6 +194,55 @@ class Templates {
 	}
 
 	/**
+	 * Size ceiling for one template's project JSON. /designs had one, this
+	 * route had none - a single editor account could fill the disk.
+	 *
+	 * @param string $project Project JSON.
+	 * @return \WP_Error|null
+	 */
+	private static function size_error( $project ) {
+		$max = (int) apply_filters( 'wpie_max_template_bytes', 16 * MB_IN_BYTES );
+		if ( $max > 0 && strlen( $project ) > $max ) {
+			return new \WP_Error(
+				'wpie_template_too_big',
+				sprintf(
+					/* translators: %s: size limit. */
+					__( 'This template is larger than %s and cannot be stored.', 'wunderpaint' ),
+					size_format( $max )
+				),
+				array( 'status' => 413 )
+			);
+		}
+		return null;
+	}
+
+	/**
+	 * Per-user template ceiling, the twin of Projects::design_limit_error().
+	 *
+	 * @return \WP_Error|null
+	 */
+	private static function template_limit_error() {
+		if ( current_user_can( 'manage_options' ) ) {
+			return null;
+		}
+		$cap = (int) apply_filters( 'wpie_max_templates_per_user', 500 );
+		if ( $cap <= 0 ) {
+			return null;
+		}
+		$me  = get_current_user_id();
+		$own = 0;
+		foreach ( self::index() as $record ) {
+			if ( (int) ( $record['owner'] ?? 0 ) === $me ) {
+				++$own;
+			}
+		}
+		if ( $own >= $cap ) {
+			return new \WP_Error( 'wpie_template_limit', __( 'You have reached the maximum number of saved templates.', 'wunderpaint' ), array( 'status' => 403 ) );
+		}
+		return null;
+	}
+
+	/**
 	 * POST /templates/{id}, update an existing template in place (v1.69.3):
 	 * new project data + preview, optional rename. Same validation as create.
 	 *
@@ -206,6 +263,10 @@ class Templates {
 		$decoded = json_decode( $project, true );
 		if ( ! is_array( $decoded ) || empty( $decoded['doc'] ) || ! isset( $decoded['layers'] ) ) {
 			return new \WP_Error( 'wpie_bad_template', __( 'Malformed project data.', 'wunderpaint' ), array( 'status' => 400 ) );
+		}
+		$too_big = self::size_error( $project );
+		if ( is_wp_error( $too_big ) ) {
+			return $too_big;
 		}
 		if ( ! \wpie_write_json_file( $path, $project ) ) {
 			return new \WP_Error( 'wpie_write_failed', __( 'Could not store the template.', 'wunderpaint' ), array( 'status' => 500 ) );

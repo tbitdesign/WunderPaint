@@ -47,6 +47,10 @@ export const HELP_ARTICLES = [
 				'Prefer a simpler surface? Help → Easy Mode swaps the editor chrome for a beginner shell with just the essentials; "Switch to full editor" brings everything back.',
 				'wunderpaint'
 			),
+			__(
+				'Two doors reach everything without a menu: ⌘K opens the command palette, type the name of any command, tool or panel and press Enter. Help → Help Assistant opens a chat that answers "how do I…?" questions from this handbook and offers to play the matching tour.',
+				'wunderpaint'
+			),
 		],
 		actions: [
 			{
@@ -220,7 +224,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'Select → Select Subject finds the main subject automatically (local AI, no key needed). Shift adds to a selection, Alt subtracts.',
+				'Select → Smart Select finds the main subject automatically (local AI, no key needed); the Smart Select tool (K) does the same for the object you click. Shift adds to a selection, Alt subtracts.',
 				'wunderpaint'
 			),
 			__(
@@ -564,7 +568,7 @@ export const HELP_ARTICLES = [
 		title: __( 'Stock photos & library images', 'wunderpaint' ),
 		body: [
 			__(
-				'The Asset Library (Assets menu, ⇧⌘L) places images from your Media Library as layers; its Photos section searches Pexels, Pixabay and Unsplash (free API keys, configured in Settings → Stock Images). Stock results insert as layers and only reach your library when you save. The quick-insert palette (/) offers the same sources.',
+				'The Asset Library (Assets menu, ⇧⌘L) places images from your Media Library as layers; its Photos section searches Pexels, Pixabay and Unsplash (free API keys, configured in Settings → Integrations → Stock Images). Stock results insert as layers and only reach your library when you save. The quick-insert palette (/) offers the same sources.',
 				'wunderpaint'
 			),
 			__(
@@ -658,7 +662,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'The Design Generator (Automation → Design) turns a short brief into a complete, editable design in three variants: it writes the copy, composes the layout and, with a stock provider configured, drops in a real photo. Tick "Make it a dynamic template" to bind the result to post fields right away.',
+				'The Design Generator (Assets → Design Generator) turns a short brief into a complete, editable design in three variants: it writes the copy, composes the layout and, with a stock provider configured, drops in a real photo. Tick "Make it a dynamic template" to bind the result to post fields right away.',
 				'wunderpaint'
 			),
 			__(
@@ -680,7 +684,7 @@ export const HELP_ARTICLES = [
 		title: __( 'Design Generator', 'wunderpaint' ),
 		body: [
 			__(
-				'Automation → Design → Design Generator turns a short brief into a complete, editable design: it writes the copy, composes a fitting layout, applies your brand colors and, with a stock provider configured, drops in a real photo.',
+				'Assets → Design Generator turns a short brief into a complete, editable design: it writes the copy, composes a fitting layout, applies your brand colors and, with a stock provider configured, drops in a real photo.',
 				'wunderpaint'
 			),
 			__(
@@ -1283,7 +1287,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'Settings → Backup exports one portable ZIP with everything you built: brand kits with logo and watermark files, dynamic templates, designs, library assets, content templates, uploaded custom fonts and installed editor extensions. Local AI models and the search index are left out on purpose, they rebuild themselves.',
+				'Settings → Backup exports one portable ZIP with everything you built: brand kits with logo and watermark files, dynamic templates, designs, library assets, content templates, uploaded custom fonts, installed editor extensions and the presets you saved inside the studios (brushes, stamps, recipes). Local AI models and the search index are left out on purpose, they rebuild themselves.',
 				'wunderpaint'
 			),
 			__(

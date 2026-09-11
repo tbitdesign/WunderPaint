@@ -8,14 +8,14 @@ export function buildView( mid, { ui, t, onToggleDoc } ) {
 	canvas.width = 1600;
 	canvas.height = 400;
 	view.appendChild( canvas );
-	const docBtn = ui.el( 'button', 'wpiemf-doc', view );
+	const docBtn = ui.el( 'button', 'dsm-viewbtn wpiemf-doc', view );
 	docBtn.type = 'button';
 	docBtn.innerHTML = ICONS.eye + ' ' + t( 'Show document' );
 	docBtn.setAttribute( 'aria-pressed', 'false' );
 	docBtn.onclick = () => onToggleDoc();
 	const hint = ui.el(
 		'div',
-		'wpiemf-hint',
+		'dsm-viewhint wpiemf-hint',
 		view,
 		t( 'Choose a starter or paste your own material.' )
 	);

@@ -108,7 +108,7 @@ export function ShapePanel( { editor } ) {
 			<input
 				type="search"
 				className="ssd-search sp-search"
-				placeholder={ __( 'Search shapes…', 'wunderpaint' ) }
+				placeholder={ __( 'Search shapes', 'wunderpaint' ) }
 				value={ query }
 				onChange={ ( e ) => setQuery( e.target.value.toLowerCase() ) }
 			/>

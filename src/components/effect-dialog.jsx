@@ -91,6 +91,7 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 		<div
 			className="effect-dialog"
 			role="dialog"
+			aria-modal="true"
 			aria-label={ effect.label }
 		>
 			<div className="create-head" style={ { padding: '10px 12px' } }>

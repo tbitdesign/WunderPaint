@@ -350,6 +350,7 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Vignette & Film', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

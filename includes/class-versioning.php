@@ -51,7 +51,7 @@ class Versioning {
 		$dir = trailingslashit( \wpie_versions_dir() ) . $attachment_id . '-' . $sub;
 		if ( ! is_dir( $dir ) ) {
 			wp_mkdir_p( $dir );
-			Helpers::protect_dir( \wpie_versions_dir() );
+			Helpers::protect_dir( \wpie_versions_dir(), array(), true );
 			file_put_contents( $dir . '/index.php', "<?php // Silence is golden.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		}
 		return $dir;
@@ -73,9 +73,10 @@ class Versioning {
 	 *
 	 * @param int    $attachment_id Attachment id.
 	 * @param string $note          Optional note.
+	 * @param bool   $prune         Enforce retention now; restore defers it until success.
 	 * @return int|\WP_Error New version number.
 	 */
-	public static function snapshot( $attachment_id, $note = '' ) {
+	public static function snapshot( $attachment_id, $note = '', $prune = true ) {
 		$file = get_attached_file( $attachment_id );
 		if ( ! $file || ! file_exists( $file ) ) {
 			return new \WP_Error( 'wpie_no_file', __( 'Attachment file not found.', 'wunderpaint' ), array( 'status' => 404 ) );
@@ -85,23 +86,60 @@ class Versioning {
 		$n       = $counter;
 		$ext     = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
 		$dir     = self::dir_for( $attachment_id );
+		// The counter is meta and can fall behind the files (a restored
+		// backup, a counter reset); the next number used to overwrite an
+		// existing version in place. Skip ahead to a name nobody has.
+		while ( glob( $dir . '/v' . $n . '.*' ) ) {
+			$n++;
+		}
+		$counter = $n;
 		$name    = 'v' . $n . '.' . $ext;
 
 		if ( ! copy( $file, $dir . '/' . $name ) ) {
 			return new \WP_Error( 'wpie_copy_failed', __( 'Could not store the previous version.', 'wunderpaint' ), array( 'status' => 500 ) );
 		}
 
+		// Keep the exact sidecars with the rendered image. JSON is already
+		// compressed at rest and is copied verbatim, just like a PSD.
+		$sidecars = array();
+		foreach ( array( 'project' => self::META_PROJECT, 'psd' => self::META_PSD ) as $kind => $key ) {
+			$active = get_post_meta( $attachment_id, $key, true );
+			if ( ! $active ) {
+				continue;
+			}
+			$source = $dir . '/' . basename( $active );
+			if ( ! is_file( $source ) ) {
+				// Stale pointer, the sidecar itself is gone (a moved site, a
+				// partial backup import): nothing to preserve, and a missing
+				// file must not block every save of this image.
+				continue;
+			}
+			$target = 'v' . $n . '-project.' . ( 'project' === $kind ? 'json' : 'psd' );
+			if ( ! self::copy_complete( $source, $dir . '/' . $target ) ) {
+				foreach ( array_merge( array( $name ), array_values( $sidecars ) ) as $written ) {
+					wp_delete_file( $dir . '/' . $written );
+				}
+				return new \WP_Error( 'wpie_copy_failed', __( 'Could not store the previous version.', 'wunderpaint' ), array( 'status' => 500 ) );
+			}
+			$sidecars[ $kind ] = $target;
+		}
+
 		$records   = self::records( $attachment_id );
-		$records[] = array(
+		$records[] = array_merge( array(
 			'v'        => $n,
 			'file'     => $name,
 			'savedAt'  => time(),
 			'byteSize' => (int) filesize( $dir . '/' . $name ),
 			'note'     => (string) $note,
-		);
-		update_post_meta( $attachment_id, self::META_VERSIONS, $records );
+		), $sidecars );
+		// wp_slash(): update_metadata() unslashes the WHOLE array, so without
+		// it every save stripped one backslash level from every note already
+		// in the list, not just from the new one.
+		update_post_meta( $attachment_id, self::META_VERSIONS, wp_slash( $records ) );
 		update_post_meta( $attachment_id, self::META_COUNTER, $counter + 1 );
-		self::prune( $attachment_id );
+		if ( $prune ) {
+			self::prune( $attachment_id );
+		}
 
 		return $n;
 	}
@@ -121,12 +159,16 @@ class Versioning {
 		$dir     = self::dir_for( $attachment_id );
 		$dropped = array_splice( $records, 0, count( $records ) - $keep );
 		foreach ( $dropped as $record ) {
-			$path = $dir . '/' . basename( $record['file'] );
-			if ( file_exists( $path ) ) {
-				wp_delete_file( $path );
+			foreach ( array( 'file', 'project', 'psd' ) as $key ) {
+				if ( ! empty( $record[ $key ] ) ) {
+					wp_delete_file( $dir . '/' . basename( $record[ $key ] ) );
+				}
 			}
 		}
-		update_post_meta( $attachment_id, self::META_VERSIONS, $records );
+		// wp_slash(): update_metadata() unslashes the WHOLE array, so without
+		// it every save stripped one backslash level from every note already
+		// in the list, not just from the new one.
+		update_post_meta( $attachment_id, self::META_VERSIONS, wp_slash( $records ) );
 	}
 
 	/**
@@ -186,22 +228,90 @@ class Versioning {
 		if ( is_wp_error( $path ) ) {
 			return $path;
 		}
+		$bytes = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		if ( false === $bytes || '' === $bytes ) {
+			return new \WP_Error( 'wpie_version_unreadable', __( 'The stored version could not be read.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
 
-		$settings = Helpers::get_settings();
-		if ( $settings['versioning'] ) {
-			$snap = self::snapshot( $attachment_id, 'Replaced by restore of v' . $v );
-			if ( is_wp_error( $snap ) ) {
-				return $snap;
+		$record = array();
+		foreach ( self::records( $attachment_id ) as $candidate ) {
+			if ( (int) $candidate['v'] === (int) $v ) {
+				$record = $candidate;
+				break;
 			}
 		}
+		$dir    = self::dir_for( $attachment_id );
+		$staged = array();
+		$keys   = array( 'project' => self::META_PROJECT, 'psd' => self::META_PSD );
+		try {
+			// Fresh files become the active sidecars only AFTER the image was
+			// written. They do not belong to the version being pruned below.
+			foreach ( $keys as $kind => $key ) {
+				if ( empty( $record[ $kind ] ) ) {
+					continue;
+				}
+				$filename = 'project-' . wp_generate_password( 16, false, false ) . '.' . ( 'project' === $kind ? 'json' : 'psd' );
+				if ( ! self::copy_complete( $dir . '/' . basename( $record[ $kind ] ), $dir . '/' . $filename ) ) {
+					return new \WP_Error( 'wpie_version_unreadable', __( 'The stored version could not be read.', 'wunderpaint' ), array( 'status' => 500 ) );
+				}
+				$staged[ $key ] = $filename;
+			}
 
-		$ext    = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
-		$result = Image_Writer::replace_attachment_file( $attachment_id, file_get_contents( $path ), $ext ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		if ( is_wp_error( $result ) ) {
+			$settings = Helpers::get_settings();
+			if ( $settings['versioning'] ) {
+				// Retain every recovery source until the restore succeeds.
+				$snap = self::snapshot( $attachment_id, 'Replaced by restore of v' . $v, false );
+				if ( is_wp_error( $snap ) ) {
+					return $snap;
+				}
+			}
+			$ext    = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+			$result = Image_Writer::replace_attachment_file( $attachment_id, $bytes, $ext );
+			if ( is_wp_error( $result ) ) {
+				return $result;
+			}
+
+			foreach ( $keys as $key ) {
+				$old = get_post_meta( $attachment_id, $key, true );
+				if ( isset( $staged[ $key ] ) ) {
+					update_post_meta( $attachment_id, $key, $staged[ $key ] );
+				} else {
+					// Legacy versions had no project. Reopen their flat image,
+					// never the newer sidecar that would undo the restoration.
+					delete_post_meta( $attachment_id, $key );
+				}
+				self::remove_active_sidecar( $dir, $old );
+			}
+			$staged = array(); // These files are now active, not temporary.
+			self::prune( $attachment_id );
+			$result['restored'] = (int) $v;
 			return $result;
+		} finally {
+			foreach ( $staged as $filename ) {
+				wp_delete_file( $dir . '/' . $filename );
+			}
 		}
-		$result['restored'] = (int) $v;
-		return $result;
+	}
+
+	/** Copy a whole sidecar or leave no partial destination behind. */
+	private static function copy_complete( $source, $target ) {
+		if ( ! is_file( $source ) || ! is_readable( $source ) || ! copy( $source, $target ) ) {
+			wp_delete_file( $target );
+			return false;
+		}
+		clearstatcache( true, $target );
+		if ( filesize( $source ) !== filesize( $target ) ) {
+			wp_delete_file( $target );
+			return false;
+		}
+		return true;
+	}
+
+	/** Remove only our active project files, never an immutable version. */
+	private static function remove_active_sidecar( $dir, $filename ) {
+		if ( is_string( $filename ) && preg_match( '/^project(?:-[a-zA-Z0-9]+)?\.(json|psd)$/D', $filename ) ) {
+			wp_delete_file( $dir . '/' . $filename );
+		}
 	}
 
 	/**
@@ -214,12 +324,22 @@ class Versioning {
 	public static function store_sidecar( $attachment_id, $json = null, $psd_tmp = null ) {
 		$dir = self::dir_for( $attachment_id );
 		if ( null !== $json && '' !== $json ) {
-			\wpie_write_json_file( $dir . '/project.json', $json );
-			update_post_meta( $attachment_id, self::META_PROJECT, 'project.json' );
+			if ( \wpie_write_json_file( $dir . '/project.json', $json ) ) {
+				$old = get_post_meta( $attachment_id, self::META_PROJECT, true );
+				update_post_meta( $attachment_id, self::META_PROJECT, 'project.json' );
+				if ( 'project.json' !== $old ) {
+					self::remove_active_sidecar( $dir, $old );
+				}
+			}
 		}
 		if ( null !== $psd_tmp && file_exists( $psd_tmp ) ) {
-			copy( $psd_tmp, $dir . '/project.psd' );
-			update_post_meta( $attachment_id, self::META_PSD, 'project.psd' );
+			if ( self::copy_complete( $psd_tmp, $dir . '/project.psd' ) ) {
+				$old = get_post_meta( $attachment_id, self::META_PSD, true );
+				update_post_meta( $attachment_id, self::META_PSD, 'project.psd' );
+				if ( 'project.psd' !== $old ) {
+					self::remove_active_sidecar( $dir, $old );
+				}
+			}
 		}
 	}
 
@@ -247,9 +367,12 @@ class Versioning {
 	 * @param int $attachment_id Attachment id.
 	 */
 	public static function purge( $attachment_id ) {
-		$sub = get_post_meta( $attachment_id, self::META_SUBDIR, true );
-		if ( $sub ) {
-			self::rrmdir( trailingslashit( \wpie_versions_dir() ) . $attachment_id . '-' . $sub );
+		$sub = (string) get_post_meta( $attachment_id, self::META_SUBDIR, true );
+		// The same rule as dir_for(): the meta is a path segment, and a value
+		// from an imported archive could traverse. Only plain alphanumerics
+		// name a store; anything else is not ours to delete.
+		if ( '' !== $sub && preg_match( '/^[a-zA-Z0-9]+$/', $sub ) ) {
+			self::rrmdir( trailingslashit( \wpie_versions_dir() ) . (int) $attachment_id . '-' . $sub );
 		}
 		foreach ( array( self::META_VERSIONS, self::META_SUBDIR, self::META_COUNTER, self::META_PROJECT, self::META_PSD ) as $key ) {
 			delete_post_meta( $attachment_id, $key );
@@ -275,6 +398,12 @@ class Versioning {
 	 */
 	private static function rrmdir( $dir ) {
 		if ( ! is_dir( $dir ) ) {
+			return;
+		}
+		// Never outside the version store, whatever the caller was handed.
+		$real = realpath( $dir );
+		$root = realpath( \wpie_versions_dir() );
+		if ( ! $real || ! $root || 0 !== strpos( $real, $root ) ) {
 			return;
 		}
 		foreach ( scandir( $dir ) as $entry ) {

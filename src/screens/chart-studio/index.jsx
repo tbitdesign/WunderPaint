@@ -383,6 +383,7 @@ export function ChartStudio( { onClose, extras, layerId = null } ) {
 				className="stock-dialog chs-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Chart & Table', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

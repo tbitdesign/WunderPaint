@@ -374,9 +374,13 @@ class Projects {
 			return $limit;
 		}
 		$copy_id = strtolower( wp_generate_password( 12, false, false ) );
-		copy( $json, self::dir() . '/' . $copy_id . '.json' );
+		if ( ! @copy( $json, self::dir() . '/' . $copy_id . '.json' ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			// No file, no index entry: a failed copy used to leave a design in
+			// the list that opened to nothing.
+			return new \WP_Error( 'wpie_copy_failed', __( 'The design could not be duplicated.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
 		if ( file_exists( self::dir() . '/' . $id . '.png' ) ) {
-			copy( self::dir() . '/' . $id . '.png', self::dir() . '/' . $copy_id . '.png' );
+			@copy( self::dir() . '/' . $id . '.png', self::dir() . '/' . $copy_id . '.png' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- the preview is optional.
 		}
 		$name    = $source['name'] . ' ' . __( '(copy)', 'wunderpaint' );
 		$index   = self::index();

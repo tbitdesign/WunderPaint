@@ -263,7 +263,7 @@ class Fonts {
 			. str_replace( '%20', '+', rawurlencode( (string) $family ) )
 			. ':wght@' . implode( ';', $weights ) . '&display=swap';
 
-		$res = wp_remote_get(
+		$res = wp_safe_remote_get(
 			$url,
 			array(
 				'timeout' => 20,
@@ -300,7 +300,7 @@ class Fonts {
 				if ( ! preg_match( '#src:\s*url\((https://fonts\.gstatic\.com/[^)]+\.woff2)\)#i', $block, $um ) ) {
 					continue;
 				}
-				$bin = wp_remote_get(
+				$bin = wp_safe_remote_get(
 					$um[1],
 					array(
 						'timeout' => 20,

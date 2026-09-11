@@ -11,7 +11,6 @@ import { renderScore } from './engine/abc.js';
 import { unzipMxl } from './engine/mxl.js';
 import { ensureXml2abc, convertMusicXml } from './engine/xml2abc.js';
 import { normalizeTextAnchors } from './engine/svg-dom.js';
-import { ICON_BRAND } from './ui/icons.js';
 import { buildLeft } from './ui/left.js';
 import { buildView } from './ui/view.js';
 import { buildSide } from './ui/side.js';
@@ -118,10 +117,8 @@ function openStudio( ctx ) {
 		onClose: () => cleanup(),
 	} );
 	modal.dialog.classList.add( 'wpiesm-dialog' );
-	const badge = document.createElement( 'span' );
-	badge.className = 'dsm-badge';
-	badge.innerHTML = ICON_BRAND;
-	modal.head.insertBefore( badge, modal.head.firstChild );
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( modal );
 	const body = ui.el( 'div', 'wpiesm-body', modal.body );
 	const left = ui.el( 'div', 'wpiesm-left', body );
 	const mid = ui.el( 'div', 'wpiesm-mid', body );

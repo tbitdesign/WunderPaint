@@ -550,8 +550,18 @@ const generatorKey = ( layer ) => layer.generator || layer.qr || layer;
  * @param {Object} patch {src, naturalW?, naturalH?} replacement.
  */
 export function setResolvedGenerator( layer, ctx, patch ) {
-	generatorMemo.set( generatorKey( layer ), { ctx, patch } );
+	const key = generatorKey( layer );
+	// One slot per content: a slow prepare run for an OLD context used to
+	// land after the fresh one and overwrite it. The context a prepare
+	// pass asked about last is the one whose result may be stored.
+	if ( latestCtx.has( key ) && latestCtx.get( key ) !== ctx ) {
+		return;
+	}
+	generatorMemo.set( key, { ctx, patch } );
 }
+
+// The context each content was last asked about (see setResolvedGenerator).
+const latestCtx = new WeakMap();
 
 /**
  * Whether a layer already has a prepared generator result for this
@@ -563,7 +573,11 @@ export function setResolvedGenerator( layer, ctx, patch ) {
  * @return {boolean} Prepared.
  */
 export function hasResolvedGenerator( layer, ctx ) {
-	const m = generatorMemo.get( generatorKey( layer ) );
+	const key = generatorKey( layer );
+	if ( ctx && 'object' === typeof ctx ) {
+		latestCtx.set( key, ctx );
+	}
+	const m = generatorMemo.get( key );
 	return !! ( m && m.ctx === ctx );
 }
 

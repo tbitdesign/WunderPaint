@@ -1,0 +1,148 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-running-on-curiosity-and-small-snacks",
+	"label": "Running on curiosity and small snacks",
+	"category": "wordart",
+	"w": 764,
+	"h": 565,
+	"layers": [
+		{
+			"id": "waf-running-on-curiosity-and-small-snacks-0",
+			"type": "text",
+			"name": "RUNNING ON CURIOSITY AND SMALL SNACKS",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 105.27,
+			"y": 52.01,
+			"w": 560,
+			"h": 460,
+			"rot": -6,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fff1d3",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "RUNNING ON\nCURIOSITY AND\nSMALL SNACKS",
+			"fontSize": 100,
+			"fontFamily": "Oswald",
+			"weight": 700,
+			"color": "#db9240",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "RUNNING ON\n",
+					"s": {
+						"color": "#db9240"
+					}
+				},
+				{
+					"text": "CURIOSITY AND\n",
+					"s": {
+						"color": "#bf5b53"
+					}
+				},
+				{
+					"text": "SMALL SNACKS",
+					"s": {
+						"color": "#eac571"
+					}
+				}
+			],
+			"textFX": {
+				"extrude": {
+					"angle": 45,
+					"depth": 11,
+					"color": "#734739"
+				}
+			}
+		},
+		{
+			"id": "waf-running-on-curiosity-and-small-snacks-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 26.27,
+			"y": 150.01,
+			"w": 35,
+			"h": 35,
+			"rot": -8,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#bf5b53",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-running-on-curiosity-and-small-snacks-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 689.27,
+			"y": 395.01,
+			"w": 47,
+			"h": 47,
+			"rot": 9,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#eac571",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		}
+	]
+}

@@ -149,11 +149,17 @@ switched on.
 Bundled inside the free extensions (bundled-extensions/)
 --------------------------------------------------------
 
-Nineteen free extensions ship with the plugin. They are editor add-ons rather
-than WordPress plugins and run entirely in the browser. Five of them carry
-third-party code or data of their own, listed here because it travels in the
-download. Where a licence asks for a notice next to the file, that notice sits
-in the extension's own folder as well.
+The free extensions ship with the plugin, one folder each under
+bundled-extensions/. They are editor add-ons rather than WordPress plugins and
+run entirely in the browser. The ones listed below carry third-party code or
+data of their own, listed here because it travels in the download. Where a
+licence asks for a notice next to the file, that notice sits in the
+extension's own folder as well. The same list, with source links, is in
+readme.txt under "Which third-party libraries are bundled?".
+
+(No count here on purpose: it said "nineteen ... five of them" while the build
+shipped twenty-two folders and seven of them carried foreign work. A number in
+prose has no test beside it and rots at the next release.)
 
 highlight.js 11.11.1 — syntax highlighting in Code Shot (the core plus thirty
 language definitions)
@@ -202,6 +208,23 @@ Oldenburg map excerpt (bundled-extensions/wpie-map-studio/oldenburg.json)
   https://www.openstreetmap.org/copyright. Map Studio carries the same credit
   on screen whenever it draws a map.
 
+- xml2abc 1.68 (Wim Vree, https://wim.vree.org/js/xml2abc-js_index.html)
+  GNU Lesser General Public License v3.0. Bundled UNMODIFIED as
+  bundled-extensions/wpie-sheet-music/xml2abc.js (the unminified source of the
+  npm package "xml2abc" 1.68.3), full license text next to it in
+  bundled-extensions/wpie-sheet-music/LICENSE-xml2abc.txt. Loaded only when a
+  MusicXML file is imported in the Sheet Music extension.
+
+- abcjs 6.7 (Paul Rosen and Gregory Dyke, https://github.com/paulrosen/abcjs)
+  MIT License. Bundled into bundled-extensions/wpie-sheet-music/extension.js (the
+  ABC notation engraver of the Sheet Music extension; no audio parts).
+
+- MathJax 3.2 (The MathJax Consortium, https://www.mathjax.org, npm
+  package "mathjax-full" 3.2.2), Apache License 2.0. Bundled as
+  bundled-extensions/wpie-math-figures/assets/mathjax.js (TeX input, SVG output,
+  lite adaptor, TeX font glyph data), loaded only when the Math Figures
+  extension typesets a formula.
+
 
 Provided by WordPress at runtime (NOT bundled)
 ----------------------------------------------
@@ -232,20 +255,3 @@ proxy from OpenFreeMap and the OpenStreetMap Overpass instances, and is
 (c) OpenStreetMap contributors under the Open Database License (ODbL),
 https://www.openstreetmap.org/copyright. One small excerpt does ship with the
 plugin as sample data; it is listed above under the bundled extensions.
-
-- xml2abc 1.68 (Wim Vree, https://wim.vree.org/js/xml2abc-js_index.html)
-  GNU Lesser General Public License v3.0. Bundled UNMODIFIED as
-  extensions/wpie-sheet-music/assets/xml2abc.js (the unminified source of the
-  npm package "xml2abc" 1.68.3), full license text next to it in
-  extensions/wpie-sheet-music/assets/LICENSE-xml2abc.txt. Loaded only when a
-  MusicXML file is imported in the Sheet Music extension.
-
-- abcjs 6.7 (Paul Rosen and Gregory Dyke, https://github.com/paulrosen/abcjs)
-  MIT License. Bundled into extensions/wpie-sheet-music/extension.js (the
-  ABC notation engraver of the Sheet Music extension; no audio parts).
-
-- MathJax 3.2 (The MathJax Consortium, https://www.mathjax.org, npm
-  package "mathjax-full" 3.2.2), Apache License 2.0. Bundled as
-  extensions/wpie-math-figures/assets/mathjax.js (TeX input, SVG output,
-  lite adaptor, TeX font glyph data), loaded only when the Math Figures
-  extension typesets a formula.

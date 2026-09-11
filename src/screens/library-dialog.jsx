@@ -101,6 +101,7 @@ export function LibraryDialog( { section, onClose, extras } ) {
 				className="dsm library-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Asset Library', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -122,10 +123,7 @@ export function LibraryDialog( { section, onClose, extras } ) {
 					<input
 						type="search"
 						className="library-global-search"
-						placeholder={ __(
-							'Search all assets…',
-							'wunderpaint'
-						) }
+						placeholder={ __( 'Search all assets', 'wunderpaint' ) }
 						value={ query }
 						onChange={ ( e ) => setQuery( e.target.value ) }
 						aria-label={ __( 'Search the library', 'wunderpaint' ) }

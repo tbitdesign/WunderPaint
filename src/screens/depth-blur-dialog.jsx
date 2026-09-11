@@ -107,6 +107,7 @@ export function DepthBlurDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Depth Blur', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

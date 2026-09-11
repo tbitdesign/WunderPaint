@@ -5,18 +5,59 @@ import { ICONS } from './icons.js';
 
 export function buildLeft(
 	left,
-	{ S, ui, t, modal, onSelect, onAdd, onRemove, onMove, onStarter }
+	{ S, ui, t, onSelect, onAdd, onRemove, onMove, onStarter }
 ) {
 	const figCard = ui.section( left, {
 		icon: ICONS.blocks,
 		title: t( 'Figure' ),
 	} );
 	const list = ui.el( 'div', 'wpiemf-blocks', figCard );
-	const addBtn = ui.btn( figCard, {
-		label: t( 'Add block' ),
-		onClick: () => togglePicker(),
+
+	// The block catalog (v0.5): cards with a subtitle in the column, the
+	// way the starters already read - a click adds the block. The popover
+	// picker this replaces was a second surface to learn for one job.
+	const typesCard = ui.section( left, {
+		icon: ICONS.add,
+		title: t( 'Blocks' ),
 	} );
-	addBtn.classList.add( 'wpiemf-add' );
+	// The kit draws the filter pills and the cards (bridge.ui, API 2.23);
+	// the wpiemf- classes stay on as hooks for this pack's own selectors.
+	const typeChips = ui.pills( typesCard, 'wpiemf-chips' );
+	const chipEls = {};
+	for ( const g of [ { id: 'all', label: 'All blocks' }, ...BLOCK_GROUPS ] ) {
+		const chip = ui.pill( typeChips, {
+			label: t( g.label ),
+			cls: 'wpiemf-chip',
+			onClick: () => {
+				S.blockFilter = g.id;
+				renderTypes();
+			},
+		} );
+		chip.dataset.group = g.id;
+		chipEls[ g.id ] = chip;
+	}
+	const types = ui.picklist( typesCard, 'wpiemf-types' );
+	function renderTypes() {
+		const f = S.blockFilter || 'all';
+		for ( const id of Object.keys( chipEls ) ) {
+			ui.pressed( chipEls[ id ], id === f );
+		}
+		types.innerHTML = '';
+		for ( const [ type, def ] of Object.entries( BLOCKS ) ) {
+			if ( 'all' !== f && def.group !== f ) {
+				continue;
+			}
+			const card = ui.pickrow( types, {
+				title: t( def.label ),
+				text: t( def.hint ),
+				icon: ICONS[ type ] || ICONS.formula,
+				cls: 'wpiemf-type',
+				onClick: () => onAdd( type ),
+			} );
+			card.node.dataset.type = type;
+		}
+	}
+	renderTypes();
 
 	const startersCard = ui.section( left, {
 		icon: ICONS.starters,
@@ -43,94 +84,13 @@ export function buildLeft(
 		S.params.blocks.find( ( b ) => b.id === S.blockId ) ||
 		S.params.blocks[ 0 ];
 
-	/* ------------------------------ picker ------------------------------ */
-	let picker = null;
-	let onDown = null;
-	let onKey = null;
-	function ensurePicker() {
-		if ( picker ) {
-			return;
-		}
-		picker = document.createElement( 'div' );
-		picker.className = 'wpiemf-picker';
-		picker.hidden = true;
-		for ( const g of BLOCK_GROUPS ) {
-			const head = ui.el( 'div', 'dsm-card-head', picker );
-			head.innerHTML = '<span></span>';
-			head.querySelector( 'span' ).textContent = t( g.label );
-			const grid = ui.el( 'div', 'wpiemf-grid', picker );
-			for ( const [ type, def ] of Object.entries( BLOCKS ) ) {
-				if ( def.group !== g.id ) {
-					continue;
-				}
-				const b = ui.el( 'button', 'wpiemf-tile', grid );
-				b.type = 'button';
-				b.dataset.type = type;
-				b.title = t( def.hint );
-				b.innerHTML =
-					'<span class="wpiemf-tile-ic">' +
-					( ICONS[ type ] || ICONS.formula ) +
-					'</span><span class="wpiemf-tile-name"></span>';
-				b.querySelector( '.wpiemf-tile-name' ).textContent = t(
-					def.label
-				);
-				b.onclick = () => {
-					closePicker();
-					onAdd( type );
-				};
-			}
-		}
-		( modal.backdrop || document.body ).appendChild( picker );
-	}
-	function togglePicker() {
-		ensurePicker();
-		if ( ! picker.hidden ) {
-			closePicker();
-			return;
-		}
-		picker.hidden = false;
-		const r = addBtn.getBoundingClientRect();
-		const vw = window.innerWidth;
-		const vh = window.innerHeight;
-		const pw = picker.offsetWidth;
-		const ph = picker.offsetHeight;
-		let top = r.bottom + 6;
-		if ( top + ph > vh - 8 ) {
-			top = Math.max( 8, r.top - ph - 6 );
-		}
-		picker.style.left =
-			Math.max( 8, Math.min( r.left, vw - pw - 8 ) ) + 'px';
-		picker.style.top = top + 'px';
-		onDown = ( e ) => {
-			if ( ! picker.contains( e.target ) && e.target !== addBtn ) {
-				closePicker();
-			}
-		};
-		onKey = ( e ) => {
-			if ( 'Escape' === e.key ) {
-				e.stopImmediatePropagation();
-				closePicker();
-			}
-		};
-		document.addEventListener( 'pointerdown', onDown, true );
-		document.addEventListener( 'keydown', onKey, true );
-	}
-	function closePicker() {
-		if ( ! picker || picker.hidden ) {
-			return;
-		}
-		picker.hidden = true;
-		document.removeEventListener( 'pointerdown', onDown, true );
-		document.removeEventListener( 'keydown', onKey, true );
-	}
-
 	/* ---------------------------- block list ---------------------------- */
 	function renderBlocks() {
 		list.innerHTML = '';
 		const blocks = S.params.blocks;
 		blocks.forEach( ( b, i ) => {
 			const def = BLOCKS[ b.type ];
-			const row = ui.el( 'div', 'wpiemf-block', list );
+			const row = ui.el( 'div', 'dsm-listrow wpiemf-block', list );
 			row.dataset.id = b.id;
 			row.classList.toggle( 'is-on', b.id === selected().id );
 			const ic = ui.el( 'span', 'wpiemf-block-ic', row );
@@ -140,7 +100,7 @@ export function buildLeft(
 			ui.el( 'small', null, main, blockSnippet( b ) || t( def.hint ) );
 			const acts = ui.el( 'div', 'wpiemf-block-acts', row );
 			const act = ( key, icon, title, disabled, fn ) => {
-				const btn = ui.el( 'button', 'wpiemf-block-btn', acts );
+				const btn = ui.el( 'button', 'dsm-mini wpiemf-block-btn', acts );
 				btn.type = 'button';
 				btn.dataset.act = key;
 				btn.title = title;
@@ -180,7 +140,7 @@ export function buildLeft(
 			if ( 'all' !== f && groupOf( s ) !== f ) {
 				continue;
 			}
-			const b = ui.el( 'button', 'wpiemf-starter', starters );
+			const b = ui.el( 'button', 'dsm-listrow wpiemf-starter', starters );
 			b.type = 'button';
 			b.dataset.id = s.id;
 			b.classList.toggle( 'is-on', S.starter === s.id );
@@ -198,5 +158,5 @@ export function buildLeft(
 		renderStarters();
 	}
 
-	return { refresh, renderBlocks, unmountAll, closePicker };
+	return { refresh, renderBlocks, unmountAll };
 }

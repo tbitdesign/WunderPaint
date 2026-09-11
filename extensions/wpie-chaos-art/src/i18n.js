@@ -1,5 +1,5 @@
 /**
- * The studio in five languages.
+ * The studio in six languages.
  *
  * Same shape as its siblings: one table per language, a lookup that falls
  * back to the English source string, so a missing entry shows English
@@ -13,6 +13,37 @@ const LOCALE = (
 ).replace( '-', '_' );
 
 const DE = {
+	'Your ensemble': 'Dein Ensemble',
+	'Two or three schools paint together.':
+		'Zwei oder drei Schulen malen gemeinsam.',
+	'First school': 'Erste Schule',
+	'Second school': 'Zweite Schule',
+	'Third school (optional)': 'Dritte Schule (optional)',
+	'Selected moment': 'Ausgewählter Moment',
+	'Remember moment': 'Moment merken',
+	'Six moments are remembered. Remove one to make room.':
+		'Sechs Momente sind gemerkt. Entferne einen, um Platz zu schaffen.',
+	'Keep this moment while the painters continue.':
+		'Diesen Moment behalten, während die Maler weitermalen.',
+	Moment: 'Moment',
+	'Remembered moments': 'Gemerkte Momente',
+	'Remove remembered moment': 'Gemerkten Moment entfernen',
+	'Remembered until you close Chaos Art.':
+		'Bleiben erhalten, bis du Chaos Art schließt.',
+	'Moment remembered.': 'Moment gemerkt.',
+	'Could not remember this moment.':
+		'Dieser Moment konnte nicht gemerkt werden.',
+	'Could not start painting. Please try again.':
+		'Das Malen konnte nicht gestartet werden. Bitte versuche es erneut.',
+	'The painters are shaping the space.': 'Die Maler gestalten den Raum.',
+	'The painters are laying the ground.': 'Die Maler legen den Bildgrund an.',
+	'The painters are building the composition.':
+		'Die Maler bauen die Komposition auf.',
+	'The painters are developing the picture.':
+		'Die Maler arbeiten das Bild aus.',
+	'The painters are adding accents.': 'Die Maler setzen Akzente.',
+	'The picture is resting before the next sitting.':
+		'Das Werk ruht bis zur nächsten Sitzung.',
 	'Chaos Art': 'Chaos Art',
 	'Independent painters make one-of-a-kind art. You choose the moment it is finished.':
 		'Unabhängige Maler schaffen ein Unikat. Du wählst den Moment, in dem es fertig ist.',
@@ -311,6 +342,38 @@ const DE = {
 };
 
 const ES = {
+	'Your ensemble': 'Tu conjunto',
+	'Two or three schools paint together.':
+		'Dos o tres escuelas pintan juntas.',
+	'First school': 'Primera escuela',
+	'Second school': 'Segunda escuela',
+	'Third school (optional)': 'Tercera escuela (opcional)',
+	'Selected moment': 'Momento seleccionado',
+	'Remember moment': 'Guardar momento',
+	'Six moments are remembered. Remove one to make room.':
+		'Hay seis momentos guardados. Elimina uno para hacer espacio.',
+	'Keep this moment while the painters continue.':
+		'Conserva este momento mientras los pintores continúan.',
+	Moment: 'Momento',
+	'Remembered moments': 'Momentos guardados',
+	'Remove remembered moment': 'Eliminar momento guardado',
+	'Remembered until you close Chaos Art.':
+		'Se conservan hasta que cierres Chaos Art.',
+	'Moment remembered.': 'Momento guardado.',
+	'Could not remember this moment.': 'No se pudo guardar este momento.',
+	'Could not start painting. Please try again.':
+		'No se pudo empezar a pintar. Inténtalo de nuevo.',
+	'The painters are shaping the space.':
+		'Los pintores están dando forma al espacio.',
+	'The painters are laying the ground.':
+		'Los pintores están preparando el fondo.',
+	'The painters are building the composition.':
+		'Los pintores están construyendo la composición.',
+	'The painters are developing the picture.':
+		'Los pintores están desarrollando la imagen.',
+	'The painters are adding accents.': 'Los pintores están añadiendo acentos.',
+	'The picture is resting before the next sitting.':
+		'La obra descansa hasta la próxima sesión.',
 	'Chaos Art': 'Chaos Art',
 	'Independent painters make one-of-a-kind art. You choose the moment it is finished.':
 		'Pintores independientes crean una obra única. Tú eliges el momento en que está terminada.',
@@ -610,6 +673,36 @@ const ES = {
 };
 
 const FR = {
+	'Your ensemble': 'Votre ensemble',
+	'Two or three schools paint together.':
+		'Deux ou trois écoles peignent ensemble.',
+	'First school': 'Première école',
+	'Second school': 'Deuxième école',
+	'Third school (optional)': 'Troisième école (facultative)',
+	'Selected moment': 'Instant sélectionné',
+	'Remember moment': 'Garder cet instant',
+	'Six moments are remembered. Remove one to make room.':
+		'Six instants sont conservés. Retirez-en un pour libérer une place.',
+	'Keep this moment while the painters continue.':
+		'Gardez cet instant pendant que les peintres continuent.',
+	Moment: 'Instant',
+	'Remembered moments': 'Instants conservés',
+	'Remove remembered moment': 'Retirer cet instant',
+	'Remembered until you close Chaos Art.':
+		'Conservés jusqu’à la fermeture de Chaos Art.',
+	'Moment remembered.': 'Instant conservé.',
+	'Could not remember this moment.': 'Impossible de conserver cet instant.',
+	'Could not start painting. Please try again.':
+		'Impossible de commencer à peindre. Réessayez.',
+	'The painters are shaping the space.': 'Les peintres façonnent l’espace.',
+	'The painters are laying the ground.': 'Les peintres posent le fond.',
+	'The painters are building the composition.':
+		'Les peintres construisent la composition.',
+	'The painters are developing the picture.':
+		'Les peintres développent l’image.',
+	'The painters are adding accents.': 'Les peintres ajoutent des accents.',
+	'The picture is resting before the next sitting.':
+		'L’œuvre repose jusqu’à la prochaine séance.',
 	'Chaos Art': 'Chaos Art',
 	'Independent painters make one-of-a-kind art. You choose the moment it is finished.':
 		'Des peintres indépendants créent une œuvre unique. Vous choisissez le moment où elle est achevée.',
@@ -908,6 +1001,39 @@ const FR = {
 };
 
 const PT = {
+	'Your ensemble': 'Seu conjunto',
+	'Two or three schools paint together.':
+		'Duas ou três escolas pintam juntas.',
+	'First school': 'Primeira escola',
+	'Second school': 'Segunda escola',
+	'Third school (optional)': 'Terceira escola (opcional)',
+	'Selected moment': 'Momento selecionado',
+	'Remember moment': 'Guardar momento',
+	'Six moments are remembered. Remove one to make room.':
+		'Há seis momentos guardados. Remova um para liberar espaço.',
+	'Keep this moment while the painters continue.':
+		'Guarde este momento enquanto os pintores continuam.',
+	Moment: 'Momento',
+	'Remembered moments': 'Momentos guardados',
+	'Remove remembered moment': 'Remover momento guardado',
+	'Remembered until you close Chaos Art.':
+		'Guardados até você fechar o Chaos Art.',
+	'Moment remembered.': 'Momento guardado.',
+	'Could not remember this moment.': 'Não foi possível guardar este momento.',
+	'Could not start painting. Please try again.':
+		'Não foi possível começar a pintar. Tente novamente.',
+	'The painters are shaping the space.':
+		'Os pintores estão dando forma ao espaço.',
+	'The painters are laying the ground.':
+		'Os pintores estão preparando o fundo.',
+	'The painters are building the composition.':
+		'Os pintores estão construindo a composição.',
+	'The painters are developing the picture.':
+		'Os pintores estão desenvolvendo a imagem.',
+	'The painters are adding accents.':
+		'Os pintores estão acrescentando destaques.',
+	'The picture is resting before the next sitting.':
+		'A obra descansa até a próxima sessão.',
 	'Chaos Art': 'Chaos Art',
 	'Independent painters make one-of-a-kind art. You choose the moment it is finished.':
 		'Pintores independentes criam uma obra única. Você escolhe o momento em que ela está pronta.',
@@ -1205,6 +1331,38 @@ const PT = {
 };
 
 const IT = {
+	'Your ensemble': 'Il tuo ensemble',
+	'Two or three schools paint together.':
+		'Due o tre scuole dipingono insieme.',
+	'First school': 'Prima scuola',
+	'Second school': 'Seconda scuola',
+	'Third school (optional)': 'Terza scuola (facoltativa)',
+	'Selected moment': 'Momento selezionato',
+	'Remember moment': 'Conserva momento',
+	'Six moments are remembered. Remove one to make room.':
+		'Sono conservati sei momenti. Rimuovine uno per fare spazio.',
+	'Keep this moment while the painters continue.':
+		'Conserva questo momento mentre i pittori continuano.',
+	Moment: 'Momento',
+	'Remembered moments': 'Momenti conservati',
+	'Remove remembered moment': 'Rimuovi momento conservato',
+	'Remembered until you close Chaos Art.':
+		'Conservati finché non chiudi Chaos Art.',
+	'Moment remembered.': 'Momento conservato.',
+	'Could not remember this moment.': 'Impossibile conservare questo momento.',
+	'Could not start painting. Please try again.':
+		'Impossibile iniziare a dipingere. Riprova.',
+	'The painters are shaping the space.':
+		'I pittori stanno dando forma allo spazio.',
+	'The painters are laying the ground.':
+		'I pittori stanno preparando il fondo.',
+	'The painters are building the composition.':
+		'I pittori stanno costruendo la composizione.',
+	'The painters are developing the picture.':
+		'I pittori stanno sviluppando il dipinto.',
+	'The painters are adding accents.': 'I pittori stanno aggiungendo accenti.',
+	'The picture is resting before the next sitting.':
+		'L’opera riposa fino alla prossima sessione.',
 	'Chaos Art': 'Chaos Art',
 	'Independent painters make one-of-a-kind art. You choose the moment it is finished.':
 		'Pittori indipendenti creano un’opera unica. Tu scegli il momento in cui è finita.',
@@ -1503,7 +1661,335 @@ const IT = {
 	'Now painting as': 'Ora dipinge come',
 };
 
-export const TABLES = { de: DE, es: ES, fr: FR, pt: PT, it: IT };
+const NL = {
+	'Your ensemble': 'Jouw ensemble',
+	'Two or three schools paint together.':
+		'Twee of drie scholen schilderen samen.',
+	'First school': 'Eerste school',
+	'Second school': 'Tweede school',
+	'Third school (optional)': 'Derde school (optioneel)',
+	'Selected moment': 'Gekozen moment',
+	'Remember moment': 'Moment onthouden',
+	'Six moments are remembered. Remove one to make room.':
+		'Er worden zes momenten onthouden. Verwijder er een om ruimte te maken.',
+	'Keep this moment while the painters continue.':
+		'Bewaar dit moment terwijl de schilders doorgaan.',
+	Moment: 'Moment',
+	'Remembered moments': 'Onthouden momenten',
+	'Remove remembered moment': 'Onthouden moment verwijderen',
+	'Remembered until you close Chaos Art.':
+		'Onthouden totdat je Chaos Art sluit.',
+	'Moment remembered.': 'Moment onthouden.',
+	'Could not remember this moment.': 'Dit moment kon niet worden onthouden.',
+	'Could not start painting. Please try again.':
+		'Het schilderen kon niet starten. Probeer het opnieuw.',
+	'The painters are shaping the space.': 'De schilders geven de ruimte vorm.',
+	'The painters are laying the ground.': 'De schilders leggen de ondergrond.',
+	'The painters are building the composition.':
+		'De schilders bouwen de compositie op.',
+	'The painters are developing the picture.':
+		'De schilders werken het beeld uit.',
+	'The painters are adding accents.': 'De schilders zetten accenten.',
+	'The picture is resting before the next sitting.':
+		'Het beeld rust voor de volgende zitting.',
+	'Chaos Art': 'Chaos Art',
+	'Independent painters make one-of-a-kind art. You choose the moment it is finished.':
+		'Onafhankelijke schilders maken unieke kunst. Jij kiest het moment waarop het klaar is.',
+	Style: 'Stijl',
+	'Ink Storm': 'Inktstorm',
+	'Coral Garden': 'Koraaltuin',
+	'Neon Weave': 'Neonweefsel',
+	'Oil Nebula': 'Olienevel',
+	'Ribbons of ink riding a storm.': 'Linten van inkt op een storm.',
+	'A reef that grows while you watch.':
+		'Een rif dat groeit terwijl je kijkt.',
+	'Glowing threads weaving a nervous net.':
+		'Gloeiende draden die een nerveus net weven.',
+	'Soft clouds of color, breathing.': 'Zachte kleurwolken, ademend.',
+	'One of a kind': 'Uniek',
+	'Same settings, different picture - every run is unique, there is no seed. Snapshots keep the last two minutes, so no moment is ever lost.':
+		'Dezelfde instellingen, een ander beeld - elke run is uniek, er is geen seed. Snapshots bewaren de laatste twee minuten, dus geen moment gaat verloren.',
+	'Drag to orbit · wheel to zoom · your pointer stirs the paint':
+		'Sleep om te draaien · scroll om te zoomen · je aanwijzer roert in de verf',
+	'Charge the piece': 'Laad het werk op',
+	'Move your pointer here. Your movement becomes this artwork - it can never be painted again.':
+		'Beweeg je aanwijzer hier. Je beweging wordt dit kunstwerk - het kan nooit opnieuw worden geschilderd.',
+	'Start painting': 'Begin met schilderen',
+	Pause: 'Pauze',
+	Resume: 'Hervatten',
+	Impulse: 'Impuls',
+	'Start over': 'Opnieuw beginnen',
+	'Pick the moment': 'Kies het moment',
+	'Now (live)': 'Nu (live)',
+	Temperament: 'Temperament',
+	'Order to chaos': 'Orde tot chaos',
+	Energy: 'Energie',
+	Density: 'Dichtheid',
+	Tempo: 'Tempo',
+	Colors: 'Kleuren',
+	Palette: 'Palet',
+	Ember: 'Gloed',
+	'Deep Ocean': 'Diepe oceaan',
+	Ultraviolet: 'Ultraviolet',
+	'Ink and Bone': 'Inkt en been',
+	Meadow: 'Weide',
+	Aurora: 'Aurora',
+	Candy: 'Snoep',
+	Gilded: 'Verguld',
+	Crimson: 'Karmozijn',
+	Monochrome: 'Monochroom',
+	'Custom colors': 'Eigen kleuren',
+	Look: 'Look',
+	Ground: 'Ondergrond',
+	'Style default': 'Standaard van de stijl',
+	'Black void': 'Zwarte leegte',
+	Paper: 'Papier',
+	'Deep mist': 'Diepe nevel',
+	Bloom: 'Bloom',
+	'Depth blur': 'Dieptevervaging',
+	Grain: 'Korrel',
+	Vignette: 'Vignet',
+	Pointer: 'Aanwijzer',
+	'The pointer': 'De aanwijzer',
+	'Stir (wind)': 'Roeren (wind)',
+	Attract: 'Aantrekken',
+	Repel: 'Afstoten',
+	Off: 'Uit',
+	Export: 'Exporteren',
+	'Process film': 'Procesfilm',
+	'To Media Library': 'Naar mediabibliotheek',
+	'The film records the painting as it happens, from start to stop.':
+		'De film legt het schilderen vast terwijl het gebeurt, van start tot stop.',
+	'Nothing recorded yet - the film runs while it paints.':
+		'Nog niets opgenomen - de film loopt terwijl er wordt geschilderd.',
+	'Preparing…': 'Voorbereiden…',
+	'Recording is not available in this browser.':
+		'Opnemen is niet beschikbaar in deze browser.',
+	'Could not save to the Media Library.':
+		'Opslaan in de mediabibliotheek is mislukt.',
+	'Saved to Media Library.': 'Opgeslagen in de mediabibliotheek.',
+	'The settings returned; the painting itself will be new - chaos cannot repeat.':
+		'De instellingen zijn terug; het schilderij zelf wordt nieuw - chaos herhaalt zich niet.',
+	'Charge the field, then start painting.':
+		'Laad het veld op en begin dan met schilderen.',
+	Cancel: 'Annuleren',
+	Update: 'Bijwerken',
+	'Insert as picture': 'Invoegen als afbeelding',
+	'Could not insert.': 'Invoegen is mislukt.',
+	'Painting…': 'Schilderen…',
+	marks: 'sporen',
+	time: 'tijd',
+	'Paused - pick a moment, or resume painting.':
+		'Gepauzeerd - kies een moment of ga verder met schilderen.',
+	Shatter: 'Versplintering',
+	'Crystal shards and hard breaks.': 'Kristalscherven en harde breuken.',
+	'Echo Chamber': 'Echokamer',
+	'The picture feeds back into itself.': 'Het beeld voedt zichzelf terug.',
+	'Copy snippet': 'Snippet kopiëren',
+	'Embed (HTML): the piece paints itself live on your website - a new original for every visitor.':
+		'Insluiten (HTML): het werk schildert zichzelf live op je website - een nieuw origineel voor elke bezoeker.',
+	'Snippet copied - paste it into an HTML block on your site.':
+		'Snippet gekopieerd - plak hem in een HTML-blok op je site.',
+	'Copy failed.': 'Kopiëren is mislukt.',
+	Ensemble: 'Ensemble',
+	'The whole company on one stage - a new cast every time.':
+		'Het hele gezelschap op één podium - elke keer een nieuwe bezetting.',
+	'Art movement': 'Kunststroming',
+	'Free study': 'Vrije studie',
+	'No school. The society as it came.':
+		'Geen school. Het gezelschap zoals het kwam.',
+	Impressionism: 'Impressionisme',
+	'Broken color in soft light, laid on in short dabs.':
+		'Gebroken kleur in zacht licht, aangebracht in korte toetsen.',
+	Pointillism: 'Pointillisme',
+	'The whole picture from tiny dots of pure color.':
+		'Het hele beeld uit kleine stippen zuivere kleur.',
+	Cubism: 'Kubisme',
+	'The subject taken apart into facets and planes.':
+		'Het onderwerp uiteengenomen in facetten en vlakken.',
+	Bauhaus: 'Bauhaus',
+	'Circle, square, triangle; primary colors, clear order.':
+		'Cirkel, vierkant, driehoek; primaire kleuren, heldere orde.',
+	Surrealism: 'Surrealisme',
+	'Dream logic: soft matter, strange neighbors, slow time.':
+		'Droomlogica: zachte materie, vreemde buren, trage tijd.',
+	'Op Art': 'Op-art',
+	'Rhythm and repetition until the eye starts to swim.':
+		'Ritme en herhaling tot het oog begint te zwemmen.',
+	'Action Painting': 'Action painting',
+	'The gesture itself, flung fast and wet.':
+		'Het gebaar zelf, snel en nat geslingerd.',
+	Futurism: 'Futurisme',
+	'Speed made visible; everything in motion at once.':
+		'Snelheid zichtbaar gemaakt; alles tegelijk in beweging.',
+	Minimalism: 'Minimalisme',
+	'A few large, calm forms and a great deal of room.':
+		'Een paar grote, rustige vormen en heel veel ruimte.',
+	'Ring Parade': 'Ringenparade',
+	'Caravans of rings threaded through space.':
+		'Karavanen van ringen geregen door de ruimte.',
+	'Tile Works': 'Tegelwerk',
+	'Walls, stairs and floating towns on a hidden grid.':
+		'Muren, trappen en zwevende steden op een verborgen raster.',
+	Hive: 'Bijenkorf',
+	'Honeycomb growing cell by cell in tilted planes.':
+		'Honingraat die cel voor cel groeit in gekantelde vlakken.',
+	Clockwork: 'Uurwerk',
+	'Circles rolling on circles, drawn with a steady hand.':
+		'Cirkels die over cirkels rollen, getekend met vaste hand.',
+	Constellation: 'Sterrenbeeld',
+	'Stars set one by one and joined with ruled lines.':
+		'Sterren een voor een gezet en verbonden met rechte lijnen.',
+	'Morning Light': 'Ochtendlicht',
+	Earthen: 'Aards',
+	Primary: 'Primair',
+	Medium: 'Medium',
+	'Auto (their choice)': 'Auto (hun keuze)',
+	Sculpted: 'Gebeeldhouwd',
+	'Brush strokes': 'Penseelstreken',
+	Watercolor: 'Aquarel',
+	Pastel: 'Pastel',
+	'Ink sketch': 'Inktschets',
+	Splash: 'Spat',
+	Surprise: 'Verrassing',
+	'They pick the style themselves.': 'Ze kiezen de stijl zelf.',
+	'Their choice': 'Hun keuze',
+	'A school drawn fresh at every start - or none at all.':
+		'Bij elke start een nieuw gelote school - of helemaal geen.',
+	'They set the dials themselves': 'Ze zetten de knoppen zelf',
+	'They chose:': 'Ze kozen:',
+	upheavals: 'omwentelingen',
+	moves: 'zetten',
+	Expressionism: 'Expressionisme',
+	Fauvism: 'Fauvisme',
+	Classicism: 'Classicisme',
+	Suprematism: 'Suprematisme',
+	'De Stijl': 'De Stijl',
+	'Action painting': 'Action painting',
+	'Color Field': 'Colorfield',
+	'Ink wash': 'Inktwassing',
+	'Art Informel': 'Art informel',
+	Biomorphic: 'Biomorf',
+	Collage: 'Collage',
+	'Broken color in soft light, laid on in short dabs of oil.':
+		'Gebroken kleur in zacht licht, aangebracht in korte toetsen olieverf.',
+	'Loud color, thick paint, black contours that will not sit still.':
+		'Luide kleur, dikke verf, zwarte contouren die niet stil blijven zitten.',
+	'Pure color in flat patches, and the white between them left alone.':
+		'Zuivere kleur in vlakke vlekken, en het wit ertussen met rust gelaten.',
+	'One thing seen from many sides at once, in planes of umber and gray.':
+		'Eén ding van vele kanten tegelijk gezien, in vlakken van omber en grijs.',
+	'Golden proportion, warm shadow, light that arrives from one side.':
+		'Gulden verhouding, warme schaduw, licht dat van één kant komt.',
+	'Circle, bar and triangle in primary colors, balanced on a diagonal.':
+		'Cirkel, balk en driehoek in primaire kleuren, in balans op een diagonaal.',
+	'Black and red forms floating on white, weightless and tilted.':
+		'Zwarte en rode vormen zwevend op wit, gewichtloos en gekanteld.',
+	'Black rules dividing white, a few cells in red, yellow and blue.':
+		'Zwarte lijnen die wit verdelen, een paar vakken in rood, geel en blauw.',
+	'The whole arm in every stroke, drips and splatter where it ended.':
+		'De hele arm in elke streek, druppels en spatten waar hij eindigde.',
+	'Bands of luminous color, breathing at their edges.':
+		'Banen van lichtgevende kleur, ademend aan hun randen.',
+	'One shape, one line, and the room around them.':
+		'Eén vorm, één lijn, en de ruimte eromheen.',
+	'Black lines that bend the eye, drawn one after another.':
+		'Zwarte lijnen die het oog buigen, een voor een getekend.',
+	'A few decisive strokes of black ink, and the paper left to breathe.':
+		'Een paar besliste streken zwarte inkt, en het papier dat mag ademen.',
+	'Stains, crusts and scratches; the matter is the subject.':
+		'Vlekken, korsten en krassen; de materie is het onderwerp.',
+	'Playful organisms, black threads and stars on a tinted ground.':
+		'Speelse organismen, zwarte draden en sterren op een getinte ondergrond.',
+	'Torn paper, printed matter and a red circle, pasted where they landed.':
+		'Gescheurd papier, drukwerk en een rode cirkel, geplakt waar ze neerkwamen.',
+	'Lines of force, forms repeated as they move, speed made visible.':
+		'Krachtlijnen, vormen herhaald terwijl ze bewegen, snelheid zichtbaar gemaakt.',
+	Schools: 'Scholen',
+	'In space (3D)': 'In de ruimte (3D)',
+	'Move your pointer as randomly as possible inside this field until the bar is full. Your movement becomes this artwork - it can never be painted again.':
+		'Beweeg je aanwijzer zo willekeurig mogelijk binnen dit veld tot de balk vol is. Je beweging wordt dit kunstwerk - het kan nooit opnieuw worden geschilderd.',
+	'Charged - start painting whenever you like.':
+		'Opgeladen - begin met schilderen wanneer je wilt.',
+	'Your pointer stirs the paint · click for an impulse':
+		'Je aanwijzer roert in de verf · klik voor een impuls',
+	'Charge the field until the bar is full, then start painting.':
+		'Laad het veld op tot de balk vol is en begin dan met schilderen.',
+	'with a guest from': 'met een gast uit',
+	Motif: 'Motief',
+	'Paint after': 'Schilderen naar',
+	None: 'Geen',
+	'The picture on the canvas': 'Het beeld op het canvas',
+	'A picture of your own': 'Een eigen afbeelding',
+	'A text': 'Een tekst',
+	'Choose a picture': 'Kies een afbeelding',
+	'No picture yet': 'Nog geen afbeelding',
+	'That picture could not be read.':
+		'Die afbeelding kon niet worden gelezen.',
+	'Your text': 'Jouw tekst',
+	Font: 'Lettertype',
+	Reading: 'Lezing',
+	Abstract: 'Abstract',
+	Underpainting: 'Onderschildering',
+	Contours: 'Contouren',
+	'Fill the letters': 'De letters vullen',
+	'Keep the letters clear': 'De letters vrijhouden',
+	'Outline the letters': 'De letters omlijnen',
+	'Reading the motif…': 'Motief wordt gelezen…',
+	'The canvas is empty - the motif needs a picture.':
+		'Het canvas is leeg - het motief heeft een afbeelding nodig.',
+	'Choose a picture first.': 'Kies eerst een afbeelding.',
+	'Type a text first.': 'Typ eerst een tekst.',
+	'after a picture': 'naar een afbeelding',
+	'after a text': 'naar een tekst',
+	'Post-Impressionism': 'Postimpressionisme',
+	'Thick directional strokes that swirl around every form, color as feeling.':
+		'Dikke gerichte streken die om elke vorm wervelen, kleur als gevoel.',
+	Orphism: 'Orfisme',
+	'Discs of pure color in concentric rings, light turning into rhythm.':
+		'Schijven van zuivere kleur in concentrische ringen, licht dat ritme wordt.',
+	'Pop Art': 'Popart',
+	'Flat color, a black keyline, a screen of dots - printed, not painted.':
+		'Vlakke kleur, een zwarte contourlijn, een raster van stippen - gedrukt, niet geschilderd.',
+	'Street Art': 'Street art',
+	'Spray and drip on a dark wall, a stencil, a quick tag in ink.':
+		'Spuitverf en druipsels op een donkere muur, een sjabloon, een snelle tag in inkt.',
+	'Art Nouveau': 'Art nouveau',
+	'Whiplash curves, tendrils and flat pale shapes in a dark contour.':
+		'Zweepslagcurven, ranken en vlakke bleke vormen in een donkere contour.',
+	Mosaic: 'Mozaïek',
+	'Little stones in rows that follow the form, gold among them.':
+		'Steentjes in rijen die de vorm volgen, met goud ertussen.',
+	'Stained Glass': 'Glas-in-lood',
+	'Cells of glowing color in a net of black lead.':
+		'Cellen van gloeiende kleur in een net van zwart lood.',
+	Woodcut: 'Houtsnede',
+	'Black carved marks on white paper, one color allowed.':
+		'Zwarte gesneden sporen op wit papier, één kleur toegestaan.',
+	Constructivism: 'Constructivisme',
+	'Red and black bars on a diagonal, a circle, the picture as a machine.':
+		'Rode en zwarte balken op een diagonaal, een cirkel, het beeld als machine.',
+	'Ukiyo-e': 'Ukiyo-e',
+	'Flat planes of color in a fine black keyline, a wave that curls.':
+		'Vlakke kleurvlakken in een fijne zwarte contourlijn, een golf die omkrult.',
+	'Line art and paint': 'Lijntekening en verf',
+	'Flat planes and paint': 'Vlakke vlakken en verf',
+	Likeness: 'Gelijkenis',
+	'Your pointer stirs the paint · click for an impulse · draw a stroke and they answer it':
+		'Je aanwijzer roert in de verf · klik voor een impuls · teken een streek en ze antwoorden',
+	'Cut into pieces': 'In stukken gesneden',
+	'Letters as cut-outs': 'Letters als uitsnedes',
+	'Burst of color': 'Kleuruitbarsting',
+	'A burst of color somewhere on the sheet. Click the sheet for one where you point.':
+		'Een kleuruitbarsting ergens op het vel. Klik op het vel voor een op de plek die je aanwijst.',
+	'Your hand over the sheet draws the painters · click for a burst of color · drag a stroke and they answer it':
+		'Je hand boven het vel trekt de schilders aan · klik voor een kleuruitbarsting · sleep een streek en ze antwoorden',
+	'All schools at once, each painter in another.':
+		'Alle scholen tegelijk, elke schilder in een andere.',
+	'Now painting as': 'Schildert nu als',
+};
+
+export const TABLES = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };
 
 const TABLE = TABLES[ LOCALE.slice( 0, 2 ).toLowerCase() ] || null;
 

@@ -10,6 +10,7 @@
  * delete, group, smart-object) behaves identically.
  */
 
+import { siteStorage } from './local-storage';
 import { withDescendants, expandGroupIds } from '../store/editor-context';
 
 /** The selection, falling back to the active layer. */
@@ -202,7 +203,7 @@ const SCALE_STROKES_KEY = 'wpie-scale-strokes';
 /** Whether the Scale row and the group handles scale stroke widths too. */
 export function scaleStrokesEnabled() {
 	try {
-		return '1' === window.localStorage?.getItem( SCALE_STROKES_KEY );
+		return '1' === siteStorage.getItem( SCALE_STROKES_KEY );
 	} catch ( e ) {
 		return false;
 	}
@@ -211,7 +212,7 @@ export function scaleStrokesEnabled() {
 /** Remember the preference. */
 export function setScaleStrokes( on ) {
 	try {
-		window.localStorage?.setItem( SCALE_STROKES_KEY, on ? '1' : '0' );
+		siteStorage.setItem( SCALE_STROKES_KEY, on ? '1' : '0' );
 	} catch ( e ) {}
 }
 

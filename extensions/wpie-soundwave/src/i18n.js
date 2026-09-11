@@ -120,6 +120,8 @@ const DE = {
 	'Stop preview': 'Vorschau stoppen',
 	Equalizer: 'Equalizer',
 	'Video background': 'Video-Hintergrund',
+	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'Das Video ist größer als die Upload-Grenze dieser Site (%s MB). Es wurde stattdessen heruntergeladen.',
+	'Could not save the video. It was downloaded instead.': 'Das Video konnte nicht gespeichert werden. Es wurde stattdessen heruntergeladen.',
 };
 
 const ES = {
@@ -228,6 +230,8 @@ const ES = {
 	'Stop preview': 'Detener vista previa',
 	Equalizer: 'Ecualizador',
 	'Video background': 'Fondo del vídeo',
+	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'El vídeo supera el límite de subida de este sitio (%s MB). Se ha descargado en su lugar.',
+	'Could not save the video. It was downloaded instead.': 'No se pudo guardar el vídeo. Se ha descargado en su lugar.',
 };
 
 const FR = {
@@ -335,6 +339,8 @@ const FR = {
 	'Stop preview': 'Arrêter l\'aperçu',
 	Equalizer: 'Égaliseur',
 	'Video background': 'Arrière-plan de la vidéo',
+	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'La vidéo dépasse la limite de téléversement de ce site (%s Mo). Elle a été téléchargée à la place.',
+	'Could not save the video. It was downloaded instead.': "La vidéo n'a pas pu être enregistrée. Elle a été téléchargée à la place.",
 };
 
 const PT = {
@@ -443,6 +449,8 @@ const PT = {
 	'Stop preview': 'Parar prévia',
 	Equalizer: 'Equalizador',
 	'Video background': 'Fundo do vídeo',
+	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'O vídeo é maior que o limite de upload deste site (%s MB). Ele foi baixado em vez disso.',
+	'Could not save the video. It was downloaded instead.': 'Não foi possível salvar o vídeo. Ele foi baixado em vez disso.',
 };
 
 const IT = {
@@ -550,6 +558,8 @@ const IT = {
 	'Stop preview': 'Ferma anteprima',
 	Equalizer: 'Equalizzatore',
 	'Video background': 'Sfondo del video',
+	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'Il video supera il limite di caricamento di questo sito (%s MB). È stato scaricato invece.',
+	'Could not save the video. It was downloaded instead.': 'Il video non è stato salvato. È stato scaricato invece.',
 };
 
 const NL = {
@@ -660,6 +670,8 @@ const NL = {
 	'Stop preview': 'Voorbeeld stoppen',
 	Equalizer: 'Equalizer',
 	'Video background': 'Videoachtergrond',
+	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'De video is groter dan de uploadlimiet van deze site (%s MB). Hij is in plaats daarvan gedownload.',
+	'Could not save the video. It was downloaded instead.': 'De video kon niet worden opgeslagen. Hij is in plaats daarvan gedownload.',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

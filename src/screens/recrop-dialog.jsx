@@ -7,6 +7,7 @@
  * generated size files - names stay stable, the original is never touched.
  */
 
+import { useEscape } from '../components/use-escape';
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 
@@ -18,6 +19,7 @@ import { fitRectToRatio, autoRect, alphaBBox } from '../lib/recrop';
 import { loadImage } from '../store/document';
 
 export function RecropDialog( { id, toasts, onClose } ) {
+	useEscape( onClose );
 	const [ info, setInfo ] = useState( null );
 	const [ active, setActive ] = useState( '' );
 	const [ rects, setRects ] = useState( {} );
@@ -230,6 +232,7 @@ export function RecropDialog( { id, toasts, onClose } ) {
 				className="wpie-mlm-cluster-panel wide wpie-recrop"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Recrop thumbnails', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

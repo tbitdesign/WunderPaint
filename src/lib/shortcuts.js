@@ -5,6 +5,7 @@
  * `{ editor, extras }` fresh per event (avoids stale closures).
  */
 
+import { siteStorage } from './local-storage';
 import { __ } from '@wordpress/i18n';
 
 import { TOOLS } from '../store/constants';
@@ -41,12 +42,7 @@ export const comboString = ( c ) =>
 /* --------------------- user overrides (v1.1) --------------------------- */
 
 const OVERRIDE_KEY = 'wpie-shortcuts';
-let overrideStorage = null;
-try {
-	overrideStorage = window.localStorage;
-} catch ( e ) {
-	overrideStorage = null;
-}
+let overrideStorage = siteStorage;
 
 /** Test hook. */
 export const __setShortcutStorage = ( st ) => {

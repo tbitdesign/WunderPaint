@@ -1,0 +1,150 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-good-ideas-need-room-to-play",
+	"label": "Good ideas need room to play",
+	"category": "wordart",
+	"w": 695,
+	"h": 529,
+	"layers": [
+		{
+			"id": "waf-good-ideas-need-room-to-play-0",
+			"type": "text",
+			"name": "Good ideas need room to play",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 24,
+			"y": 27,
+			"w": 602,
+			"h": 366,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#eef7db",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "Good ideas\nneed room\nto play",
+			"fontSize": 100,
+			"fontFamily": "Righteous",
+			"weight": 400,
+			"color": "#61a57d",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Good ideas\n",
+					"s": {
+						"color": "#61a57d"
+					}
+				},
+				{
+					"text": "need room\n",
+					"s": {
+						"color": "#d3769a"
+					}
+				},
+				{
+					"text": "to play",
+					"s": {
+						"color": "#e2bd72"
+					}
+				}
+			],
+			"textFX": {
+				"warp": {
+					"type": "flag",
+					"bend": 0.07
+				},
+				"extrude": {
+					"angle": 70,
+					"depth": 4,
+					"color": "#3b6753"
+				}
+			}
+		},
+		{
+			"id": "waf-good-ideas-need-room-to-play-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 160,
+			"y": 492,
+			"w": 330,
+			"h": 4,
+			"rot": -3,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#d3769a",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 2,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-good-ideas-need-room-to-play-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 644,
+			"y": 52,
+			"w": 25,
+			"h": 25,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "transparent",
+			"stroke": "#e2bd72",
+			"strokeW": 3,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

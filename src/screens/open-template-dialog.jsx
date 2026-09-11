@@ -31,6 +31,7 @@ export function OpenTemplateDialog( { editor, extras, onClose } ) {
 				className="export-dialog wpie-open-template"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Open Template', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

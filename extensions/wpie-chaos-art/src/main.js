@@ -14,6 +14,12 @@ import { ChaosEngine } from './engine.js';
 import { FlatEngine } from './flat-engine.js';
 import { STYLES, styleById } from './core/styles.js';
 import { SCHOOLS } from './flat/schools.js';
+import {
+	ENSEMBLE_ID,
+	DEFAULT_ENSEMBLE,
+	ensembleSchools,
+} from './flat/ensemble.js';
+import { aspectOf } from './core/frame.js';
 import { paletteFor } from './flat/palette2d.js';
 import { readPixels, pixelsOf, renderText } from './flat/motif.js';
 import { cutPieces } from './flat/pieces.js';
@@ -39,9 +45,6 @@ const BASE_URL = SCRIPT_SRC
 const thumbUrl = ( file ) => ( BASE_URL ? BASE_URL + 'thumbs/' + file : '' );
 
 // The editor's brand mark - every studio badges with it, verbatim.
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
-
 /** Section icons, the Tabler set the family uses. */
 const tabIcon = ( d ) =>
 	'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" ' +
@@ -183,9 +186,13 @@ const SPACE_SHARE = 0.12;
 // Pointer events until the piece counts as charged - the bar must be
 // full before the first stroke, the way a key is made.
 const CHARGE_FULL = 200;
+const SAVED_LIMIT = 6;
 
 /** The label of whatever owns the id: a school, or a style in space. */
 function labelOf( id ) {
+	if ( ENSEMBLE_ID === id ) {
+		return 'Your ensemble';
+	}
 	if ( 'all' === id ) {
 		return 'Ensemble';
 	}
@@ -215,10 +222,7 @@ function openStudio( ctx ) {
 	const stored = ( ownLayer && ownLayer.generator.params ) || null;
 
 	const doc = editor.state.doc;
-	const aspect = Math.max(
-		0.2,
-		Math.min( 5, ( doc.w || 1 ) / ( doc.h || 1 ) )
-	);
+	const aspect = aspectOf( doc.w / doc.h );
 
 	const first = styleById( ( stored && stored.styleId ) || 'ink' );
 	const state = {
@@ -226,6 +230,9 @@ function openStudio( ctx ) {
 		// school, colors and temperament at every Start. Touching a
 		// control locks that one aspect in the user's hand.
 		styleId: stored ? stored.styleId : 'auto',
+		ensemble: ensembleSchools( stored && stored.ensemble ).length
+			? ensembleSchools( stored.ensemble ).map( ( s ) => s.id )
+			: DEFAULT_ENSEMBLE.slice(),
 		paletteId: stored ? stored.paletteId || first.defaultPalette : 'auto',
 		kitName: ( stored && stored.kitName ) || '',
 		custom: ( stored && stored.custom ) || [
@@ -284,10 +291,17 @@ function openStudio( ctx ) {
 	let colorMounts = [];
 	let liveThumb = '';
 	let steck = null; // the piece's own title and life, written on pause
-	let momentAt = -1; // -1 = live end
+	let momentAt = -1; // -1 = live end, unless a remembered moment is selected
+	let savedAt = null;
+	let savedSeq = 0;
+	const savedMoments = [];
 	let started = false;
 	let closed = false;
 	let beginning = false;
+	let startGeneration = 0;
+	let fileGeneration = 0;
+	let inserting = false;
+	let statusUntil = 0;
 	let motifFile = null; // { image, name } - the picture of one's own
 	if ( 'file' === state.motif.source ) {
 		// The picture itself does not travel in the settings.
@@ -318,7 +332,8 @@ function openStudio( ctx ) {
 				? 'ensemble'
 				: SCHOOLS[ 0 ].id
 			: state.styleId;
-		const mixed = 'all' === sid;
+		const customEnsemble = ENSEMBLE_ID === sid;
+		const mixed = 'all' === sid || customEnsemble;
 		if ( mixed ) {
 			// The ensemble on the sheet: an anchor school gives plan,
 			// palette and ground; the painters speak many.
@@ -332,6 +347,7 @@ function openStudio( ctx ) {
 		return {
 			family: fam,
 			mixed,
+			ensemble: customEnsemble ? state.ensemble.slice() : [],
 			school: SCHOOLS.find( ( x ) => x.id === sid ) || SCHOOLS[ 0 ],
 			style: styleById( SPACE_IDS.has( sid ) ? sid : 'ink' ),
 			movement: movementById( mid ),
@@ -361,16 +377,14 @@ function openStudio( ctx ) {
 	// The family bug class, third sighting: ui.dialog({width}) only caps
 	// max-width - a REAL width needs its own class on the dialog box.
 	modal.dialog.classList.add( 'wpiechaos-dialog' );
-	const badge = document.createElement( 'span' );
-	badge.className = 'dsm-badge';
-	badge.innerHTML = ICON_BRAND;
-	modal.head.insertBefore( badge, modal.head.firstChild );
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( modal );
 
 	const body = ui.el( 'div', 'wpiechaos-body', modal.body );
 
 	/* -------------------------------- left -------------------------------- */
 
-	const left = ui.el( 'div', 'wpiechaos-left', body );
+	const left = ui.el( 'div', 'dsm-col start wpiechaos-left', body );
 
 	// The school sits ABOVE the styles: it does not replace the casting,
 	// it educates it - palette, dials, marks and light shift together.
@@ -414,7 +428,7 @@ function openStudio( ctx ) {
 			applyLook();
 		},
 	} );
-	const moveBlurb = ui.el( 'div', 'wpiechaos-note', moveCard, '' );
+	const moveBlurb = ui.el( 'div', 'dsm-note wpiechaos-note', moveCard, '' );
 	const syncMoveBlurb = () => {
 		moveBlurb.textContent =
 			'auto' === state.movementId
@@ -432,7 +446,11 @@ function openStudio( ctx ) {
 	{
 		// The first card is no style at all: they pick one themselves,
 		// fresh at every start.
-		const tile = ui.el( 'button', 'wpiechaos-style', styleWrap );
+		const tile = ui.el(
+			'button',
+			'dsm-pickrow wpiechaos-style',
+			styleWrap
+		);
 		tile.type = 'button';
 		const sw = ui.el( 'span', 'wpiechaos-style-art', tile );
 		sw.style.background =
@@ -440,7 +458,7 @@ function openStudio( ctx ) {
 		ui.el( 'span', 'wpiechaos-style-name', tile, t( 'Surprise' ) );
 		ui.el(
 			'span',
-			'wpiechaos-style-blurb',
+			'dsm-note wpiechaos-style-blurb',
 			tile,
 			t( 'They pick the style themselves.' )
 		);
@@ -459,7 +477,7 @@ function openStudio( ctx ) {
 		};
 		styleTiles.push( { tile, id: 'auto' } );
 	}
-	ui.el( 'div', 'wpiechaos-family', styleWrap, t( 'Schools' ) );
+	ui.el( 'div', 'dsm-subhead wpiechaos-family', styleWrap, t( 'Schools' ) );
 
 	/**
 	 * A school (or the ensemble, or their choice) picked on the sheet.
@@ -482,14 +500,23 @@ function openStudio( ctx ) {
 			let school = null;
 			if ( 'auto' === id ) {
 				school = SCHOOLS[ Math.floor( draw() * SCHOOLS.length ) ];
+			} else if ( ENSEMBLE_ID === id ) {
+				school = ensembleSchools( state.ensemble )[ 0 ];
 			} else if ( 'all' !== id ) {
 				school = SCHOOLS.find( ( x ) => x.id === id ) || null;
 			}
-			engine.switchSchool( school, { mixed: 'all' === id } );
+			engine.switchSchool( school, {
+				mixed: 'all' === id || ENSEMBLE_ID === id,
+				ensemble: ENSEMBLE_ID === id ? state.ensemble : [],
+			} );
 			state.styleId = id;
 			if ( runPick ) {
 				runPick.styleId = 'auto' === id && school ? school.id : id;
+				runPick.anchorId =
+					ENSEMBLE_ID === id ? engine.world.voice.id : null;
 			}
+			params.allowRecast =
+				'auto' === id || 'all' === id || ENSEMBLE_ID === id;
 			syncTiles();
 			setStatus(
 				t( 'Now painting as' ) +
@@ -506,7 +533,11 @@ function openStudio( ctx ) {
 
 	{
 		// The ensemble on the sheet: every painter in another school.
-		const tile = ui.el( 'button', 'wpiechaos-style', styleWrap );
+		const tile = ui.el(
+			'button',
+			'dsm-pickrow wpiechaos-style',
+			styleWrap
+		);
 		tile.type = 'button';
 		const sw = ui.el( 'span', 'wpiechaos-style-art', tile );
 		const quad = [ 'fauvism', 'bauhaus', 'sumi', 'popart' ].map( ( id ) =>
@@ -525,12 +556,72 @@ function openStudio( ctx ) {
 		ui.el( 'span', 'wpiechaos-style-name', tile, t( 'Ensemble' ) );
 		ui.el(
 			'span',
-			'wpiechaos-style-blurb',
+			'dsm-note wpiechaos-style-blurb',
 			tile,
 			t( 'All schools at once, each painter in another.' )
 		);
 		tile.onclick = () => chooseFlat( 'all' );
 		styleTiles.push( { tile, id: 'all' } );
+	}
+	{
+		const tile = ui.el(
+			'button',
+			'dsm-pickrow wpiechaos-style',
+			styleWrap
+		);
+		tile.type = 'button';
+		const art = ui.el( 'span', 'wpiechaos-style-art', tile );
+		art.style.background =
+			'linear-gradient(135deg,#e7d7b4,#253d6c,#bd3f48)';
+		ui.el( 'span', 'wpiechaos-style-name', tile, t( 'Your ensemble' ) );
+		ui.el(
+			'span',
+			'dsm-note wpiechaos-style-blurb',
+			tile,
+			t( 'Two or three schools paint together.' )
+		);
+		tile.onclick = () => chooseFlat( ENSEMBLE_ID );
+		styleTiles.push( { tile, id: ENSEMBLE_ID } );
+	}
+	const ensembleBox = ui.el( 'div', 'wpiechaos-ensemble', styleWrap );
+	function renderEnsemble() {
+		ensembleBox.textContent = '';
+		ensembleBox.style.display = ENSEMBLE_ID === state.styleId ? '' : 'none';
+		if ( ENSEMBLE_ID !== state.styleId ) {
+			return;
+		}
+		const labels = [
+			t( 'First school' ),
+			t( 'Second school' ),
+			t( 'Third school (optional)' ),
+		];
+		for ( let i = 0; i < 3; i++ ) {
+			const options = SCHOOLS.filter(
+				( s ) =>
+					! state.ensemble.includes( s.id ) ||
+					state.ensemble[ i ] === s.id
+			).map( ( s ) => ( { value: s.id, label: t( s.label ) } ) );
+			if ( i === 2 ) {
+				options.unshift( { value: '', label: t( 'None' ) } );
+			}
+			ui.select( ui.row( ensembleBox, labels[ i ] ), {
+				options,
+				value: state.ensemble[ i ] || '',
+				onChange: ( value ) => {
+					const ids = state.ensemble.slice();
+					ids[ i ] = value;
+					state.ensemble = ensembleSchools( ids ).map(
+						( s ) => s.id
+					);
+					if ( started && engineFamily === 'flat' ) {
+						chooseFlat( ENSEMBLE_ID );
+					} else {
+						hardReset();
+						syncTiles();
+					}
+				},
+			} );
+		}
 	}
 	{
 		let seed = 0x2545f491;
@@ -539,7 +630,11 @@ function openStudio( ctx ) {
 			return seed / 4294967296;
 		};
 		for ( const s of SCHOOLS ) {
-			const tile = ui.el( 'button', 'wpiechaos-style', styleWrap );
+			const tile = ui.el(
+				'button',
+				'dsm-pickrow wpiechaos-style',
+				styleWrap
+			);
 			tile.type = 'button';
 			const sw = ui.el( 'span', 'wpiechaos-style-art', tile );
 			// A real mini piece of the school over its gradient; the
@@ -553,14 +648,28 @@ function openStudio( ctx ) {
 					schoolGradient( s, rng );
 			}
 			ui.el( 'span', 'wpiechaos-style-name', tile, t( s.label ) );
-			ui.el( 'span', 'wpiechaos-style-blurb', tile, t( s.blurb ) );
+			ui.el(
+				'span',
+				'dsm-note wpiechaos-style-blurb',
+				tile,
+				t( s.blurb )
+			);
 			tile.onclick = () => chooseFlat( s.id );
 			styleTiles.push( { tile, id: s.id } );
 		}
 	}
-	ui.el( 'div', 'wpiechaos-family', styleWrap, t( 'In space (3D)' ) );
+	ui.el(
+		'div',
+		'dsm-subhead wpiechaos-family',
+		styleWrap,
+		t( 'In space (3D)' )
+	);
 	for ( const s of SPACE_ORDER ) {
-		const tile = ui.el( 'button', 'wpiechaos-style', styleWrap );
+		const tile = ui.el(
+			'button',
+			'dsm-pickrow wpiechaos-style',
+			styleWrap
+		);
 		tile.type = 'button';
 		const sw = ui.el( 'span', 'wpiechaos-style-art', tile );
 		sw.style.background = styleGradient( s );
@@ -572,7 +681,7 @@ function openStudio( ctx ) {
 				styleGradient( s );
 		}
 		ui.el( 'span', 'wpiechaos-style-name', tile, t( s.label ) );
-		ui.el( 'span', 'wpiechaos-style-blurb', tile, t( s.blurb ) );
+		ui.el( 'span', 'dsm-note wpiechaos-style-blurb', tile, t( s.blurb ) );
 		tile.onclick = () => {
 			if ( state.styleId === s.id ) {
 				return;
@@ -601,7 +710,12 @@ function openStudio( ctx ) {
 	const syncTiles = () => {
 		for ( const st of styleTiles ) {
 			st.tile.classList.toggle( 'is-on', st.id === state.styleId );
+			st.tile.setAttribute(
+				'aria-pressed',
+				String( st.id === state.styleId )
+			);
 		}
+		renderEnsemble();
 	};
 
 	/* ------------------------------- motif -------------------------------- */
@@ -622,6 +736,7 @@ function openStudio( ctx ) {
 			} ) ),
 			value: state.motif.source,
 			onChange: ( v ) => {
+				fileGeneration++;
 				state.motif.source = v;
 				state.motif.reading = 'auto';
 				renderMotifRows();
@@ -654,17 +769,29 @@ function openStudio( ctx ) {
 						if ( ! f ) {
 							return;
 						}
+						const generation = ++fileGeneration;
+						const url = URL.createObjectURL( f );
 						try {
-							const url = URL.createObjectURL( f );
 							const im = await loadImg( url );
+							if (
+								closed ||
+								generation !== fileGeneration ||
+								state.motif.source !== 'file'
+							) {
+								return;
+							}
 							motifFile = { image: im, name: f.name };
 							name.textContent = f.name;
 							hardReset();
 						} catch ( e ) {
-							setStatus(
-								t( 'That picture could not be read.' ),
-								true
-							);
+							if ( ! closed && generation === fileGeneration ) {
+								setStatus(
+									t( 'That picture could not be read.' ),
+									true
+								);
+							}
+						} finally {
+							URL.revokeObjectURL( url );
 						}
 					};
 					file.click();
@@ -672,7 +799,7 @@ function openStudio( ctx ) {
 			} );
 			const name = ui.el(
 				'span',
-				'wpiechaos-filename',
+				'dsm-note wpiechaos-filename',
 				row,
 				motifFile ? motifFile.name : t( 'No picture yet' )
 			);
@@ -688,6 +815,9 @@ function openStudio( ctx ) {
 			input.value = m.text;
 			input.oninput = () => {
 				m.text = input.value;
+				if ( beginning ) {
+					hardReset();
+				}
 			};
 			const families =
 				bridge.fonts && bridge.fonts.listFamilies
@@ -703,6 +833,9 @@ function openStudio( ctx ) {
 					value: m.font,
 					onChange: ( v ) => {
 						m.font = v;
+						if ( beginning ) {
+							hardReset();
+						}
 					},
 				} );
 			}
@@ -716,6 +849,9 @@ function openStudio( ctx ) {
 			value: m.reading,
 			onChange: ( v ) => {
 				m.reading = v;
+				if ( beginning ) {
+					hardReset();
+				}
 			},
 		} );
 		if ( 'text' !== m.source ) {
@@ -726,6 +862,9 @@ function openStudio( ctx ) {
 				value: m.likeness,
 				onInput: ( v ) => {
 					m.likeness = v;
+					if ( engine && engine.setLikeness ) {
+						engine.setLikeness( v / 100 );
+					}
 				},
 			} );
 		}
@@ -764,8 +903,13 @@ function openStudio( ctx ) {
 	 * analysis out. Depth and the subject come from the editor's local
 	 * models when they are there, and are simply absent when not.
 	 */
-	async function readMotif( schoolId, draw ) {
-		const m = state.motif;
+	async function readMotif( schoolId, draw, generation ) {
+		const m = { ...state.motif };
+		const showStatus = ( message, bad ) => {
+			if ( currentStart( generation ) ) {
+				setStatus( message, bad );
+			}
+		};
 		if ( 'none' === m.source ) {
 			return null;
 		}
@@ -775,11 +919,18 @@ function openStudio( ctx ) {
 		let maskIsLight = false;
 		if ( 'canvas' === m.source ) {
 			const st = editor.state;
+			// Editing: leave this studio's own picture out, or every update
+			// paints a picture of the previous picture (EXTZUSTAND-01).
 			const layers = ( st.layers || [] ).filter(
-				( l ) => false !== l.visible
+				( l ) =>
+					false !== l.visible &&
+					! (
+						ownLayer &&
+						( l.id === ownLayer.id || l.parent === ownLayer.id )
+					)
 			);
 			if ( ! layers.length || ! bridge.raster.renderToCanvas ) {
-				setStatus(
+				showStatus(
 					t( 'The canvas is empty - the motif needs a picture.' ),
 					true
 				);
@@ -792,13 +943,13 @@ function openStudio( ctx ) {
 			} );
 		} else if ( 'file' === m.source ) {
 			if ( ! motifFile ) {
-				setStatus( t( 'Choose a picture first.' ), true );
+				showStatus( t( 'Choose a picture first.' ), true );
 				return false;
 			}
 			image = motifFile.image;
 		} else {
 			if ( ! m.text.trim() ) {
-				setStatus( t( 'Type a text first.' ), true );
+				showStatus( t( 'Type a text first.' ), true );
 				return false;
 			}
 			kind = 'text';
@@ -810,6 +961,9 @@ function openStudio( ctx ) {
 					);
 				} catch ( e ) {}
 			}
+			if ( ! currentStart( generation ) ) {
+				return false;
+			}
 			const r = renderText(
 				makeCanvas,
 				m.text,
@@ -820,6 +974,9 @@ function openStudio( ctx ) {
 			px = r;
 			image = r.canvas;
 			maskIsLight = true;
+		}
+		if ( ! currentStart( generation ) ) {
+			return false;
 		}
 		if ( ! px ) {
 			px = pixelsOf( makeCanvas, image, 384 );
@@ -855,9 +1012,12 @@ function openStudio( ctx ) {
 				);
 			}
 			if ( jobs.length ) {
-				setStatus( t( 'Reading the motif…' ) );
+				showStatus( t( 'Reading the motif…' ) );
 				await Promise.all( jobs );
 			}
+		}
+		if ( ! currentStart( generation ) ) {
+			return false;
 		}
 		const reading =
 			'auto' === m.reading
@@ -904,9 +1064,13 @@ function openStudio( ctx ) {
 
 	const mid = ui.el( 'div', 'wpiechaos-mid', body );
 	const view = ui.el( 'div', 'wpiechaos-view', mid );
+	const momentPreview = ui.el( 'img', 'wpiechaos-moment-preview', view );
+	momentPreview.style.display = 'none';
+	momentPreview.alt = t( 'Selected moment' );
+	momentPreview.draggable = false;
 	const hint = ui.el(
 		'div',
-		'wpiechaos-hint',
+		'dsm-viewhint wpiechaos-hint',
 		view,
 		t( 'Drag to orbit · wheel to zoom · your pointer stirs the paint' )
 	);
@@ -940,7 +1104,7 @@ function openStudio( ctx ) {
 		);
 		meterFill.style.width = pc + '%';
 		meterPct.textContent = pc + '%';
-		if ( 100 === pc && startBtn.disabled && ! started ) {
+		if ( 100 === pc && startBtn.disabled && ! started && ! beginning ) {
 			startBtn.disabled = false;
 			field.classList.add( 'is-full' );
 			setStatus( t( 'Charged - start painting whenever you like.' ) );
@@ -1020,14 +1184,83 @@ function openStudio( ctx ) {
 	} );
 	overBtn.classList.add( 'wpiechaos-over' );
 	overBtn.disabled = true;
+	const rememberBtn = ui.btn( transport, {
+		label: t( 'Remember moment' ),
+		onClick: rememberMoment,
+	} );
+	rememberBtn.classList.add( 'wpiechaos-remember' );
+	rememberBtn.disabled = true;
 
 	// The moment picker: appears on pause, reads the ring.
 	const moments = ui.el( 'div', 'wpiechaos-moments', mid );
 	moments.style.display = 'none';
 
+	function pickedMoment() {
+		return savedAt !== null
+			? savedMoments.find( ( m ) => m.id === savedAt ) || null
+			: engine && momentAt >= 0
+			? engine.ring.list()[ momentAt ] || null
+			: null;
+	}
+
+	function syncMomentPreview() {
+		const item = pickedMoment();
+		if ( item ) {
+			if ( momentPreview.src !== item.url ) {
+				momentPreview.src = item.url;
+			}
+			momentPreview.style.display = '';
+		} else {
+			momentPreview.style.display = 'none';
+			momentPreview.removeAttribute( 'src' );
+		}
+		field.style.display = item || started ? 'none' : '';
+		hint.style.display = ! item && started ? '' : 'none';
+	}
+
+	function selectMoment( index, savedId = null ) {
+		if ( engine.running ) {
+			pause();
+		}
+		momentAt = index;
+		savedAt = savedId;
+		renderMoments();
+	}
+
 	function renderMoments() {
+		const oldScroll =
+			moments.querySelector( '.wpiechaos-strip' )?.scrollLeft;
 		moments.textContent = '';
-		if ( steck ) {
+		moments.style.display =
+			! engine.running && ( started || savedMoments.length )
+				? ''
+				: 'none';
+		syncMomentPreview();
+		rememberBtn.disabled =
+			inserting ||
+			beginning ||
+			savedAt !== null ||
+			savedMoments.length >= SAVED_LIMIT ||
+			! ( pickedMoment() || engine.painted() );
+		rememberBtn.textContent =
+			t( 'Remember moment' ) +
+			( savedMoments.length
+				? ' (' + savedMoments.length + '/' + SAVED_LIMIT + ')'
+				: '' );
+		rememberBtn.title =
+			savedMoments.length >= SAVED_LIMIT
+				? t( 'Six moments are remembered. Remove one to make room.' )
+				: t( 'Keep this moment while the painters continue.' );
+		const remembered = savedAt !== null ? pickedMoment() : null;
+		if ( remembered ) {
+			ui.el( 'div', 'wpiechaos-title', moments, remembered.title );
+			ui.el(
+				'div',
+				'dsm-note wpiechaos-bio',
+				moments,
+				remembered.w + ' × ' + remembered.h
+			);
+		} else if ( steck ) {
 			// The piece introduces itself: its own title, its own life.
 			ui.el( 'div', 'wpiechaos-title', moments, steck.title );
 			const f = steck.facts;
@@ -1074,59 +1307,174 @@ function openStudio( ctx ) {
 							f.moves + ' ' + t( 'moves' ),
 							f.marks.toLocaleString() + ' ' + t( 'marks' ),
 					  ];
-			ui.el( 'div', 'wpiechaos-bio', moments, bits.join( ' · ' ) );
+			ui.el(
+				'div',
+				'dsm-note wpiechaos-bio',
+				moments,
+				bits.join( ' · ' )
+			);
 		}
-		ui.el(
-			'div',
-			'wpiechaos-moments-title',
-			moments,
-			t( 'Pick the moment' )
-		);
-		const strip = ui.el( 'div', 'wpiechaos-strip', moments );
 		const items = engine.ring.list();
-		items.forEach( ( item, i ) => {
-			const b = ui.el( 'button', 'wpiechaos-moment', strip );
-			b.type = 'button';
-			const img = ui.el( 'img', null, b );
-			img.src = item.url;
-			img.alt = '';
-			b.classList.toggle( 'is-on', i === momentAt );
-			b.onclick = () => {
-				momentAt = i;
-				renderMoments();
-			};
-		} );
-		const live = ui.el( 'button', 'wpiechaos-moment is-live', strip );
-		live.type = 'button';
-		if ( liveThumb ) {
-			const img = ui.el( 'img', null, live );
-			img.src = liveThumb;
-			img.alt = t( 'Now (live)' );
-			img.title = t( 'Now (live)' );
-		} else {
-			ui.el( 'span', null, live, t( 'Now (live)' ) );
+		if ( started ) {
+			ui.el(
+				'div',
+				'dsm-subhead wpiechaos-moments-title',
+				moments,
+				t( 'Pick the moment' )
+			);
+			const strip = ui.el( 'div', 'wpiechaos-strip', moments );
+			items.forEach( ( item, i ) => {
+				const b = ui.el(
+					'button',
+					'dsm-strip wpiechaos-moment',
+					strip
+				);
+				b.type = 'button';
+				b.setAttribute( 'aria-label', t( 'Moment' ) + ' ' + ( i + 1 ) );
+				const selected = savedAt === null && i === momentAt;
+				b.setAttribute( 'aria-pressed', String( selected ) );
+				const img = ui.el( 'img', null, b );
+				img.src = item.url;
+				img.alt = '';
+				b.classList.toggle( 'is-on', selected );
+				b.onclick = () => selectMoment( i );
+			} );
+			const live = ui.el(
+				'button',
+				'dsm-strip wpiechaos-moment is-live',
+				strip
+			);
+			live.type = 'button';
+			live.setAttribute( 'aria-label', t( 'Now (live)' ) );
+			if ( liveThumb ) {
+				const img = ui.el( 'img', null, live );
+				img.src = liveThumb;
+				img.alt = t( 'Now (live)' );
+			} else {
+				ui.el( 'span', null, live, t( 'Now (live)' ) );
+			}
+			const selected = savedAt === null && momentAt === -1;
+			live.classList.toggle( 'is-on', selected );
+			live.setAttribute( 'aria-pressed', String( selected ) );
+			live.onclick = () => selectMoment( -1 );
+			strip.scrollLeft =
+				oldScroll === undefined ? strip.scrollWidth : oldScroll;
 		}
-		live.classList.toggle( 'is-on', -1 === momentAt );
-		live.onclick = () => {
-			momentAt = -1;
+		if ( savedMoments.length ) {
+			ui.el(
+				'div',
+				'dsm-subhead wpiechaos-moments-title',
+				moments,
+				t( 'Remembered moments' )
+			);
+			const strip = ui.el( 'div', 'wpiechaos-saved-strip', moments );
+			for ( const item of savedMoments ) {
+				const wrap = ui.el( 'div', 'wpiechaos-saved-item', strip );
+				const b = ui.el( 'button', 'dsm-strip wpiechaos-moment', wrap );
+				b.type = 'button';
+				b.title = item.title + ' · ' + item.w + ' × ' + item.h;
+				b.setAttribute( 'aria-label', item.title );
+				b.setAttribute( 'aria-pressed', String( savedAt === item.id ) );
+				b.classList.toggle( 'is-on', savedAt === item.id );
+				const img = ui.el( 'img', null, b );
+				img.src = item.url;
+				img.alt = '';
+				b.onclick = () => selectMoment( -1, item.id );
+				const remove = ui.btn( wrap, {
+					label: '×',
+					onClick: () => {
+						savedMoments.splice( savedMoments.indexOf( item ), 1 );
+						if ( savedAt === item.id ) {
+							savedAt = null;
+							momentAt = -1;
+						}
+						renderMoments();
+					},
+				} );
+				remove.classList.add( 'wpiechaos-forget' );
+				remove.title = t( 'Remove remembered moment' );
+				remove.setAttribute(
+					'aria-label',
+					t( 'Remove remembered moment' ) + ': ' + item.title
+				);
+			}
+			ui.el(
+				'div',
+				'dsm-note wpiechaos-note',
+				moments,
+				t( 'Remembered until you close Chaos Art.' )
+			);
+		}
+	}
+
+	function rememberMoment() {
+		if (
+			beginning ||
+			inserting ||
+			closed ||
+			savedMoments.length >= SAVED_LIMIT ||
+			savedAt !== null
+		) {
+			return;
+		}
+		if ( ! pickedMoment() && ! engine.painted() ) {
+			return;
+		}
+		try {
+			const still = pickedMoment() || engine.renderStill( 2048 );
+			const title = engine.world
+				? describePiece( engine.world ).title
+				: t( 'Chaos Art' );
+			if ( ! savedMoments.some( ( item ) => item.url === still.url ) ) {
+				savedMoments.push( {
+					...still,
+					id: ++savedSeq,
+					title,
+					params: genParams(),
+				} );
+			}
 			renderMoments();
-		};
-		strip.scrollLeft = strip.scrollWidth;
+			setStatus( t( 'Moment remembered.' ), false, 2500 );
+		} catch ( error ) {
+			setStatus( t( 'Could not remember this moment.' ), true );
+		}
+	}
+
+	function currentStart( generation ) {
+		return ! closed && generation === startGeneration;
 	}
 
 	async function begin() {
-		if ( beginning ) {
+		if ( beginning || closed || pool.charge() < CHARGE_FULL ) {
 			return;
 		}
+		const generation = ++startGeneration;
 		beginning = true;
+		startBtn.disabled = true;
+		setStatus(
+			state.motif.source === 'none'
+				? t( 'Painting…' )
+				: t( 'Reading the motif…' )
+		);
 		try {
-			await beginNow();
+			await beginNow( generation );
+		} catch ( error ) {
+			if ( currentStart( generation ) ) {
+				runPick = null;
+				setStatus(
+					t( 'Could not start painting. Please try again.' ),
+					true
+				);
+			}
 		} finally {
-			beginning = false;
+			if ( currentStart( generation ) ) {
+				beginning = false;
+				startBtn.disabled = pool.charge() < CHARGE_FULL;
+			}
 		}
 	}
 
-	async function beginNow() {
+	async function beginNow( generation ) {
 		// The society serves itself: whatever stands on "their choice"
 		// is drawn HERE, freshly, from the piece's own entropy - so the
 		// same settings never even BEGIN the same way twice.
@@ -1155,7 +1503,11 @@ function openStudio( ctx ) {
 		runPick = {
 			styleId,
 			anchorId:
-				'all' === styleId
+				ENSEMBLE_ID === styleId
+					? state.ensemble[
+							Math.floor( draw() * state.ensemble.length )
+					  ]
+					: 'all' === styleId
 					? SCHOOLS[ Math.floor( draw() * SCHOOLS.length ) ].id
 					: null,
 			family: familyOf( styleId ),
@@ -1216,10 +1568,20 @@ function openStudio( ctx ) {
 		params.autoPalette = 'auto' === state.paletteId;
 		params.autoTemper = state.autoTemper;
 		params.allowRecast =
-			'auto' === state.styleId || 'ensemble' === runPick.styleId;
+			'auto' === state.styleId ||
+			'all' === runPick.styleId ||
+			ENSEMBLE_ID === runPick.styleId ||
+			'ensemble' === runPick.styleId;
 		let motif = null;
 		if ( 'flat' === runPick.family ) {
-			motif = await readMotif( runPick.styleId, draw );
+			motif = await readMotif(
+				runPick.anchorId || runPick.styleId,
+				draw,
+				generation
+			);
+			if ( ! currentStart( generation ) ) {
+				return;
+			}
 			if ( false === motif ) {
 				runPick = null;
 				return;
@@ -1229,6 +1591,9 @@ function openStudio( ctx ) {
 		const settings = settingsForEngine();
 		settings.motif = motif;
 		engine.newWorld( settings, pool );
+		if ( engine.setLikeness ) {
+			engine.setLikeness( state.motif.likeness / 100 );
+		}
 		engine.start();
 		if ( 'flat' === runPick.family && params.autoPalette ) {
 			// The school drew its own palette; the dots show what it took.
@@ -1236,6 +1601,9 @@ function openStudio( ctx ) {
 		}
 		started = true;
 		momentAt = -1;
+		savedAt = null;
+		steck = null;
+		syncMomentPreview();
 		field.style.display = 'none';
 		hint.textContent =
 			'space' === runPick.family
@@ -1276,13 +1644,20 @@ function openStudio( ctx ) {
 	function pause() {
 		engine.stop();
 		startBtn.textContent = t( 'Resume' );
-		moments.style.display = '';
 		momentAt = -1;
+		savedAt = null;
 		liveThumb = '';
 		steck = engine.world ? describePiece( engine.world ) : null;
-		// The loop keeps rendering while paused; the thumb arrives from
-		// inside the render task (the same-task readback rule).
+		const pausedEngine = engine;
 		engine.captureNext( ( url ) => {
+			if (
+				closed ||
+				engine !== pausedEngine ||
+				engine.running ||
+				! started
+			) {
+				return;
+			}
 			liveThumb = url;
 			renderMoments();
 		} );
@@ -1292,28 +1667,33 @@ function openStudio( ctx ) {
 	function resume() {
 		engine.resume();
 		momentAt = -1;
+		savedAt = null;
+		syncMomentPreview();
 		moments.style.display = 'none';
 		startBtn.textContent = t( 'Pause' );
 	}
 
 	function hardReset() {
+		startGeneration++;
+		beginning = false;
 		if ( engine ) {
 			engine.stop();
 		}
 		runPick = null;
 		started = false;
 		momentAt = -1;
-		moments.style.display = 'none';
+		savedAt = null;
+		steck = null;
+		liveThumb = '';
 		startBtn.textContent = t( 'Start painting' );
 		startBtn.disabled = pool.charge() < CHARGE_FULL;
 		impulseBtn.disabled = true;
 		overBtn.disabled = true;
-		field.style.display = '';
-		hint.style.display = 'none';
 		const eng = mountEngine( familyNow() );
 		if ( eng.world ) {
 			eng.newWorld( settingsForEngine(), pool );
 		}
+		renderMoments();
 	}
 
 	/** The family the NEXT piece paints in: the run's, or the chosen tile's. */
@@ -1348,7 +1728,7 @@ function openStudio( ctx ) {
 
 	/* -------------------------------- right ------------------------------- */
 
-	const side = ui.el( 'div', 'wpiechaos-side', body );
+	const side = ui.el( 'div', 'dsm-col end wpiechaos-side', body );
 
 	function renderRight() {
 		for ( const m of colorMounts ) {
@@ -1377,9 +1757,11 @@ function openStudio( ctx ) {
 			checked: state.autoTemper,
 			onChange: ( v ) => {
 				state.autoTemper = v;
+				params.autoTemper = v;
 			},
 		} );
 		const lockTemper = () => {
+			params.autoTemper = false;
 			if ( state.autoTemper ) {
 				state.autoTemper = false;
 				temperBox.checked = false;
@@ -1487,6 +1869,7 @@ function openStudio( ctx ) {
 		const customRow = ui.el( 'div', 'wpiechaos-customrow', colors );
 		palSel.onchange = () => {
 			const v = palSel.value;
+			params.autoPalette = v === 'auto';
 			if ( 'auto' === v ) {
 				state.paletteId = 'auto';
 			} else if ( v.startsWith( 'kit:' ) && 'kit:saved' !== v ) {
@@ -1619,6 +2002,9 @@ function openStudio( ctx ) {
 		for ( const c of state.colors ) {
 			params.colors.push( c );
 		}
+		if ( engine && engine.setColors ) {
+			engine.setColors( state.colors );
+		}
 	}
 
 	renderRight();
@@ -1629,21 +2015,22 @@ function openStudio( ctx ) {
 	/* ------------------------------- exports ------------------------------ */
 
 	function chosenStill() {
-		if ( -1 === momentAt ) {
-			const out = engine.renderStill( 2048 );
-			return Promise.resolve( out );
-		}
-		const item = engine.ring.list()[ momentAt ];
-		return Promise.resolve( { url: item.url, w: item.w, h: item.h } );
+		const selected = pickedMoment();
+		return Promise.resolve( selected || engine.renderStill( 2048 ) );
 	}
 
 	/* --------------------------------- foot ------------------------------- */
 
 	const status = ui.el( 'div', 'dsm-hint wpiechaos-status', modal.foot, '' );
-	const setStatus = ( msg, bad ) => {
-		status.textContent = msg;
+	const setStatus = ( msg, bad, hold = 0 ) => {
+		if ( status.textContent !== msg ) {
+			status.textContent = msg;
+		}
+		status.title = msg;
 		status.classList.toggle( 'is-bad', !! bad );
+		statusUntil = bad ? Infinity : performance.now() + hold;
 	};
+	status.setAttribute( 'aria-live', 'polite' );
 	if ( ownLayer ) {
 		setStatus(
 			t(
@@ -1668,13 +2055,18 @@ function openStudio( ctx ) {
 		label: ownLayer ? t( 'Update' ) : t( 'Insert as picture' ),
 		primary: true,
 		onClick: async () => {
-			if ( primary.disabled ) {
+			if ( primary.disabled || inserting || beginning || closed ) {
 				return;
 			}
 			primary.disabled = true;
+			inserting = true;
 			try {
 				engine.stop();
 				const still = await chosenStill();
+				if ( closed ) {
+					return;
+				}
+				const pieceParams = still.params || genParams();
 				if ( ownLayer ) {
 					editor.dispatch( {
 						type: 'UPDATE_LAYER',
@@ -1683,14 +2075,17 @@ function openStudio( ctx ) {
 							src: still.url,
 							naturalW: still.w,
 							naturalH: still.h,
-							generator: { id: GEN_ID, params: genParams() },
+							generator: { id: GEN_ID, params: pieceParams },
 						},
 					} );
 				} else {
 					// The piece is painted in the document's own
 					// proportions; it takes the whole page like a print.
 					const layer = bridge.documents.makeImage( {
-						name: ( steck && steck.title ) || t( 'Chaos Art' ),
+						name:
+							still.title ||
+							( steck && steck.title ) ||
+							t( 'Chaos Art' ),
 						x: 0,
 						y: 0,
 						w: doc.w,
@@ -1699,7 +2094,7 @@ function openStudio( ctx ) {
 						naturalW: still.w,
 						naturalH: still.h,
 					} );
-					layer.generator = { id: GEN_ID, params: genParams() };
+					layer.generator = { id: GEN_ID, params: pieceParams };
 					editor.dispatch( { type: 'ADD_LAYER', layer } );
 					editor.dispatch( { type: 'SET_ACTIVE', id: layer.id } );
 				}
@@ -1707,6 +2102,7 @@ function openStudio( ctx ) {
 				cleanup();
 				modal.close();
 			} catch ( e ) {
+				inserting = false;
 				primary.disabled = false;
 				setStatus(
 					( e && e.message ) || t( 'Could not insert.' ),
@@ -1720,6 +2116,7 @@ function openStudio( ctx ) {
 	function genParams() {
 		return {
 			styleId: state.styleId,
+			ensemble: state.ensemble.slice(),
 			movementId: state.movementId,
 			mediumId: state.mediumId,
 			paletteId: state.paletteId,
@@ -1746,31 +2143,49 @@ function openStudio( ctx ) {
 
 	/* ------------------------------- heartbeat ---------------------------- */
 
+	function activityText() {
+		if ( engineFamily !== 'flat' ) {
+			return t( 'The painters are shaping the space.' );
+		}
+		switch ( engine.world?.phase ) {
+			case 'opening':
+				return t( 'The painters are laying the ground.' );
+			case 'building':
+				return t( 'The painters are building the composition.' );
+			case 'developing':
+				return t( 'The painters are developing the picture.' );
+			case 'finishing':
+				return t( 'The painters are adding accents.' );
+			case 'resting':
+				return t( 'The picture is resting before the next sitting.' );
+			default:
+				return t( 'Painting…' );
+		}
+	}
+
 	let beatAcc = 0;
 	function heartbeat() {
 		if ( closed ) {
 			return;
 		}
 		beatAcc++;
-		if ( beatAcc % 30 ) {
+		if ( beatAcc % 15 ) {
 			return;
 		}
-		primary.disabled = ! engine.painted();
+		primary.disabled =
+			inserting || beginning || ! ( pickedMoment() || engine.painted() );
+		rememberBtn.disabled =
+			inserting ||
+			beginning ||
+			savedAt !== null ||
+			savedMoments.length >= SAVED_LIMIT ||
+			! ( pickedMoment() || engine.painted() );
+		if ( performance.now() < statusUntil ) {
+			return;
+		}
 		if ( engine.running ) {
-			setStatus(
-				t( 'Painting…' ) +
-					' · ' +
-					engine.painted().toLocaleString() +
-					' ' +
-					t( 'marks' ) +
-					' · ' +
-					t( 'time' ) +
-					' ×' +
-					( engine.world
-						? engine.world.timeScale.toFixed( 1 )
-						: '1.0' )
-			);
-		} else if ( started ) {
+			setStatus( activityText() );
+		} else if ( started || pickedMoment() ) {
 			setStatus( t( 'Paused - pick a moment, or resume painting.' ) );
 		}
 	}
@@ -1780,6 +2195,11 @@ function openStudio( ctx ) {
 			return;
 		}
 		closed = true;
+		startGeneration++;
+		fileGeneration++;
+		beginning = false;
+		savedMoments.length = 0;
+		momentPreview.removeAttribute( 'src' );
 		for ( const m of colorMounts ) {
 			if ( m.unmount ) {
 				m.unmount();
@@ -1801,8 +2221,8 @@ function openStudio( ctx ) {
 		run: runPick,
 		autoTemper: state.autoTemper,
 		started,
-		running: engine.running,
-		painted: engine.painted(),
+		running: !! engine?.running,
+		painted: engine?.painted() || 0,
 		motif:
 			engine.world && engine.world.motif ? engine.world.motifKind : null,
 		burst: !! (
@@ -1817,6 +2237,13 @@ function openStudio( ctx ) {
 		charge: pool.charge(),
 		snapshots: engine.ring.size(),
 		momentAt,
+		savedAt,
+		saved: savedMoments.map( ( item ) => ( {
+			id: item.id,
+			w: item.w,
+			h: item.h,
+		} ) ),
+		beginning,
 	} );
 }
 

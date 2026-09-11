@@ -321,6 +321,10 @@ class Stock {
 				),
 				array(
 					'timeout' => 20,
+					// Kein Sprung mit dem Schluessel im Gepaeck: WordPress reicht
+					// bei einer Weiterleitung dieselben Kopfzeilen weiter.
+					'redirection' => 0,
+					'limit_response_size' => 8 * MB_IN_BYTES,
 					'headers' => array( 'Authorization' => $key ),
 				)
 			);
@@ -337,6 +341,10 @@ class Stock {
 				),
 				array(
 					'timeout' => 20,
+					// Kein Sprung mit dem Schluessel im Gepaeck: WordPress reicht
+					// bei einer Weiterleitung dieselben Kopfzeilen weiter.
+					'redirection' => 0,
+					'limit_response_size' => 8 * MB_IN_BYTES,
 					'headers' => array(
 						'Authorization'  => 'Client-ID ' . $key,
 						'Accept-Version' => 'v1',
@@ -629,6 +637,12 @@ class Stock {
 		if ( '' === $key ) {
 			return rest_ensure_response( array( 'counted' => false ) );
 		}
+		// Every call sends the Unsplash key upstream; the lookup rate bounds
+		// how often one account can make it do so.
+		$limited = AI_Provider::rate_limit( 'stock-count', 0, 'lookup_rate_limit' );
+		if ( is_wp_error( $limited ) ) {
+			return rest_ensure_response( array( 'counted' => false ) );
+		}
 
 		$response = wp_safe_remote_get(
 			$location,
@@ -669,7 +683,17 @@ class Stock {
 		// hosts are refused on the initial request AND on any redirect a
 		// permissive allowlisted host might emit, closing the internal-SSRF
 		// pivot that plain wp_remote_get would follow. (WPIE-019)
-		$response = wp_safe_remote_get( $url, array( 'timeout' => 30 ) );
+		// Bounded on the way in: the 40 MB check below used to run AFTER the
+		// whole body sat in memory, so a provider answer of any size was read
+		// first. WordPress stops reading at the limit; one byte more than the
+		// ceiling is what the size check then sees.
+		$response = wp_safe_remote_get(
+			$url,
+			array(
+				'timeout'             => 30,
+				'limit_response_size' => 40 * MB_IN_BYTES + 1,
+			)
+		);
 		if ( is_wp_error( $response ) ) {
 			return new \WP_Error( 'wpie_stock_http', $response->get_error_message(), array( 'status' => 502 ) );
 		}

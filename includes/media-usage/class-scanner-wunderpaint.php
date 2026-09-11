@@ -69,27 +69,52 @@ class Scanner_Wunderpaint extends Usage_Scanner {
 		if ( null !== $docs ) {
 			return $docs;
 		}
-		$docs = array();
+		$list = array();
 		foreach ( array(
 			'design'   => Projects::dir(),
 			'template' => Templates::dir(),
 		) as $kind => $dir ) {
 			if ( ! is_dir( $dir ) ) {
+				// Nothing saved yet is a real answer; an unreadable folder is not.
 				continue;
 			}
 			$found = glob( trailingslashit( $dir ) . '*.json*' );
-			if ( ! $found ) {
-				continue;
+			if ( false === $found ) {
+				// glob() says false for "could not read this folder" and an
+				// empty array for "nothing in it". Treating the first like the
+				// second is how a permission problem turns into "none of these
+				// designs use any image".
+				throw new \RuntimeException( esc_html__( 'A WunderPaint folder could not be read.', 'wunderpaint' ) );
 			}
 			sort( $found );
 			foreach ( $found as $path ) {
-				$docs[] = array(
+				$list[] = array(
 					'path' => $path,
 					'kind' => $kind,
 				);
 			}
 		}
+		$docs = $list;
 		return $docs;
+	}
+
+	/**
+	 * One stored document, or a loud failure.
+	 *
+	 * This scanner exists so that deleting an "unused" image cannot break a
+	 * saved project. A file it knows about but cannot read is the one case
+	 * where silence is the most expensive answer.
+	 *
+	 * @param string $path Absolute path.
+	 * @return string JSON.
+	 * @throws \RuntimeException When the file cannot be read.
+	 */
+	private function read_doc( $path ) {
+		$raw = \wpie_read_json_file( $path );
+		if ( false === $raw ) {
+			throw new \RuntimeException( esc_html__( 'A saved WunderPaint document could not be read.', 'wunderpaint' ) );
+		}
+		return (string) $raw;
 	}
 
 	/**
@@ -161,7 +186,7 @@ class Scanner_Wunderpaint extends Usage_Scanner {
 
 		$out = array();
 		foreach ( $slice as $doc ) {
-			$raw = (string) \wpie_read_json_file( $doc['path'] );
+			$raw = $this->read_doc( $doc['path'] );
 			if ( '' === $raw ) {
 				continue;
 			}
@@ -182,7 +207,19 @@ class Scanner_Wunderpaint extends Usage_Scanner {
 	 * @return array[]
 	 */
 	public function find_for( $attachment_id, $needles ) {
-		$out = array();
+		return $this->lookup( $attachment_id, $needles );
+	}
+
+	/**
+	 * Prefilter: the stores and documents that mention a needle, each read
+	 * once. There is no row cap here; the sources are ours and bounded.
+	 *
+	 * @param string[] $needles Fragments.
+	 * @param int      $limit   Unused.
+	 * @return array{rows:array,truncated:bool}
+	 */
+	protected function candidates( $needles, $limit ) {
+		$rows = array();
 
 		foreach ( $this->stores() as $name => $label ) {
 			$value = get_option( $name, '' );
@@ -190,27 +227,51 @@ class Scanner_Wunderpaint extends Usage_Scanner {
 				continue;
 			}
 			$raw = is_scalar( $value ) ? (string) $value : (string) wp_json_encode( $value );
-			if ( ! $this->has_needle( $raw, $needles ) ) {
-				continue;
-			}
-			if ( Media_Usage::refs_match( $this->refs_from_json( $raw ), $attachment_id, $this->resolver ) ) {
-				$out[] = $this->hit( $attachment_id, '', 0, $label, '', __( 'WunderPaint data', 'wunderpaint' ) );
+			if ( $this->has_needle( $raw, $needles ) ) {
+				$rows[] = (object) array(
+					'raw'   => $raw,
+					'label' => $label,
+					'ctx'   => __( 'WunderPaint data', 'wunderpaint' ),
+				);
 			}
 		}
 
 		foreach ( $this->documents() as $doc ) {
-			$raw = (string) \wpie_read_json_file( $doc['path'] );
+			$raw = $this->read_doc( $doc['path'] );
 			if ( '' === $raw || ! $this->has_needle( $raw, $needles ) ) {
 				continue;
 			}
-			if ( ! Media_Usage::refs_match( $this->refs_from_json( $raw ), $attachment_id, $this->resolver ) ) {
-				continue;
-			}
-			$title = $this->title_for( $doc );
-			$ctx   = 'design' === $doc['kind'] ? __( 'Saved design', 'wunderpaint' ) : __( 'Template', 'wunderpaint' );
-			$out[] = $this->hit( $attachment_id, '', 0, $title, '', $ctx );
+			$rows[] = (object) array(
+				'raw'   => $raw,
+				'label' => $this->title_for( $doc ),
+				'ctx'   => 'design' === $doc['kind'] ? __( 'Saved design', 'wunderpaint' ) : __( 'Template', 'wunderpaint' ),
+			);
 		}
-		return $out;
+		return array(
+			'rows'      => $rows,
+			'truncated' => false,
+		);
+	}
+
+	/**
+	 * References in one store value or document.
+	 *
+	 * @param object $row Row.
+	 * @return array
+	 */
+	protected function row_refs( $row ) {
+		return $this->refs_from_json( $row->raw );
+	}
+
+	/**
+	 * Hit for one store or document.
+	 *
+	 * @param object $row           Row.
+	 * @param int    $attachment_id Attachment.
+	 * @return array
+	 */
+	protected function row_hit( $row, $attachment_id ) {
+		return $this->hit( $attachment_id, '', 0, $row->label, '', $row->ctx );
 	}
 
 	/**

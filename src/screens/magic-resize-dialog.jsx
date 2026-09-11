@@ -62,6 +62,7 @@ export function MagicResizeDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Resize Design', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

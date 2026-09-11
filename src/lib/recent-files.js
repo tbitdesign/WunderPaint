@@ -2,15 +2,11 @@
  * Recently edited attachments (v0.7), localStorage, per browser.
  */
 
+import { siteStorage } from './local-storage';
 const KEY = 'wpie-recent';
 export const RECENT_FILES_CAP = 10;
 
-let storage = null;
-try {
-	storage = window.localStorage;
-} catch ( e ) {
-	storage = null;
-}
+const storage = siteStorage;
 
 const read = () => {
 	try {

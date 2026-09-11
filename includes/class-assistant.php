@@ -71,9 +71,19 @@ class Assistant {
 		$tiers  = array();
 		foreach ( $badges as $b ) {
 			$b = trim( (string) $b );
-			if ( '' !== $b && ! in_array( $b, $tiers, true ) ) {
-				$tiers[] = $b;
+			// The prompt says: a bracket means a restriction, no bracket means
+			// the free plugin. So "Free" must never become a bracket - the
+			// model read [Free] as "needs something" and sent free users to
+			// Settings for a feature they already had. (HILFE-01, 10.09.2026)
+			if ( '' === $b || 'Free' === $b || in_array( $b, $tiers, true ) ) {
+				continue;
 			}
+			$tiers[] = $b;
+		}
+		// Nine pro-* sections carry no badge at all, and the prompt would
+		// then call them free. The id is the tier.
+		if ( 0 === strpos( (string) ( $sec['id'] ?? '' ), 'pro-' ) && ! in_array( 'Pro', $tiers, true ) ) {
+			array_unshift( $tiers, 'Pro' );
 		}
 		return $tiers ? ' [' . implode( ', ', $tiers ) . ']' : '';
 	}
@@ -122,7 +132,11 @@ class Assistant {
 	 * @return array Section ids.
 	 */
 	private static function lexical_sections( $question, $limit = 6 ) {
-		$words = preg_split( '/[^\p{L}\p{N}]+/u', mb_strtolower( $question ) );
+		// WordPress polyfills mb_strlen and mb_substr, not these two. A host
+		// without mbstring got a fatal here instead of a fallback answer.
+		$lower = function_exists( 'mb_strtolower' ) ? 'mb_strtolower' : 'strtolower';
+		$find  = function_exists( 'mb_strpos' ) ? 'mb_strpos' : 'strpos';
+		$words = preg_split( '/[^\p{L}\p{N}]+/u', $lower( $question ) );
 		$words = array_filter(
 			(array) $words,
 			static function ( $w ) {
@@ -131,14 +145,14 @@ class Assistant {
 		);
 		$scored = array();
 		foreach ( self::kb() as $sec ) {
-			$title = mb_strtolower( $sec['title'] . ' ' . implode( ' ', (array) ( $sec['keywords'] ?? array() ) ) );
-			$text  = mb_strtolower( (string) $sec['text'] );
+			$title = $lower( $sec['title'] . ' ' . implode( ' ', (array) ( $sec['keywords'] ?? array() ) ) );
+			$text  = $lower( (string) $sec['text'] );
 			$score = 0;
 			foreach ( $words as $w ) {
-				if ( false !== mb_strpos( $title, $w ) ) {
+				if ( false !== $find( $title, $w ) ) {
 					$score += 4;
 				}
-				if ( false !== mb_strpos( $text, $w ) ) {
+				if ( false !== $find( $text, $w ) ) {
 					$score += 1;
 				}
 			}

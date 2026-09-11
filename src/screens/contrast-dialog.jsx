@@ -42,6 +42,7 @@ export function ContrastDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Contrast check', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

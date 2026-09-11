@@ -72,6 +72,13 @@ function pageRules( family ) {
 
 /* The Google stylesheet, as the font manager links it, parsed for the latin faces. */
 async function googleRules( family ) {
+	// Only when the administrator switched the Google Fonts CDN on
+	// (Settings > Fonts). Without that the plugin promises to contact no
+	// font CDN, and this fallback broke that promise in the user's browser
+	// (A3, 10.09.2026).
+	if ( ! ( window.WPIE && window.WPIE.fontsGoogle ) ) {
+		return [];
+	}
 	const href =
 		'https://fonts.googleapis.com/css2?family=' +
 		encodeURIComponent( family ).replace( /%20/g, '+' ) +
@@ -156,9 +163,12 @@ export function fontFaceCss( family, bridge ) {
 			const b64 = await asBase64( r.url ).catch( () => '' );
 			if ( b64 ) {
 				css.push(
-					`@font-face{font-family:"${ family }";font-weight:${
-						r.weight
-					};font-style:${ r.style };src:url(data:${ mimeOf(
+					`@font-face{font-family:"${ String( family ).replace(
+						/["\\]/g,
+						'\\$&'
+					) }";font-weight:${ r.weight };font-style:${
+						r.style
+					};src:url(data:${ mimeOf(
 						r.url
 					) };base64,${ b64 }) format("${ formatOf( r.url ) }")}`
 				);

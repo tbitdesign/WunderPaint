@@ -359,6 +359,7 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 				className="dsm create-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Create New Image', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -881,11 +882,12 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 										className="dsm-label"
 										id={ fieldId + '-model' }
 									>
-										{ __( 'Model', 'wunderpaint' ) }
+										{ __(
+											'AI Image Provider',
+											'wunderpaint'
+										) }
 									</span>
 									<div
-										role="group"
-										aria-labelledby={ fieldId + '-model' }
 										style={ {
 											display: 'flex',
 											gap: 6,
@@ -893,23 +895,31 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 										} }
 									>
 										{ providers.length ? (
-											providers.map( ( id ) => (
-												<button
-													key={ id }
-													className={
-														'ai-provider-pill' +
-														( provider === id
-															? ' active'
-															: '' )
-													}
-													onClick={ () =>
-														setProvider( id )
-													}
-												>
-													<span className="dot" />
-													{ PROVIDER_LABELS[ id ] }
-												</button>
-											) )
+											<select
+												className="dsm-select"
+												value={ provider }
+												onChange={ ( e ) =>
+													setProvider(
+														e.target.value
+													)
+												}
+												aria-labelledby={
+													fieldId + '-model'
+												}
+											>
+												{ providers.map( ( id ) => (
+													<option
+														key={ id }
+														value={ id }
+													>
+														{
+															PROVIDER_LABELS[
+																id
+															]
+														}
+													</option>
+												) ) }
+											</select>
 										) : (
 											<span
 												style={ {
@@ -1162,7 +1172,7 @@ function CreateTemplatesTab( { editor, extras, onClose, welcome } ) {
 			<div className="library-toolbar">
 				<input
 					type="search"
-					placeholder={ __( 'Search templates…', 'wunderpaint' ) }
+					placeholder={ __( 'Search templates', 'wunderpaint' ) }
 					value={ query }
 					onChange={ ( e ) => setQuery( e.target.value ) }
 					aria-label={ __( 'Search templates', 'wunderpaint' ) }

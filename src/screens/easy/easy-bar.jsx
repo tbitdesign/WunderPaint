@@ -44,6 +44,18 @@ export function EasyBar( { extras } ) {
 			</span>
 			<span style={ { flex: 1 } } />
 			<button
+				className="ai-btn secondary ed-easy-help"
+				onClick={ () => extras.openHelp() }
+			>
+				{ __( 'Help', 'wunderpaint' ) }
+			</button>
+			<button
+				className="ai-btn secondary ed-easy-help"
+				onClick={ () => extras.openHelpBot() }
+			>
+				{ __( 'Help Assistant', 'wunderpaint' ) }
+			</button>
+			<button
 				className="ai-btn secondary ed-easy-exit"
 				onClick={ () => extras.setEasyMode( false ) }
 			>

@@ -1,0 +1,111 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-find-your-people-bring-your-whole-heart",
+	"label": "Find your people bring your whole heart",
+	"category": "wordart",
+	"w": 861,
+	"h": 729,
+	"layers": [
+		{
+			"id": "waf-find-your-people-bring-your-whole-heart-0",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 49.39,
+			"y": 56.03,
+			"w": 762,
+			"h": 616,
+			"rot": 5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#dbc068",
+			"stroke": "#5e4b67",
+			"strokeW": 2,
+			"radius": 0,
+			"sides": 16,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.83
+		},
+		{
+			"id": "waf-find-your-people-bring-your-whole-heart-1",
+			"type": "text",
+			"name": "FIND YOUR PEOPLE BRING YOUR WHOLE HEART",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 178.39,
+			"y": 183.03,
+			"w": 504,
+			"h": 347,
+			"rot": -5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "FIND YOUR PEOPLE\nBRING YOUR\nWHOLE HEART",
+			"fontSize": 100,
+			"fontFamily": "Bangers",
+			"weight": 400,
+			"color": "#5e4b67",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "FIND YOUR PEOPLE\n",
+					"s": {
+						"color": "#5e4b67"
+					}
+				},
+				{
+					"text": "BRING YOUR\n",
+					"s": {
+						"color": "#5e4b67"
+					}
+				},
+				{
+					"text": "WHOLE HEART",
+					"s": {
+						"color": "#5e4b67"
+					}
+				}
+			],
+			"textFX": {
+				"longShadow": {
+					"angle": 45,
+					"length": 4,
+					"color": "#fff2e0"
+				}
+			}
+		}
+	]
+}

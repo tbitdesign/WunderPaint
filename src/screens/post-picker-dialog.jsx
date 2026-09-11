@@ -111,6 +111,7 @@ export function PostPickerDialog( {
 				className="stock-dialog post-picker"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Preview with Post', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -184,7 +185,7 @@ export function PostPickerDialog( {
 						// eslint-disable-next-line jsx-a11y/no-autofocus
 						autoFocus
 						placeholder={ __(
-							'Search posts by title…',
+							'Search posts by title',
 							'wunderpaint'
 						) }
 						value={ q }

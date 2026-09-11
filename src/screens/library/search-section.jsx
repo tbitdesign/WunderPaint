@@ -77,7 +77,7 @@ export function ExtensionSectionModal( { section, editor, extras, onClose } ) {
 			<div className="library-toolbar">
 				<input
 					type="search"
-					placeholder={ __( 'Filter…', 'wunderpaint' ) }
+					placeholder={ __( 'Filter', 'wunderpaint' ) }
 					value={ query }
 					onChange={ ( e ) => setQuery( e.target.value ) }
 					aria-label={ __( 'Search the library', 'wunderpaint' ) }

@@ -341,6 +341,7 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Background Studio', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

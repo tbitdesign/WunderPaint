@@ -37,7 +37,7 @@ class Extensions {
 	// Mirror of API_VERSION in src/lib/extensions.js (the enqueue gate
 	// runs server-side); tests/php/extensions.php asserts they never
 	// drift.
-	const API_VERSION = '2.22.0';
+	const API_VERSION = '2.24.0';
 
 	/**
 	 * Register hooks.
@@ -300,9 +300,7 @@ class Extensions {
 		// longer travel with every editor page just to fill a menu. The
 		// constant or filter restores the old behaviour, one script tag per
 		// package, should a host ever need it.
-		$eager = ( defined( 'WPIE_EXTENSIONS_EAGER' ) && WPIE_EXTENSIONS_EAGER )
-			|| apply_filters( 'wpie_extensions_eager', false );
-		if ( ! $eager ) {
+		if ( ! self::eager() ) {
 			return;
 		}
 		foreach ( self::all() as $ext ) {
@@ -328,13 +326,34 @@ class Extensions {
 	}
 
 	/**
+	 * Whether every package travels as a script tag (the pre-1.429 way).
+	 *
+	 * @return bool
+	 */
+	public static function eager() {
+		return ( defined( 'WPIE_EXTENSIONS_EAGER' ) && WPIE_EXTENSIONS_EAGER )
+			|| (bool) apply_filters( 'wpie_extensions_eager', false );
+	}
+
+	/**
 	 * Expose the package list (and manage permission) to the editor.
 	 *
 	 * @param array $data Bootstrap payload.
 	 * @return array
 	 */
 	public function bootstrap_data( $data ) {
-		$data['extensions']    = self::all();
+		$eager = self::eager();
+		// A package PHP enqueues must not be injected a second time by the
+		// loader: its tag sits below the editor bundle, unparsed while the
+		// editor boots, so the loader's DOM probe could not see it and every
+		// package loaded and registered twice in eager mode.
+		$data['extensions'] = array_map(
+			static function ( $ext ) use ( $eager ) {
+				$ext['enqueued'] = $eager && ! empty( $ext['enabled'] ) && empty( $ext['apiBlocked'] );
+				return $ext;
+			},
+			self::all()
+		);
 		$data['canExtensions'] = self::can_manage();
 		return $data;
 	}
@@ -389,7 +408,15 @@ class Extensions {
 	 * @return array|\WP_Error
 	 */
 	public function toggle( \WP_REST_Request $request ) {
-		$slug = sanitize_key( $request['slug'] );
+		// The URL match, not $request['slug']: WP_REST_Request ranks JSON,
+		// POST and GET ABOVE URL in get_parameter_order(), so a body field or
+		// a query string named `slug` beat the route pattern and switched a
+		// DIFFERENT extension than the address named, while the answer carried
+		// the overridden slug back. The route sits behind manage_options, so
+		// nobody gained a right they did not have - what they got was a
+		// mix-up. class-extension-store.php:75-87 explains the same mechanic
+		// and reads get_url_params() for it; this file never got the fix.
+		$slug = sanitize_key( (string) ( $request->get_url_params()['slug'] ?? '' ) );
 		$item = self::describe( $slug );
 		if ( ! $item ) {
 			return new \WP_Error( 'wpie_not_found', __( 'Extension not found.', 'wunderpaint' ), array( 'status' => 404 ) );
@@ -401,7 +428,12 @@ class Extensions {
 		if ( ! $enabled ) {
 			$disabled[] = $slug;
 		}
-		update_option( self::OPTION_DISABLED, $disabled );
+		// Kein Autoload: die Liste wird im Editor und in REST gelesen, nie
+		// auf einer Besucherseite. Ohne den dritten Parameter legt WordPress
+		// sie beim ERSTEN Schreiben mit 'auto' an und behaelt das danach
+		// bei - genau SETTINGS-05, dessen Reparatur nur die Haupteinstellung
+		// erreicht hat.
+		update_option( self::OPTION_DISABLED, $disabled, false );
 		$item['enabled'] = $enabled;
 		return $item;
 	}

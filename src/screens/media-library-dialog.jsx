@@ -14,6 +14,7 @@
  * (color during the local index pass, dimensions via a server backfill).
  */
 
+import { siteStorage } from '../lib/local-storage';
 import { useState, useEffect, useRef } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -305,8 +306,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	// Grid or list presentation (v1.244), remembered across sessions.
 	const [ viewMode, setViewMode ] = useState( () => {
 		try {
-			return 'list' ===
-				window.localStorage.getItem( 'wpie-mlm-view-mode' )
+			return 'list' === siteStorage.getItem( 'wpie-mlm-view-mode' )
 				? 'list'
 				: 'grid';
 		} catch ( e ) {
@@ -316,7 +316,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	const switchViewMode = ( mode ) => {
 		setViewMode( mode );
 		try {
-			window.localStorage.setItem( 'wpie-mlm-view-mode', mode );
+			siteStorage.setItem( 'wpie-mlm-view-mode', mode );
 		} catch ( e ) {}
 	};
 	// Filter facets (authors, upload months), sent along with page 1.
@@ -438,9 +438,16 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	const [ renameOpen, setRenameOpen ] = useState( false );
 	const [ renamePattern, setRenamePattern ] = useState( '' );
 	const searchTimer = useRef( null );
-	// Monotonic token so an out-of-order async search result never overwrites
-	// a newer query (v1.227.0). Bumped when a search/similar run starts.
+	// One generation for every result source, including folder navigation
+	// and the time between keystrokes and a debounced search.
 	const searchSeq = useRef( 0 );
+	useEffect(
+		() => () => {
+			searchSeq.current++;
+			clearTimeout( searchTimer.current );
+		},
+		[]
+	);
 	const renameRef = useRef( null );
 
 	const cloudEngine = providers.anthropic
@@ -459,15 +466,33 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 		null;
 	const affixGroups = affixBindingGroups( kit );
 
-	useEscape(
-		() =>
+	// The AI auto-tag run: Escape used to close the dialog over it, and the
+	// paid loop went on unseen. While it runs, Escape asks it to stop after
+	// the current image; the close buttons are disabled meanwhile anyway.
+	const tagCancelRef = useRef( false );
+	useEscape( () => {
+		if ( tagProgress ) {
+			if ( ! tagCancelRef.current ) {
+				tagCancelRef.current = true;
+				extras.toasts.toast(
+					__( 'Stopping after the current image…', 'wunderpaint' )
+				);
+			}
+			return;
+		}
+		if ( busy ) {
+			return;
+		}
+		if (
 			! editId &&
 			! postPickFor &&
 			! uploadQueue &&
 			! renameOpen &&
-			! previewId &&
-			onClose()
-	);
+			! previewId
+		) {
+			onClose();
+		}
+	} );
 
 	/* ------------------------------ loaders ---------------------------- */
 
@@ -540,7 +565,9 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 
 	const paramsFor = ( v, p, flt ) => {
 		const base = { page: p, per: 60, ...filterParams( flt || filters ) };
-		if ( 'folder' === v.type ) {
+		if ( 'search' === v.type && 'text' === v.kind ) {
+			base.search = v.params.q;
+		} else if ( 'folder' === v.type ) {
 			base.folder = v.id;
 		} else if ( 'tag' === v.type ) {
 			base.tag = v.id;
@@ -550,10 +577,26 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 		return base;
 	};
 
-	const loadItems = async ( v, p, append, flt ) => {
+	const beginRequest = ( append = false ) => {
+		clearTimeout( searchTimer.current );
+		searchTimer.current = null;
+		const token = ++searchSeq.current;
 		setLoading( true );
+		if ( ! append ) {
+			setSelected( new Set() );
+			lastClicked.current = null;
+			setItems( [] );
+		}
+		return token;
+	};
+
+	const loadItems = async ( v, p, append, flt, token ) => {
+		const myId = token ?? beginRequest( append );
 		try {
 			const res = await mediaLib.items( paramsFor( v, p, flt ) );
+			if ( myId !== searchSeq.current ) {
+				return;
+			}
 			setItems( ( prev ) =>
 				append ? [ ...prev, ...res.items ] : res.items
 			);
@@ -568,36 +611,40 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 				} );
 			}
 		} catch ( e ) {
-			extras.toasts.error( e.message );
+			if ( myId === searchSeq.current ) {
+				extras.toasts.error( e.message );
+			}
+		} finally {
+			if ( myId === searchSeq.current ) {
+				setLoading( false );
+			}
 		}
-		setLoading( false );
 	};
 
-	// Shared result renderer for ranked id lists (semantic search + similar).
-	const showRanked = async ( hitIds, name, flt, token ) => {
-		const myId = token ?? ++searchSeq.current;
-		setLoading( true );
-		setSelected( new Set() );
+	// Keep the source of a ranked list; its display name is never a query.
+	const showRanked = async ( hitIds, nextView, flt, token ) => {
+		const myId = token ?? beginRequest();
+		const activeFilters = flt || filters;
 		try {
 			let list = [];
 			if ( hitIds.length ) {
-				// Re-fetch full shapes in ranked order and apply the active
-				// structured filters, so ranked views compose with them.
 				const res = await mediaLib.items( {
 					ids: hitIds,
 					per: hitIds.length,
-					...filterParams( flt || filters ),
+					...filterParams( activeFilters ),
 				} );
-				// A newer search started while this one was fetching: drop the
-				// stale result so it never overwrites the latest query.
 				if ( myId !== searchSeq.current ) {
 					return;
 				}
-				const rank = new Map( hitIds.map( ( id, i ) => [ id, i ] ) );
-				list = ( res.items || [] ).sort(
-					( a, b ) =>
-						( rank.get( a.id ) ?? 0 ) - ( rank.get( b.id ) ?? 0 )
-				);
+				list = res.items || [];
+				if ( ! activeFilters.orderby ) {
+					const rank = new Map(
+						hitIds.map( ( id, i ) => [ id, i ] )
+					);
+					list.sort(
+						( a, b ) => rank.get( a.id ) - rank.get( b.id )
+					);
+				}
 			} else if ( myId !== searchSeq.current ) {
 				return;
 			}
@@ -606,15 +653,19 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 			setPages( 1 );
 			setTotal( list.length );
 			setPage( 1 );
-			setView( { type: 'search', name } );
+			setView( nextView );
 		} catch ( e ) {
-			extras.toasts.error( e.message );
+			if ( myId === searchSeq.current ) {
+				extras.toasts.error( e.message );
+			}
 		} finally {
-			setLoading( false );
+			if ( myId === searchSeq.current ) {
+				setLoading( false );
+			}
 		}
 	};
 
-	const runSemantic = async ( q, flt ) => {
+	const runSearch = async ( q, flt, kind ) => {
 		const text = ( q || '' ).trim();
 		if ( ! text ) {
 			return selectView( {
@@ -622,16 +673,21 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 				name: __( 'All images', 'wunderpaint' ),
 			} );
 		}
-		if ( ! searchModelInstalled() ) {
-			extras.toasts.error(
-				__(
-					'Semantic search needs the image search model. Install it under Settings.',
-					'wunderpaint'
-				)
-			);
-			return;
+		const myId = beginRequest();
+		const nextView = {
+			type: 'search',
+			kind:
+				'text' === kind || ! searchModelInstalled()
+					? 'text'
+					: 'semantic',
+			name: text,
+			params: { q: text },
+		};
+		setView( nextView );
+		setQuery( text );
+		if ( 'text' === nextView.kind ) {
+			return loadItems( nextView, 1, false, flt, myId );
 		}
-		const myId = ++searchSeq.current;
 		try {
 			const hits = await searchMediaLibrary( text, {
 				limit: 120,
@@ -642,16 +698,22 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 			}
 			await showRanked(
 				hits.map( ( h ) => h.id ),
-				text,
+				nextView,
 				flt,
 				myId
 			);
 		} catch ( e ) {
-			extras.toasts.error( e.message );
+			if ( myId === searchSeq.current ) {
+				extras.toasts.error( e.message );
+			}
+		} finally {
+			if ( myId === searchSeq.current ) {
+				setLoading( false );
+			}
 		}
 	};
 
-	const openSimilar = async ( id ) => {
+	const openSimilar = async ( id, flt ) => {
 		if ( ! searchModelInstalled() ) {
 			extras.toasts.error(
 				__(
@@ -661,49 +723,53 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 			);
 			return;
 		}
-		const myId = ++searchSeq.current;
+		const myId = beginRequest();
+		const nextView = {
+			type: 'similar',
+			id,
+			name: __( 'Similar images', 'wunderpaint' ),
+		};
+		setView( nextView );
+		setQuery( '' );
 		try {
-			const ids = await findSimilar( id );
+			const hits = await findSimilar( id );
 			if ( myId !== searchSeq.current ) {
 				return;
 			}
-			if ( ! ids.length ) {
+			if ( ! hits.length ) {
 				extras.toasts.error(
 					__(
 						'No similar images found. Index the library first.',
 						'wunderpaint'
 					)
 				);
-				return;
 			}
-			await showRanked(
-				ids,
-				__( 'Similar images', 'wunderpaint' ),
-				undefined,
-				myId
-			);
+			await showRanked( hits, nextView, flt, myId );
 		} catch ( e ) {
-			extras.toasts.error( e.message );
+			if ( myId === searchSeq.current ) {
+				extras.toasts.error( e.message );
+			}
+		} finally {
+			if ( myId === searchSeq.current ) {
+				setLoading( false );
+			}
 		}
-	};
-
-	const viewQuery = ( v ) => {
-		if ( 'search' === v.type ) {
-			return v.name;
-		}
-		if ( 'smart' === v.type && 'semantic' === v.kind ) {
-			return v.params?.q || '';
-		}
-		return '';
 	};
 
 	const reloadWith = ( next ) => {
-		const qtext = viewQuery( view );
-		if ( qtext ) {
-			runSemantic( qtext, next );
-		} else {
-			loadItems( view, 1, false, next );
+		if ( 'similar' === view.type ) {
+			return openSimilar( view.id, next );
 		}
+		if ( 'broken' === view.type ) {
+			return showRanked( view.ids || [], view, next );
+		}
+		if (
+			'search' === view.type ||
+			( 'smart' === view.type && 'semantic' === view.kind )
+		) {
+			return runSearch( view.params?.q || '', next, view.kind );
+		}
+		return loadItems( view, 1, false, next );
 	};
 
 	const changeFilter = ( patch ) => {
@@ -719,12 +785,10 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	};
 
 	const selectView = ( v ) => {
-		setSelected( new Set() );
-		lastClicked.current = null;
 		setView( v );
+		setQuery( '' );
 		if ( 'smart' === v.type && 'semantic' === v.kind ) {
-			setQuery( v.params?.q || '' );
-			runSemantic( v.params?.q || '' );
+			runSearch( v.params?.q || '' );
 		} else if ( 'smart' === v.type && 'reclaim' === v.kind ) {
 			// Reclaim space: biggest files first so the space hogs are on top.
 			const next = { ...filters, orderby: 'filesize', order: 'DESC' };
@@ -737,27 +801,26 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	};
 
 	const reclaimView = 'smart' === view.type && 'reclaim' === view.kind;
+	const canSaveSearch = 'search' === view.type && 'semantic' === view.kind;
 
-	// Live search: debounce while typing (semantic runs need the model, so
-	// only schedule when it is installed; Enter still works either way).
 	const onSearchChange = ( v ) => {
 		setQuery( v );
-		if ( searchTimer.current ) {
-			clearTimeout( searchTimer.current );
-			searchTimer.current = null;
-		}
-		const t = v.trim();
-		if ( ! t ) {
+		// Invalidate immediately, even while the next query is debouncing.
+		beginRequest();
+		if ( ! v.trim() ) {
 			selectView( {
 				type: 'all',
 				name: __( 'All images', 'wunderpaint' ),
 			} );
 			return;
 		}
-		if ( t.length < 2 || ! searchModelInstalled() ) {
-			return;
-		}
-		searchTimer.current = setTimeout( () => runSemantic( t ), 450 );
+		setView( {
+			type: 'search',
+			kind: searchModelInstalled() ? 'semantic' : 'text',
+			name: v.trim(),
+			params: { q: v.trim() },
+		} );
+		searchTimer.current = setTimeout( () => runSearch( v ), 450 );
 	};
 
 	// Initial load + background prep so filters work: numeric sort meta
@@ -860,7 +923,10 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 
 	/* ------------------------------ bulk ------------------------------- */
 
-	const ids = () => [ ...selected ];
+	const ids = () =>
+		items
+			.filter( ( item ) => selected.has( item.id ) )
+			.map( ( item ) => item.id );
 
 	const afterMutation = async ( { reload = true } = {} ) => {
 		await Promise.all( [ refreshFolders(), refreshTags() ] );
@@ -996,6 +1062,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 			}
 		}
 		if ( added ) {
+			dispatch( { type: 'SET_TOOL', tool: 'move' } );
 			commit( __( 'Insert Image', 'wunderpaint' ) );
 			onClose();
 		}
@@ -1140,7 +1207,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	};
 
 	const saveSmart = async () => {
-		if ( ! semantic ) {
+		if ( ! canSaveSearch ) {
 			return;
 		}
 		const name = await promptDialog( {
@@ -1155,7 +1222,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 			await mediaLib.smart.create( {
 				name,
 				kind: 'semantic',
-				params: { q: view.name },
+				params: { q: view.params.q },
 			} );
 			refreshSmart();
 		} catch ( e ) {
@@ -1238,32 +1305,50 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 		const named = ( clusters || [] ).filter(
 			( c ) => c.name && c.name.trim()
 		);
-		if ( ! named.length ) {
+		if ( ! named.length || clusterBusy ) {
 			return;
 		}
+		setClusterBusy( true );
+		const completed = new Set();
 		for ( const cl of named ) {
 			try {
+				// The server reuses an existing name, so retrying an assignment
+				// after folder creation succeeded does not create a second folder.
 				const folder = await mediaLib.folders.create(
 					cl.name.trim(),
 					0
 				);
-
-				await mediaLib.assign( { ids: cl.ids, folder: folder.id } );
+				const result = await mediaLib.assign( {
+					ids: cl.ids,
+					folder: folder.id,
+				} );
+				if ( result.updated === cl.ids.length ) {
+					completed.add( cl );
+				}
 			} catch ( e ) {
-				// skip a cluster that failed
+				// Continue with other groups; keep this suggestion for retry.
 			}
 		}
-		setClusters( ( prev ) =>
-			prev.filter( ( c ) => ! ( c.name && c.name.trim() ) )
-		);
+		setClusters( ( prev ) => prev.filter( ( c ) => ! completed.has( c ) ) );
+		setClusterBusy( false );
 		refreshFolders();
-		extras.toasts.success(
-			sprintf(
-				/* translators: %d: count. */
-				__( 'Created %d folder(s).', 'wunderpaint' ),
-				named.length
-			)
-		);
+		if ( completed.size ) {
+			extras.toasts.success(
+				sprintf(
+					/* translators: %d: count. */
+					__( 'Created %d folder(s).', 'wunderpaint' ),
+					completed.size
+				)
+			);
+		}
+		if ( completed.size < named.length ) {
+			extras.toasts.error(
+				__(
+					'Some folders could not be completed. Their suggestions are kept for retry.',
+					'wunderpaint'
+				)
+			);
+		}
 	};
 
 	const createFromCluster = async ( cl, idx ) => {
@@ -1351,11 +1436,17 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 		const chosen = items.filter( ( i ) => selected.has( i.id ) );
 		setBusy( true );
 		setTagProgress( { done: 0, total: chosen.length } );
+		tagCancelRef.current = false;
 		const known = new Map(
 			tags.map( ( t ) => [ t.name.toLowerCase(), t.id ] )
 		);
 		let tagged = 0;
+		let stopped = false;
 		for ( const item of chosen ) {
+			if ( tagCancelRef.current ) {
+				stopped = true;
+				break;
+			}
 			try {
 				const dataUrl = await toDataUrl( item.url || item.thumb );
 
@@ -1401,11 +1492,21 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 		setTagProgress( null );
 		setBusy( false );
 		extras.toasts.success(
-			sprintf(
-				/* translators: %d: count. */
-				__( 'Auto-tagged %d image(s) with AI.', 'wunderpaint' ),
-				tagged
-			)
+			stopped
+				? sprintf(
+						/* translators: 1: tagged count, 2: total. */
+						__(
+							'Stopped: auto-tagged %1$d of %2$d image(s).',
+							'wunderpaint'
+						),
+						tagged,
+						chosen.length
+				  )
+				: sprintf(
+						/* translators: %d: count. */
+						__( 'Auto-tagged %d image(s) with AI.', 'wunderpaint' ),
+						tagged
+				  )
 		);
 	};
 
@@ -1467,13 +1568,21 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 			return;
 		}
 		try {
-			await mediaLib.remove( marked, false );
+			const result = await mediaLib.remove( marked, false );
 			invalidateVectorCache();
-			const gone = new Set( marked );
+			const gone = new Set( result.deleted || [] );
+			if ( marked.some( ( id ) => ! gone.has( id ) ) ) {
+				extras.toasts.error(
+					__(
+						'Some files could not be moved to the trash.',
+						'wunderpaint'
+					)
+				);
+			}
 			setItems( ( prev ) => prev.filter( ( i ) => ! gone.has( i.id ) ) );
 			setDupTrash( ( prev ) => {
 				const n = new Set( prev );
-				marked.forEach( ( id ) => n.delete( id ) );
+				gone.forEach( ( id ) => n.delete( id ) );
 				return n;
 			} );
 			// Drop the group (or its removed members); groups under 2 vanish.
@@ -1727,20 +1836,49 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	};
 
 	const findBroken = async () => {
-		setBusy( true );
+		const myId = beginRequest();
+		setQuery( '' );
 		try {
-			const r = await mediaLib.broken();
-			if ( ! ( r.ids || [] ).length ) {
+			// Page by page: the route walks the ids in order and says where
+			// to continue, so a big library answers in slices instead of one
+			// request that times out with nothing to show.
+			const hits = [];
+			let after = 0;
+			for ( let seite = 0; seite < 400; seite++ ) {
+				const r = await mediaLib.broken( after );
+				if ( myId !== searchSeq.current ) {
+					return;
+				}
+				hits.push( ...( r.ids || [] ) );
+				if ( ! r.next ) {
+					break;
+				}
+				after = r.next;
+			}
+			await showRanked(
+				hits,
+				{
+					type: 'broken',
+					name: __( 'Broken files', 'wunderpaint' ),
+					ids: hits,
+				},
+				undefined,
+				myId
+			);
+			if ( ! hits.length && myId === searchSeq.current ) {
 				extras.toasts.success(
 					__( 'No broken files found.', 'wunderpaint' )
 				);
-			} else {
-				await showRanked( r.ids, __( 'Broken files', 'wunderpaint' ) );
 			}
 		} catch ( e ) {
-			extras.toasts.error( e.message );
+			if ( myId === searchSeq.current ) {
+				extras.toasts.error( e.message );
+			}
+		} finally {
+			if ( myId === searchSeq.current ) {
+				setLoading( false );
+			}
 		}
-		setBusy( false );
 	};
 
 	const openRename = () => {
@@ -1754,7 +1892,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	};
 
 	const doRename = async () => {
-		const chosenIds = [ ...selected ];
+		const chosenIds = ids();
 		const pat = renamePattern.trim();
 		if ( ! pat ) {
 			return;
@@ -1789,6 +1927,23 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 	};
 
 	/* ------------------------------ render ----------------------------- */
+
+	const folderById = new Map(
+		folders.map( ( folder ) => [ folder.id, folder ] )
+	);
+	const folderPath = ( folder ) => {
+		const names = [];
+		const seen = new Set();
+		for (
+			let f = folder;
+			f && ! seen.has( f.id );
+			f = folderById.get( f.parent )
+		) {
+			names.unshift( f.name );
+			seen.add( f.id );
+		}
+		return names.join( ' / ' );
+	};
 
 	const childrenOf = ( parent ) =>
 		folders.filter( ( f ) => ( f.parent || 0 ) === parent );
@@ -1885,6 +2040,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 				className="wpie-mlm-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Media Library Manager', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -1916,10 +2072,14 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							</span>
 							<input
 								className="wpie-mlm-search"
-								placeholder={ __(
-									'Search images by what they show',
-									'wunderpaint'
-								) }
+								placeholder={
+									searchModelInstalled()
+										? __(
+												'Search images by what they show',
+												'wunderpaint'
+										  )
+										: __( 'Search by title', 'wunderpaint' )
+								}
 								value={ query }
 								onChange={ ( e ) =>
 									onSearchChange( e.target.value )
@@ -1929,7 +2089,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 										if ( searchTimer.current ) {
 											clearTimeout( searchTimer.current );
 										}
-										runSemantic( query );
+										runSearch( query );
 									}
 								} }
 							/>
@@ -2459,7 +2619,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 									) }
 								</span>
 							) }
-							{ semantic && (
+							{ canSaveSearch && (
 								<button
 									className="ai-btn secondary sm"
 									onClick={ saveSmart }
@@ -3291,7 +3451,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 														key={ f.id }
 														value={ f.id }
 													>
-														{ f.name }
+														{ folderPath( f ) }
 													</option>
 												) ) }
 											</select>
@@ -3754,6 +3914,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							className="wpie-mlm-cluster-panel"
 							onClick={ ( e ) => e.stopPropagation() }
 							role="dialog"
+							aria-modal="true"
 						>
 							<div className="dsm-head">
 								<span className="dsm-badge">
@@ -3890,6 +4051,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							className="wpie-mlm-cluster-panel wide"
 							onClick={ ( e ) => e.stopPropagation() }
 							role="dialog"
+							aria-modal="true"
 						>
 							<div className="dsm-head">
 								<span className="dsm-badge">
@@ -4031,6 +4193,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							className="wpie-mlm-cluster-panel wide"
 							onClick={ ( e ) => e.stopPropagation() }
 							role="dialog"
+							aria-modal="true"
 						>
 							<div className="dsm-head">
 								<span className="dsm-badge">
@@ -4082,7 +4245,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 										</option>
 										{ folders.map( ( f ) => (
 											<option key={ f.id } value={ f.id }>
-												{ f.name }
+												{ folderPath( f ) }
 											</option>
 										) ) }
 									</select>
@@ -4255,6 +4418,7 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 							className="wpie-mlm-cluster-panel"
 							onClick={ ( e ) => e.stopPropagation() }
 							role="dialog"
+							aria-modal="true"
 						>
 							<div className="dsm-head">
 								<span className="dsm-badge">

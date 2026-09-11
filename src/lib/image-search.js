@@ -247,6 +247,13 @@ export async function runIndexer() {
 	indexerState = { running: true, done: 0, total: 0 };
 	notify();
 	logEvent( 'info', 'search', 'Indexer started' );
+	// Proof of progress. The tombstone write below swallows its error, so an
+	// item the server refuses to store (it wants edit rights on the
+	// attachment) stayed pending: the next page came back with the SAME eight
+	// images and this loop ran until the tab was closed, embedding them over
+	// and over. The server no longer offers work the caller cannot write, and
+	// this is the belt for every other reason a write can fail.
+	const versucht = new Set();
 	try {
 		for (;;) {
 			const batch = await request( {
@@ -259,7 +266,16 @@ export async function runIndexer() {
 			if ( ! batch.items?.length ) {
 				break;
 			}
+			if ( batch.items.every( ( it ) => versucht.has( it.id ) ) ) {
+				logEvent(
+					'warn',
+					'search',
+					`Indexer stopped: ${ batch.items.length } images stay pending after a full pass (no write permission?)`
+				);
+				break;
+			}
 			for ( const item of batch.items ) {
+				versucht.add( item.id );
 				try {
 					const vec = await embedImageUrl( item.src );
 					let colors = [];

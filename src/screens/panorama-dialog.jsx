@@ -377,8 +377,11 @@ export function PanoramaDialog( { onClose, extras } ) {
 	// source photo rebuilt as a full sphere. Same providers and models as
 	// the AI panel (the configured image provider decides the model);
 	// pickable here, starting from the default provider.
+	// Image providers only (the ones PROVIDER_LABELS knows): the flags also
+	// carry 'anthropic' (text only) and 'core', WordPress' own AI client,
+	// which cannot draw a picture. Both used to show up as choices here.
 	const configured = window.WPIE?.providers || {};
-	const providerIds = Object.keys( configured ).filter(
+	const providerIds = Object.keys( PROVIDER_LABELS ).filter(
 		( k ) => configured[ k ]
 	);
 	const hasProvider = providerIds.length > 0;
@@ -447,6 +450,7 @@ export function PanoramaDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( '360° Panorama', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -505,34 +509,38 @@ export function PanoramaDialog( { onClose, extras } ) {
 						} }
 					>
 						<div className="dsm-sect">
-							<span className="dsm-label">
-								{ __( 'Create with AI', 'wunderpaint' ) }
-							</span>
 							{ hasProvider && (
 								<div
 									style={ {
-										display: 'flex',
-										gap: 4,
-										flexWrap: 'wrap',
+										display: 'grid',
+										gridTemplateColumns: '100px 1fr',
+										gap: 12,
+										alignItems: 'center',
 									} }
 								>
-									{ providerIds.map( ( id ) => (
-										<button
-											key={ id }
-											className={
-												'ai-provider-pill' +
-												( genProvider === id
-													? ' active'
-													: '' )
-											}
-											onClick={ () =>
-												setGenProviderSel( id )
-											}
-										>
-											<span className="dot" />
-											{ PROVIDER_LABELS[ id ] || id }
-										</button>
-									) ) }
+									<span className="dsm-label">
+										{ __(
+											'AI Image Provider',
+											'wunderpaint'
+										) }
+									</span>
+									<select
+										className="dsm-select"
+										value={ genProvider }
+										onChange={ ( e ) =>
+											setGenProviderSel( e.target.value )
+										}
+										aria-label={ __(
+											'AI provider',
+											'wunderpaint'
+										) }
+									>
+										{ providerIds.map( ( id ) => (
+											<option key={ id } value={ id }>
+												{ PROVIDER_LABELS[ id ] || id }
+											</option>
+										) ) }
+									</select>
 								</div>
 							) }
 							<div

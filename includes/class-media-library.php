@@ -24,6 +24,8 @@ class Media_Library {
 	const FOLDER_TAX = 'wpie_folder';
 	const TAG_TAX     = 'wpie_tag';
 	const SMART_META  = 'wpie_smart_folders';
+	/** Smart folders per user; the row is one user-meta value. */
+	const SMART_MAX = 100;
 
 	/** Image types the manager shows and operates on. */
 	const MIMES = array(
@@ -281,6 +283,29 @@ class Media_Library {
 	/* --------------------------------- items ------------------------------ */
 
 	/**
+	 * Merge a verdict's query fragment into the caller's own filters.
+	 *
+	 * Both sides may carry a meta_query and a date_query - the month filter
+	 * on one, the "fresh" verdict on the other. Those are ANDed, not
+	 * overwritten: the fragment used to replace the month's date_query, and
+	 * the month was silently ignored.
+	 *
+	 * @param array $args     WP_Query args so far.
+	 * @param array $fragment From Media_Usage::query_args().
+	 * @return array Merged args.
+	 */
+	public static function merge_query_args( $args, $fragment ) {
+		foreach ( (array) $fragment as $key => $value ) {
+			if ( in_array( $key, array( 'meta_query', 'date_query' ), true ) && ! empty( $args[ $key ] ) && is_array( $value ) ) {
+				$args[ $key ] = array_merge( $args[ $key ], $value ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- merging the caller's own filters.
+				continue;
+			}
+			$args[ $key ] = $value;
+		}
+		return $args;
+	}
+
+	/**
 	 * A filtered, paged page of library images with everything the grid and
 	 * the per-image editor need.
 	 *
@@ -413,9 +438,21 @@ class Media_Library {
 		$order   = 'ASC' === strtoupper( (string) $req->get_param( 'order' ) ) ? 'ASC' : 'DESC';
 		$orderby = (string) $req->get_param( 'orderby' );
 		if ( 'area' === $orderby || 'filesize' === $orderby ) {
-			$meta['order_clause'] = array(
-				'key'  => 'area' === $orderby ? self::AREA_KEY : self::FILESIZE_KEY,
-				'type' => 'NUMERIC',
+			$key = 'area' === $orderby ? self::AREA_KEY : self::FILESIZE_KEY;
+			// Keep legacy files visible before backfill. The named NOT EXISTS
+			// clause binds its LEFT JOIN to this key, so ordering sees only
+			// the requested value (or NULL), never another metadata field.
+			$meta['sort_meta'] = array(
+				'relation'     => 'OR',
+				'order_clause' => array(
+					'key'     => $key,
+					'type'    => 'NUMERIC',
+					'compare' => 'NOT EXISTS',
+				),
+				array(
+					'key'     => $key,
+					'compare' => 'EXISTS',
+				),
 			);
 			$args['orderby'] = array( 'order_clause' => $order );
 		} elseif ( 'title' === $orderby ) {
@@ -448,17 +485,9 @@ class Media_Library {
 			// `unused` flag, which diffed a featured-image list against a regex
 			// over 500 posts and had no idea page builders existed.
 			$verdict = (string) $req->get_param( 'usage' );
-			foreach ( Media_Usage::query_args( $verdict ) as $key => $value ) {
-				if ( 'meta_query' === $key && ! empty( $args['meta_query'] ) ) {
-					$args['meta_query'] = array_merge( $args['meta_query'], $value ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- merging the caller's own filters.
-					continue;
-				}
-				$args[ $key ] = $value;
-			}
+			$args    = self::merge_query_args( $args, Media_Usage::query_args( $verdict ) );
 		} elseif ( $req->get_param( 'unused' ) ) {
-			foreach ( Media_Usage::query_args( 'unused' ) as $key => $value ) {
-				$args[ $key ] = $value;
-			}
+			$args = self::merge_query_args( $args, Media_Usage::query_args( 'unused' ) );
 		}
 
 		$query = new \WP_Query( $args );
@@ -548,7 +577,7 @@ class Media_Library {
 			'thumb'       => $thumb ? $thumb[0] : ( $full ? $full[0] : '' ),
 			// Non-image files need their direct file URL (players,
 			// downloads, wp.media handoff); images keep the full-size src.
-			'url'         => $full ? $full[0] : (string) wp_get_attachment_url( $id ),
+			'url'         => 'image' === $kind && $full ? $full[0] : (string) wp_get_attachment_url( $id ),
 			'kind'        => $kind,
 			'icon'        => 'image' === $kind ? '' : (string) wp_mime_type_icon( $id ),
 			'filename'    => wp_basename( (string) get_attached_file( $id ) ),
@@ -636,23 +665,29 @@ class Media_Library {
 	 * @return array
 	 */
 	public function backfill( \WP_REST_Request $req ) {
-		$per = min( 200, max( 1, (int) ( $req->get_param( 'per' ) ?: 100 ) ) );
-		$q   = new \WP_Query(
-			array(
-				'post_type'      => 'attachment',
-				'post_status'    => 'inherit',
-				'post_mime_type' => array_merge( self::MIMES, self::VIDEO_MIMES ),
-				'posts_per_page' => $per,
-				'fields'         => 'ids',
-				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- bounded batch, editor-triggered.
-				'meta_query'     => array(
-					array(
-						'key'     => self::AREA_KEY,
-						'compare' => 'NOT EXISTS',
-					),
+		$per  = min( 200, max( 1, (int) ( $req->get_param( 'per' ) ?: 100 ) ) );
+		$args = array(
+			'post_type'      => 'attachment',
+			'post_status'    => 'inherit',
+			// File size applies to documents and audio too.
+			'posts_per_page' => $per,
+			'fields'         => 'ids',
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- bounded batch, editor-triggered.
+			'meta_query'     => array(
+				array(
+					'key'     => self::AREA_KEY,
+					'compare' => 'NOT EXISTS',
 				),
-			)
+			),
 		);
+		// The loop below skips what the caller may not edit. For an author
+		// that was the same page of other people's images every time, so
+		// `remaining` never fell and the dialog ran its sixty rounds on every
+		// open. Offer only what they can finish.
+		if ( ! current_user_can( 'edit_others_posts' ) ) {
+			$args['author'] = get_current_user_id();
+		}
+		$q = new \WP_Query( $args );
 		foreach ( $q->posts as $id ) {
 			// Per-object capability, like save_colors() does. (F-L06)
 			if ( ! current_user_can( 'edit_post', (int) $id ) ) {
@@ -776,37 +811,59 @@ class Media_Library {
 	}
 
 	/**
-	 * Image attachments whose underlying file is missing on disk (capped).
+	 * Image attachments whose underlying file is missing on disk, one page
+	 * of ids at a time.
 	 *
-	 * @return array
+	 * It used to load EVERY image id in one query and stat every file in one
+	 * request; on a large library that was a timeout with nothing to show.
+	 * Now the caller walks the ids in order: `after` is the last id it saw,
+	 * `next` is where to continue, null when the walk is over.
+	 *
+	 * @param \WP_REST_Request|null $req Request (after, per).
+	 * @return array { ids, next, scanned }
 	 */
-	public function broken() {
-		$out = array();
-		foreach ( $this->all_image_ids() as $id ) {
+	public function broken( $req = null ) {
+		global $wpdb;
+		$after = $req ? max( 0, (int) $req->get_param( 'after' ) ) : 0;
+		$per   = $req ? (int) $req->get_param( 'per' ) : 0;
+		$per   = max( 50, min( 500, $per ? $per : 500 ) );
+		$mimes = (array) self::MIMES;
+		$holes = implode( ',', array_fill( 0, count( $mimes ), '%s' ) );
+		$wpdb->last_error = '';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- placeholders built from a fixed list, all values prepared. The replacement count is built by array_merge, which the sniff cannot count.
+		$ids = array_map(
+			'intval',
+			$wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'inherit' AND post_mime_type IN ($holes) AND ID > %d ORDER BY ID ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					array_merge( $mimes, array( $after, $per ) )
+				)
+			)
+		);
+		// phpcs:enable
+		if ( '' !== (string) $wpdb->last_error ) {
+			// An empty page would read as "no broken links": say that the
+			// scan could not run instead.
+			return new \WP_Error( 'wpie_broken_scan', __( 'This action is not available right now.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
+		if ( $ids ) {
+			// One meta query for the page instead of one per attachment.
+			update_meta_cache( 'post', $ids );
+		}
+		$out  = array();
+		$last = 0;
+		foreach ( $ids as $id ) {
+			$last = $id;
 			$file = get_attached_file( $id );
 			if ( ! $file || ! file_exists( $file ) ) {
 				$out[] = $id;
-				if ( count( $out ) >= 500 ) {
-					break;
-				}
 			}
 		}
-		return array( 'ids' => $out );
-	}
-
-	/** Every image attachment id (ids-only query, used by the broken-file check). */
-	private function all_image_ids() {
-		$q = new \WP_Query(
-			array(
-				'post_type'      => 'attachment',
-				'post_status'    => 'inherit',
-				'post_mime_type' => self::MIMES,
-				'posts_per_page' => -1,
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-			)
+		return array(
+			'ids'     => $out,
+			'next'    => count( $ids ) === $per ? $last : null,
+			'scanned' => count( $ids ),
 		);
-		return array_map( 'intval', $q->posts );
 	}
 
 	/* -------------------------------- folders ----------------------------- */
@@ -1155,9 +1212,15 @@ class Media_Library {
 			'kind'   => $kind,
 			'params' => $params,
 		);
-		$all   = $this->smart_all();
+		$all = $this->smart_all();
+		if ( count( $all ) >= self::SMART_MAX ) {
+			return new \WP_Error( 'wpie_smart_limit', __( 'You have reached the maximum number of smart folders. Delete one first.', 'wunderpaint' ), array( 'status' => 409 ) );
+		}
 		$all[] = $item;
-		update_user_meta( get_current_user_id(), self::SMART_META, $all );
+		// wp_slash(): update_metadata() unslashes the whole list, so every
+		// save stripped a backslash level from every smart folder's search
+		// text, not only from the one being written.
+		update_user_meta( get_current_user_id(), self::SMART_META, wp_slash( $all ) );
 		return $item;
 	}
 
@@ -1199,7 +1262,10 @@ class Media_Library {
 				}
 			)
 		);
-		update_user_meta( get_current_user_id(), self::SMART_META, $all );
+		// wp_slash(): update_metadata() unslashes the whole list, so every
+		// save stripped a backslash level from every smart folder's search
+		// text, not only from the one being written.
+		update_user_meta( get_current_user_id(), self::SMART_META, wp_slash( $all ) );
 		return array( 'ok' => true );
 	}
 }

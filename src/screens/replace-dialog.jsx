@@ -201,6 +201,14 @@ export function ReplaceDialog( { id, current, onClose, onDone, toasts } ) {
 			toasts?.error(
 				e.message || __( 'Replace failed.', 'wunderpaint' )
 			);
+			// Renaming rewrites every entry that points at the image, so the
+			// server refuses it when one of them is out of reach. Its message
+			// says to keep the filename instead - so put the dialog there,
+			// rather than leaving the user to find the radio button that the
+			// refusal was about.
+			if ( 'wpie_replace_forbidden' === e.code ) {
+				setMode( 'keep' );
+			}
 			setBusy( '' );
 		}
 	};
@@ -228,6 +236,7 @@ export function ReplaceDialog( { id, current, onClose, onDone, toasts } ) {
 				className="wpie-mlm-cluster-panel wide wpie-replace"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Replace image', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

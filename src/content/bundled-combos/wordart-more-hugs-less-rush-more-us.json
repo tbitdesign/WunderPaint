@@ -1,0 +1,177 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-more-hugs-less-rush-more-us",
+	"label": "More hugs less rush more us",
+	"category": "wordart",
+	"w": 766,
+	"h": 597,
+	"layers": [
+		{
+			"id": "waf-more-hugs-less-rush-more-us-0",
+			"type": "text",
+			"name": "MORE HUGS LESS RUSH MORE US",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 173.8,
+			"y": 38.52,
+			"w": 434,
+			"h": 510,
+			"rot": 4,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#eaf9f1",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "MORE HUGS\nLESS RUSH\nMORE US",
+			"fontSize": 100,
+			"fontFamily": "Teko",
+			"weight": 700,
+			"color": "#379b98",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "MORE HUGS\n",
+					"s": {
+						"color": "#379b98"
+					}
+				},
+				{
+					"text": "LESS RUSH\n",
+					"s": {
+						"color": "#659dc9"
+					}
+				},
+				{
+					"text": "MORE US",
+					"s": {
+						"color": "#ccaf6a"
+					}
+				}
+			],
+			"textFX": {
+				"longShadow": {
+					"angle": 45,
+					"length": 8,
+					"color": "#2b5967"
+				}
+			}
+		},
+		{
+			"id": "waf-more-hugs-less-rush-more-us-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 437.52,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#ccaf6a",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-more-hugs-less-rush-more-us-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 106.52,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#659dc9",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-more-hugs-less-rush-more-us-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 569.52,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#379b98",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

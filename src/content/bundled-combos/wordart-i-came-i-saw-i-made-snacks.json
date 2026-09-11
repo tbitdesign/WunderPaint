@@ -1,0 +1,111 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-i-came-i-saw-i-made-snacks",
+	"label": "I came I saw I made snacks",
+	"category": "wordart",
+	"w": 861,
+	"h": 729,
+	"layers": [
+		{
+			"id": "waf-i-came-i-saw-i-made-snacks-0",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 49.39,
+			"y": 56.03,
+			"w": 762,
+			"h": 616,
+			"rot": 5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#df9c71",
+			"stroke": "#594467",
+			"strokeW": 2,
+			"radius": 0,
+			"sides": 16,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.83
+		},
+		{
+			"id": "waf-i-came-i-saw-i-made-snacks-1",
+			"type": "text",
+			"name": "I CAME I SAW I MADE SNACKS",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 178.39,
+			"y": 183.03,
+			"w": 504,
+			"h": 347,
+			"rot": -5,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "I CAME I SAW\nI MADE\nSNACKS",
+			"fontSize": 100,
+			"fontFamily": "Bangers",
+			"weight": 400,
+			"color": "#594467",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "I CAME I SAW\n",
+					"s": {
+						"color": "#594467"
+					}
+				},
+				{
+					"text": "I MADE\n",
+					"s": {
+						"color": "#594467"
+					}
+				},
+				{
+					"text": "SNACKS",
+					"s": {
+						"color": "#594467"
+					}
+				}
+			],
+			"textFX": {
+				"longShadow": {
+					"angle": 45,
+					"length": 4,
+					"color": "#fcebdc"
+				}
+			}
+		}
+	]
+}

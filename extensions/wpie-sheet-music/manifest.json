@@ -1,15 +1,15 @@
 {
 	"name": "Sheet Music",
 	"slug": "wpie-sheet-music",
-	"version": "0.2.0",
+	"version": "0.4.3",
 	"author": "TBIT DESIGN - Thomas Breher",
 	"description": "Engraved sheet music, leadsheets, chord diagrams and fretboard maps from your own material, plus the papeterie of the music lesson: blank manuscript paper to order (clef, key, meter, bars, TAB lines, chord grids), note-reading cards with the note on the front and its name on the back (letters, German names or solfège) and scale sheets with piano fingerings or guitar tablature, one scale or all twelve keys. Computed entirely in your browser.",
 	"main": "extension.js",
 	"style": "style.css",
-	"requiresApi": "2.10.0",
+	"requiresApi": "2.23.0",
 	"provides": [
 		"generator"
 	],
-	"category": "tools",
+	"category": "data",
 	"tier": "free"
 }

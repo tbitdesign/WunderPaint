@@ -108,7 +108,7 @@ async function prepareQrLayers( layers, ctx ) {
 		( l ) =>
 			l &&
 			l.qr &&
-			! l.hidden &&
+			false !== l.visible &&
 			qrHasTokens( l.qr.content ) &&
 			! hasResolvedGenerator( l, ctx )
 	);
@@ -153,7 +153,7 @@ export const needsGeneratorPrepare = ( layers ) =>
 	layers.some(
 		( l ) =>
 			l &&
-			! l.hidden &&
+			false !== l.visible &&
 			( ( l.generator && l.generator.id ) ||
 				( l.qr && qrHasTokens( l.qr.content ) ) ||
 				( 'smart' === l.type &&
@@ -192,7 +192,7 @@ async function prepareSmartLayers( layers, ctx, depth ) {
 			'smart' === l.type &&
 			'layers' === l.embedded?.kind &&
 			Array.isArray( l.embedded.layers ) &&
-			! l.hidden &&
+			false !== l.visible &&
 			! hasResolvedSmart( l, ctx )
 	);
 	await Promise.all(
@@ -419,7 +419,7 @@ export async function prepareGeneratorLayers(
 			l &&
 			l.generator &&
 			l.generator.id &&
-			! l.hidden &&
+			false !== l.visible &&
 			// Already prepared for this context (preview repaints run
 			// this pass repeatedly): skip the expensive re-bake.
 			! hasResolvedGenerator( l, ctx ) &&

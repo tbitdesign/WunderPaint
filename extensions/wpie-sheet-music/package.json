@@ -1,6 +1,6 @@
 {
 	"name": "wpie-sheet-music",
-	"version": "0.2.0",
+	"version": "0.4.3",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: Sheet Music - scores, leadsheets, chord diagrams and fretboard maps",

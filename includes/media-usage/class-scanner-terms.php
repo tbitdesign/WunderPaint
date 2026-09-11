@@ -158,41 +158,86 @@ class Scanner_Terms extends Usage_Scanner {
 	 * @return array[]
 	 */
 	public function find_for( $attachment_id, $needles ) {
+		return $this->lookup( $attachment_id, $needles );
+	}
+
+	/**
+	 * Row cap of one lookup, per table.
+	 *
+	 * @return int
+	 */
+	protected function lookup_rows() {
+		return max( 1, (int) apply_filters( 'wpie_media_usage_lookup_rows', 100, $this->key() ) );
+	}
+
+	/**
+	 * Prefilter: term and user meta rows that mention a needle. Each row is
+	 * tagged with its kind, the cap applies per table.
+	 *
+	 * @param string[] $needles Fragments.
+	 * @param int      $limit   Row cap.
+	 * @return array{rows:array,truncated:bool}
+	 */
+	protected function candidates( $needles, $limit ) {
 		global $wpdb;
 
-		$out = array();
+		$rows      = array();
+		$truncated = false;
 		foreach ( array( 'term', 'user' ) as $kind ) {
 			$args = array();
 			$like = $this->needle_sql( 'meta_value', $needles, $args );
 			if ( '' === $like ) {
 				continue;
 			}
-			$table = 'term' === $kind ? $wpdb->termmeta : $wpdb->usermeta;
-			$idcol = 'term' === $kind ? 'term_id' : 'user_id';
-			$sql   = "SELECT $idcol AS obj, meta_key, meta_value FROM $table WHERE $like LIMIT 100";
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from a fixed branch, all values prepared.
-			$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ) );
-
-			foreach ( $rows as $row ) {
-				$refs = $this->refs_from_row( (string) $row->meta_key, (string) $row->meta_value );
-				if ( ! $refs || ! Media_Usage::refs_match( $refs, $attachment_id, $this->resolver ) ) {
-					continue;
-				}
-				$obj = (int) $row->obj;
-				if ( 'term' === $kind ) {
-					$term  = get_term( $obj );
-					$label = ( $term && ! is_wp_error( $term ) ) ? $term->name : (string) $obj;
-					$edit  = ( $term && ! is_wp_error( $term ) ) ? (string) get_edit_term_link( $obj, $term->taxonomy ) : '';
-					$ctx   = __( 'Category or term image', 'wunderpaint' );
-				} else {
-					$user  = get_userdata( $obj );
-					$label = $user ? $user->display_name : (string) $obj;
-					$edit  = admin_url( 'user-edit.php?user_id=' . $obj );
-					$ctx   = __( 'User profile', 'wunderpaint' );
-				}
-				$out[] = $this->hit( $attachment_id, '', $obj, $label, $edit, $ctx );
+			$table  = 'term' === $kind ? $wpdb->termmeta : $wpdb->usermeta;
+			$idcol  = 'term' === $kind ? 'term_id' : 'user_id';
+			$args[] = (int) $limit;
+			// Table name and id column from a fixed branch, all values prepared.
+			$found = $this->rows( "SELECT $idcol AS obj, meta_key, meta_value FROM $table WHERE $like LIMIT %d", $args );
+			if ( count( $found ) >= (int) $limit ) {
+				$truncated = true;
+			}
+			foreach ( $found as $row ) {
+				$row->kind = $kind;
+				$rows[]    = $row;
 			}
 		}
-		return $out;
+		return array(
+			'rows'      => $rows,
+			'truncated' => $truncated,
+		);
+	}
+
+	/**
+	 * References in one meta row.
+	 *
+	 * @param object $row Row.
+	 * @return array|null
+	 */
+	protected function row_refs( $row ) {
+		return $this->refs_from_row( (string) $row->meta_key, (string) $row->meta_value );
+	}
+
+	/**
+	 * Hit for one term or user.
+	 *
+	 * @param object $row           Row.
+	 * @param int    $attachment_id Attachment.
+	 * @return array
+	 */
+	protected function row_hit( $row, $attachment_id ) {
+		$obj = (int) $row->obj;
+		if ( 'term' === $row->kind ) {
+			$term  = get_term( $obj );
+			$label = ( $term && ! is_wp_error( $term ) ) ? $term->name : (string) $obj;
+			$edit  = ( $term && ! is_wp_error( $term ) ) ? (string) get_edit_term_link( $obj, $term->taxonomy ) : '';
+			$ctx   = __( 'Category or term image', 'wunderpaint' );
+		} else {
+			$user  = get_userdata( $obj );
+			$label = $user ? $user->display_name : (string) $obj;
+			$edit  = admin_url( 'user-edit.php?user_id=' . $obj );
+			$ctx   = __( 'User profile', 'wunderpaint' );
+		}
+		return $this->hit( $attachment_id, '', $obj, $label, $edit, $ctx );
 	}
 }

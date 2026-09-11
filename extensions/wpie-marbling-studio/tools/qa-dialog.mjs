@@ -415,11 +415,17 @@ const partial = await page.evaluate( () => {
 check( partial > 5000, `half the history is a valid picture (${ partial })` );
 
 // Insert: a generator layer with a real PNG, through the real button.
-const inserted = await page.evaluate( () => {
+const inserted = await page.evaluate( async () => {
 	window.__dispatched.length = 0;
 	const btns = [ ...document.querySelectorAll( '.dsm-foot button' ) ];
 	btns[ btns.length - 1 ].click();
-	const add = window.__dispatched.find( ( x ) => 'ADD_LAYER' === x.type );
+	// v1.4: the sheet lifts off the bath first (about a second), then
+	// the layer lands - wait for it instead of reading it at once.
+	let add = null;
+	for ( let i = 0; i < 40 && ! add; i++ ) {
+		await new Promise( ( r ) => setTimeout( r, 100 ) );
+		add = window.__dispatched.find( ( x ) => 'ADD_LAYER' === x.type );
+	}
 	if ( ! add ) {
 		return null;
 	}

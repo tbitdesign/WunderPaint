@@ -504,6 +504,15 @@ export function LayersPanel( { extras } ) {
 						<BlendModeSelect
 							value={ active?.blend || 'normal' }
 							disabled={ ! active }
+							tiles={
+								active
+									? {
+											doc: state.doc,
+											layers: state.layers,
+											activeId: active.id,
+									  }
+									: null
+							}
 							onPreview={ ( b ) =>
 								active && update( active.id, { blend: b } )
 							}
@@ -581,14 +590,16 @@ export function LayersPanel( { extras } ) {
 				className="layers-search"
 				style={ { display: 'flex', gap: 4, alignItems: 'center' } }
 			>
-				<input
-					type="search"
-					placeholder={ __( 'Filter layers…', 'wunderpaint' ) }
-					value={ layerQuery }
-					onChange={ ( e ) => setLayerQuery( e.target.value ) }
-					aria-label={ __( 'Filter layers', 'wunderpaint' ) }
-					style={ { flex: 1, minWidth: 0 } }
-				/>
+				<span className="ed-search">
+					{ I.search( { size: 14 } ) }
+					<input
+						type="search"
+						placeholder={ __( 'Filter layers', 'wunderpaint' ) }
+						value={ layerQuery }
+						onChange={ ( e ) => setLayerQuery( e.target.value ) }
+						aria-label={ __( 'Filter layers', 'wunderpaint' ) }
+					/>
+				</span>
 				{ state.layers.some( ( l ) => 'group' === l.type ) && (
 					<button
 						type="button"

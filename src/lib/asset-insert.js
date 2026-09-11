@@ -3,8 +3,12 @@
  * descriptor covers tray clicks, canvas drag&drop and the "Recent" strip.
  * Kinds: combo, element, icon, emoji, upload, photo, bg-gradient, bg-solid.
  * `point` (doc coords) centers the asset there; null = document center.
+ * Photos use the document bounds; the image layer's centered cover fit
+ * keeps the full source editable. `stockType` distinguishes illustrations
+ * and vectors, which retain their regular placement.
  */
 
+import { siteStorage } from './local-storage';
 import { __, sprintf } from '@wordpress/i18n';
 
 import {
@@ -28,9 +32,7 @@ const RECENT_MAX = 20;
 /** Recently inserted assets (newest first, deduped by kind+identity). */
 export function listRecentAssets() {
 	try {
-		const list = JSON.parse(
-			window.localStorage.getItem( RECENT_KEY ) || '[]'
-		);
+		const list = JSON.parse( siteStorage.getItem( RECENT_KEY ) || '[]' );
 		return Array.isArray( list ) ? list : [];
 	} catch ( e ) {
 		return [];
@@ -48,7 +50,7 @@ export function rememberAsset( asset ) {
 			( entry ) => assetKey( entry ) !== assetKey( asset )
 		);
 		list.unshift( asset );
-		window.localStorage.setItem(
+		siteStorage.setItem(
 			RECENT_KEY,
 			JSON.stringify( list.slice( 0, RECENT_MAX ) )
 		);
@@ -68,6 +70,10 @@ const placeRect = ( doc, point, w, h ) => {
 		h,
 	};
 };
+
+/** Older stock descriptors without a type are treated as photos. */
+const photoFillsDocument = ( asset ) =>
+	'photo' === asset?.kind && 'photo' === ( asset.stockType || 'photo' );
 
 /**
  * Load a swap/frame image source into a self-contained data URL plus
@@ -162,7 +168,9 @@ export async function insertImageAtRow( editor, extras, source, target ) {
 		: source.asset?.name || __( 'Image', 'wunderpaint' );
 	const layer = makeImage( {
 		name,
-		...placeRect( state.doc, null, w, h ),
+		...( photoFillsDocument( source.asset )
+			? { x: 0, y: 0, w: state.doc.w, h: state.doc.h }
+			: placeRect( state.doc, null, w, h ) ),
 		src: img.src,
 		naturalW: img.w,
 		naturalH: img.h,
@@ -528,7 +536,9 @@ export async function insertAsset( editor, extras, asset, point = null ) {
 					type: 'ADD_LAYER',
 					layer: makeImage( {
 						name: asset.author || 'Photo',
-						...placeRect( doc, point, w, h ),
+						...( photoFillsDocument( asset )
+							? { x: 0, y: 0, w: doc.w, h: doc.h }
+							: placeRect( doc, point, w, h ) ),
 						src: dataUrl,
 						naturalW: img.naturalWidth,
 						naturalH: img.naturalHeight,

@@ -59,9 +59,21 @@ export function parseCsv( text ) {
 	if ( ! records.length ) {
 		return { headers: [], rows: [] };
 	}
-	const headers = records[ 0 ].map( ( h ) => h.trim() );
+	// Duplicate column names get a suffix instead of overwriting each other,
+	// and rows have no prototype: a column called __proto__ or constructor
+	// used to hand back Object.prototype's members as cell values.
+	const seen = new Map();
+	const headers = records[ 0 ].map( ( h ) => {
+		let name = h.trim();
+		const n = seen.get( name ) || 0;
+		seen.set( name, n + 1 );
+		if ( n ) {
+			name = `${ name }_${ n + 1 }`;
+		}
+		return name;
+	} );
 	const rows = records.slice( 1 ).map( ( rec ) => {
-		const row = {};
+		const row = Object.create( null );
 		headers.forEach( ( h, i ) => {
 			row[ h ] = rec[ i ] ?? '';
 		} );

@@ -195,7 +195,7 @@ export function FontPicker( {
 							ref={ searchRef }
 							type="search"
 							value={ query }
-							placeholder={ __( 'Search fonts…', 'wunderpaint' ) }
+							placeholder={ __( 'Search fonts', 'wunderpaint' ) }
 							onChange={ ( e ) => setQuery( e.target.value ) }
 							onKeyDown={ ( e ) => {
 								if ( 'Enter' === e.key ) {

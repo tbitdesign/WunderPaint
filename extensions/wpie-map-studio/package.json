@@ -1,6 +1,6 @@
 {
 	"name": "wpie-map-studio",
-	"version": "1.16.0",
+	"version": "1.19.4",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: poster-style map studio on OpenStreetMap data",

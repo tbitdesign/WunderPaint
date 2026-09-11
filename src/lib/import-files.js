@@ -91,6 +91,8 @@ export async function importFiles( files, editor, extras, dropPoint = null ) {
 					file.name
 				)
 			);
+			// Match library inserts: the new image is ready to position.
+			dispatch( { type: 'SET_TOOL', tool: 'move' } );
 		} catch ( e ) {
 			extras.toasts.error(
 				sprintf(

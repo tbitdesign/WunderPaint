@@ -15,6 +15,7 @@
  * both sides see. Server counterpart: Editor_Locale::demo_choice().
  */
 
+import { siteSession } from './local-storage';
 import { __ } from '@wordpress/i18n';
 
 import { confirmDialog } from './dialogs';
@@ -152,8 +153,8 @@ let arrival = null;
  */
 export function takeIntentionalReload() {
 	if ( null === arrival ) {
-		arrival = window.sessionStorage.getItem( RELOAD_MARK ) === '1';
-		window.sessionStorage.removeItem( RELOAD_MARK );
+		arrival = siteSession.getItem( RELOAD_MARK ) === '1';
+		siteSession.removeItem( RELOAD_MARK );
 	}
 	return arrival;
 }
@@ -181,7 +182,7 @@ export function resetLocaleArrival() {
  * @return {boolean} True while an intentional reload is under way.
  */
 export function isIntentionalReload() {
-	return window.sessionStorage.getItem( RELOAD_MARK ) === '1';
+	return siteSession.getItem( RELOAD_MARK ) === '1';
 }
 
 /**
@@ -263,7 +264,27 @@ export async function setLocale( locale, options = {} ) {
 	// was built to prevent. Snapshot first, a failure leaves nothing at
 	// all - the switch simply did not happen.
 	if ( canSnapshot() && snapshot ) {
-		await snapshot();
+		// canSnapshot() only says the API exists. The write itself can
+		// still fail (a full quota, a blocked store), and writeNow() then
+		// resolves false after its one-time notice. Reloading anyway took
+		// the unsaved work with it, while the comment above promised the
+		// opposite (Codex C15). Null means there was nothing to save and
+		// is not a failure.
+		const saved = await snapshot();
+		if ( false === saved ) {
+			const proceed = await confirmDialog( {
+				title: __( 'Editor Language', 'wunderpaint' ),
+				message: __(
+					'The snapshot could not be written, so unsaved work would be lost.',
+					'wunderpaint'
+				),
+				confirmLabel: __( 'Switch anyway', 'wunderpaint' ),
+				danger: true,
+			} );
+			if ( ! proceed ) {
+				return;
+			}
+		}
 	}
 
 	if ( hasUser() ) {
@@ -276,7 +297,7 @@ export async function setLocale( locale, options = {} ) {
 		writeCookie( locale );
 	}
 
-	window.sessionStorage.setItem( RELOAD_MARK, '1' );
+	siteSession.setItem( RELOAD_MARK, '1' );
 	if ( notify ) {
 		notify();
 	}

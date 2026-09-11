@@ -512,3 +512,582 @@
 	color: var(--ed-text);
 	cursor: pointer;
 }
+
+/* Design Generator studio (v1.430): three columns like the extension
+   studios - brief and presets left, the designs in the middle, the
+   selected design's checks and dials right. Scoped `dgs-`. */
+#wpie-root .dsm.dgs {
+	position: relative;
+	width: min(1400px, 96vw);
+	height: min(840px, 92vh);
+}
+
+#wpie-root .dgs-body {
+	display: grid;
+	flex: 1;
+	grid-template-columns: 330px minmax(0, 1fr) 260px;
+	min-height: 0;
+}
+
+#wpie-root .dgs-left,
+#wpie-root .dgs-right {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-height: 0;
+	padding: 12px;
+	overflow-y: auto;
+}
+
+#wpie-root .dgs-left {
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dgs-right {
+	border-left: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dgs-main {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	background: var(--bg-app);
+}
+
+#wpie-root .dgs-main-head {
+	display: flex;
+	flex: none;
+	gap: 8px;
+	align-items: center;
+	padding: 9px 14px;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dgs-main-head .spacer,
+#wpie-root .dgs-zoom-head .spacer {
+	flex: 1;
+}
+
+/* Cards and folds (left/right columns). */
+#wpie-root .dgs-card,
+#wpie-root .dgs-fold {
+	flex: none;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .dgs-card-head,
+#wpie-root .dgs-fold > summary {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 9px 12px;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semibold);
+	color: var(--text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+#wpie-root .dgs-card-head svg,
+#wpie-root .dgs-fold > summary > svg {
+	flex: none;
+	color: var(--text-muted);
+}
+
+#wpie-root .dgs-fold > summary {
+	cursor: pointer;
+	list-style: none;
+	user-select: none;
+}
+
+#wpie-root .dgs-fold > summary::-webkit-details-marker {
+	display: none;
+}
+
+#wpie-root .dgs-fold > summary:hover {
+	color: var(--text-primary);
+}
+
+#wpie-root .dgs-fold > summary .chev {
+	display: inline-flex;
+	margin-left: auto;
+	color: var(--text-muted);
+	transition: transform var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dgs-fold[open] > summary .chev {
+	transform: rotate(180deg);
+}
+
+#wpie-root .dgs-fold-val {
+	margin-left: auto;
+	font-weight: var(--fw-regular);
+	color: var(--text-muted);
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+#wpie-root .dgs-fold-val + .chev {
+	margin-left: 0;
+}
+
+#wpie-root .dgs-card-body,
+#wpie-root .dgs-fold-body {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 2px 12px 12px;
+}
+
+#wpie-root .dgs-brief {
+	min-height: 96px;
+	resize: vertical;
+}
+
+#wpie-root .dgs-create {
+	width: 100%;
+	justify-content: center;
+}
+
+#wpie-root .dgs-note {
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--text-muted);
+}
+
+#wpie-root .dgs-prow {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	min-width: 0;
+}
+
+#wpie-root .dgs-prow .dsm-select {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .dgs-lbl {
+	flex: 0 0 56px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+#wpie-root .dgs-checkrow {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .dgs-checkrow b {
+	color: var(--text-primary);
+}
+
+/* Preset tiles: fixed 62px rows, three per row. */
+#wpie-root .dgs-group {
+	margin: 6px 2px 5px;
+	font-size: 10.5px;
+	color: var(--text-muted);
+}
+
+#wpie-root .dgs-presets {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 6px;
+}
+
+#wpie-root .dgs-preset {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	align-items: center;
+	justify-content: center;
+	height: 62px;
+	padding: 6px 4px;
+	font-size: 10.5px;
+	line-height: 1.15;
+	color: var(--text-secondary);
+	text-align: center;
+	cursor: pointer;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dgs-preset svg {
+	flex: none;
+	color: var(--text-muted);
+}
+
+#wpie-root .dgs-preset span {
+	display: block;
+	max-width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dgs-preset:hover {
+	color: var(--text-primary);
+	background: var(--surface-raised);
+}
+
+#wpie-root .dgs-preset.active {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dgs-preset.active svg {
+	color: var(--accent);
+}
+
+#wpie-root .dgs-preset:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* Format chips. */
+#wpie-root .dgs-formats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+#wpie-root .dgs-formats .dsm-chip {
+	height: 26px;
+	padding: 0 10px;
+	font-size: 11.5px;
+}
+
+#wpie-root .dgs-formats .dsm-chip.active {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dgs-formats .dsm-chip.active svg {
+	color: var(--accent);
+}
+
+#wpie-root .dgs-formats .dsm-chip:disabled {
+	cursor: default;
+	opacity: 0.55;
+}
+
+/* Result cards. */
+#wpie-root .dgs-results {
+	display: grid;
+	flex: 1;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	align-content: start;
+	min-height: 0;
+	padding: 14px;
+	overflow-y: auto;
+}
+
+#wpie-root .dgs-result {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	cursor: pointer;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+	outline: none;
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		box-shadow var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dgs-result:hover {
+	border-color: var(--wp-400);
+}
+
+#wpie-root .dgs-result.active,
+#wpie-root .dgs-result:focus-visible {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent);
+}
+
+#wpie-root .dgs-result-img {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 1 / 1; /* overridden inline by the document ratio */
+	padding: 10px;
+	background: var(--surface-raised);
+}
+
+#wpie-root .dgs-result-img img {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.18));
+}
+
+#wpie-root .dgs-result-meta {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 8px 10px;
+	font-size: var(--fs-xs);
+}
+
+#wpie-root .dgs-result-meta b {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dgs-status {
+	display: inline-flex;
+	flex: none;
+	gap: 5px;
+	align-items: center;
+	font-size: 11px;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+#wpie-root .dgs-status.ok {
+	color: var(--success);
+}
+
+#wpie-root .dgs-status.warn {
+	color: var(--warning);
+}
+
+#wpie-root .dgs-result-actions {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	display: flex;
+	gap: 6px;
+	opacity: 0;
+	transition: opacity var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dgs-result:hover .dgs-result-actions,
+#wpie-root .dgs-result.active .dgs-result-actions,
+#wpie-root .dgs-result:focus-within .dgs-result-actions {
+	opacity: 1;
+}
+
+/* Empty state with example briefs. */
+#wpie-root .dgs-empty {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	grid-column: 1 / -1;
+	align-items: center;
+	max-width: 480px;
+	margin: 24px auto;
+	font-size: var(--fs-sm);
+	color: var(--text-muted);
+	text-align: center;
+}
+
+#wpie-root .dgs-empty > svg {
+	color: var(--text-disabled);
+}
+
+#wpie-root .dgs-empty p {
+	margin: 0;
+}
+
+#wpie-root .dgs-examples {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	width: 100%;
+}
+
+#wpie-root .dgs-example {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	height: 52px;
+	padding: 0 12px;
+	color: var(--text-secondary);
+	text-align: left;
+	cursor: pointer;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .dgs-example svg {
+	flex: none;
+	color: var(--text-muted);
+}
+
+#wpie-root .dgs-example span {
+	min-width: 0;
+}
+
+#wpie-root .dgs-example b {
+	display: block;
+	overflow: hidden;
+	font-size: 12px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dgs-example small {
+	display: block;
+	overflow: hidden;
+	font-size: 10.5px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .dgs-example:hover {
+	border-color: var(--wp-400);
+}
+
+/* History strip: one button per generation, its three designs as thumbs. */
+#wpie-root .dgs-history {
+	display: flex;
+	flex: none;
+	gap: 8px;
+	align-items: center;
+	padding: 8px 14px;
+	overflow-x: auto;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dgs-history-lbl {
+	flex: none;
+	font-size: 10.5px;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+#wpie-root .dgs-gen {
+	display: flex;
+	flex: none;
+	gap: 3px;
+	padding: 3px;
+	cursor: pointer;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .dgs-gen:hover {
+	border-color: var(--wp-400);
+}
+
+#wpie-root .dgs-gen.active {
+	border-color: var(--accent);
+}
+
+#wpie-root .dgs-gen img {
+	display: block;
+	width: 34px;
+	height: 34px;
+	object-fit: cover;
+	border-radius: 3px;
+}
+
+/* Right column. */
+#wpie-root .dgs-sel-name {
+	font-size: 12.5px;
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+}
+
+#wpie-root .dgs-checks {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+#wpie-root .dgs-check {
+	display: flex;
+	gap: 6px;
+	align-items: flex-start;
+	font-size: 11.5px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .dgs-check svg {
+	flex: none;
+	margin-top: 1px;
+	color: var(--warning);
+}
+
+/* Large view of one design, inside the dialog. */
+#wpie-root .dgs-zoom {
+	position: absolute;
+	inset: 0;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	background: var(--surface-panel);
+	border-radius: inherit;
+}
+
+#wpie-root .dgs-zoom-head {
+	display: flex;
+	flex: none;
+	gap: 10px;
+	align-items: center;
+	padding: 12px 16px;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dgs-zoom-body {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	min-height: 0;
+	padding: 16px;
+	background: var(--bg-app);
+}
+
+#wpie-root .dgs-zoom-body img {
+	max-width: 100%;
+	max-height: 100%;
+	box-shadow: var(--shadow-lg);
+}
+
+@media (max-width: 1180px) {
+
+	#wpie-root .dgs-body {
+		grid-template-columns: 280px minmax(0, 1fr) 220px;
+	}
+
+	#wpie-root .dgs-results {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	#wpie-root .dgs-presets {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}

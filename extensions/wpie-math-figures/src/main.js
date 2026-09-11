@@ -12,7 +12,6 @@ import { normalizeParams, newBlock, blockFields } from './figure.js';
 import { STARTERS, starterById, groupOf } from './starters.js';
 import { flattenMathSvg } from './engine/mathsvg.js';
 import { normalizeTextAnchors } from './engine/svg-dom.js';
-import { ICON_BRAND } from './ui/icons.js';
 import { buildLeft } from './ui/left.js';
 import { buildView } from './ui/view.js';
 import { buildSide } from './ui/side.js';
@@ -196,10 +195,8 @@ function openStudio( ctx ) {
 		onClose: () => cleanup(),
 	} );
 	modal.dialog.classList.add( 'wpiemf-dialog' );
-	const badge = document.createElement( 'span' );
-	badge.className = 'dsm-badge';
-	badge.innerHTML = ICON_BRAND;
-	modal.head.insertBefore( badge, modal.head.firstChild );
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( modal );
 	const body = ui.el( 'div', 'wpiemf-body', modal.body );
 	const left = ui.el( 'div', 'wpiemf-left', body );
 	const mid = ui.el( 'div', 'wpiemf-mid', body );
@@ -610,7 +607,6 @@ function openStudio( ctx ) {
 	function cleanup() {
 		clearTimeout( S.timer );
 		S.token++;
-		leftUi.closePicker();
 		leftUi.unmountAll();
 		matUi.unmountAll();
 		sideUi.unmountAll();

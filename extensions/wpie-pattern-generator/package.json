@@ -1,6 +1,6 @@
 {
 	"name": "wpie-pattern-generator",
-	"version": "2.5.0",
+	"version": "2.6.6",
 	"private": true,
 	"type": "module",
 	"scripts": {

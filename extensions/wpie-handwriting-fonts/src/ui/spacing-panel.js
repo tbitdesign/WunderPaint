@@ -46,7 +46,7 @@ export class SpacingPanel {
 
 		ui.el(
 			'p',
-			'wpiehw-hint',
+			'dsm-note wpiehw-hint',
 			this.root,
 			t(
 				'Type a word, then drag the gap between two letters to correct that pair, or drag the edge of a letter to change the air on that side. Arrow keys nudge, and hold Shift for bigger steps.'
@@ -75,7 +75,7 @@ export class SpacingPanel {
 			onClick: () => this.reset( false ),
 		} );
 		ui.btn( bar, { label: t( 'Reset all spacing' ), onClick: () => this.reset( true ) } );
-		this.count = ui.el( 'span', 'wpiehw-hint wpiehw-benchcount', bar, '' );
+		this.count = ui.el( 'span', 'dsm-note wpiehw-hint wpiehw-benchcount', bar, '' );
 
 		this.bind();
 		this.render();

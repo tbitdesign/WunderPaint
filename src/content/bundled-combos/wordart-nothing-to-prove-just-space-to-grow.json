@@ -1,0 +1,150 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-nothing-to-prove-just-space-to-grow",
+	"label": "Nothing to prove just space to grow",
+	"category": "wordart",
+	"w": 695,
+	"h": 528,
+	"layers": [
+		{
+			"id": "waf-nothing-to-prove-just-space-to-grow-0",
+			"type": "text",
+			"name": "Nothing to prove just space to grow",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 24,
+			"y": 26,
+			"w": 602,
+			"h": 366,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fbf1de",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "Nothing to prove\njust space\nto grow",
+			"fontSize": 100,
+			"fontFamily": "Fredoka",
+			"weight": 700,
+			"color": "#b87964",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Nothing to prove\n",
+					"s": {
+						"color": "#b87964"
+					}
+				},
+				{
+					"text": "just space\n",
+					"s": {
+						"color": "#468e80"
+					}
+				},
+				{
+					"text": "to grow",
+					"s": {
+						"color": "#d3ab64"
+					}
+				}
+			],
+			"textFX": {
+				"warp": {
+					"type": "flag",
+					"bend": 0.07
+				},
+				"extrude": {
+					"angle": 70,
+					"depth": 4,
+					"color": "#5c4d48"
+				}
+			}
+		},
+		{
+			"id": "waf-nothing-to-prove-just-space-to-grow-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 160,
+			"y": 491,
+			"w": 330,
+			"h": 4,
+			"rot": -3,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#468e80",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 2,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-nothing-to-prove-just-space-to-grow-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 644,
+			"y": 51,
+			"w": 25,
+			"h": 25,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "transparent",
+			"stroke": "#d3ab64",
+			"strokeW": 3,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

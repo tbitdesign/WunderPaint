@@ -9,7 +9,12 @@
 
 import { __, sprintf } from '@wordpress/i18n';
 import { doAction } from '@wordpress/hooks';
-import { makeGroup, serializeLayers, hydrateLayers } from '../document';
+import {
+	makeGroup,
+	serializeLayers,
+	hydrateLayers,
+	PROJECT_FORMAT,
+} from '../document';
 import { activeLayerOf, expandGroupIds } from '../editor-context';
 import * as DocOps from '../doc-ops';
 import { renderToDataURL, sharedImageCache } from '../../lib/raster';
@@ -92,6 +97,7 @@ export function assignBrandKitOp( editor, kitId ) {
 async function templatePayload( state, brandKitId ) {
 	return {
 		projectJson: JSON.stringify( {
+			wpie: PROJECT_FORMAT,
 			doc: { ...state.doc, brandKitId },
 			layers: serializeLayers( state.layers ),
 		} ),
@@ -115,6 +121,7 @@ async function templatePayload( state, brandKitId ) {
  */
 export async function updateTemplateOp( editor, extras ) {
 	const { state, dispatch } = editor;
+	const uploaded = state.history?.present || null;
 	const src = state.doc.source || {};
 	if ( ! src.templateId ) {
 		return saveAsTemplateOp( editor, extras );
@@ -125,7 +132,7 @@ export async function updateTemplateOp( editor, extras ) {
 			await templatePayload( state, state.doc.brandKitId || '' )
 		);
 		invalidateTemplate( src.templateId );
-		dispatch( { type: 'MARK_SAVED' } );
+		dispatch( { type: 'MARK_SAVED', snapshot: uploaded } );
 		extras?.toasts?.success?.(
 			sprintf(
 				/* translators: %s: template name. */

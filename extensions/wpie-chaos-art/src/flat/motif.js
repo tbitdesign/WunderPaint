@@ -17,6 +17,7 @@
  */
 
 import { lum, hueSat } from './senses.js';
+import { gridSize } from '../core/frame.js';
 import { hexRgb } from '../core/palette.js';
 import { toHex } from './palette2d.js';
 
@@ -66,9 +67,8 @@ function tensorAngle( light, cols, rows, x0, y0, x1, y1 ) {
  * @return {Object} The motif.
  */
 export function readPixels( src, o = {} ) {
-	const rows = o.rows || 36;
 	const aspect = o.aspect || src.width / src.height;
-	const cols = Math.max( 4, Math.round( rows * aspect ) );
+	const { rows, cols } = gridSize( aspect, o.rows || 36 );
 	const rng = o.rng || Math.random;
 	const F = 4; // fine grid factor for edges
 	const fr = rows * F;

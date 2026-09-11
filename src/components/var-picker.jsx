@@ -238,7 +238,7 @@ export function VarButton( {
 					<input
 						type="text"
 						className="dsm-input wpie-var-search"
-						placeholder={ __( 'Search variables…', 'wunderpaint' ) }
+						placeholder={ __( 'Search variables', 'wunderpaint' ) }
 						value={ query }
 						/* eslint-disable-next-line jsx-a11y/no-autofocus -- search box of a just-opened picker */
 						autoFocus

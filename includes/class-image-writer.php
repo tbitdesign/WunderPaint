@@ -184,16 +184,14 @@ class Image_Writer {
 			return new \WP_Error( 'wpie_no_file', __( 'Attachment file not found.', 'wunderpaint' ), array( 'status' => 404 ) );
 		}
 
-		// 1. Delete existing intermediate sizes (spec 08.1 step 2).
+		if ( ! is_string( $bytes ) || '' === $bytes ) {
+			return new \WP_Error( 'wpie_no_file', __( 'No image data received.', 'wunderpaint' ), array( 'status' => 400 ) );
+		}
+
+		// Retain the old sizes until the new primary file has been written.
+
 		$old_meta = wp_get_attachment_metadata( $attachment_id );
 		$base_dir = trailingslashit( dirname( $old_file ) );
-		if ( is_array( $old_meta ) && ! empty( $old_meta['sizes'] ) ) {
-			foreach ( $old_meta['sizes'] as $size ) {
-				if ( ! empty( $size['file'] ) && file_exists( $base_dir . $size['file'] ) ) {
-					unlink( $base_dir . $size['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
-				}
-			}
-		}
 
 		// 2. Write the new bytes (same stem, possibly new extension).
 		$old_ext  = strtolower( pathinfo( $old_file, PATHINFO_EXTENSION ) );
@@ -204,8 +202,29 @@ class Image_Writer {
 			$new_name = wp_unique_filename( $base_dir, $stem . '.' . $new_ext );
 			$new_file = $base_dir . $new_name;
 		}
-		if ( false === file_put_contents( $new_file, $bytes ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		// Stage beside the destination so rename is atomic on the same
+		// filesystem. A failed or partial write leaves the live image intact.
+		$tmp = wp_tempnam( basename( $new_file ), $base_dir );
+		if ( ! $tmp ) {
 			return new \WP_Error( 'wpie_write_failed', __( 'Could not write the image file.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
+		$written = file_put_contents( $tmp, $bytes ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		if ( strlen( $bytes ) !== $written ) {
+			wp_delete_file( $tmp );
+			return new \WP_Error( 'wpie_write_failed', __( 'Could not write the image file.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
+		$mode = file_exists( $old_file ) ? fileperms( $old_file ) & 0777 : 0644;
+		chmod( $tmp, $mode ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod
+		if ( ! rename( $tmp, $new_file ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
+			wp_delete_file( $tmp );
+			return new \WP_Error( 'wpie_write_failed', __( 'Could not write the image file.', 'wunderpaint' ), array( 'status' => 500 ) );
+		}
+		if ( is_array( $old_meta ) && ! empty( $old_meta['sizes'] ) ) {
+			foreach ( $old_meta['sizes'] as $size ) {
+				if ( ! empty( $size['file'] ) ) {
+					wp_delete_file( $base_dir . basename( $size['file'] ) );
+				}
+			}
 		}
 		if ( $new_file !== $old_file && file_exists( $old_file ) ) {
 			unlink( $old_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
@@ -257,7 +276,9 @@ class Image_Writer {
 			wp_update_post( $post_fields );
 		}
 		if ( null !== $request->get_param( 'alt' ) ) {
-			update_post_meta( $attachment_id, '_wp_attachment_image_alt', sanitize_text_field( (string) $request->get_param( 'alt' ) ) );
+			// wp_slash(): update_metadata() unslashes what it is given and REST
+			// parameters are not slashed, so a backslash in the alt text was lost.
+			update_post_meta( $attachment_id, '_wp_attachment_image_alt', wp_slash( sanitize_text_field( (string) $request->get_param( 'alt' ) ) ) );
 		}
 	}
 
@@ -301,6 +322,13 @@ class Image_Writer {
 		$blob = self::read_blob( $request );
 		if ( is_wp_error( $blob ) ) {
 			return $blob;
+		}
+		// The primary file of an image attachment is an image. psd and pdf are
+		// legitimate blobs for save-as and sidecars; as a replacement of the
+		// original they left an image attachment whose file no browser and no
+		// size generator could read.
+		if ( in_array( $blob['ext'], array( 'psd', 'pdf' ), true ) ) {
+			return new \WP_Error( 'wpie_bad_primary', __( 'Only an image can replace the original file. Use Save As for a PSD or PDF.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
 
 		// 1. Version the current file before overwrite.
@@ -358,7 +386,13 @@ class Image_Writer {
 
 		$upload = wp_upload_bits( $filename, null, $blob['bytes'] );
 		if ( ! empty( $upload['error'] ) ) {
-			return new \WP_Error( 'wpie_upload_failed', $upload['error'], array( 'status' => 500 ) );
+			// The raw message carries the absolute server path. Admins get it
+			// in the error data; everyone else gets the sentence.
+			return new \WP_Error(
+				'wpie_upload_failed',
+				__( 'The file could not be written to the uploads folder.', 'wunderpaint' ),
+				array_merge( array( 'status' => 500 ), current_user_can( 'manage_options' ) ? array( 'detail' => (string) $upload['error'] ) : array() )
+			);
 		}
 
 		$attachment_id = wp_insert_attachment(

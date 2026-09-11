@@ -212,10 +212,46 @@ async function gzip( bytes ) {
 	}
 }
 
+/**
+ * Most a project inside a font file may unpack to.
+ *
+ * A real project is a few hundred KB of stroke data. A crafted `wPPJ` table
+ * of deflated zeros unpacks to gigabytes, and until 11.09.2026 nothing here
+ * counted: the tab died, taking the unsaved document with it. Exactly the case
+ * EXTSEC-01 described for the MusicXML import, which was closed in
+ * wpie-sheet-music and nowhere else - this is the bestand's second
+ * decompressor, and EXTSEC-04 moved a try/catch around this very function
+ * without ever drawing the line.
+ *
+ * The trigger needs no attacker: a downloaded font from an unknown source is
+ * enough, and the file picker offers .ttf and .otf by name.
+ */
+const MAX_UNPACKED = 16 * 1024 * 1024;
+
 async function gunzip( bytes ) {
 	const ds = new DecompressionStream( 'gzip' );
-	const stream = new Blob( [ bytes ] ).stream().pipeThrough( ds );
-	return new Uint8Array( await new Response( stream ).arrayBuffer() );
+	const reader = new Blob( [ bytes ] ).stream().pipeThrough( ds ).getReader();
+	const chunks = [];
+	let total = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if ( done ) {
+			break;
+		}
+		total += value.byteLength;
+		if ( total > MAX_UNPACKED ) {
+			reader.cancel();
+			throw new Error( 'wpie-hwf-too-big' );
+		}
+		chunks.push( value );
+	}
+	const out = new Uint8Array( total );
+	let at = 0;
+	for ( const c of chunks ) {
+		out.set( c, at );
+		at += c.byteLength;
+	}
+	return out;
 }
 
 /**
@@ -255,8 +291,10 @@ export async function decodeProject( bytes ) {
 		return null; // Written by a newer version than this one understands.
 	}
 	const body = bytes.subarray( 6 );
-	const json = 1 === bytes[ 5 ] ? await gunzip( body ) : body;
 	try {
+		// gunzip inside the try: a damaged file used to throw past the
+		// caller instead of reading as "not a project" (EXTSEC-04).
+		const json = 1 === bytes[ 5 ] ? await gunzip( body ) : body;
 		return fromStorable( JSON.parse( new TextDecoder().decode( json ) ) );
 	} catch ( e ) {
 		return null;

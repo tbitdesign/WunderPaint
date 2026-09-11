@@ -1,0 +1,114 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-kleine-schritte-bringen-dich-auch-ans-ziel",
+	"label": "Kleine Schritte bringen dich auch ans Ziel",
+	"category": "wordart",
+	"w": 742,
+	"h": 640,
+	"layers": [
+		{
+			"id": "waf-kleine-schritte-bringen-dich-auch-ans-ziel-0",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 35,
+			"y": 37,
+			"w": 672,
+			"h": 566,
+			"rot": -2,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "transparent",
+			"stroke": "#398f87",
+			"strokeW": 3,
+			"strokeDash": "dashed",
+			"strokeDashLen": 11,
+			"strokeDashGap": 7,
+			"radius": 22,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-kleine-schritte-bringen-dich-auch-ans-ziel-1",
+			"type": "text",
+			"name": "Kleine Schritte bringen dich auch ans Ziel",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 98,
+			"y": 104,
+			"w": 546,
+			"h": 411,
+			"rot": -2,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "Kleine Schritte\nbringen dich\nauch ans Ziel",
+			"fontSize": 100,
+			"fontFamily": "Abril Fatface",
+			"weight": 400,
+			"color": "#de7652",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "Kleine Schritte\n",
+					"s": {
+						"color": "#de7652"
+					}
+				},
+				{
+					"text": "bringen dich\n",
+					"s": {
+						"color": "#398f87"
+					}
+				},
+				{
+					"text": "auch ans Ziel",
+					"s": {
+						"color": "#e8ba50"
+					}
+				}
+			],
+			"textFX": {
+				"hatchShadow": {
+					"offset": 5,
+					"angle": 40,
+					"gap": 4,
+					"color": "#594044"
+				}
+			}
+		}
+	]
+}

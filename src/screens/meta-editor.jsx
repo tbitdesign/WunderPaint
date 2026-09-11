@@ -118,7 +118,7 @@ export function MetaEditor( {
 				getMediaMeta( id ),
 				mediaLib.tags.list().catch( () => ( { items: [] } ) ),
 				mediaLib
-					.items( { ids: [ id ], per: 1 } )
+					.items( { ids: [ id ], per: 1, type: 'all' } )
 					.catch( () => ( { items: [] } ) ),
 			] );
 			if ( cancelled ) {
@@ -282,6 +282,7 @@ export function MetaEditor( {
 				className="wpie-me-modal"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 			>
 				<div className="dsm-head">
 					<span className="dsm-badge">

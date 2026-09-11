@@ -1,0 +1,1026 @@
+/*
+ * THE EXTENSION CI (v1.430.0). One definition of the studio look, for every
+ * package.
+ *
+ * Why this file exists. Forty-seven packages ship a style.css, and an audit on
+ * 2026-09-08 found the same components rebuilt in each of them with slightly
+ * different numbers: thirteen different border radii, section heads in two
+ * greys with two letter-spacings (thirty packages carry a hand-copied override
+ * of the head that ui.section already draws), preview cards in four dialects,
+ * six spellings of "this one is selected", and the wrong blue (#3b82f6, not
+ * the CI's #3b66ff) in twenty-seven ring shadows. None of it is broken; all of
+ * it is visibly not the same product twice.
+ *
+ * The rule from here on: a package writes CSS for its LAYOUT (which column,
+ * which grid, its canvas) and for nothing else. Every component below is
+ * defined here, once, and is part of the public surface in docs/extending.md.
+ *
+ * Load ORDER IS THE CASCADE: this file is imported last by editor.css, so it
+ * settles the ui.section family after modals.css and studios.css have had
+ * their say. Nothing here is scoped to a package.
+ *
+ * The full concept, with the audit numbers and the migration order, is in
+ * docs/extension-ci.md.
+ */
+
+/* ------------------------------------------------------------------ */
+
+/*
+ * SELECTED. Six spellings existed in the wild (.is-on 53x, aria-pressed 47x,
+ * .active 19x, .is-active 9x, .selected, .is-sel). Rather than make every
+ * package rewrite its state handling, all six mean the same thing here, and
+ * new code writes aria-pressed - it is the one a screen reader also reads.
+ */
+
+/* ---- Sections (bridge.ui.section) ------------------------------------- */
+
+/*
+ * The radius question, decided once: 6px read as "kaum vorhanden", 10-12px as
+ * "zuviel". Surfaces (sections, cards, thumbs, list rows) are --r-lg 8px,
+ * controls (inputs, selects, buttons, icon buttons) stay --r-md 6px, filters
+ * are pills. Two numbers, one exception for round swatches.
+ */
+#wpie-root .dsm-card {
+	gap: 10px;
+	padding: 12px;
+	border-radius: var(--r-lg);
+}
+
+/*
+ * The section head is the ONLY uppercase text in a studio dialog. Thirty
+ * packages re-coloured it to --ed-text-dim with 0.04em because a note in the
+ * conventions told them to; the value below (the muted grey at --ls-caps) is
+ * what the studios Thomas reads as right already use, so the migration is a
+ * deletion, not a change.
+ */
+#wpie-root .dsm-card-head {
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semibold);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
+}
+
+#wpie-root .dsm-card-head svg {
+	width: 14px;
+	height: 14px;
+	opacity: 1;
+}
+
+/*
+ * A sub-heading INSIDE a section ("Frame", "Along the stroke", a library
+ * family). It is not a section: no icon, no uppercase - a section head
+ * without its icon is exactly what an uppercase sub-heading used to look
+ * like, and that read as "the icon is missing".
+ */
+#wpie-root .dsm-subhead {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--text-secondary);
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+/* A control that belongs to the head (a variable button, a small toggle)
+   sits at its right edge. */
+#wpie-root .dsm-card-head .dsm-head-end {
+	margin-left: auto;
+}
+
+/*
+ * A GROUP of rows inside a section - a block a package rebuilds or hides
+ * in one go. It has to carry the card body's own column and gap: a plain
+ * wrapper div is a block box, so everything inside it ends up touching,
+ * and the section looks like nobody set a gap at all (Thomas on Photo
+ * Mosaic: "alle slider und label klebt alles ohne lücke aneinander").
+ *
+ * The [hidden] rule is not decoration: an author `display: flex` beats
+ * the browser's own `hidden`, so without it every group that toggles
+ * with `.hidden = true` would stay on screen.
+ */
+#wpie-root .dsm-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#wpie-root .dsm-rows[hidden] {
+	display: none;
+}
+
+/* ---- Field labels ----------------------------------------------------- */
+
+/*
+ * A field label is 12px, regular weight, secondary grey - never white, never
+ * bold, never uppercase. The slider row used to head itself in the primary
+ * ink, which is why sliders looked louder than the rows above them.
+ */
+#wpie-root .dsm-rowline-label,
+#wpie-root .dsm-sliderrow-head,
+#wpie-root .dsm-checkrow {
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-regular);
+	color: var(--text-secondary);
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+/* The number beside a slider: muted, tabular, so a dragging value does not
+   shift the label. */
+#wpie-root .dsm-sliderrow-val {
+	font-size: var(--fs-xs);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+/* A label ABOVE a field (stacked, not inline): the same voice as the inline
+   row label - 12px, regular, secondary grey. Never uppercase: the only
+   uppercase line in a studio is the section head. */
+#wpie-root .dsm-fieldlabel {
+	display: block;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-regular);
+	color: var(--text-secondary);
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+/* Explanatory text under a control. */
+#wpie-root .dsm-note {
+	font-size: var(--fs-xs);
+	line-height: var(--lh-snug);
+	color: var(--text-muted);
+}
+
+/* ---- Text fields ------------------------------------------------------ */
+
+/*
+ * A package that writes its own <textarea> reached for names that do not
+ * exist (--ed-input-bg) and paired them with --ed-text: dark on dark in the
+ * light theme. The pair below is the same one .dsm-input uses.
+ */
+#wpie-root textarea.dsm-input {
+	height: auto;
+	min-height: 72px;
+	padding: 8px 10px;
+	font-size: var(--fs-sm);
+	line-height: var(--lh-snug);
+	color: var(--text-primary);
+	resize: vertical;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+/* ---- Buttons inside a section ----------------------------------------- */
+
+/*
+ * A button in a section is a SIDE action - "Pick a picture", "Save as
+ * favorite", "Center the picture". It used to wear the same 32px/13px/500
+ * as the two buttons in the footer, which are the main actions of the
+ * whole dialog, and next to a row of dials that reads as heavy (Thomas:
+ * "die sind mir oft zu wuchtig, weil es die main buttons sind").
+ *
+ * The footer keeps the full size: it lives outside the card body, so this
+ * rule cannot reach it. Nothing else can either - dsm-card-body is drawn
+ * by ui.section, which only the extensions use.
+ */
+#wpie-root .dsm-card-body .ai-btn {
+	height: 24px;
+	padding: 0 10px;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-regular);
+}
+
+/* ---- Segmented buttons ------------------------------------------------ */
+
+/*
+ * The twin/segmented control is the editor's own .dsm-seg. Packages arrive
+ * with three spellings of "this segment is on" (.sel, .is-on, aria-pressed);
+ * all three read as the core's .active here, so a package only swaps the
+ * wrapper class and keeps its state code.
+ */
+#wpie-root .dsm-seg button[aria-pressed="true"],
+#wpie-root .dsm-seg button.is-on,
+#wpie-root .dsm-seg button.is-active,
+#wpie-root .dsm-seg button.sel {
+	color: var(--text-primary);
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-sm);
+}
+
+/* ---- Option grid ------------------------------------------------------ */
+
+/*
+ * The segmented control is for two or three words that fit ONE line
+ * (Library / Elements / Build). Any choice with more options - the twenty
+ * movements of Particle Strokes, the nine categories of 3D Objects - goes
+ * into this grid instead: every option its own small button, all the same
+ * size, in equal columns. Thomas on the wrapping segment: "sieht aus wie
+ * ein riesiger Button". Two columns by default, `--dsm-cols: 3` for short
+ * words.
+ */
+#wpie-root .dsm-opts {
+	display: grid;
+	grid-template-columns: repeat( var(--dsm-cols, 2), minmax( 0, 1fr ) );
+	gap: 6px;
+}
+
+#wpie-root .dsm-opt {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: 0;
+	height: 28px;
+	padding: 0 8px;
+	overflow: hidden;
+	font: inherit;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-medium);
+	color: var(--text-secondary);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-opt svg {
+	flex: 0 0 auto;
+	width: 14px;
+	height: 14px;
+}
+
+#wpie-root .dsm-opt:hover:not( :disabled ) {
+	color: var(--text-primary);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-opt[aria-pressed="true"],
+#wpie-root .dsm-opt.is-on,
+#wpie-root .dsm-opt.is-active,
+#wpie-root .dsm-opt.active,
+#wpie-root .dsm-opt.selected,
+#wpie-root .dsm-opt.sel {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+/* ---- Search field ----------------------------------------------------- */
+
+/*
+ * A search field with the glass INSIDE the field, at the left. Thomas asked
+ * for the Molecule shape everywhere ("mit Search Icon wie bei 3D Molecule
+ * Studio im Suchfeld"); the package drops its icon markup in and the kit
+ * places it. No trailing ellipsis in the placeholder - a field is not a
+ * sentence.
+ */
+#wpie-root .dsm-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+#wpie-root .dsm-search > svg {
+	position: absolute;
+	left: 9px;
+	width: 15px;
+	height: 15px;
+	color: var(--text-muted);
+	pointer-events: none;
+}
+
+#wpie-root .dsm-search .dsm-input {
+	box-sizing: border-box;
+	width: 100%;
+	padding-left: 30px;
+}
+
+/* ---- Filter pills ----------------------------------------------------- */
+
+/*
+ * Category filters above a card list. Not .dsm-chip: that one is the editor's
+ * own prompt-suggestion chip and carries a filled surface. A filter is an
+ * outline that fills in when it is on.
+ *
+ * A pill row is set like justified text: it wraps, and every line fills
+ * the column instead of trailing off to the left with a ragged edge.
+ * Thomas, 09.09.2026: "nicht linksbuendig, sondern klug auf ganzer
+ * breite verteilen, also schon mit umbruch, aber quasi justified".
+ *
+ * The growing happens on the PILL (flex: 1 1 auto), not through
+ * space-between on the row - space-between would push a short last line
+ * apart into two lonely pills at the edges, which is the one thing
+ * justified text does not do either.
+ */
+#wpie-root .dsm-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+}
+
+#wpie-root .dsm-pill {
+	display: inline-flex;
+	flex: 1 1 auto;
+	gap: 5px;
+	align-items: center;
+	justify-content: center;
+	height: 24px;
+	padding: 0 10px;
+	font-size: var(--fs-xs);
+	color: var(--text-secondary);
+	white-space: nowrap;
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-pill);
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-pill svg {
+	width: 12px;
+	height: 12px;
+}
+
+#wpie-root .dsm-pill:hover:not( :disabled ) {
+	color: var(--text-primary);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-pill[aria-pressed="true"],
+#wpie-root .dsm-pill.is-on,
+#wpie-root .dsm-pill.is-active,
+#wpie-root .dsm-pill.active,
+#wpie-root .dsm-pill.selected,
+#wpie-root .dsm-pill.sel {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-pill:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+/* ---- Preview cards ---------------------------------------------------- */
+
+/*
+ * The grid takes a FIXED cell size and lets the leftover width fall into the
+ * gaps - cards never stretch. A package sets its own cell:
+ * `.mypack-list { --dsm-cell: 92px }`.
+ */
+#wpie-root .dsm-picks {
+	display: grid;
+	grid-template-columns: repeat( auto-fill, var(--dsm-cell, 84px) );
+	gap: 6px;
+	justify-content: space-between;
+}
+
+/* The card itself: transparent, hairline, centred label. Hover draws the
+   accent border, selected fills with the accent tint. */
+#wpie-root .dsm-pick {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 4px 4px 5px;
+	font: inherit;
+	font-size: var(--fs-xs);
+	color: var(--text-secondary);
+	text-align: center;
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-pick:hover:not( :disabled ) {
+	color: var(--text-primary);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-pick[aria-pressed="true"],
+#wpie-root .dsm-pick.is-on,
+#wpie-root .dsm-pick.is-active,
+#wpie-root .dsm-pick.active,
+#wpie-root .dsm-pick.selected,
+#wpie-root .dsm-pick.sel {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+/*
+ * An icon straight on the card, without a thumbnail around it. The card is a
+ * flex column, and an SVG that carries its own width does not stretch, so it
+ * would sit at the left edge while the label under it reads as centred -
+ * Thomas found exactly that on the Marble Bath tools. text-align cannot move
+ * a flex item; align-self can.
+ */
+#wpie-root .dsm-pick > svg {
+	flex: 0 0 auto;
+	align-self: center;
+}
+
+/* The picture on the card. Square by default; a package that renders 3:2
+   thumbnails sets --dsm-thumb-ratio. */
+#wpie-root .dsm-pick-thumb {
+	display: grid;
+	place-items: center;
+	width: 100%;
+	aspect-ratio: var(--dsm-thumb-ratio, 1);
+	overflow: hidden;
+	color: var(--text-muted);
+	background: var(--bg-canvas);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .dsm-pick-thumb img,
+#wpie-root .dsm-pick-thumb canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+/* Two lines, then ellipsis - a long name must not make one card taller than
+   its neighbours. */
+#wpie-root .dsm-pick-label {
+	display: -webkit-box;
+	overflow: hidden;
+	font-size: var(--fs-xs);
+	line-height: var(--lh-tight);
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
+/* Corner badge (a stack position, a count). */
+#wpie-root .dsm-pick-badge {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-bold);
+	color: var(--text-on-accent);
+	pointer-events: none;
+	background: var(--accent);
+	border-radius: 50%;
+}
+
+/* ---- List cards ------------------------------------------------------- */
+
+/*
+ * The other card shape: icon left, name, and the EXPLANATION inside the card
+ * (never as a paragraph under the list, never as a tooltip alone). Used for
+ * every type/template/item choice - those never open a second surface.
+ */
+#wpie-root .dsm-picklist {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+#wpie-root .dsm-pickrow {
+	display: flex;
+	gap: 9px;
+	align-items: center;
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 52px;
+	padding: 6px 8px;
+	font: inherit;
+	color: var(--text-secondary);
+	text-align: left;
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-pickrow:hover:not( :disabled ) {
+	color: var(--text-primary);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-pickrow[aria-pressed="true"],
+#wpie-root .dsm-pickrow.is-on,
+#wpie-root .dsm-pickrow.is-active,
+#wpie-root .dsm-pickrow.active,
+#wpie-root .dsm-pickrow.selected,
+#wpie-root .dsm-pickrow.sel {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-pickrow-icon {
+	display: grid;
+	flex: 0 0 auto;
+	place-items: center;
+	width: 36px;
+	height: 36px;
+	overflow: hidden;
+	color: var(--text-muted);
+	background: var(--surface-input);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .dsm-pickrow-icon svg {
+	width: 18px;
+	height: 18px;
+}
+
+#wpie-root .dsm-pickrow-icon img,
+#wpie-root .dsm-pickrow-icon canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+#wpie-root .dsm-pickrow-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+#wpie-root .dsm-pickrow b {
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+}
+
+#wpie-root .dsm-pickrow small {
+	display: -webkit-box;
+	overflow: hidden;
+	font-size: var(--fs-xs);
+	line-height: var(--lh-snug);
+	color: var(--text-muted);
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+}
+
+/*
+ * The short list card: icon and name only, no explanation - a shape, a
+ * form, a tarot card. Half the height of the full card; Thomas measured
+ * the full one against the Particle Studio forms: "da reicht doch die
+ * Haelfte". The package adds the modifier next to the card class.
+ */
+#wpie-root .dsm-pickrow.dsm-pickrow-sm {
+	gap: 7px;
+	min-height: 30px;
+	padding: 3px 8px;
+	font-size: var(--fs-sm);
+}
+
+#wpie-root .dsm-pickrow.dsm-pickrow-sm .dsm-pickrow-icon {
+	width: 22px;
+	height: 22px;
+	background: transparent;
+}
+
+#wpie-root .dsm-pickrow.dsm-pickrow-sm .dsm-pickrow-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+#wpie-root .dsm-pickrow.dsm-pickrow-sm b {
+	font-weight: var(--fw-medium);
+	color: inherit;
+}
+
+#wpie-root .dsm-pickrow.dsm-pickrow-sm:hover:not( :disabled ) b,
+#wpie-root .dsm-pickrow.dsm-pickrow-sm[aria-pressed="true"] b,
+#wpie-root .dsm-pickrow.dsm-pickrow-sm.is-on b,
+#wpie-root .dsm-pickrow.dsm-pickrow-sm.active b {
+	color: var(--text-primary);
+}
+
+/* ---- List rows --------------------------------------------------------- */
+
+/*
+ * The lighter sibling of the list card: one selectable line - a search hit, a
+ * post, a saved figure. Same three states, none of the card's height: a hit
+ * list that suddenly runs at 52px a row is not a hit list any more.
+ */
+#wpie-root .dsm-listrow {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	box-sizing: border-box;
+	width: 100%;
+	padding: 6px 8px;
+	font: inherit;
+	font-size: var(--fs-sm);
+	color: var(--text-secondary);
+	text-align: left;
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-listrow:hover:not( :disabled ) {
+	color: var(--text-primary);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-listrow[aria-pressed="true"],
+#wpie-root .dsm-listrow.is-on,
+#wpie-root .dsm-listrow.is-active,
+#wpie-root .dsm-listrow.active,
+#wpie-root .dsm-listrow.selected,
+#wpie-root .dsm-listrow.sel {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-listrow small {
+	font-size: var(--fs-xs);
+	color: var(--text-muted);
+}
+
+/* ---- Icon buttons ----------------------------------------------------- */
+
+/* Dice, remove, up, down: 26px square, control radius, accent on hover. The
+   destructive one turns red instead. */
+#wpie-root .dsm-mini {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	color: var(--text-secondary);
+	cursor: pointer;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+	transition:
+		color var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-mini svg {
+	width: 14px;
+	height: 14px;
+}
+
+#wpie-root .dsm-mini:hover:not( :disabled ) {
+	color: var(--accent);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-mini.danger:hover:not( :disabled ) {
+	color: var(--status-error);
+	border-color: var(--status-error);
+}
+
+/* A mini that is a toggle (move mode, mirror): pressed = accent, like a
+   pill that is on. */
+#wpie-root .dsm-mini[aria-pressed="true"],
+#wpie-root .dsm-mini.is-on,
+#wpie-root .dsm-mini.active,
+#wpie-root .dsm-mini.sel {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-mini:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+/* The icon button INSIDE a pill bar (zoom, history, transport): borderless
+   and round, so the bar stays one shape. */
+#wpie-root .dsm-pillbtn {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	color: var(--text-secondary);
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: 50%;
+	transition:
+		color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-pillbtn svg {
+	width: 14px;
+	height: 14px;
+}
+
+#wpie-root .dsm-pillbtn:hover:not( :disabled ) {
+	color: var(--text-primary);
+	background: var(--surface-raised);
+}
+
+#wpie-root .dsm-pillbtn:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+/*
+ * The same button carrying a WORD instead of an icon: a view switch on
+ * the canvas ("Angled", "Front", "Three-quarter"). Without this it keeps
+ * the icon button's fixed 24x24 circle and the label is squeezed out of
+ * it - which is exactly how Origami's view row looked after the CI round
+ * mapped it onto the icon button.
+ */
+#wpie-root .dsm-pillbtn.has-label {
+	width: auto;
+	min-width: 24px;
+	padding: 0 9px;
+	font-size: var(--fs-xs);
+	border-radius: var(--r-pill);
+}
+
+#wpie-root .dsm-pillbtn.has-label[aria-pressed="true"] {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+}
+
+/* The small read-out inside a pill bar (zoom percentage). */
+#wpie-root .dsm-pillval {
+	min-width: 40px;
+	font-size: var(--fs-xs);
+	color: var(--text-secondary);
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- Add row ---------------------------------------------------------- */
+
+/* "Add an effect": a dashed full-width button under a list. */
+#wpie-root .dsm-add {
+	display: inline-flex;
+	gap: 7px;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 12px;
+	font-size: var(--fs-sm);
+	color: var(--text-secondary);
+	cursor: pointer;
+	background: transparent;
+	border: 1px dashed var(--border-strong);
+	border-radius: var(--r-lg);
+}
+
+#wpie-root .dsm-add:hover:not( :disabled ) {
+	color: var(--accent);
+	border-color: var(--accent);
+}
+
+/* ---- Preview strips ---------------------------------------------------- */
+
+/*
+ * A full-bleed preview: a palette bar, a theme swatch strip, a gradient. The
+ * accent TINT cannot show on one of these (the preview covers it), so this is
+ * the one component whose selected state is a ring rather than a fill. The
+ * package sets the height; everything else is here.
+ */
+#wpie-root .dsm-strip {
+	position: relative;
+	overflow: hidden;
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+	transition: border-color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .dsm-strip:hover:not( :disabled ) {
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-strip[aria-pressed="true"],
+#wpie-root .dsm-strip.is-on,
+#wpie-root .dsm-strip.is-active,
+#wpie-root .dsm-strip.active,
+#wpie-root .dsm-strip.selected,
+#wpie-root .dsm-strip.sel {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* ---- Swatches --------------------------------------------------------- */
+
+#wpie-root .dsm-swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	align-items: center;
+}
+
+#wpie-root .dsm-swatch {
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	cursor: pointer;
+	border: 1px solid var(--border-strong);
+	border-radius: 50%;
+}
+
+#wpie-root .dsm-swatch[aria-pressed="true"],
+#wpie-root .dsm-swatch.is-on,
+#wpie-root .dsm-swatch.active {
+	box-shadow:
+		0 0 0 2px var(--surface-panel),
+		0 0 0 4px var(--accent);
+}
+
+/* ---- The view (middle column) ----------------------------------------- */
+
+/* The pill above the canvas: "Show document", a mode toggle. */
+#wpie-root .dsm-viewbtn {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	height: 24px;
+	padding: 0 11px;
+	font-size: var(--fs-xs);
+	color: var(--text-secondary);
+	cursor: pointer;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-pill);
+}
+
+#wpie-root .dsm-viewbtn svg {
+	width: 13px;
+	height: 13px;
+}
+
+#wpie-root .dsm-viewbtn:hover:not( :disabled ) {
+	color: var(--text-primary);
+	border-color: var(--accent);
+}
+
+#wpie-root .dsm-viewbtn[aria-pressed="true"],
+#wpie-root .dsm-viewbtn.is-on,
+#wpie-root .dsm-viewbtn.active {
+	color: var(--text-primary);
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+/* The hint under the canvas ("drag to orbit"): centred, never a tooltip. */
+#wpie-root .dsm-viewhint {
+	padding: 3px 10px;
+	font-size: var(--fs-2xs);
+	color: rgb(255 255 255 / 82%);
+	pointer-events: none;
+	background: rgb(10 12 16 / 55%);
+	border-radius: var(--r-pill);
+}
+
+/* ---- Pill bars on the view (zoom, history) ---------------------------- */
+
+/* A small tool pill on the canvas: panel ground, hairline, round. The
+   package positions it; the kit draws it. */
+#wpie-root .dsm-pillbar {
+	display: flex;
+	gap: 2px;
+	align-items: center;
+	padding: 3px;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-pill);
+}
+
+/* ---- Transport (play, scrub, time) ------------------------------------ */
+
+/* Seven packages carry their own copy of this bar. It sits INSIDE the view;
+   the package positions it and this file draws it. */
+#wpie-root .dsm-transport {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding: 6px 10px;
+	background: rgb(0 0 0 / 45%);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-pill);
+}
+
+#wpie-root .dsm-play {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	color: #fff;
+	cursor: pointer;
+	background: rgb(127 127 127 / 18%);
+	border: 0;
+	border-radius: 50%;
+}
+
+#wpie-root .dsm-play svg {
+	width: 13px;
+	height: 13px;
+}
+
+#wpie-root .dsm-play:hover:not( :disabled ) {
+	background: var(--accent);
+}
+
+#wpie-root .dsm-scrub {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .dsm-time {
+	flex: none;
+	min-width: 74px;
+	font-size: var(--fs-xs);
+	color: rgb(255 255 255 / 82%);
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- Columns ---------------------------------------------------------- */
+
+/*
+ * The three-column shell. Widths are FIXED (the middle takes the rest) and
+ * the package only says which side it is: `dsm-col start` or `dsm-col end`.
+ * A package that genuinely needs another width overrides it on its own class
+ * and says why in a comment.
+ */
+#wpie-root .dsm-col {
+	display: flex;
+	flex-direction: column;
+	flex: none;
+	gap: 10px;
+	width: 300px;
+	min-width: 300px;
+	padding: 12px;
+	overflow-x: hidden;
+	overflow-y: auto;
+	scrollbar-gutter: stable;
+}
+
+#wpie-root .dsm-col > * {
+	flex: none;
+	min-width: 0;
+}
+
+#wpie-root .dsm-col.start {
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dsm-col.end {
+	width: 320px;
+	min-width: 320px;
+	border-left: 1px solid var(--border-hairline);
+}
+
+#wpie-root .dsm-view {
+	position: relative;
+	display: grid;
+	flex: 1;
+	place-items: center;
+	min-width: 0;
+	overflow: hidden;
+	background: var(--bg-canvas);
+}

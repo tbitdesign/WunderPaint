@@ -345,6 +345,7 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Mockup Generator', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

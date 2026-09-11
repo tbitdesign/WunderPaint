@@ -59,6 +59,7 @@ export function HelpDialog( { initial, onClose, onStartGuide, extras } ) {
 				className="help-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Handbook', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -91,7 +92,7 @@ export function HelpDialog( { initial, onClose, onStartGuide, extras } ) {
 						<input
 							ref={ inputRef }
 							type="search"
-							placeholder={ __( 'Search help…', 'wunderpaint' ) }
+							placeholder={ __( 'Search help', 'wunderpaint' ) }
 							value={ query }
 							onChange={ ( e ) => setQuery( e.target.value ) }
 							aria-label={ __( 'Search help', 'wunderpaint' ) }

@@ -512,12 +512,21 @@ class Media_Metadata {
 
 		// Snapshot first: this rewrites files in place, and a mistake here is
 		// otherwise unrecoverable.
-		Versioning::snapshot(
+		$snap = Versioning::snapshot(
 			$id,
 			'location' === $what
 				? __( 'Before removing location data', 'wunderpaint' )
 				: __( 'Before removing metadata', 'wunderpaint' )
 		);
+		if ( is_wp_error( $snap ) ) {
+			// No version, no rewrite: the strip works on the files in place,
+			// and it used to go ahead after a failed snapshot as if one existed.
+			return new \WP_Error(
+				'wpie_snapshot_failed',
+				__( 'The previous version could not be stored, so the files were left untouched.', 'wunderpaint' ),
+				array( 'status' => 500 )
+			);
+		}
 
 		$targets = array( $path );
 		$meta    = wp_get_attachment_metadata( $id );

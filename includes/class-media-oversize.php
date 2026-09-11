@@ -94,7 +94,9 @@ class Media_Oversize {
 		 */
 		$factor = (float) apply_filters( 'wpie_oversize_factor', self::FACTOR );
 		$cutoff = (int) round( $served * max( 1.0, $factor ) );
-		$limit  = max( 1, min( 500, (int) $limit ) );
+		// Every candidate costs a LIKE scan over posts and postmeta for its
+		// direct-link check; 500 of those per request was the finding.
+		$limit = max( 1, min( 100, (int) $limit ) );
 
 		// The stored area meta the manager already backfills is the cheap way
 		// in; width itself is only in the serialized metadata.
@@ -204,6 +206,10 @@ class Media_Oversize {
 	 * @return array
 	 */
 	public function rest_list( \WP_REST_Request $req ) {
+		$limited = AI_Provider::rate_limit( 'oversize', 0, 'lookup_rate_limit' );
+		if ( is_wp_error( $limited ) ) {
+			return $limited;
+		}
 		return self::candidates( (int) $req->get_param( 'limit' ) ?: 100 );
 	}
 }

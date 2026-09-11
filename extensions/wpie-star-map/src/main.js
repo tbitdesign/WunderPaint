@@ -102,12 +102,12 @@ const SEC_ICONS = {
 	dot: svgIc( '<circle cx="12" cy="12" r="7"/>' ),
 };
 function section( parent, label, iconKey ) {
-	const card = el( 'div', 'wpiestar-card', parent );
+	const card = el( 'div', 'dsm-card wpiestar-card', parent );
 	if ( label ) {
-		const head = el( 'div', 'wpiestar-card-head', card );
+		const head = el( 'div', 'dsm-card-head wpiestar-card-head', card );
 		head.innerHTML = ( SEC_ICONS[ iconKey ] || SEC_ICONS.dot ) + '<span>' + label + '</span>';
 	}
-	return el( 'div', 'wpiestar-card-body', card );
+	return el( 'div', 'dsm-card-body wpiestar-card-body', card );
 }
 
 function debounced( fn, ms ) {
@@ -147,7 +147,24 @@ function dateText( dateStr ) {
 /* --------------------------------- studio -------------------------------- */
 
 async function openStudio( { editor, extras, layer } ) {
-	const bridge = window.WPIE.bridge;
+	const bridge = window.WPIE && window.WPIE.bridge;
+	// The kit (bridge.ui, API 2.23) draws the dialog head and the search
+	// field. Every sister studio checks for it before touching it; this one
+	// reached straight into it, so on a host without the kit the studio died
+	// with "cannot read properties of undefined" instead of saying what is
+	// wrong. The manifest's requiresApi keeps such a host from loading the
+	// package at all, which is why nobody ran into it - but the guard is what
+	// the message depends on, and its absence is what broke the studio tests
+	// when the kit landed.
+	const ui = bridge && bridge.ui;
+	if ( ! ui || ! ui.badge || ! ui.search ) {
+		if ( extras && extras.toasts ) {
+			extras.toasts.error(
+				t( 'Star Map Posters needs WunderPaint 1.144 or newer.' )
+			);
+		}
+		return;
+	}
 	// Per-user store (v1.4.0, API 2.10): the last-used place lives
 	// server-side now; the old localStorage value migrates once.
 	const NS = 'wpie-star-map';
@@ -157,11 +174,14 @@ async function openStudio( { editor, extras, layer } ) {
 	} catch ( e ) {
 		store = {};
 	}
-	const storeSave = () => {
-		try {
-			bridge.storage.set( NS, store );
-		} catch ( e ) {}
-	};
+	// A promise: the old try/catch caught nothing, a failed write vanished
+	// (BRIDGE-03, EXTFEHLER-09).
+	const storeSave = () =>
+		bridge.storage.set( NS, store ).catch( () => {
+			if ( extras && extras.toasts ) {
+				extras.toasts.error( t( 'Could not save your settings.' ) );
+			}
+		} );
 	const geo = bridge && bridge.api && bridge.api.geo;
 	if ( ! geo ) {
 		if ( extras && extras.toasts ) {
@@ -210,20 +230,18 @@ async function openStudio( { editor, extras, layer } ) {
 
 	/* ------------------------------ overlay ------------------------------ */
 
-	const ICON_BRAND =
-		'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
 	const ICON_CLOSE =
 		'<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>';
 
-	const host = document.getElementById( 'wpie-root' ) || document.body;
+		const host = document.getElementById( 'wpie-root' ) || document.body;
 	const backdrop = el( 'div', 'modal-backdrop', host );
 	const dialog = el( 'div', 'dsm wpiestar-dialog', backdrop );
 	dialog.setAttribute( 'role', 'dialog' );
 	dialog.setAttribute( 'aria-label', 'Star Map Posters' );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	const headTitleRow = el( 'div', 'dsm-title-row', titles );
 	const title = el( 'span', 'dsm-title', headTitleRow );
@@ -242,11 +260,11 @@ async function openStudio( { editor, extras, layer } ) {
 	empty.textContent = t(
 		'Search for a place, then pick the date of your moment.'
 	);
-	const status = el( 'div', 'wpiestar-status', view );
+	const status = el( 'div', 'dsm-viewhint wpiestar-status', view );
 	const setStatus = ( text, isError ) => {
 		status.textContent = text || '';
 		status.className =
-			'wpiestar-status' +
+			'dsm-viewhint wpiestar-status' +
 			( text ? ' on' : '' ) +
 			( isError ? ' err' : '' );
 	};
@@ -256,16 +274,16 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const searchSec = section( side, t( 'Location' ), 'location' );
 	const searchWrap = el( 'div', 'wpiestar-search', searchSec );
-	const searchInput = el( 'input', null, searchWrap );
-	searchInput.type = 'text';
-	searchInput.placeholder = t( 'Search a place, e.g. Hamburg' );
+	const searchInput = ui.search( searchWrap, {
+		placeholder: t( 'Search a place, e.g. Hamburg' ),
+	} ).input;
 	const results = el( 'div', 'wpiestar-results', searchWrap );
 	results.style.display = 'none';
-	const coordsLine = el( 'div', 'wpiestar-coords', searchSec );
+	const coordsLine = el( 'div', 'dsm-note wpiestar-coords', searchSec );
 
 	const dateRow = el( 'label', 'wpiestar-row', searchSec );
-	el( 'span', null, dateRow ).textContent = t( 'Date' );
-	const dateInput = el( 'input', null, dateRow );
+	el( 'span', 'dsm-rowline-label', dateRow ).textContent = t( 'Date' );
+	const dateInput = el( 'input', 'dsm-input', dateRow );
 	dateInput.type = 'date';
 	dateInput.value = params.dateStr;
 	dateInput.onchange = () => {
@@ -273,8 +291,8 @@ async function openStudio( { editor, extras, layer } ) {
 		paint();
 	};
 	const timeRow = el( 'label', 'wpiestar-row', searchSec );
-	el( 'span', null, timeRow ).textContent = t( 'Time' );
-	const timeInput = el( 'input', null, timeRow );
+	el( 'span', 'dsm-rowline-label', timeRow ).textContent = t( 'Time' );
+	const timeInput = el( 'input', 'dsm-input', timeRow );
 	timeInput.type = 'time';
 	timeInput.value = params.timeStr;
 	timeInput.onchange = () => {
@@ -316,7 +334,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const mountSwatch = bridge.components && bridge.components.mountColorButton;
 	const colorRow = ( key, label ) => {
 		const row = el( 'div', 'wpiestar-row', colorSec );
-		el( 'span', null, row ).textContent = label;
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
 		const slot = el( 'span', 'wpiestar-swatch', row );
 		const onChange = ( c ) => {
 			params.overrides[ key ] = c;
@@ -344,7 +362,7 @@ async function openStudio( { editor, extras, layer } ) {
 				},
 			};
 		}
-		const reset = el( 'button', 'wpiestar-reset', row );
+		const reset = el( 'button', 'ai-btn secondary wpiestar-reset', row );
 		reset.textContent = t( 'Auto' );
 		reset.title = t( 'Back to the theme color' );
 		reset.onclick = ( e ) => {
@@ -365,11 +383,11 @@ async function openStudio( { editor, extras, layer } ) {
 
 	// v2.0 - foil / gradient constellation lines (gold-on-black classic).
 	const gradRow = el( 'div', 'wpiestar-gradrow', colorSec );
-	el( 'span', 'wpiestar-gradlbl', gradRow ).textContent = t( 'Line foil' );
+	el( 'span', 'dsm-fieldlabel wpiestar-gradlbl', gradRow ).textContent = t( 'Line foil' );
 	const gradWrap = el( 'div', 'wpiestar-grads', gradRow );
 	const gradBtns = new Map();
 	const gradTile = ( id, label, background ) => {
-		const b = el( 'button', 'wpiestar-grad', gradWrap );
+		const b = el( 'button', 'dsm-strip wpiestar-grad', gradWrap );
 		b.type = 'button';
 		b.title = label;
 		b.setAttribute( 'aria-label', label );
@@ -438,7 +456,7 @@ async function openStudio( { editor, extras, layer } ) {
 		} );
 	};
 	if ( brandKits.length || ( ( window.WPIE.brand && window.WPIE.brand.colors ) || [] ).length ) {
-		const brandLbl = el( 'label', 'wpiestar-check', colorSec );
+		const brandLbl = el( 'label', 'dsm-checkrow wpiestar-check', colorSec );
 		const brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
 		brandCb.checked = params.useBrand;
@@ -528,13 +546,13 @@ async function openStudio( { editor, extras, layer } ) {
 
 	const skySec = section( side, t( 'Sky' ), 'sky' );
 	const sizeRow = el( 'label', 'wpiestar-row', skySec );
-	el( 'span', null, sizeRow ).textContent = t( 'Star size' );
-	const sizeInput = el( 'input', null, sizeRow );
+	el( 'span', 'dsm-rowline-label', sizeRow ).textContent = t( 'Star size' );
+	const sizeInput = el( 'input', 'dsm-range', sizeRow );
 	sizeInput.type = 'range';
 	sizeInput.min = '60';
 	sizeInput.max = '180';
 	sizeInput.value = String( Math.round( params.starScale * 100 ) );
-	const sizeOut = el( 'output', null, sizeRow );
+	const sizeOut = el( 'output', 'dsm-sliderrow-val', sizeRow );
 	sizeOut.textContent = `${ sizeInput.value }%`;
 	sizeInput.oninput = () => {
 		params.starScale = parseInt( sizeInput.value, 10 ) / 100;
@@ -543,7 +561,7 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 
 	const checkRow = ( get, set, label ) => {
-		const row = el( 'label', 'wpiestar-check', skySec );
+		const row = el( 'label', 'dsm-checkrow wpiestar-check', skySec );
 		const input = el( 'input', null, row );
 		input.type = 'checkbox';
 		input.checked = get();
@@ -584,13 +602,13 @@ async function openStudio( { editor, extras, layer } ) {
 		t( 'Milky way' )
 	);
 	const glowRow = el( 'label', 'wpiestar-row', skySec );
-	el( 'span', null, glowRow ).textContent = t( 'Glow' );
-	const glowInput = el( 'input', null, glowRow );
+	el( 'span', 'dsm-rowline-label', glowRow ).textContent = t( 'Glow' );
+	const glowInput = el( 'input', 'dsm-range', glowRow );
 	glowInput.type = 'range';
 	glowInput.min = '0';
 	glowInput.max = '100';
 	glowInput.value = String( params.glow || 0 );
-	const glowOut = el( 'output', null, glowRow );
+	const glowOut = el( 'output', 'dsm-sliderrow-val', glowRow );
 	glowOut.textContent = String( params.glow || 0 );
 	glowInput.oninput = () => {
 		params.glow = parseInt( glowInput.value, 10 );
@@ -600,7 +618,7 @@ async function openStudio( { editor, extras, layer } ) {
 
 	// v1.8 - spotlight one constellation (the birth sign, the favorite).
 	const hiRow = el( 'label', 'wpiestar-row', skySec );
-	el( 'span', null, hiRow ).textContent = t( 'Highlight' );
+	el( 'span', 'dsm-rowline-label', hiRow ).textContent = t( 'Highlight' );
 	const hiSel = el( 'select', 'dsm-select', hiRow );
 	{
 		const none = el( 'option', null, hiSel );
@@ -621,7 +639,7 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 
 	const shapeRow = el( 'div', 'wpiestar-shaperow', skySec );
-	el( 'span', null, shapeRow ).textContent = t( 'Shape' );
+	el( 'span', 'dsm-fieldlabel', shapeRow ).textContent = t( 'Shape' );
 	const shapeGrid = el( 'div', 'wpiestar-shapes', shapeRow );
 	const SHAPE_ICONS = {
 		circle: '<circle cx="12" cy="12" r="8"/>',
@@ -648,7 +666,7 @@ async function openStudio( { editor, extras, layer } ) {
 		[ 'arch', t( 'Arch' ) ],
 		[ 'star', t( 'Star' ) ],
 	] ) {
-		const tile = el( 'button', 'wpiestar-shape', shapeGrid );
+		const tile = el( 'button', 'dsm-mini wpiestar-shape', shapeGrid );
 		tile.title = label;
 		tile.setAttribute( 'aria-label', label );
 		tile.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${ SHAPE_ICONS[ value ] }</svg>`;
@@ -674,7 +692,7 @@ async function openStudio( { editor, extras, layer } ) {
 	if ( ! editing ) {
 		const textSec = section( side, t( 'Text block' ), 'text' );
 		const layoutRow = el( 'label', 'wpiestar-row', textSec );
-		el( 'span', null, layoutRow ).textContent = t( 'Layout' );
+		el( 'span', 'dsm-rowline-label', layoutRow ).textContent = t( 'Layout' );
 		layoutRow.style.gridTemplateColumns = '78px 1fr';
 		layoutSelect = el( 'select', 'dsm-select', layoutRow );
 		for ( const [ value, label ] of [
@@ -696,7 +714,7 @@ async function openStudio( { editor, extras, layer } ) {
 		// Placement of the on-chart title/date: a 3x3 alignment grid, shown
 		// only for the "On the chart" layout. Value is <v><h> (t|m|b, l|c|r).
 		const anchorRow = el( 'div', 'wpiestar-anchorrow', textSec );
-		el( 'span', null, anchorRow ).textContent = t( 'Alignment' );
+		el( 'span', 'dsm-fieldlabel', anchorRow ).textContent = t( 'Alignment' );
 		const anchorGrid = el( 'div', 'wpiestar-anchors', anchorRow );
 		const anchorTiles = new Map();
 		const anchorIcon = ( h, v ) => {
@@ -710,7 +728,7 @@ async function openStudio( { editor, extras, layer } ) {
 		for ( const v of [ 't', 'm', 'b' ] ) {
 			for ( const h of [ 'l', 'c', 'r' ] ) {
 				const value = v + h;
-				const tile = el( 'button', 'wpiestar-anchor', anchorGrid );
+				const tile = el( 'button', 'dsm-mini wpiestar-anchor', anchorGrid );
 				tile.setAttribute( 'aria-label', value );
 				tile.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">${ anchorIcon(
 					h,
@@ -736,8 +754,8 @@ async function openStudio( { editor, extras, layer } ) {
 		syncTextRows();
 
 		const titleRow = el( 'label', 'wpiestar-text-row', textSec );
-		el( 'span', null, titleRow ).textContent = t( 'Title' );
-		titleInput = el( 'input', null, titleRow );
+		el( 'span', 'dsm-fieldlabel', titleRow ).textContent = t( 'Title' );
+		titleInput = el( 'input', 'dsm-input', titleRow );
 		titleInput.type = 'text';
 		titleInput.oninput = () => {
 			titleDirty = true;
@@ -745,8 +763,8 @@ async function openStudio( { editor, extras, layer } ) {
 		};
 
 		const subtitleRow = el( 'label', 'wpiestar-text-row', textSec );
-		el( 'span', null, subtitleRow ).textContent = t( 'Subtitle' );
-		subtitleInput = el( 'input', null, subtitleRow );
+		el( 'span', 'dsm-fieldlabel', subtitleRow ).textContent = t( 'Subtitle' );
+		subtitleInput = el( 'input', 'dsm-input', subtitleRow );
 		subtitleInput.type = 'text';
 		subtitleInput.placeholder = t( 'e.g. The night we met' );
 		subtitleInput.oninput = () => {
@@ -763,13 +781,13 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 
 		const sizeRow2 = el( 'label', 'wpiestar-row', textSec );
-		el( 'span', null, sizeRow2 ).textContent = t( 'Text size' );
-		const sizeInput2 = el( 'input', null, sizeRow2 );
+		el( 'span', 'dsm-rowline-label', sizeRow2 ).textContent = t( 'Text size' );
+		const sizeInput2 = el( 'input', 'dsm-range', sizeRow2 );
 		sizeInput2.type = 'range';
 		sizeInput2.min = '60';
 		sizeInput2.max = '160';
 		sizeInput2.value = String( Math.round( params.textScale * 100 ) );
-		const sizeOut2 = el( 'output', null, sizeRow2 );
+		const sizeOut2 = el( 'output', 'dsm-sliderrow-val', sizeRow2 );
 		sizeOut2.textContent = `${ sizeInput2.value }%`;
 		sizeInput2.oninput = () => {
 			params.textScale = parseInt( sizeInput2.value, 10 ) / 100;
@@ -777,7 +795,7 @@ async function openStudio( { editor, extras, layer } ) {
 			paint();
 		};
 
-		const dateRow2 = el( 'label', 'wpiestar-check', textSec );
+		const dateRow2 = el( 'label', 'dsm-checkrow wpiestar-check', textSec );
 		dateCheck = el( 'input', null, dateRow2 );
 		dateCheck.type = 'checkbox';
 		dateCheck.checked = true;
@@ -787,7 +805,7 @@ async function openStudio( { editor, extras, layer } ) {
 		);
 	}
 
-	const attrNote = el( 'div', 'wpiestar-attr', side );
+	const attrNote = el( 'div', 'dsm-note wpiestar-attr', side );
 	attrNote.textContent = 'Yale Bright Star Catalogue · d3-celestial (BSD)';
 
 	/* ------------------------------- footer ------------------------------ */

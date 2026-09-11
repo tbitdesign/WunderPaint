@@ -31,11 +31,14 @@ Full instructions, including what makes up the installable plugin, are in
 | `src/` | The editor: screens, tools, canvas engine, libraries |
 | `includes/` | The WordPress side: REST endpoints, settings, integrations |
 | `assets/` | Fonts, icons, content packs and other shipped assets |
-| `languages/` | Translations for German, Spanish, French, Italian and Portuguese |
+| `extensions/` | The free studios (sources); the plugin ships them built, under `bundled-extensions/` |
+| `languages/` | Translation sources for German, Spanish, French, Italian, Dutch and Portuguese (the plugin ships none: wordpress.org delivers language packs) |
 | `tools/` | Build scripts for icons, fonts and content packs |
 
-Pro features and the extension studios are separate products and live
-outside this repository.
+Pro features and the premium studios are separate products and live
+outside this repository. The free studios are part of it: their sources
+sit in `extensions/`, the plugin ships them under `bundled-extensions/`
+(see BUILD.md).
 
 ## Links
 
@@ -50,3 +53,10 @@ bundled third-party libraries are listed in
 [third-party-licenses.txt](third-party-licenses.txt).
 
 By [TBIT DESIGN - Thomas Breher](https://tbitdesign.com).
+
+The optional 3D Solar System Studio uses maps by Solar System Scope / INOVE
+(CC BY 4.0), HYG star data by David Nash / Astronexus (CC BY-SA 4.0), and
+constellation figures and names by the Stellarium team and contributors
+(CC BY-SA 4.0). Sources, licenses and adaptation notices are in its
+[asset attribution](extensions/wpie-solar-system-studio/ATTRIBUTION.md)
+and the [plugin readme](readme.txt).

@@ -66,6 +66,7 @@ export function TextFxPopover( { editor, layer, fxId, onClose } ) {
 		<div
 			className="textfx-pop"
 			role="dialog"
+			aria-modal="true"
 			aria-label={ def.label }
 			onPointerDown={ ( e ) => e.stopPropagation() }
 			onMouseDown={ ( e ) => e.stopPropagation() }

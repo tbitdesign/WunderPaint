@@ -9,10 +9,32 @@
  * descriptor back into fresh, editable layers for insertion/preview.
  */
 
+import { sanitizeSpanStyle } from './rich-text';
 import { serializeLayers } from '../store/document';
 import { reassignIds, slugify } from './template-io';
 import { scalePathD } from './path';
 import { scaleRadius } from './corner-radii';
+
+/** Text layers with their run and line styles scrubbed (see hydrateLayers). */
+function scrubSpans( layers ) {
+	return ( layers || [] ).map( ( l ) => {
+		if ( ! l || 'text' !== l.type ) {
+			return l;
+		}
+		const out = { ...l };
+		if ( Array.isArray( out.spans ) ) {
+			out.spans = out.spans.map( ( run ) =>
+				run && run.s ? { ...run, s: sanitizeSpanStyle( run.s ) } : run
+			);
+		}
+		if ( Array.isArray( out.lineStyles ) ) {
+			out.lineStyles = out.lineStyles.map( ( ls ) =>
+				ls ? sanitizeSpanStyle( ls ) : ls
+			);
+		}
+		return out;
+	} );
+}
 
 export const COMBO_FORMAT = 'wpie-combo@1';
 export const ELEMENT_FORMAT = 'wpie-element@1';
@@ -259,7 +281,13 @@ export function comboToLayers( descriptor, doc, opts = {} ) {
 		'mark' === opts.fit
 			? Math.min( 4, ( doc.w * 0.72 ) / w, ( doc.h * 0.72 ) / h )
 			: Math.min( 1, ( doc.w * 0.86 ) / w, ( doc.h * 0.86 ) / h );
-	const scaled = scaleLayers( reassignIds( descriptor.layers || [] ), f );
+	// The descriptor may come from the server library; its span styles get
+	// the same scrub every opened project gets (rich-text's defence for the
+	// edit overlay), which this path used to skip.
+	const scaled = scaleLayers(
+		reassignIds( scrubSpans( descriptor.layers || [] ) ),
+		f
+	);
 	const dx = Math.round( ( doc.w - w * f ) / 2 );
 	const dy = Math.round( ( doc.h - h * f ) / 2 );
 	return scaled.map( ( l ) => ( {

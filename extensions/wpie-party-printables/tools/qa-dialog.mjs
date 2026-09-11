@@ -132,31 +132,31 @@ try {
 		'typing MIA gives three pennants'
 	);
 
-	// The picker.
-	await page.locator( '.wpiepp-pick' ).click();
-	await page.waitForTimeout( 150 );
-	const pick = await page.locator( '.wpiepp-picker' ).boundingBox();
-	const vp = page.viewportSize();
+	// The item cards (v3.4: in the column, no popover any more).
 	check(
-		!! pick &&
-			pick.x >= 0 &&
-			pick.y >= 0 &&
-			pick.x + pick.width <= vp.width &&
-			pick.y + pick.height <= vp.height,
-		'the picker opens inside the viewport'
+		69 === ( await page.locator( '.wpiepp-item' ).count() ),
+		'sixty-nine item cards in the column'
 	);
 	check(
-		69 === ( await page.locator( '.wpiepp-picker .wpiepp-tile' ).count() ),
-		'sixty-nine item tiles in the picker'
+		0 === ( await page.locator( '.wpiepp-picker, .wpiepp-pick' ).count() ),
+		'no popover picker left'
 	);
+	await page.locator( '.wpiepp-chip[data-group="games"]' ).click();
+	check(
+		( await page.locator( '.wpiepp-item' ).count() ) < 69,
+		'a group chip filters the cards'
+	);
+	await page.locator( '.wpiepp-chip[data-group="all"]' ).click();
 	before = await frames();
-	await page
-		.locator( '.wpiepp-picker .wpiepp-tile[data-type="placecards"]' )
-		.click();
+	await page.locator( '.wpiepp-item[data-type="placecards"]' ).click();
 	st = await settled( before );
 	check(
-		await page.locator( '.wpiepp-picker' ).isHidden(),
-		'the picker closes'
+		1 === ( await page.locator( '.wpiepp-item.is-on' ).count() ) &&
+			'placecards' ===
+				( await page
+					.locator( '.wpiepp-item.is-on' )
+					.getAttribute( 'data-type' ) ),
+		'the chosen card is lit'
 	);
 	check(
 		'placecards' === st.item &&
@@ -257,11 +257,7 @@ try {
 
 	// Event fields reach the item.
 	before = await frames();
-	await page.locator( '.wpiepp-pick' ).click();
-	await page.waitForTimeout( 150 );
-	await page
-		.locator( '.wpiepp-picker .wpiepp-tile[data-type="bottlelabels"]' )
-		.click();
+	await page.locator( '.wpiepp-item[data-type="bottlelabels"]' ).click();
 	st = await settled( before );
 	before = await frames();
 	await setInput( 'input[data-key="event-title"]', 'Summit 2027' );
@@ -465,12 +461,8 @@ try {
 	await page.locator( 'input[data-key="solution"]' ).uncheck();
 	st = await settled( before );
 	check( 1 === st.last.pieces, 'the solution sheet can be left off' );
-	await page.locator( '.wpiepp-pick' ).click();
-	await page.waitForTimeout( 150 );
 	before = await frames();
-	await page
-		.locator( '.wpiepp-picker .wpiepp-tile[data-type="bracket"]' )
-		.click();
+	await page.locator( '.wpiepp-item[data-type="bracket"]' ).click();
 	st = await settled( before );
 	check(
 		'bracket' === st.item &&

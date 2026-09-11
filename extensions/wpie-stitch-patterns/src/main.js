@@ -148,9 +148,6 @@ const splitLines = ( s, maxLines = 2 ) =>
 		.slice( 0, maxLines );
 
 // The WPIE brand mark for the dialog head (shared across studios).
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
-
 const tabIcon = ( d, size = 15 ) =>
 	'<svg xmlns="http://www.w3.org/2000/svg" width="' +
 	size +
@@ -201,8 +198,8 @@ function openStudio( ctx ) {
 	const dialog = el( 'div', 'dsm wpiestp-dialog', backdrop );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	el( 'span', 'dsm-title', titles, 'Stitch Patterns' );
 	el(
@@ -215,11 +212,13 @@ function openStudio( ctx ) {
 	closeBtn.innerHTML = '&times;';
 	closeBtn.setAttribute( 'aria-label', t( 'Close' ) );
 
+	const ui = bridge.ui;
 	const body = el( 'div', 'wpiestp-body', dialog );
+	const library = el( 'div', 'dsm-col start wpiestp-library', body );
 	const view = el( 'div', 'wpiestp-view', body );
 	const canvas = el( 'canvas', null, view );
-	const side = el( 'div', 'wpiestp-side', body );
-	const status = el( 'div', 'wpiestp-status', view );
+	const side = el( 'div', 'dsm-col end wpiestp-side', body );
+	const status = el( 'div', 'dsm-viewhint wpiestp-status', view );
 	const setStatus = ( msg, isErr ) => {
 		status.textContent = msg || '';
 		status.classList.toggle( 'on', !! msg );
@@ -227,25 +226,28 @@ function openStudio( ctx ) {
 	};
 
 	const section = ( parent, icon, label ) => {
-		const card = el( 'div', 'wpiestp-card', parent );
-		const h = el( 'div', 'wpiestp-card-head', card );
-		h.innerHTML = icon + '<span>' + label + '</span>';
-		return el( 'div', 'wpiestp-card-body', card );
+		const content = ui.section( parent, { icon, title: label } );
+		content.parentElement.classList.add( 'wpiestp-card' );
+		return content;
 	};
 
 	/* ----------------------------- craft cards ---------------------------- */
 
-	const modeSec = section( side, ICONS.craft, t( 'Craft' ) );
-	const modeGrid = el( 'div', 'wpiestp-cards', modeSec );
+	const modeSec = section( library, ICONS.craft, t( 'Craft' ) );
+	const modeGrid = ui.picks( modeSec, { cell: 110, cls: 'wpiestp-cards' } );
 	const modeTiles = new Map();
 	for ( const m of MODES ) {
-		const card = el( 'button', 'wpiestp-tcard', modeGrid );
-		card.type = 'button';
-		card.title = t( m.label );
-		const thumb = el( 'canvas', 'wpiestp-tthumb', card );
-		thumb.width = 132;
-		thumb.height = 92;
-		el( 'span', 'wpiestp-tlabel', card, t( m.label ) );
+		const thumb = document.createElement( 'canvas' );
+		thumb.width = 198;
+		thumb.height = 138;
+		thumb.setAttribute( 'aria-hidden', 'true' );
+		const { node: card } = ui.pick( modeGrid, {
+			label: t( m.label ),
+			thumb,
+			cls: 'wpiestp-tcard',
+			on: params.mode === m.id,
+		} );
+		card.dataset.mode = m.id;
 		card.onclick = () => {
 			params.mode = m.id;
 			onGeometryChange();
@@ -346,9 +348,10 @@ function openStudio( ctx ) {
 
 	/* ------------------------------- source ------------------------------- */
 
-	const srcSec = section( side, ICONS.source, t( 'Source' ) );
+	const srcSec = section( library, ICONS.source, t( 'Source' ) );
 	const srcSel = el( 'select', 'dsm-select wpiestp-wide', srcSec );
-	const srcNote = el( 'div', 'wpiestp-info', srcSec );
+	const srcNote = el( 'div', 'dsm-note wpiestp-info', srcSec );
+	library.prepend( srcSec.parentElement );
 
 	function fillSourceOptions() {
 		srcSel.innerHTML = '';
@@ -358,19 +361,25 @@ function openStudio( ctx ) {
 			o.textContent = label;
 		};
 		add( 'doc', t( 'Whole document' ) );
-		const walk = ( layers, depth ) => {
-			for ( const l of layers || [] ) {
-				if ( 'group' === l.type ) {
-					walk( l.children, depth + 1 );
+		// Der Kern haelt EINE FLACHE Ebenenliste, und group.children sind
+		// IDs, keine Objekte. Die alte Rekursion lief damit ueber Strings:
+		// l.type und l.name waren undefined, jedes Kind wurde als
+		// "layer:undefined" mit der Beschriftung "undefined" angeboten - und
+		// danach standen dieselben Ebenen noch einmal flach in der Liste,
+		// weil sie dort ohnehin schon drin sind. (Codex F15.)
+		const walk = ( layers ) => {
+			const list = layers || [];
+			for ( const l of list ) {
+				if ( ! l || ! l.id || 'group' === l.type ) {
 					continue;
 				}
 				add(
 					'layer:' + l.id,
-					' '.repeat( depth * 2 ) + ( l.name || l.type )
+					( l.parent ? '  ' : '' ) + ( l.name || l.type )
 				);
 			}
 		};
-		walk( editor.state.layers, 0 );
+		walk( editor.state.layers );
 		add( 'media', t( 'Media library…' ) );
 	}
 	fillSourceOptions();
@@ -482,24 +491,40 @@ function openStudio( ctx ) {
 				);
 			} else if ( desc.startsWith( 'layer:' ) ) {
 				const id = desc.slice( 6 );
-				const find = ( layers ) => {
-					for ( const l of layers || [] ) {
-						if ( String( l.id ) === id ) {
-							return l;
-						}
-						const hit = l.children && find( l.children );
-						if ( hit ) {
-							return hit;
-						}
-					}
-					return null;
-				};
-				const target = find( editor.state.layers );
+				const flat = editor.state.layers || [];
+				const target = flat.find( ( l ) => String( l.id ) === id );
 				if ( target ) {
+					// The layer may be the child of a group: the renderer
+					// starts at roots without a parent and never reached it,
+					// so a grouped photo arrived as an empty canvas (Codex
+					// F15, 10.09.2026). Render a parent-less copy and hand the
+					// renderer its descendants for a group.
+					const byId = new Map(
+						flat.map( ( l ) => [ String( l.id ), l ] )
+					);
+					const members = new Set();
+					const collect = ( item ) => {
+						if ( ! item || members.has( item.id ) ) {
+							return;
+						}
+						members.add( item.id );
+						( item.children || [] ).forEach( ( cid ) =>
+							collect( byId.get( String( cid ) ) )
+						);
+					};
+					collect( target );
+					const selected = flat.filter( ( l ) =>
+						members.has( l.id )
+					);
+					await bridge.raster.sharedImageCache?.warm?.( selected );
 					c = await bridge.raster.renderToCanvas(
 						editor.state.doc,
-						[ target ],
-						{ scale: Math.min( 1, 900 / editor.state.doc.w ) }
+						[ { ...target, parent: null } ],
+						{
+							scale: Math.min( 1, 900 / editor.state.doc.w ),
+							cache: bridge.raster.sharedImageCache,
+							allLayers: selected,
+						}
 					);
 					srcNote.textContent = target.name || '';
 				}
@@ -600,7 +625,7 @@ function openStudio( ctx ) {
 	const palWrap = el( 'div', 'wpiestp-pals', colSec );
 	const palBtns = new Map();
 	for ( const p of PALETTES ) {
-		const b = el( 'button', 'wpiestp-pal', palWrap );
+		const b = el( 'button', 'dsm-strip wpiestp-pal', palWrap );
 		b.type = 'button';
 		b.title = p.label;
 		b.style.background = `linear-gradient(90deg, ${ p.colors.join(
@@ -633,7 +658,7 @@ function openStudio( ctx ) {
 	};
 	let brandCb = null;
 	if ( brandKits.length ) {
-		const brandLbl = el( 'label', 'wpiestp-check', colSec );
+		const brandLbl = el( 'label', 'dsm-checkrow wpiestp-check', colSec );
 		brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
 		brandCb.checked = !! params.useBrand;
@@ -671,7 +696,8 @@ function openStudio( ctx ) {
 	// Up to four custom yarn colors; the mounted button is controlled -
 	// call handle.set() on every change.
 	const customRow = el( 'div', 'wpiestp-row wpiestp-customrow', colSec );
-	el( 'span', null, customRow ).textContent = t( 'Custom colors' );
+	el( 'span', 'dsm-rowline-label', customRow ).textContent =
+		t( 'Custom colors' );
 	const customWrap = el( 'span', 'wpiestp-customs', customRow );
 	const mountSwatch = bridge.components && bridge.components.mountColorButton;
 	const customCtls = [];
@@ -705,7 +731,11 @@ function openStudio( ctx ) {
 			customCtls.push( { set: ( hex ) => ( input.value = hex ) } );
 		}
 	}
-	const resetBtn = el( 'button', 'wpiestp-reset', customRow );
+	const resetBtn = el(
+		'button',
+		'ai-btn secondary wpiestp-reset',
+		customRow
+	);
 	resetBtn.textContent = t( 'Auto' );
 	resetBtn.onclick = ( e ) => {
 		e.preventDefault();
@@ -754,8 +784,8 @@ function openStudio( ctx ) {
 	const setSec = section( side, ICONS.settings, t( 'Settings' ) );
 
 	const titleRow = el( 'label', 'wpiestp-text-row', setSec );
-	el( 'span', null, titleRow ).textContent = t( 'Title' );
-	const titleArea = el( 'textarea', 'wpiestp-names', titleRow );
+	el( 'span', 'dsm-fieldlabel', titleRow ).textContent = t( 'Title' );
+	const titleArea = el( 'textarea', 'dsm-input wpiestp-names', titleRow );
 	titleArea.rows = 2;
 	titleArea.value = params.title;
 	titleArea.oninput = () => {
@@ -764,7 +794,7 @@ function openStudio( ctx ) {
 	};
 
 	const fontRow = el( 'div', 'wpiestp-text-row', setSec );
-	el( 'span', null, fontRow ).textContent = t( 'Font' );
+	el( 'span', 'dsm-fieldlabel', fontRow ).textContent = t( 'Font' );
 	const fontMount = el( 'div', null, fontRow );
 	let fontCtl = null;
 	const onFont = ( fam ) => {
@@ -800,13 +830,13 @@ function openStudio( ctx ) {
 
 	function sliderRowIn( parent, label, min, max, get, set, unit ) {
 		const row = el( 'label', 'wpiestp-row', parent );
-		el( 'span', null, row ).textContent = label;
-		const input = el( 'input', null, row );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const input = el( 'input', 'dsm-range', row );
 		input.type = 'range';
 		input.min = String( min );
 		input.max = String( max );
 		input.value = String( get() );
-		const out = el( 'output', null, row );
+		const out = el( 'output', 'dsm-sliderrow-val', row );
 		const suffix = unit || '';
 		out.textContent = String( get() ) + suffix;
 		input.oninput = () => {
@@ -864,7 +894,8 @@ function openStudio( ctx ) {
 		'%'
 	);
 	const boardRow = el( 'label', 'wpiestp-row', setSec );
-	el( 'span', null, boardRow ).textContent = t( 'Pegboard size' );
+	el( 'span', 'dsm-rowline-label', boardRow ).textContent =
+		t( 'Pegboard size' );
 	const boardSel = el( 'select', 'dsm-select', boardRow );
 	for ( const size of [ 29, 50 ] ) {
 		const o = el( 'option', null, boardSel );
@@ -877,7 +908,8 @@ function openStudio( ctx ) {
 		paint();
 	};
 	const drillRow = el( 'label', 'wpiestp-row', setSec );
-	el( 'span', null, drillRow ).textContent = t( 'Drill shape' );
+	el( 'span', 'dsm-rowline-label', drillRow ).textContent =
+		t( 'Drill shape' );
 	const drillSel = el( 'select', 'dsm-select', drillRow );
 	for ( const [ v, l ] of [
 		[ 'square', t( 'Square' ) ],
@@ -892,7 +924,7 @@ function openStudio( ctx ) {
 		params.drill = drillSel.value;
 		paint();
 	};
-	const symLbl = el( 'label', 'wpiestp-check', setSec );
+	const symLbl = el( 'label', 'dsm-checkrow wpiestp-check', setSec );
 	const symCb = el( 'input', null, symLbl );
 	symCb.type = 'checkbox';
 	symCb.checked = !! params.symbols;
@@ -904,7 +936,7 @@ function openStudio( ctx ) {
 	// String art / mandala settings.
 	const selectRow = ( label, values, get, set, fmt ) => {
 		const row = el( 'label', 'wpiestp-row', setSec );
-		el( 'span', null, row ).textContent = label;
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
 		const sel = el( 'select', 'dsm-select', row );
 		for ( const v of values ) {
 			const o = el( 'option', null, sel );
@@ -933,7 +965,8 @@ function openStudio( ctx ) {
 	);
 	const thicknessRow = ( () => {
 		const row = el( 'label', 'wpiestp-row', setSec );
-		el( 'span', null, row ).textContent = t( 'Thread weight' );
+		el( 'span', 'dsm-rowline-label', row ).textContent =
+			t( 'Thread weight' );
 		const sel = el( 'select', 'dsm-select', row );
 		for ( const [ v, l ] of [
 			[ 'fine', t( 'Fine' ) ],
@@ -951,7 +984,7 @@ function openStudio( ctx ) {
 		};
 		return row;
 	} )();
-	const guideLbl = el( 'label', 'wpiestp-check', setSec );
+	const guideLbl = el( 'label', 'dsm-checkrow wpiestp-check', setSec );
 	const guideCb = el( 'input', null, guideLbl );
 	guideCb.type = 'checkbox';
 	guideCb.checked = !! params.guide;
@@ -974,7 +1007,7 @@ function openStudio( ctx ) {
 
 	const syncUi = () => {
 		modeTiles.forEach( ( { card }, id ) =>
-			card.classList.toggle( 'sel', id === params.mode )
+			ui.pressed( card, id === params.mode )
 		);
 		palBtns.forEach( ( b, id ) =>
 			b.classList.toggle(

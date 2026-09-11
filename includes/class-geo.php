@@ -206,7 +206,7 @@ class Geo {
 			),
 			self::NOMINATIM
 		);
-		$response = wp_remote_get(
+		$response = wp_safe_remote_get(
 			$url,
 			array(
 				'timeout'    => 15,
@@ -393,7 +393,7 @@ class Geo {
 			if ( $left < 5 ) {
 				break;
 			}
-			$response = wp_remote_post(
+			$response = wp_safe_remote_post(
 				$endpoint,
 				array(
 					'timeout'    => min( self::TRY_TIMEOUT, $left ),

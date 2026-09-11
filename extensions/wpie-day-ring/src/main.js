@@ -16,13 +16,6 @@ const GEN_ID = 'wpie-day-ring/ring';
 
 // The editor's brand mark (icon-wpie.svg), inlined so the header badge is the
 // real WPIE logo. currentColor parts follow the theme; the CI blue stays.
-const ICON_BRAND =
-	'<svg width="20" height="20" viewBox="0 0 18.83 18.83" aria-hidden="true">' +
-	'<path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/>' +
-	'<path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/>' +
-	'<circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/>' +
-	'<path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/>' +
-	'</svg>';
 const svg = ( d ) =>
 	'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
 	d +
@@ -199,10 +192,8 @@ function openStudio( ctx ) {
 		closeOnBackdrop: true,
 		onClose: () => cleanup(),
 	} );
-	const badge = document.createElement( 'span' );
-	badge.className = 'dsm-badge';
-	badge.innerHTML = ICON_BRAND;
-	modal.head.insertBefore( badge, modal.head.firstChild );
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	ui.badge( modal );
 
 	const body = ui.el( 'div', 'wpie-dr-body', modal.body );
 	const left = ui.el( 'div', 'wpie-dr-left', body );
@@ -364,7 +355,7 @@ function openStudio( ctx ) {
 		blockSwatches.length = 0;
 		list.innerHTML = '';
 		params.blocks.forEach( ( b ) => {
-			const row = ui.el( 'div', 'wpie-dr-block', list );
+			const row = ui.el( 'div', 'dsm-listrow wpie-dr-block', list );
 			const top = ui.el( 'div', 'wpie-dr-top', row );
 			const emojiBtn = ui.el(
 				'button',
@@ -398,7 +389,7 @@ function openStudio( ctx ) {
 				queueRebuild();
 			};
 			const times = ui.el( 'div', 'wpie-dr-times', row );
-			const s0 = ui.el( 'input', 'wpie-dr-time', times );
+			const s0 = ui.el( 'input', 'dsm-input wpie-dr-time', times );
 			s0.type = 'time';
 			s0.value = fmtTime( b.start );
 			s0.onchange = () => {
@@ -409,7 +400,7 @@ function openStudio( ctx ) {
 				rebuild();
 			};
 			ui.el( 'span', 'wpie-dr-dash', times, '–' );
-			const e0 = ui.el( 'input', 'wpie-dr-time', times );
+			const e0 = ui.el( 'input', 'dsm-input wpie-dr-time', times );
 			e0.type = 'time';
 			e0.value = fmtTime( b.end );
 			e0.onchange = () => {
@@ -432,7 +423,7 @@ function openStudio( ctx ) {
 					} )
 				);
 			}
-			const del = ui.el( 'button', 'wpie-dr-del', row );
+			const del = ui.el( 'button', 'dsm-mini wpie-dr-del', row );
 			del.type = 'button';
 			del.innerHTML = '&times;';
 			del.title = t( 'Remove' );
@@ -460,11 +451,11 @@ function openStudio( ctx ) {
 	// ---------------- MIDDLE: preview ----------------
 	ui.el(
 		'div',
-		'wpie-dr-hint',
+		'dsm-viewhint wpie-dr-hint',
 		view,
 		t( 'A 24-hour day - midnight at the top' )
 	);
-	const docBtn = ui.el( 'button', 'wpie-dr-docbtn', view );
+	const docBtn = ui.el( 'button', 'dsm-viewbtn wpie-dr-docbtn', view );
 	docBtn.type = 'button';
 	docBtn.innerHTML = ICONS.eye + ' ' + t( 'Show document' );
 	docBtn.setAttribute( 'aria-pressed', 'false' );

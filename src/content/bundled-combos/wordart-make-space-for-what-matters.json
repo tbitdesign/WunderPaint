@@ -1,0 +1,177 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-make-space-for-what-matters",
+	"label": "Make space for what matters",
+	"category": "wordart",
+	"w": 766,
+	"h": 597,
+	"layers": [
+		{
+			"id": "waf-make-space-for-what-matters-0",
+			"type": "text",
+			"name": "MAKE SPACE FOR WHAT MATTERS",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 173.8,
+			"y": 38.52,
+			"w": 434,
+			"h": 510,
+			"rot": 4,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#f8ecff",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "MAKE SPACE\nFOR WHAT\nMATTERS",
+			"fontSize": 100,
+			"fontFamily": "Teko",
+			"weight": 700,
+			"color": "#9473c4",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "MAKE SPACE\n",
+					"s": {
+						"color": "#9473c4"
+					}
+				},
+				{
+					"text": "FOR WHAT\n",
+					"s": {
+						"color": "#d48e65"
+					}
+				},
+				{
+					"text": "MATTERS",
+					"s": {
+						"color": "#b5a0e5"
+					}
+				}
+			],
+			"textFX": {
+				"longShadow": {
+					"angle": 45,
+					"length": 8,
+					"color": "#51416e"
+				}
+			}
+		},
+		{
+			"id": "waf-make-space-for-what-matters-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 437.52,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#b5a0e5",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-make-space-for-what-matters-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 106.52,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#d48e65",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-make-space-for-what-matters-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 569.52,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#9473c4",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

@@ -25,6 +25,7 @@ import {
 import { placeholderPhoto } from './design-flair';
 import { createCanvas } from './raster';
 import { makeImage, loadImage } from '../store/document';
+import { reassignIds } from './template-io';
 
 /** Configured stock providers, best default first (Unsplash > Pexels > Pixabay). */
 export function configuredStockProviders() {
@@ -492,71 +493,109 @@ export async function composeRecipeVariants( designs, opts ) {
  *         this, so every run asks the model for a fresh plan.
  */
 export async function prepareDesignVariants( editor, params, onStatus ) {
-	const { state } = editor;
-	const doc = state.doc;
 	onStatus( __( 'Designing…', 'wunderpaint' ) );
-	const result = await ai.design( {
-		brief: params.brief,
-		w: doc.w,
-		h: doc.h,
-		brand: params.brand ? JSON.stringify( params.brand ) : undefined,
+	// Design Markup (2026-09): the model composes every design itself in
+	// the markup language, the compiler builds and checks the layers. The
+	// recipe path that stood here is gone; every returned design is shown,
+	// checked or not, so the person decides.
+	const { generateDesigns } = await import(
+		/* webpackChunkName: "design-markup" */ './design-markup/generate'
+	);
+	const bindings = ( params.bindings || [] )
+		.map( ( b ) => ( 'string' === typeof b ? b : b && b.binding ) )
+		.filter( Boolean );
+	const out = await generateDesigns( editor, params.brief, {
+		k: 3,
+		insert: false,
 		product: params.product || undefined,
 		image: params.referenceDataUrl || undefined,
-		// A fresh angle each regenerate so the model does not return the
-		// identical designs (v1.172.2); 0 on the first Create keeps it clean.
 		variation: params.variation || undefined,
+		kitId: params.kitId || undefined,
+		provider: params.provider || undefined,
+		// The dialog's Image fold. These four were built by the dialog and
+		// dropped right here, so "Placeholder image" still went to the first
+		// configured stock service and a typed description steered nothing.
+		imageMode: params.imageMode || undefined,
+		stockProvider: params.stockProvider || undefined,
+		imageProvider: params.imageProvider || undefined,
+		imagePrompt: params.imagePrompt || undefined,
+		bindings,
+		// The resolver says when it starts buying pictures; that wait is the
+		// long one, and "Designing…" would be a lie for it.
+		onStatus: ( what ) =>
+			'generating' === what &&
+			onStatus( __( 'Generating images…', 'wunderpaint' ) ),
 	} );
-	const designs = Array.isArray( result?.designs )
-		? result.designs.slice( 0, 3 )
-		: [];
-	if ( ! designs.length ) {
-		throw new Error(
-			__(
-				'The design response was empty. Please try again.',
-				'wunderpaint'
-			)
-		);
+	if ( out.error ) {
+		throw new Error( out.error );
 	}
-
-	const roll = Number.isFinite( params.rollSeed )
-		? params.rollSeed
-		: 1 + Math.floor( Math.random() * 1e6 );
-
-	// v4 recipe path ("recipes design, the model writes the words"): the model
-	// returns a SEMANTIC plan (copy + a recipe + a mood). Code composes a
-	// professional, guaranteed-readable layout from a curated recipe, so the
-	// output no longer depends on a blind model arranging primitives.
-	//
-	// The legacy wire→IR path that used to follow was removed in v1.336.0.
-	// It only ran when NOT ONE of the three designs carried a recipe, a copy
-	// object or a headline (see isRecipePlan), while the provider schema
-	// makes recipe, intent and copy required on every single one of them
-	// (class-ai-provider.php). So it never ran - and through a static import
-	// it was the one thing keeping design-ir.js, 1208 lines, in the bundle
-	// every user downloads. A response that would have reached it is now a
-	// plain error instead of a silent fallback nobody could have tested.
-	if ( ! designs.some( isRecipePlan ) ) {
-		throw new Error(
-			__(
-				'The design response did not match the expected shape. Please try again.',
-				'wunderpaint'
-			)
-		);
-	}
-
 	onStatus( __( 'Composing…', 'wunderpaint' ) );
-	const variants = await composeRecipeVariants( designs, {
-		doc,
-		brand: params.brand,
-		roll,
-		stockProvider: params.stockProvider,
-		imageMode: params.imageMode,
-		imageProvider: params.imageProvider,
-		imagePrompt: params.imagePrompt,
-		bindings: params.bindings,
-		onStatus,
-	} );
+	const variants = ( out.designs || [] )
+		.filter( ( d ) => d.compiled && d.compiled.layers.length )
+		.map( ( d, i ) => ( {
+			label: designVariantLabel( d, i ),
+			layers: d.compiled.layers,
+			status: d.status,
+			report: d.report,
+			markup: d.markup,
+		} ) );
+	if ( ! variants.length ) {
+		const reasons = ( out.designs || [] )
+			.flatMap( ( d ) => d.report?.errors || [] )
+			.map( ( e ) => e.message || e.code )
+			.filter( Boolean );
+		throw new Error(
+			reasons.length
+				? reasons.slice( 0, 3 ).join( '; ' )
+				: __(
+						'The design response was empty. Please try again.',
+						'wunderpaint'
+				  )
+		);
+	}
 	return { variants };
+}
+
+/**
+ * Card label: the design's own name, then whether the compiler's checks
+ * passed or which criteria failed (contrast, overlap-text, ...).
+ *
+ * @param {Object} d Design from generateDesigns().
+ * @param {number} i Index.
+ * @return {string} Label.
+ */
+function designVariantLabel( d, i ) {
+	const name =
+		( d.markup && ( d.markup.name || d.markup.concept?.idea ) ) ||
+		sprintf(
+			/* translators: %d: design number. */ __(
+				'Design %d',
+				'wunderpaint'
+			),
+			i + 1
+		);
+	const short =
+		String( name ).length > 40
+			? String( name ).slice( 0, 38 ) + '…'
+			: String( name );
+	if ( 'valid' === d.status ) {
+		return `${ short } · ${ __( 'checked', 'wunderpaint' ) }`;
+	}
+	const codes = [
+		...new Set(
+			[
+				...( d.report?.errors || [] ).map( ( e ) => e.code ),
+				...( d.report?.metrics?.violations || [] ).map(
+					( v ) => v.code
+				),
+			].filter( Boolean )
+		),
+	];
+	return `${ short } · ${ sprintf(
+		/* translators: %s: failed checks. */
+		__( 'unchecked: %s', 'wunderpaint' ),
+		codes.slice( 0, 3 ).join( ', ' ) || '?'
+	) }`;
 }
 
 /**
@@ -570,7 +609,9 @@ export async function prepareDesignVariants( editor, params, onStatus ) {
  */
 export async function insertDesignVariant( editor, layers, params = {} ) {
 	const { state, dispatch, commit } = editor;
-	const ordered = [ ...layers ];
+	// Fresh ids on every insert: compiled designs carry deterministic ids
+	// (dm-...), so the same design inserted twice would collide.
+	const ordered = reassignIds( layers );
 
 	// Kit logo as a deterministic top layer (v1.90.0): never AI-redrawn,
 	// bottom-right with the design's margin. A load failure only skips it.

@@ -14,6 +14,14 @@ const LOCALE = (
 ).replace( '-', '_' );
 
 const DE = {
+	'Fan comb': 'Fächerkamm',
+	'Twin swirl': 'Doppelwirbel',
+	'Fan angle': 'Fächerwinkel',
+	Teeth: 'Zinken',
+	'Drag to open the colors into a fan. Angle and teeth shape the folds.':
+		'Ziehe, um die Farben aufzufächern. Winkel und Zinken bestimmen die Falten.',
+	'Drag to roll two opposing swirls around a shared center.':
+		'Ziehe, um zwei gegenläufige Wirbel um eine gemeinsame Mitte zu drehen.',
 	'A water bath: drop ink, pull combs, marble like on real water.':
 		'Ein Wasserbad: Tinte tropfen, Kämme ziehen, marmorieren wie auf echtem Wasser.',
 	'Click to drop ink · hold to let it grow · drag a tool through':
@@ -120,9 +128,72 @@ const DE = {
 		'Der Galletropfen schiebt die Farben beiseite und hinterlässt offenes Wasser.',
 	Pigment: 'Pigment',
 	'Paper grain': 'Papierkorn',
+	'Lace drop': 'Spitzentropfen',
+	Stylus: 'Stylus',
+	'Wavy comb': 'Wellenkamm',
+	'Surprise me': 'Überrasch mich',
+	'Spanish wave': 'Spanische Welle',
+	'Italian vein': 'Italienische Ader',
+	Feathering: 'Federung',
+	'Drops on drops, uncombed - the pebbled ground.':
+		'Tropfen auf Tropfen, ungekämmt: der Steingrund.',
+	'Two combs back and forth: the classic zigzag.':
+		'Zwei Kämme hin und zurück: das klassische Zickzack.',
+	'Gel-git pulled through a fine comb, feather-tight.':
+		'Gel-git durch einen feinen Kamm gezogen, federdicht.',
+	'Nonpareil rocked into herringbone arrows.':
+		'Nonpareil zu Fischgrät-Pfeilen geschaukelt.',
+	'A wide comb, then a sway: fanned bouquets.':
+		'Ein breiter Kamm, dann eine Welle: gefächerte Sträuße.',
+	'A field of curls, turning left and right.':
+		'Ein Feld aus Locken, links und rechts gedreht.',
+	'A wave and a counter-comb open the eyes.':
+		'Eine Welle und ein Gegenkamm öffnen die Augen.',
+	'Long slanted folds over a fine comb.':
+		'Lange schräge Falten über einem feinen Kamm.',
+	'A shower of gall opens cells; thin veins between.':
+		'Ein Galle-Schauer öffnet Zellen, feine Adern dazwischen.',
+	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+		'Klick legt einen von Galle durchschossenen Tropfen: Wasserzellen öffnen sich darin, die Farbe dazwischen wird zu Spitze.',
+	'Draw freely through the bath; the ink follows every bend of the line.':
+		'Zeichne frei durchs Bad; die Tinte folgt jeder Biegung der Linie.',
+	'Pull the comb along a curve; a wavy pull fans the bath into bouquets.':
+		'Zieh den Kamm auf einer Kurve; ein welliger Zug fächert das Bad zu Sträußen.',
+	'Drag through the bath. Force caps the pull, feathering binds the ink to the teeth.':
+		'Zieh durchs Bad. Kraft deckelt den Zug, Federung bindet die Tinte an die Zinken.',
+	Timeline: 'Zeitleiste',
+	'Mirror across the middle': 'An der Mitte spiegeln',
+	'Pull once; the comb combs back by itself, half a tooth over - gel-git in one stroke.':
+		'Einmal ziehen; der Kamm kämmt von selbst zurück, einen halben Zahn versetzt: Gel-git in einem Zug.',
+	Palettes: 'Paletten',
+	'The making, then the print lifted': 'Das Entstehen, dann der Abzug',
+	Website: 'Website',
+	'On the website': 'Auf der Website',
+	'Replay the making': 'Das Entstehen abspielen',
+	'Living water': 'Lebendes Wasser',
+	'Visitors marble themselves': 'Besucher marmorieren selbst',
+	'Embed (HTML)': 'Einbetten (HTML)',
+	'Copies a snippet that runs the bath live on your page: replayed, resting on living water, or open for visitors to drop and pull.':
+		'Kopiert einen Schnipsel, der das Bad live auf deiner Seite laufen lässt: abgespielt, auf lebendem Wasser oder offen für Besucher zum Tropfen und Ziehen.',
+	'The embed needs the extension installed on this site.':
+		'Das Einbetten braucht die installierte Extension auf dieser Seite.',
+	'Snippet copied - paste it into an HTML block on your site.':
+		'Schnipsel kopiert, füge ihn in einen HTML-Block deiner Seite ein.',
+	'Copy failed.': 'Kopieren fehlgeschlagen.',
+	'Feather comb': 'Federkamm',
+	Rose: 'Rose',
+	Iris: 'Iris',
 };
 
 const ES = {
+	'Fan comb': 'Peine en abanico',
+	'Twin swirl': 'Remolino doble',
+	'Fan angle': 'Ángulo del abanico',
+	Teeth: 'Dientes',
+	'Drag to open the colors into a fan. Angle and teeth shape the folds.':
+		'Arrastra para abrir los colores en abanico. El ángulo y los dientes definen los pliegues.',
+	'Drag to roll two opposing swirls around a shared center.':
+		'Arrastra para crear dos remolinos opuestos alrededor de un centro común.',
 	'A water bath: drop ink, pull combs, marble like on real water.':
 		'Un baño de agua: gotea tinta, arrastra peines, marmolea como en agua real.',
 	'Click to drop ink · hold to let it grow · drag a tool through':
@@ -228,9 +299,73 @@ const ES = {
 		'La gota de hiel aparta los colores y deja agua abierta.',
 	Pigment: 'Pigmento',
 	'Paper grain': 'Grano del papel',
+	'Lace drop': 'Gota de encaje',
+	Stylus: 'Estilete',
+	'Wavy comb': 'Peine ondulado',
+	'Surprise me': 'Sorpréndeme',
+	'Spanish wave': 'Onda española',
+	'Italian vein': 'Veta italiana',
+	Feathering: 'Plumeado',
+	'Drops on drops, uncombed - the pebbled ground.':
+		'Gotas sobre gotas, sin peinar: el fondo de guijarros.',
+	'Two combs back and forth: the classic zigzag.':
+		'Dos peines de ida y vuelta: el zigzag clásico.',
+	'Gel-git pulled through a fine comb, feather-tight.':
+		'Gel-git pasado por un peine fino, plumas apretadas.',
+	'Nonpareil rocked into herringbone arrows.':
+		'Nonpareil mecido en flechas de espiga.',
+	'A wide comb, then a sway: fanned bouquets.':
+		'Un peine ancho y un vaivén: ramos abiertos.',
+	'A field of curls, turning left and right.':
+		'Un campo de rizos, girando a izquierda y derecha.',
+	'A wave and a counter-comb open the eyes.':
+		'Una onda y un contrapeine abren los ojos.',
+	'Long slanted folds over a fine comb.':
+		'Pliegues largos e inclinados sobre un peine fino.',
+	'A shower of gall opens cells; thin veins between.':
+		'Una lluvia de hiel abre celdas; vetas finas entre ellas.',
+	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+		'Clic para poner una gota atravesada de hiel: se abren celdas de agua dentro y el color entre ellas se vuelve encaje.',
+	'Draw freely through the bath; the ink follows every bend of the line.':
+		'Dibuja libremente por el baño; la tinta sigue cada curva de la línea.',
+	'Pull the comb along a curve; a wavy pull fans the bath into bouquets.':
+		'Arrastra el peine por una curva; un tirón ondulado abre el baño en ramos.',
+	'Drag through the bath. Force caps the pull, feathering binds the ink to the teeth.':
+		'Arrastra por el baño. La fuerza limita el tirón, el plumeado ata la tinta a los dientes.',
+	Timeline: 'Línea de tiempo',
+	'Mirror across the middle': 'Reflejar por el centro',
+	'Pull once; the comb combs back by itself, half a tooth over - gel-git in one stroke.':
+		'Tira una vez; el peine vuelve solo, medio diente desplazado: gel-git en un trazo.',
+	Palettes: 'Paletas',
+	'The making, then the print lifted':
+		'La creación y luego la estampa levantada',
+	Website: 'Sitio web',
+	'On the website': 'En el sitio web',
+	'Replay the making': 'Reproducir la creación',
+	'Living water': 'Agua viva',
+	'Visitors marble themselves': 'Los visitantes marmolean',
+	'Embed (HTML)': 'Insertar (HTML)',
+	'Copies a snippet that runs the bath live on your page: replayed, resting on living water, or open for visitors to drop and pull.':
+		'Copia un fragmento que ejecuta el baño en vivo en tu página: reproducido, sobre agua viva o abierto para que los visitantes goteen y tiren.',
+	'The embed needs the extension installed on this site.':
+		'La inserción necesita la extensión instalada en este sitio.',
+	'Snippet copied - paste it into an HTML block on your site.':
+		'Fragmento copiado; pégalo en un bloque HTML de tu sitio.',
+	'Copy failed.': 'No se pudo copiar.',
+	'Feather comb': 'Peine de plumas',
+	Rose: 'Rosa',
+	Iris: 'Iris',
 };
 
 const FR = {
+	'Fan comb': 'Peigne éventail',
+	'Twin swirl': 'Double tourbillon',
+	'Fan angle': 'Angle de l’éventail',
+	Teeth: 'Dents',
+	'Drag to open the colors into a fan. Angle and teeth shape the folds.':
+		'Faites glisser pour ouvrir les couleurs en éventail. L’angle et les dents définissent les plis.',
+	'Drag to roll two opposing swirls around a shared center.':
+		'Faites glisser pour créer deux tourbillons opposés autour d’un centre commun.',
 	'A water bath: drop ink, pull combs, marble like on real water.':
 		"Un bain d'eau : déposez l'encre, tirez les peignes, marbrez comme sur l'eau.",
 	'Click to drop ink · hold to let it grow · drag a tool through':
@@ -336,9 +471,72 @@ const FR = {
 		"La goutte de fiel écarte les couleurs et laisse l'eau libre.",
 	Pigment: 'Pigment',
 	'Paper grain': 'Grain du papier',
+	'Lace drop': 'Goutte dentelle',
+	Stylus: 'Stylet',
+	'Wavy comb': 'Peigne ondulé',
+	'Surprise me': 'Surprends-moi',
+	'Spanish wave': 'Vague espagnole',
+	'Italian vein': 'Veine italienne',
+	Feathering: 'Plumetis',
+	'Drops on drops, uncombed - the pebbled ground.':
+		'Gouttes sur gouttes, sans peigne : le fond caillouté.',
+	'Two combs back and forth: the classic zigzag.':
+		'Deux peignes aller-retour : le zigzag classique.',
+	'Gel-git pulled through a fine comb, feather-tight.':
+		'Gel-git tiré dans un peigne fin, plumes serrées.',
+	'Nonpareil rocked into herringbone arrows.':
+		'Nonpareil balancé en chevrons.',
+	'A wide comb, then a sway: fanned bouquets.':
+		'Un peigne large, puis un balancement : des bouquets en éventail.',
+	'A field of curls, turning left and right.':
+		'Un champ de boucles, à gauche et à droite.',
+	'A wave and a counter-comb open the eyes.':
+		'Une vague et un contre-peigne ouvrent les yeux.',
+	'Long slanted folds over a fine comb.':
+		'De longs plis obliques sur un peigne fin.',
+	'A shower of gall opens cells; thin veins between.':
+		'Une pluie de fiel ouvre des cellules ; de fines veines entre elles.',
+	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+		"Cliquez pour poser une goutte criblée de fiel : des cellules d'eau s'ouvrent dedans, la couleur entre elles devient dentelle.",
+	'Draw freely through the bath; the ink follows every bend of the line.':
+		"Dessinez librement dans le bain ; l'encre suit chaque courbe du trait.",
+	'Pull the comb along a curve; a wavy pull fans the bath into bouquets.':
+		"Tirez le peigne le long d'une courbe ; un tracé ondulé ouvre le bain en bouquets.",
+	'Drag through the bath. Force caps the pull, feathering binds the ink to the teeth.':
+		"Tirez dans le bain. La force plafonne le trait, le plumetis lie l'encre aux dents.",
+	Timeline: 'Chronologie',
+	'Mirror across the middle': 'Miroir par le milieu',
+	'Pull once; the comb combs back by itself, half a tooth over - gel-git in one stroke.':
+		"Tirez une fois ; le peigne revient de lui-même, décalé d'une demi-dent : le gel-git en un trait.",
+	Palettes: 'Palettes',
+	'The making, then the print lifted': "La création, puis l'épreuve soulevée",
+	Website: 'Site web',
+	'On the website': 'Sur le site',
+	'Replay the making': 'Rejouer la création',
+	'Living water': 'Eau vivante',
+	'Visitors marble themselves': 'Les visiteurs marbrent eux-mêmes',
+	'Embed (HTML)': 'Intégrer (HTML)',
+	'Copies a snippet that runs the bath live on your page: replayed, resting on living water, or open for visitors to drop and pull.':
+		'Copie un extrait qui fait vivre le bain sur votre page : rejoué, posé sur une eau vivante, ou ouvert aux visiteurs pour y déposer et tirer.',
+	'The embed needs the extension installed on this site.':
+		"L'intégration nécessite l'extension installée sur ce site.",
+	'Snippet copied - paste it into an HTML block on your site.':
+		'Extrait copié : collez-le dans un bloc HTML de votre site.',
+	'Copy failed.': 'Échec de la copie.',
+	'Feather comb': 'Peigne à plumes',
+	Rose: 'Rose',
+	Iris: 'Iris',
 };
 
 const PT = {
+	'Fan comb': 'Pente em leque',
+	'Twin swirl': 'Redemoinho duplo',
+	'Fan angle': 'Ângulo do leque',
+	Teeth: 'Dentes',
+	'Drag to open the colors into a fan. Angle and teeth shape the folds.':
+		'Arraste para abrir as cores em leque. O ângulo e os dentes moldam as dobras.',
+	'Drag to roll two opposing swirls around a shared center.':
+		'Arraste para formar dois redemoinhos opostos em torno de um centro comum.',
 	'A water bath: drop ink, pull combs, marble like on real water.':
 		'Um banho de água: pingue tinta, puxe pentes, marmorize como na água de verdade.',
 	'Click to drop ink · hold to let it grow · drag a tool through':
@@ -445,9 +643,73 @@ const PT = {
 		'A gota de fel afasta as cores e deixa água aberta.',
 	Pigment: 'Pigmento',
 	'Paper grain': 'Grão do papel',
+	'Lace drop': 'Gota de renda',
+	Stylus: 'Estilete',
+	'Wavy comb': 'Pente ondulado',
+	'Surprise me': 'Surpreende-me',
+	'Spanish wave': 'Onda espanhola',
+	'Italian vein': 'Veio italiano',
+	Feathering: 'Plumagem',
+	'Drops on drops, uncombed - the pebbled ground.':
+		'Gotas sobre gotas, sem pente: o fundo de seixos.',
+	'Two combs back and forth: the classic zigzag.':
+		'Dois pentes de ida e volta: o ziguezague clássico.',
+	'Gel-git pulled through a fine comb, feather-tight.':
+		'Gel-git puxado por um pente fino, plumas cerradas.',
+	'Nonpareil rocked into herringbone arrows.':
+		'Nonpareil embalado em setas de espinha.',
+	'A wide comb, then a sway: fanned bouquets.':
+		'Um pente largo e um balanço: ramos em leque.',
+	'A field of curls, turning left and right.':
+		'Um campo de caracóis, a rodar para a esquerda e a direita.',
+	'A wave and a counter-comb open the eyes.':
+		'Uma onda e um contrapente abrem os olhos.',
+	'Long slanted folds over a fine comb.':
+		'Dobras longas e oblíquas sobre um pente fino.',
+	'A shower of gall opens cells; thin veins between.':
+		'Uma chuva de fel abre células; veios finos entre elas.',
+	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+		'Clique para pousar uma gota crivada de fel: abrem-se células de água lá dentro e a cor entre elas vira renda.',
+	'Draw freely through the bath; the ink follows every bend of the line.':
+		'Desenha livremente pelo banho; a tinta segue cada curva da linha.',
+	'Pull the comb along a curve; a wavy pull fans the bath into bouquets.':
+		'Puxa o pente ao longo de uma curva; um puxão ondulado abre o banho em ramos.',
+	'Drag through the bath. Force caps the pull, feathering binds the ink to the teeth.':
+		'Arrasta pelo banho. A força limita o puxão, a plumagem prende a tinta aos dentes.',
+	Timeline: 'Linha do tempo',
+	'Mirror across the middle': 'Espelhar pelo meio',
+	'Pull once; the comb combs back by itself, half a tooth over - gel-git in one stroke.':
+		'Puxa uma vez; o pente volta sozinho, meio dente ao lado: gel-git num só traço.',
+	Palettes: 'Paletas',
+	'The making, then the print lifted':
+		'A criação e depois a estampa levantada',
+	Website: 'Site',
+	'On the website': 'No site',
+	'Replay the making': 'Repetir a criação',
+	'Living water': 'Água viva',
+	'Visitors marble themselves': 'Os visitantes marmoreiam',
+	'Embed (HTML)': 'Incorporar (HTML)',
+	'Copies a snippet that runs the bath live on your page: replayed, resting on living water, or open for visitors to drop and pull.':
+		'Copia um trecho que corre o banho ao vivo na tua página: repetido, sobre água viva ou aberto para os visitantes pingarem e puxarem.',
+	'The embed needs the extension installed on this site.':
+		'A incorporação precisa da extensão instalada neste site.',
+	'Snippet copied - paste it into an HTML block on your site.':
+		'Trecho copiado; cola-o num bloco HTML do teu site.',
+	'Copy failed.': 'A cópia falhou.',
+	'Feather comb': 'Pente de plumas',
+	Rose: 'Rosa',
+	Iris: 'Íris',
 };
 
 const IT = {
+	'Fan comb': 'Pettine a ventaglio',
+	'Twin swirl': 'Doppio vortice',
+	'Fan angle': 'Angolo del ventaglio',
+	Teeth: 'Denti',
+	'Drag to open the colors into a fan. Angle and teeth shape the folds.':
+		'Trascina per aprire i colori a ventaglio. Angolo e denti modellano le pieghe.',
+	'Drag to roll two opposing swirls around a shared center.':
+		'Trascina per creare due vortici opposti intorno a un centro comune.',
 	'A water bath: drop ink, pull combs, marble like on real water.':
 		"Una vasca d'acqua: gocciola inchiostro, tira i pettini, marmorizza come sull'acqua vera.",
 	'Click to drop ink · hold to let it grow · drag a tool through':
@@ -553,9 +815,73 @@ const IT = {
 		'La goccia di fiele scosta i colori e lascia acqua aperta.',
 	Pigment: 'Pigmento',
 	'Paper grain': 'Grana della carta',
+	'Lace drop': 'Goccia di pizzo',
+	Stylus: 'Stilo',
+	'Wavy comb': 'Pettine ondulato',
+	'Surprise me': 'Sorprendimi',
+	'Spanish wave': 'Onda spagnola',
+	'Italian vein': 'Vena italiana',
+	Feathering: 'Piumatura',
+	'Drops on drops, uncombed - the pebbled ground.':
+		'Gocce su gocce, senza pettine: il fondo a ciottoli.',
+	'Two combs back and forth: the classic zigzag.':
+		'Due pettini avanti e indietro: lo zigzag classico.',
+	'Gel-git pulled through a fine comb, feather-tight.':
+		'Gel-git tirato in un pettine fine, piume serrate.',
+	'Nonpareil rocked into herringbone arrows.':
+		'Nonpareil cullato in frecce a spina di pesce.',
+	'A wide comb, then a sway: fanned bouquets.':
+		"Un pettine largo, poi un'ondata: bouquet a ventaglio.",
+	'A field of curls, turning left and right.':
+		'Un campo di riccioli, a destra e a sinistra.',
+	'A wave and a counter-comb open the eyes.':
+		"Un'onda e un contropettine aprono gli occhi.",
+	'Long slanted folds over a fine comb.':
+		'Lunghe pieghe oblique su un pettine fine.',
+	'A shower of gall opens cells; thin veins between.':
+		'Una pioggia di fiele apre celle; vene sottili in mezzo.',
+	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+		"Clic per posare una goccia crivellata di fiele: dentro si aprono celle d'acqua e il colore tra loro diventa pizzo.",
+	'Draw freely through the bath; the ink follows every bend of the line.':
+		"Disegna liberamente nel bagno; l'inchiostro segue ogni curva della linea.",
+	'Pull the comb along a curve; a wavy pull fans the bath into bouquets.':
+		'Tira il pettine lungo una curva; un tratto ondulato apre il bagno in bouquet.',
+	'Drag through the bath. Force caps the pull, feathering binds the ink to the teeth.':
+		"Trascina nel bagno. La forza limita il tratto, la piumatura lega l'inchiostro ai denti.",
+	Timeline: 'Linea del tempo',
+	'Mirror across the middle': 'Specchia al centro',
+	'Pull once; the comb combs back by itself, half a tooth over - gel-git in one stroke.':
+		'Tira una volta; il pettine torna da solo, mezzo dente più in là: gel-git in un tratto.',
+	Palettes: 'Palette',
+	'The making, then the print lifted':
+		'La creazione, poi la stampa sollevata',
+	Website: 'Sito web',
+	'On the website': 'Sul sito',
+	'Replay the making': 'Riproduci la creazione',
+	'Living water': 'Acqua viva',
+	'Visitors marble themselves': 'I visitatori marmorizzano',
+	'Embed (HTML)': 'Incorpora (HTML)',
+	'Copies a snippet that runs the bath live on your page: replayed, resting on living water, or open for visitors to drop and pull.':
+		'Copia uno snippet che fa vivere il bagno sulla tua pagina: riprodotto, su acqua viva o aperto ai visitatori per gocciolare e tirare.',
+	'The embed needs the extension installed on this site.':
+		"L'incorporamento richiede l'estensione installata su questo sito.",
+	'Snippet copied - paste it into an HTML block on your site.':
+		'Snippet copiato: incollalo in un blocco HTML del tuo sito.',
+	'Copy failed.': 'Copia non riuscita.',
+	'Feather comb': 'Pettine a piume',
+	Rose: 'Rosa',
+	Iris: 'Iris',
 };
 
 export const NL = {
+	'Fan comb': 'Waaierkam',
+	'Twin swirl': 'Dubbele werveling',
+	'Fan angle': 'Waaierhoek',
+	Teeth: 'Tanden',
+	'Drag to open the colors into a fan. Angle and teeth shape the folds.':
+		'Sleep om de kleuren uit te waaieren. Hoek en tanden bepalen de plooien.',
+	'Drag to roll two opposing swirls around a shared center.':
+		'Sleep om twee tegengestelde wervelingen rond één midden te draaien.',
 	'A water bath: drop ink, pull combs, marble like on real water.':
 		'Een waterbad: druppel inkt, haal kammen door, marmer als op echt water.',
 	'Click to drop ink · hold to let it grow · drag a tool through':
@@ -661,6 +987,61 @@ export const NL = {
 		'De galdruppel duwt de kleuren opzij en laat open water achter.',
 	Pigment: 'Pigment',
 	'Paper grain': 'Papierkorrel',
+	'Lace drop': 'Kantdruppel',
+	Stylus: 'Stylus',
+	'Wavy comb': 'Golvende kam',
+	'Surprise me': 'Verras me',
+	'Spanish wave': 'Spaanse golf',
+	'Italian vein': 'Italiaanse ader',
+	Feathering: 'Vering',
+	'Drops on drops, uncombed - the pebbled ground.':
+		'Druppels op druppels, ongekamd: de kiezelgrond.',
+	'Two combs back and forth: the classic zigzag.':
+		'Twee kammen heen en terug: de klassieke zigzag.',
+	'Gel-git pulled through a fine comb, feather-tight.':
+		'Gel-git door een fijne kam getrokken, veerdicht.',
+	'Nonpareil rocked into herringbone arrows.':
+		'Nonpareil gewiegd tot visgraatpijlen.',
+	'A wide comb, then a sway: fanned bouquets.':
+		'Een brede kam, dan een deining: waaierende boeketten.',
+	'A field of curls, turning left and right.':
+		'Een veld van krullen, links- en rechtsom.',
+	'A wave and a counter-comb open the eyes.':
+		'Een golf en een tegenkam openen de ogen.',
+	'Long slanted folds over a fine comb.':
+		'Lange schuine plooien over een fijne kam.',
+	'A shower of gall opens cells; thin veins between.':
+		'Een regen van gal opent cellen; dunne aders ertussen.',
+	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+		'Klik voor een druppel doorschoten met gal: er openen zich watercellen in, de kleur ertussen wordt kant.',
+	'Draw freely through the bath; the ink follows every bend of the line.':
+		'Teken vrij door het bad; de inkt volgt elke bocht van de lijn.',
+	'Pull the comb along a curve; a wavy pull fans the bath into bouquets.':
+		'Trek de kam langs een kromme; een golvende trek waaiert het bad tot boeketten.',
+	'Drag through the bath. Force caps the pull, feathering binds the ink to the teeth.':
+		'Trek door het bad. Kracht begrenst de trek, vering bindt de inkt aan de tanden.',
+	Timeline: 'Tijdlijn',
+	'Mirror across the middle': 'Spiegelen over het midden',
+	'Pull once; the comb combs back by itself, half a tooth over - gel-git in one stroke.':
+		'Eén keer trekken; de kam kamt vanzelf terug, een halve tand verschoven: gel-git in één haal.',
+	Palettes: 'Paletten',
+	'The making, then the print lifted': 'Het ontstaan, dan de afdruk opgetild',
+	Website: 'Website',
+	'On the website': 'Op de website',
+	'Replay the making': 'Het ontstaan afspelen',
+	'Living water': 'Levend water',
+	'Visitors marble themselves': 'Bezoekers marmeren zelf',
+	'Embed (HTML)': 'Insluiten (HTML)',
+	'Copies a snippet that runs the bath live on your page: replayed, resting on living water, or open for visitors to drop and pull.':
+		'Kopieert een snippet die het bad live op je pagina laat lopen: afgespeeld, op levend water, of open voor bezoekers om te druppelen en te trekken.',
+	'The embed needs the extension installed on this site.':
+		'Insluiten vereist de geïnstalleerde extensie op deze site.',
+	'Snippet copied - paste it into an HTML block on your site.':
+		'Snippet gekopieerd; plak hem in een HTML-blok op je site.',
+	'Copy failed.': 'Kopiëren mislukt.',
+	'Feather comb': 'Verenkam',
+	Rose: 'Roos',
+	Iris: 'Iris',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

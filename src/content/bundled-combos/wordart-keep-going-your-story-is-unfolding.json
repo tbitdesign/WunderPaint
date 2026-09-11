@@ -1,0 +1,178 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-keep-going-your-story-is-unfolding",
+	"label": "Keep going your story is unfolding",
+	"category": "wordart",
+	"w": 624,
+	"h": 569,
+	"layers": [
+		{
+			"id": "waf-keep-going-your-story-is-unfolding-0",
+			"type": "text",
+			"name": "KEEP GOING YOUR STORY IS UNFOLDING",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 32,
+			"y": 24,
+			"w": 560,
+			"h": 460,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#365e91",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "KEEP GOING\nYOUR STORY\nIS UNFOLDING",
+			"fontSize": 100,
+			"fontFamily": "Orbitron",
+			"weight": 700,
+			"color": "#4fc8db",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "KEEP GOING\n",
+					"s": {
+						"color": "#4fc8db"
+					}
+				},
+				{
+					"text": "YOUR STORY\n",
+					"s": {
+						"color": "#d46caf"
+					}
+				},
+				{
+					"text": "IS UNFOLDING",
+					"s": {
+						"color": "#a598df"
+					}
+				}
+			],
+			"textFX": {
+				"glow": {
+					"color": "#5b86d1",
+					"size": 7
+				},
+				"chromatic": {
+					"offset": 2,
+					"angle": 0
+				}
+			}
+		},
+		{
+			"id": "waf-keep-going-your-story-is-unfolding-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 275,
+			"y": 535,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#bf6195",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-keep-going-your-story-is-unfolding-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 303,
+			"y": 535,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#7761b4",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		},
+		{
+			"id": "waf-keep-going-your-story-is-unfolding-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 331,
+			"y": 535,
+			"w": 10,
+			"h": 10,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "ellipse",
+			"fill": "#ddb25a",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

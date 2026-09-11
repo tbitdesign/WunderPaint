@@ -17,6 +17,8 @@ import {
 	makeImage,
 	loadImage,
 	serializeLayers,
+	serializeDocument,
+	checkProjectFormat,
 	hydrateLayers,
 } from '../document';
 import { activeLayerOf, expandGroupIds } from '../editor-context';
@@ -27,7 +29,7 @@ import {
 	layerOvershoot,
 } from '../../lib/raster';
 import { applyEffectToLayer, rasterizeActiveLayer } from '../effect-ops';
-import { promptDialog } from '../../lib/dialogs';
+import { confirmDialog, promptDialog } from '../../lib/dialogs';
 import { parseCube, encodeLutTable } from '../../lib/cube-lut';
 import { getPsdImporter } from '../../lib/psd-registry';
 import { documentToPsd } from '../../lib/psd';
@@ -43,10 +45,21 @@ export function ungroupOp( editor ) {
 	const children = new Set( layer.children || [] );
 	const layers = state.layers
 		.filter( ( l ) => l.id !== layer.id )
-		.map( ( l ) =>
-			children.has( l.id ) ? { ...l, parent: layer.parent || null } : l
-		);
+		.map( ( l ) => {
+			if ( l.id === layer.parent ) {
+				return {
+					...l,
+					children: ( l.children || [] ).flatMap( ( id ) =>
+						id === layer.id ? [ ...children ] : [ id ]
+					),
+				};
+			}
+			return children.has( l.id )
+				? { ...l, parent: layer.parent || null }
+				: l;
+		} );
 	dispatch( { type: 'SET_LAYERS', layers } );
+	dispatch( { type: 'SET_SELECTED', ids: [ ...children ] } );
 	commit( __( 'Ungroup', 'wunderpaint' ) );
 }
 
@@ -176,6 +189,73 @@ export function importPsdOp( editor, extras ) {
 	input.click();
 }
 
+/**
+ * Put a freshly read document in front of the person without losing what
+ * is open: a new tab where tabs exist (the current document stays as it
+ * is), else a question when the current one is dirty, and only then
+ * LOAD_DOCUMENT in place. Undo cannot cross LOAD_DOCUMENT - the history
+ * starts over - so "in place" has to be a decision, not a side effect of
+ * picking a file.
+ *
+ * @param {Object} editor      Editor context.
+ * @param {Object} extras      Screen extras (openDocInNewTab when tabs exist).
+ * @param {Object} what        What was read.
+ * @param {Object} what.doc    Document.
+ * @param {Array}  what.layers Hydrated layers.
+ * @param {string} what.label  History label for an in-place load.
+ * @param {string} [what.name]        Tab name (defaults to doc.name).
+ * @param {Array}  [what.pages]       Page list, when the document brings one.
+ * @param {number} [what.currentPage] Page that was open.
+ * @return {Promise<'tab'|'replaced'|'kept'>} Where it went.
+ */
+export async function presentDocument(
+	editor,
+	extras,
+	{ doc, layers, label, name, pages, currentPage }
+) {
+	// pages travel on BOTH ways out of here. The in-place LOAD_DOCUMENT
+	// below got them on 11.09.2026; this call kept handing the new tab doc,
+	// layers and name, so a multi-page project opened into a tab came up
+	// with one page (Codex C01).
+	if (
+		extras?.openDocInNewTab?.( {
+			doc,
+			layers,
+			name: name || doc?.name,
+			pages,
+			currentPage,
+		} )
+	) {
+		return 'tab';
+	}
+	if ( editor.dirty ) {
+		const ok = await confirmDialog( {
+			title: __( 'Replace the current document?', 'wunderpaint' ),
+			message: __(
+				'It has unsaved changes. Opening the file here replaces it, and Undo cannot bring it back.',
+				'wunderpaint'
+			),
+			confirmLabel: __( 'Replace', 'wunderpaint' ),
+			cancelLabel: __( 'Keep my document', 'wunderpaint' ),
+			danger: true,
+		} );
+		if ( ! ok ) {
+			return 'kept';
+		}
+	}
+	// pages reisen mit, wenn das Dokument welche hat: sonst kommt ein
+	// mehrseitiger Entwurf mit einer Seite zurueck (F02).
+	editor.dispatch( {
+		type: 'LOAD_DOCUMENT',
+		doc,
+		layers,
+		label,
+		pages,
+		currentPage,
+	} );
+	return 'replaced';
+}
+
 /** Import a PSD File object as the current document (13.1). */
 export async function importPsdFileOp( editor, extras, file ) {
 	const importer = getPsdImporter();
@@ -191,12 +271,14 @@ export async function importPsdFileOp( editor, extras, file ) {
 			buffer,
 			file.name.replace( /\.psd$/i, '' )
 		);
-		editor.dispatch( {
-			type: 'LOAD_DOCUMENT',
+		const how = await presentDocument( editor, extras, {
 			doc,
 			layers,
 			label: __( 'Import PSD', 'wunderpaint' ),
 		} );
+		if ( 'kept' === how ) {
+			return;
+		}
 		if ( notes?.length ) {
 			extras?.toasts?.toast?.(
 				__( 'PSD imported with notes:', 'wunderpaint' ) +
@@ -391,13 +473,15 @@ export function insertQrOp( editor, extras ) {
 
 /** Download the whole document as a portable .wpie project file (v1.0). */
 export function downloadProjectOp( editor ) {
-	const { doc, layers } = editor.state;
+	const { doc } = editor.state;
 	const payload = {
 		wpie: 2,
 		name: doc.name || 'untitled',
-		doc: { ...doc },
-		layers: serializeLayers( layers ),
+		// "Whole document" has to mean all of its pages. It carried only the
+		// open one, so a multi-page design could not be transported at all.
+		...serializeDocument( editor.state ),
 	};
+	payload.doc = { ...payload.doc, name: doc.name || 'untitled' };
 	const blob = new window.Blob( [ JSON.stringify( payload ) ], {
 		type: 'application/json',
 	} );
@@ -420,15 +504,16 @@ export function openProjectOp( editor, extras ) {
 			// a fresh, fully editable document with new ids.
 			if ( data?.format === TEMPLATE_FORMAT ) {
 				const { doc, layers } = await hydrateTemplate( data );
-				editor.dispatch( {
-					type: 'LOAD_DOCUMENT',
+				const how = await presentDocument( editor, extras, {
 					doc,
 					layers,
 					label: __( 'From Template', 'wunderpaint' ),
 				} );
-				extras?.toasts?.success?.(
-					__( 'Template opened.', 'wunderpaint' )
-				);
+				if ( 'kept' !== how ) {
+					extras?.toasts?.success?.(
+						__( 'Template opened.', 'wunderpaint' )
+					);
+				}
 				return;
 			}
 			if (
@@ -440,9 +525,9 @@ export function openProjectOp( editor, extras ) {
 					__( 'Not a WunderPaint project file.', 'wunderpaint' )
 				);
 			}
+			checkProjectFormat( data );
 			const layers = await hydrateLayers( data.layers );
-			editor.dispatch( {
-				type: 'LOAD_DOCUMENT',
+			const how = await presentDocument( editor, extras, {
 				doc: {
 					...data.doc,
 					name: data.name || data.doc.name || 'untitled',
@@ -450,8 +535,19 @@ export function openProjectOp( editor, extras ) {
 				},
 				layers,
 				label: __( 'Open project', 'wunderpaint' ),
+				// downloadProjectOp() writes pages and currentPage into the
+				// file; opening it read only doc and layers, so a multi-page
+				// design came back as page one and the rest was gone. The
+				// second half of Codex' F02, and the reason a multi-page
+				// project was not actually transportable.
+				pages: Array.isArray( data.pages ) ? data.pages : undefined,
+				currentPage: data.currentPage,
 			} );
-			extras?.toasts?.success?.( __( 'Project opened.', 'wunderpaint' ) );
+			if ( 'kept' !== how ) {
+				extras?.toasts?.success?.(
+					__( 'Project opened.', 'wunderpaint' )
+				);
+			}
 		} catch ( err ) {
 			extras?.toasts?.error?.(
 				__( 'Could not open the project:', 'wunderpaint' ) +

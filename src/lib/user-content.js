@@ -55,8 +55,10 @@ export function ensureUserItems( kind ) {
 				return cache[ kind ];
 			} )
 			.catch( () => {
-				cache[ kind ] = cache[ kind ] || [];
-				return cache[ kind ];
+				// Not cached: an empty list from a failed load used to stand
+				// for the whole session, without a word and without a retry.
+				// The next mount asks again.
+				return cache[ kind ] || [];
 			} )
 			.finally( () => {
 				loading[ kind ] = null;
@@ -100,14 +102,43 @@ export async function updateUserItem( kind, id, patch ) {
 	if ( ! current || ! KINDS.includes( kind ) ) {
 		return null;
 	}
+	const before = cache[ kind ];
 	const item = { ...current, ...patch, id };
 	cache[ kind ] = cache[ kind ].map( ( x ) => ( x.id === id ? item : x ) );
 	notify();
 	try {
 		await library.save( kind, item );
-	} catch ( e ) {}
+	} catch ( e ) {
+		// Optimistic, but honest: a refused save puts the old item back and
+		// says so, instead of showing a rename the server never got.
+		cache[ kind ] = before;
+		notify();
+		report( e );
+		return current;
+	}
 	return item;
 }
+
+let onError = null;
+
+/**
+ * Where a refused library write is reported (screens/editor-main.jsx hands
+ * the toasts in). Without a handler it goes to the console.
+ *
+ * @param {Function|null} fn ( err ) => void.
+ */
+export function onUserContentError( fn ) {
+	onError = 'function' === typeof fn ? fn : null;
+}
+
+const report = ( err ) => {
+	if ( onError ) {
+		onError( err );
+	} else {
+		// eslint-disable-next-line no-console
+		console.warn( 'WPIE: library write refused', err );
+	}
+};
 
 /**
  * Remove an item from the server library (optimistic).
@@ -120,11 +151,17 @@ export async function removeUserItem( kind, id ) {
 	if ( ! KINDS.includes( kind ) ) {
 		return;
 	}
-	cache[ kind ] = ( cache[ kind ] || [] ).filter( ( x ) => x.id !== id );
+	const before = cache[ kind ] || [];
+	cache[ kind ] = before.filter( ( x ) => x.id !== id );
 	notify();
 	try {
 		await library.remove( kind, id );
-	} catch ( e ) {}
+	} catch ( e ) {
+		// The item comes back on screen: it is still on the server.
+		cache[ kind ] = before;
+		notify();
+		report( e );
+	}
 }
 
 /**

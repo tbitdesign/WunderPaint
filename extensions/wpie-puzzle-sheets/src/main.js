@@ -1,7 +1,7 @@
 /**
  * WPIE extension: Puzzle Sheets (v2 dialog).
  *
- * Six printable puzzle types, computed locally: word search, mazes in
+ * Printable puzzle types, computed locally: word search, mazes in
  * eight shapes (including the silhouette of an image), sudoku with a
  * guaranteed unique solution, criss-cross word grids, number
  * cryptograms and addition pyramids - each with an optional solution
@@ -39,7 +39,14 @@ import {
 	renderGameSheet,
 	buildMemory,
 	renderMemory,
+	renderLogicGrid,
+	renderMathChains,
 } from './puzzle-engine.js';
+import {
+	buildBinary,
+	buildInequality,
+	buildMathChains,
+} from './logic-puzzles.js';
 
 const GEN_ID = 'wpie-puzzle-sheets/sheet';
 
@@ -55,6 +62,12 @@ const DEFAULTS = {
 	cells: 21,
 	sudokuSize: 9,
 	sudokuDiff: 2,
+	binarySize: 6,
+	inequalitySize: 5,
+	logicDiff: 2,
+	mathRows: 8,
+	mathSteps: 4,
+	mathDiff: 2,
 	cryptoDiff: 2,
 	pyrRows: 6,
 	pyrDiff: 2,
@@ -475,9 +488,6 @@ function el( tag, cls, parent, text ) {
 }
 
 // The WPIE brand mark for the dialog head (shared across studios).
-const ICON_BRAND =
-	'<svg width="24" height="24" viewBox="0 0 18.83 18.83" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.84,18.83H3.62c-2,0-3.62-1.62-3.62-3.62V3.52h1.72c.7,0,1.28.57,1.28,1.28v10.43c0,.34.28.62.62.62h8.94c.71,0,1.29.58,1.29,1.29v1.71Z"/><path fill="#3b66ff" d="M18.83,14.02h-1.71c-.71,0-1.29-.58-1.29-1.29V3.62c0-.34-.28-.62-.62-.62H4.82c-.7,0-1.28-.57-1.28-1.28V0h11.67c2,0,3.62,1.62,3.62,3.62v10.4Z"/><circle fill="currentColor" cx="17.33" cy="17.33" r="1.5"/><path fill="#3b66ff" d="M9.51,5.71l.91,2.45c.03.08.09.14.17.17l2.45.91c.07.03.07.13,0,.16l-2.45.91c-.08.03-.14.09-.17.17l-.91,2.45c-.03.07-.13.07-.16,0l-.91-2.45c-.03-.08-.09-.14-.17-.17l-2.45-.91c-.07-.03-.07-.13,0-.16l2.45-.91c.08-.03.14-.09.17-.17l.91-2.45c.03-.07.13-.07.16,0Z"/></svg>';
-
 const tabIcon = ( d, size = 15 ) =>
 	'<svg xmlns="http://www.w3.org/2000/svg" width="' +
 	size +
@@ -509,6 +519,9 @@ const MODES = [
 	{ id: 'jigsaw', label: 'Photo jigsaw' },
 	{ id: 'dot2dot', label: 'Dot to dot' },
 	{ id: 'sudoku', label: 'Sudoku' },
+	{ id: 'binary', label: 'Binary puzzle' },
+	{ id: 'inequality', label: 'Inequality puzzle' },
+	{ id: 'mathchains', label: 'Math chains' },
 	{ id: 'crisscross', label: 'Criss-cross' },
 	{ id: 'bingo', label: 'Bingo cards' },
 	{ id: 'cryptogram', label: 'Secret code' },
@@ -546,25 +559,27 @@ function openStudio( ctx ) {
 	const dialog = el( 'div', 'dsm wpiepzl-dialog', backdrop );
 	dialog.onclick = ( e ) => e.stopPropagation();
 	const head = el( 'div', 'dsm-head', dialog );
-	const badge = el( 'span', 'dsm-badge', head );
-	badge.innerHTML = ICON_BRAND;
+	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
+	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	el( 'span', 'dsm-title', titles, 'Puzzle Sheets' );
 	el(
 		'div',
 		'dsm-sub',
 		titles,
-		t( 'Six printable puzzle types - with solution sheets.' )
+		t( 'Printable puzzles and games with solution sheets.' )
 	);
 	const closeBtn = el( 'button', 'dsm-x', head );
 	closeBtn.innerHTML = '&times;';
 	closeBtn.setAttribute( 'aria-label', t( 'Close' ) );
 
+	const ui = bridge.ui;
 	const body = el( 'div', 'wpiepzl-body', dialog );
+	const library = el( 'div', 'dsm-col start wpiepzl-library', body );
 	const view = el( 'div', 'wpiepzl-view', body );
 	const canvas = el( 'canvas', null, view );
-	const side = el( 'div', 'wpiepzl-side', body );
-	const status = el( 'div', 'wpiepzl-status', view );
+	const side = el( 'div', 'dsm-col end wpiepzl-side', body );
+	const status = el( 'div', 'dsm-viewhint wpiepzl-status', view );
 	const setStatus = ( msg, isErr ) => {
 		status.textContent = msg || '';
 		status.classList.toggle( 'on', !! msg );
@@ -572,25 +587,28 @@ function openStudio( ctx ) {
 	};
 
 	const section = ( parent, icon, label ) => {
-		const card = el( 'div', 'wpiepzl-card', parent );
-		const h = el( 'div', 'wpiepzl-card-head', card );
-		h.innerHTML = icon + '<span>' + label + '</span>';
-		return el( 'div', 'wpiepzl-card-body', card );
+		const content = ui.section( parent, { icon, title: label } );
+		content.parentElement.classList.add( 'wpiepzl-card' );
+		return content;
 	};
 
 	/* --------------------------- puzzle cards ----------------------------- */
 
-	const modeSec = section( side, ICONS.puzzle, t( 'Puzzle' ) );
-	const modeGrid = el( 'div', 'wpiepzl-cards', modeSec );
+	const modeSec = section( library, ICONS.puzzle, t( 'Puzzle' ) );
+	const modeGrid = ui.picks( modeSec, { cell: 110, cls: 'wpiepzl-cards' } );
 	const modeTiles = new Map();
 	for ( const m of MODES ) {
-		const card = el( 'button', 'wpiepzl-tcard', modeGrid );
-		card.type = 'button';
-		card.title = t( m.label );
-		const thumb = el( 'canvas', 'wpiepzl-tthumb', card );
-		thumb.width = 132;
-		thumb.height = 92;
-		el( 'span', 'wpiepzl-tlabel', card, t( m.label ) );
+		const thumb = document.createElement( 'canvas' );
+		thumb.width = 198;
+		thumb.height = 138;
+		thumb.setAttribute( 'aria-hidden', 'true' );
+		const { node: card } = ui.pick( modeGrid, {
+			label: t( m.label ),
+			thumb,
+			cls: 'wpiepzl-tcard',
+			on: params.mode === m.id,
+		} );
+		card.dataset.mode = m.id;
 		card.onclick = () => {
 			params.mode = m.id;
 			syncUi();
@@ -605,7 +623,7 @@ function openStudio( ctx ) {
 		};
 		modeTiles.set( m.id, { card, thumb } );
 	}
-	const warn = el( 'div', 'wpiepzl-info', modeSec );
+	const warn = el( 'div', 'dsm-note wpiepzl-info', modeSec );
 
 	const like = () => document.createElement( 'canvas' );
 
@@ -643,6 +661,24 @@ function openStudio( ctx ) {
 				renderMaze(
 					like(),
 					buildMaze( like(), { shape: 'circle', cols: 15, seed: 4 } ),
+					opts
+				),
+			binary: () =>
+				renderLogicGrid(
+					like(),
+					buildBinary( { size: 4, seed: 3 } ),
+					opts
+				),
+			inequality: () =>
+				renderLogicGrid(
+					like(),
+					buildInequality( { size: 4, seed: 3 } ),
+					opts
+				),
+			mathchains: () =>
+				renderMathChains(
+					like(),
+					buildMathChains( { rows: 4, steps: 3, seed: 3 } ),
 					opts
 				),
 			sudoku: () =>
@@ -712,7 +748,10 @@ function openStudio( ctx ) {
 				renderAnagram(
 					like(),
 					buildAnagram( [ 'SUN', 'ICE' ], { seed: 3 } ),
-					{ ...opts, hint: true }
+					{
+						...opts,
+						hint: true,
+					}
 				),
 			memory: () =>
 				renderMemory(
@@ -771,9 +810,10 @@ function openStudio( ctx ) {
 
 	/* ------------------------------- source ------------------------------- */
 
-	const srcSec = section( side, ICONS.source, t( 'Source' ) );
+	const srcSec = section( library, ICONS.source, t( 'Source' ) );
 	const srcSel = el( 'select', 'dsm-select wpiepzl-wide', srcSec );
-	const srcNote = el( 'div', 'wpiepzl-info', srcSec );
+	const srcNote = el( 'div', 'dsm-note wpiepzl-info', srcSec );
+	library.prepend( srcSec.parentElement );
 
 	function fillSourceOptions() {
 		srcSel.innerHTML = '';
@@ -783,19 +823,25 @@ function openStudio( ctx ) {
 			o.textContent = label;
 		};
 		add( 'doc', t( 'Whole document' ) );
-		const walk = ( layers, depth ) => {
-			for ( const l of layers || [] ) {
-				if ( 'group' === l.type ) {
-					walk( l.children, depth + 1 );
+		// Der Kern haelt EINE FLACHE Ebenenliste, und group.children sind
+		// IDs, keine Objekte. Die alte Rekursion lief damit ueber Strings:
+		// l.type und l.name waren undefined, jedes Kind wurde als
+		// "layer:undefined" mit der Beschriftung "undefined" angeboten - und
+		// danach standen dieselben Ebenen noch einmal flach in der Liste,
+		// weil sie dort ohnehin schon drin sind. (Codex F15.)
+		const walk = ( layers ) => {
+			const list = layers || [];
+			for ( const l of list ) {
+				if ( ! l || ! l.id || 'group' === l.type ) {
 					continue;
 				}
 				add(
 					'layer:' + l.id,
-					' '.repeat( depth * 2 ) + ( l.name || l.type )
+					( l.parent ? '  ' : '' ) + ( l.name || l.type )
 				);
 			}
 		};
-		walk( editor.state.layers, 0 );
+		walk( editor.state.layers );
 		add( 'media', t( 'Media library…' ) );
 	}
 	fillSourceOptions();
@@ -906,24 +952,40 @@ function openStudio( ctx ) {
 				);
 			} else if ( desc.startsWith( 'layer:' ) ) {
 				const id = desc.slice( 6 );
-				const find = ( layers ) => {
-					for ( const l of layers || [] ) {
-						if ( String( l.id ) === id ) {
-							return l;
-						}
-						const hit = l.children && find( l.children );
-						if ( hit ) {
-							return hit;
-						}
-					}
-					return null;
-				};
-				const target = find( editor.state.layers );
+				const flat = editor.state.layers || [];
+				const target = flat.find( ( l ) => String( l.id ) === id );
 				if ( target ) {
+					// The layer may be the child of a group: the renderer
+					// starts at roots without a parent and never reached it,
+					// so a grouped photo arrived as an empty canvas (Codex
+					// F15, 10.09.2026). Render a parent-less copy and hand the
+					// renderer its descendants for a group.
+					const byId = new Map(
+						flat.map( ( l ) => [ String( l.id ), l ] )
+					);
+					const members = new Set();
+					const collect = ( item ) => {
+						if ( ! item || members.has( item.id ) ) {
+							return;
+						}
+						members.add( item.id );
+						( item.children || [] ).forEach( ( cid ) =>
+							collect( byId.get( String( cid ) ) )
+						);
+					};
+					collect( target );
+					const selected = flat.filter( ( l ) =>
+						members.has( l.id )
+					);
+					await bridge.raster.sharedImageCache?.warm?.( selected );
 					c = await bridge.raster.renderToCanvas(
 						editor.state.doc,
-						[ target ],
-						{ scale: Math.min( 1, 600 / editor.state.doc.w ) }
+						[ { ...target, parent: null } ],
+						{
+							scale: Math.min( 1, 600 / editor.state.doc.w ),
+							cache: bridge.raster.sharedImageCache,
+							allLayers: selected,
+						}
 					);
 					srcNote.textContent = target.name || '';
 				}
@@ -966,7 +1028,7 @@ function openStudio( ctx ) {
 	const palWrap = el( 'div', 'wpiepzl-pals', colSec );
 	const palBtns = new Map();
 	for ( const p of PALETTES ) {
-		const b = el( 'button', 'wpiepzl-pal', palWrap );
+		const b = el( 'button', 'dsm-strip wpiepzl-pal', palWrap );
 		b.type = 'button';
 		b.title = p.label;
 		b.style.background = `linear-gradient(90deg, ${ p.colors.join(
@@ -998,7 +1060,7 @@ function openStudio( ctx ) {
 	};
 	let brandCb = null;
 	if ( brandKits.length ) {
-		const brandLbl = el( 'label', 'wpiepzl-check', colSec );
+		const brandLbl = el( 'label', 'dsm-checkrow wpiepzl-check', colSec );
 		brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
 		brandCb.checked = !! params.useBrand;
@@ -1033,7 +1095,8 @@ function openStudio( ctx ) {
 	// Up to four custom colors; the mounted button is controlled -
 	// call handle.set() on every change.
 	const customRow = el( 'div', 'wpiepzl-row wpiepzl-customrow', colSec );
-	el( 'span', null, customRow ).textContent = t( 'Custom colors' );
+	el( 'span', 'dsm-rowline-label', customRow ).textContent =
+		t( 'Custom colors' );
 	const customWrap = el( 'span', 'wpiepzl-customs', customRow );
 	const mountSwatch = bridge.components && bridge.components.mountColorButton;
 	const customCtls = [];
@@ -1065,7 +1128,11 @@ function openStudio( ctx ) {
 			customCtls.push( { set: ( hex ) => ( input.value = hex ) } );
 		}
 	}
-	const resetBtn = el( 'button', 'wpiepzl-reset', customRow );
+	const resetBtn = el(
+		'button',
+		'ai-btn secondary wpiepzl-reset',
+		customRow
+	);
 	resetBtn.textContent = t( 'Auto' );
 	resetBtn.onclick = ( e ) => {
 		e.preventDefault();
@@ -1090,8 +1157,8 @@ function openStudio( ctx ) {
 
 	// Title (multi-line, up to two lines on the sheet).
 	const titleRow = el( 'label', 'wpiepzl-text-row', setSec );
-	el( 'span', null, titleRow ).textContent = t( 'Title' );
-	const titleArea = el( 'textarea', 'wpiepzl-words', titleRow );
+	el( 'span', 'dsm-fieldlabel', titleRow ).textContent = t( 'Title' );
+	const titleArea = el( 'textarea', 'dsm-input wpiepzl-words', titleRow );
 	titleArea.rows = 2;
 	titleArea.value = params.title;
 	titleArea.oninput = () => {
@@ -1101,7 +1168,7 @@ function openStudio( ctx ) {
 
 	// Typography: editor font catalog + size factor.
 	const fontRow = el( 'div', 'wpiepzl-text-row', setSec );
-	el( 'span', null, fontRow ).textContent = t( 'Font' );
+	el( 'span', 'dsm-fieldlabel', fontRow ).textContent = t( 'Font' );
 	const fontMount = el( 'div', null, fontRow );
 	let fontCtl = null;
 	const onFont = ( fam ) => {
@@ -1137,13 +1204,13 @@ function openStudio( ctx ) {
 
 	function sliderRowIn( parent, label, min, max, get, set, unit ) {
 		const row = el( 'label', 'wpiepzl-row', parent );
-		el( 'span', null, row ).textContent = label;
-		const input = el( 'input', null, row );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const input = el( 'input', 'dsm-range', row );
 		input.type = 'range';
 		input.min = String( min );
 		input.max = String( max );
 		input.value = String( get() );
-		const out = el( 'output', null, row );
+		const out = el( 'output', 'dsm-sliderrow-val', row );
 		const suffix = unit || '';
 		out.textContent = String( get() ) + suffix;
 		input.oninput = () => {
@@ -1165,8 +1232,10 @@ function openStudio( ctx ) {
 
 	// Words (word search + criss-cross) with tiny theme suggestions.
 	const wordsRow = el( 'label', 'wpiepzl-text-row', setSec );
-	el( 'span', null, wordsRow ).textContent = t( 'Words (one per line)' );
-	const wordsArea = el( 'textarea', 'wpiepzl-words', wordsRow );
+	el( 'span', 'dsm-fieldlabel', wordsRow ).textContent = t(
+		'Words (one per line)'
+	);
+	const wordsArea = el( 'textarea', 'dsm-input wpiepzl-words', wordsRow );
 	wordsArea.rows = 6;
 	wordsArea.value = params.words;
 	wordsArea.oninput = () => {
@@ -1174,7 +1243,8 @@ function openStudio( ctx ) {
 		paint();
 	};
 	const themeRow = el( 'label', 'wpiepzl-row', setSec );
-	el( 'span', null, themeRow ).textContent = t( 'Suggestions…' );
+	el( 'span', 'dsm-rowline-label', themeRow ).textContent =
+		t( 'Suggestions…' );
 	const themeSel = el( 'select', 'dsm-select', themeRow );
 	{
 		const o = el( 'option', null, themeSel );
@@ -1205,7 +1275,7 @@ function openStudio( ctx ) {
 		() => params.size,
 		( v ) => ( params.size = v )
 	);
-	const hardLbl = el( 'label', 'wpiepzl-check', setSec );
+	const hardLbl = el( 'label', 'dsm-checkrow wpiepzl-check', setSec );
 	const hardCb = el( 'input', null, hardLbl );
 	hardCb.type = 'checkbox';
 	hardCb.checked = !! params.hard;
@@ -1217,7 +1287,7 @@ function openStudio( ctx ) {
 
 	// Maze: shape, letter, difficulty.
 	const shapeRow = el( 'label', 'wpiepzl-row', setSec );
-	el( 'span', null, shapeRow ).textContent = t( 'Shape' );
+	el( 'span', 'dsm-rowline-label', shapeRow ).textContent = t( 'Shape' );
 	const shapeSel = el( 'select', 'dsm-select', shapeRow );
 	const SHAPE_LABELS = {
 		circle: t( 'Circle' ),
@@ -1245,7 +1315,7 @@ function openStudio( ctx ) {
 		}
 	};
 	const letterRow = el( 'label', 'wpiepzl-row', setSec );
-	el( 'span', null, letterRow ).textContent = t( 'Letter' );
+	el( 'span', 'dsm-rowline-label', letterRow ).textContent = t( 'Letter' );
 	const letterInput = el( 'input', null, letterRow );
 	letterInput.type = 'text';
 	letterInput.maxLength = 1;
@@ -1266,7 +1336,7 @@ function openStudio( ctx ) {
 	// Shared difficulty select helper (sudoku / code / pyramid).
 	const diffRow = ( get, set ) => {
 		const row = el( 'label', 'wpiepzl-row', setSec );
-		el( 'span', null, row ).textContent = t( 'Difficulty' );
+		el( 'span', 'dsm-rowline-label', row ).textContent = t( 'Difficulty' );
 		const sel = el( 'select', 'dsm-select', row );
 		for ( const [ v, l ] of [
 			[ '1', t( 'Easy' ) ],
@@ -1285,9 +1355,44 @@ function openStudio( ctx ) {
 		return row;
 	};
 
+	const logicSizeRow = el( 'label', 'wpiepzl-row', setSec );
+	el( 'span', 'dsm-rowline-label', logicSizeRow, t( 'Grid size' ) );
+	const logicSizeSel = ui.select( logicSizeRow, { options: [] } );
+	logicSizeSel.onchange = () => {
+		params[ params.mode === 'binary' ? 'binarySize' : 'inequalitySize' ] =
+			Number( logicSizeSel.value );
+		paint();
+	};
+	const logicDiffRow = diffRow(
+		() => params.logicDiff,
+		( v ) => ( params.logicDiff = v )
+	);
+	const mathRowsRow = sliderRowIn(
+		setSec,
+		t( 'Rows' ),
+		4,
+		12,
+		() => params.mathRows,
+		( v ) => ( params.mathRows = v )
+	);
+	const mathStepsRow = sliderRowIn(
+		setSec,
+		t( 'Steps' ),
+		3,
+		6,
+		() => params.mathSteps,
+		( v ) => ( params.mathSteps = v )
+	);
+	const mathDiffRow = diffRow(
+		() => params.mathDiff,
+		( v ) => ( params.mathDiff = v )
+	);
+	const rulesNote = ui.note( setSec, '' );
+
 	// Sudoku: size + difficulty.
 	const sudSizeRow = el( 'label', 'wpiepzl-row', setSec );
-	el( 'span', null, sudSizeRow ).textContent = t( 'Grid size' );
+	el( 'span', 'dsm-rowline-label', sudSizeRow ).textContent =
+		t( 'Grid size' );
 	const sudSizeSel = el( 'select', 'dsm-select', sudSizeRow );
 	for ( const v of [ 4, 6, 9 ] ) {
 		const o = el( 'option', null, sudSizeSel );
@@ -1306,10 +1411,10 @@ function openStudio( ctx ) {
 
 	// Secret code: phrase + difficulty.
 	const phraseRow = el( 'label', 'wpiepzl-text-row', setSec );
-	el( 'span', null, phraseRow ).textContent = t(
+	el( 'span', 'dsm-fieldlabel', phraseRow ).textContent = t(
 		'Phrase (the secret message)'
 	);
-	const phraseArea = el( 'textarea', 'wpiepzl-words', phraseRow );
+	const phraseArea = el( 'textarea', 'dsm-input wpiepzl-words', phraseRow );
 	phraseArea.rows = 3;
 	phraseArea.value = params.phrase;
 	phraseArea.oninput = () => {
@@ -1337,8 +1442,9 @@ function openStudio( ctx ) {
 
 	// Crossword: word + clue pairs.
 	const cluesRow = el( 'label', 'wpiepzl-text-row', setSec );
-	el( 'span', null, cluesRow ).textContent = t( 'Clues (word: clue)' );
-	const cluesArea = el( 'textarea', 'wpiepzl-words', cluesRow );
+	el( 'span', 'dsm-fieldlabel', cluesRow ).textContent =
+		t( 'Clues (word: clue)' );
+	const cluesArea = el( 'textarea', 'dsm-input wpiepzl-words', cluesRow );
 	cluesArea.rows = 7;
 	cluesArea.value = params.clues;
 	cluesArea.oninput = () => {
@@ -1348,7 +1454,7 @@ function openStudio( ctx ) {
 
 	// Nonogram: shape (shares the maze vocabulary) + grid size.
 	const nonoShapeRow = el( 'label', 'wpiepzl-row', setSec );
-	el( 'span', null, nonoShapeRow ).textContent = t( 'Shape' );
+	el( 'span', 'dsm-rowline-label', nonoShapeRow ).textContent = t( 'Shape' );
 	const nonoShapeSel = el( 'select', 'dsm-select', nonoShapeRow );
 	for ( const v of MAZE_SHAPES ) {
 		const o = el( 'option', null, nonoShapeSel );
@@ -1375,7 +1481,7 @@ function openStudio( ctx ) {
 	);
 
 	// Anagrams: first-letter hint.
-	const anagHintLbl = el( 'label', 'wpiepzl-check', setSec );
+	const anagHintLbl = el( 'label', 'dsm-checkrow wpiepzl-check', setSec );
 	const anagHintCb = el( 'input', null, anagHintLbl );
 	anagHintCb.type = 'checkbox';
 	anagHintCb.checked = !! params.anagHint;
@@ -1387,10 +1493,14 @@ function openStudio( ctx ) {
 
 	// Memory: motifs + pairs.
 	const memMotifsRow = el( 'label', 'wpiepzl-text-row', setSec );
-	el( 'span', null, memMotifsRow ).textContent = t(
+	el( 'span', 'dsm-fieldlabel', memMotifsRow ).textContent = t(
 		'Motifs (emoji or words)'
 	);
-	const memMotifsArea = el( 'textarea', 'wpiepzl-words', memMotifsRow );
+	const memMotifsArea = el(
+		'textarea',
+		'dsm-input wpiepzl-words',
+		memMotifsRow
+	);
 	memMotifsArea.rows = 2;
 	memMotifsArea.value = params.memMotifs;
 	memMotifsArea.oninput = () => {
@@ -1408,7 +1518,7 @@ function openStudio( ctx ) {
 
 	// Game sheets: which game + its knobs.
 	const gameRow = el( 'label', 'wpiepzl-row', setSec );
-	el( 'span', null, gameRow ).textContent = t( 'Game' );
+	el( 'span', 'dsm-rowline-label', gameRow ).textContent = t( 'Game' );
 	const gameSel = el( 'select', 'dsm-select', gameRow );
 	for ( const [ v, l ] of [
 		[ 'slf', t( 'City-Country-River' ) ],
@@ -1426,10 +1536,10 @@ function openStudio( ctx ) {
 		paint();
 	};
 	const slfCatsRow = el( 'label', 'wpiepzl-text-row', setSec );
-	el( 'span', null, slfCatsRow ).textContent = t(
+	el( 'span', 'dsm-fieldlabel', slfCatsRow ).textContent = t(
 		'Categories (one per line)'
 	);
-	const slfCatsArea = el( 'textarea', 'wpiepzl-words', slfCatsRow );
+	const slfCatsArea = el( 'textarea', 'dsm-input wpiepzl-words', slfCatsRow );
 	slfCatsArea.rows = 4;
 	slfCatsArea.value = params.slfCats;
 	slfCatsArea.oninput = () => {
@@ -1456,13 +1566,13 @@ function openStudio( ctx ) {
 	// Puzzle pack: which sheets to include.
 	const packInfo = el(
 		'div',
-		'wpiepzl-info',
+		'dsm-note wpiepzl-info',
 		setSec,
 		t( 'Sheets in the pack:' )
 	);
 	const packRows = [];
 	const packCheck = ( key, label ) => {
-		const lbl = el( 'label', 'wpiepzl-check', setSec );
+		const lbl = el( 'label', 'dsm-checkrow wpiepzl-check', setSec );
 		const cb = el( 'input', null, lbl );
 		cb.type = 'checkbox';
 		cb.checked = !! params[ key ];
@@ -1483,7 +1593,8 @@ function openStudio( ctx ) {
 
 	// Bingo: card size, number of cards, free center.
 	const bingoGridRow = el( 'label', 'wpiepzl-row', setSec );
-	el( 'span', null, bingoGridRow ).textContent = t( 'Card size' );
+	el( 'span', 'dsm-rowline-label', bingoGridRow ).textContent =
+		t( 'Card size' );
 	const bingoGridSel = el( 'select', 'dsm-select', bingoGridRow );
 	for ( const v of [ 3, 4, 5 ] ) {
 		const o = el( 'option', null, bingoGridSel );
@@ -1504,7 +1615,7 @@ function openStudio( ctx ) {
 		() => params.bingoCards,
 		( v ) => ( params.bingoCards = v )
 	);
-	const bingoFreeLbl = el( 'label', 'wpiepzl-check', setSec );
+	const bingoFreeLbl = el( 'label', 'dsm-checkrow wpiepzl-check', setSec );
 	const bingoFreeCb = el( 'input', null, bingoFreeLbl );
 	bingoFreeCb.type = 'checkbox';
 	bingoFreeCb.checked = !! params.bingoFree;
@@ -1541,7 +1652,7 @@ function openStudio( ctx ) {
 		params.seed = 1 + Math.floor( Math.random() * 99999 );
 		paint();
 	};
-	const solLbl = el( 'label', 'wpiepzl-check', setSec );
+	const solLbl = el( 'label', 'dsm-checkrow wpiepzl-check', setSec );
 	const solCb = el( 'input', null, solLbl );
 	solCb.type = 'checkbox';
 	solCb.checked = !! params.withSolution;
@@ -1554,7 +1665,7 @@ function openStudio( ctx ) {
 
 	const syncUi = () => {
 		modeTiles.forEach( ( { card }, id ) =>
-			card.classList.toggle( 'sel', id === params.mode )
+			ui.pressed( card, id === params.mode )
 		);
 		palBtns.forEach( ( b, id ) =>
 			b.classList.toggle(
@@ -1565,6 +1676,29 @@ function openStudio( ctx ) {
 			)
 		);
 		const m = params.mode;
+		const logic = m === 'binary' || m === 'inequality';
+		logicSizeRow.style.display = logic ? '' : 'none';
+		logicDiffRow.style.display = logic ? '' : 'none';
+		if ( logic ) {
+			logicSizeSel.textContent = '';
+			for ( const n of m === 'binary' ? [ 4, 6, 8 ] : [ 4, 5, 6 ] ) {
+				const option = el(
+					'option',
+					null,
+					logicSizeSel,
+					`${ n } × ${ n }`
+				);
+				option.value = String( n );
+			}
+			logicSizeSel.value = String(
+				params[ m === 'binary' ? 'binarySize' : 'inequalitySize' ]
+			);
+		}
+		for ( const row of [ mathRowsRow, mathStepsRow, mathDiffRow ] ) {
+			row.style.display = m === 'mathchains' ? '' : 'none';
+		}
+		rulesNote.textContent = puzzleRules( m );
+		rulesNote.style.display = rulesNote.textContent ? '' : 'none';
 		const words = 'wordsearch' === m || 'crisscross' === m || 'bingo' === m;
 		wordsRow.style.display = words ? '' : 'none';
 		themeRow.style.display = words ? '' : 'none';
@@ -1642,12 +1776,69 @@ function openStudio( ctx ) {
 
 	/* ------------------------------- painting ----------------------------- */
 
+	const puzzleRules = ( mode ) => {
+		if ( mode === 'binary' ) {
+			return t(
+				'Fill each row and column with equal numbers of 0s and 1s. No three identical neighbors. Every row and every column must be different.'
+			);
+		}
+		if ( mode === 'inequality' ) {
+			return t(
+				'Use each number from 1 to the grid size once in every row and column. The narrow tip of each sign points to the smaller number.'
+			);
+		}
+		if ( mode === 'mathchains' ) {
+			return t(
+				'Start with the given number. Follow the arrows from left to right and write each result in the next box.'
+			);
+		}
+		return '';
+	};
+	// Color, title and resizing reuse the same generated puzzle.
+	let logicCache = null;
+	const logicModel = () => {
+		const key = JSON.stringify( [
+			params.mode,
+			params.seed,
+			params.binarySize,
+			params.inequalitySize,
+			params.logicDiff,
+			params.mathRows,
+			params.mathSteps,
+			params.mathDiff,
+		] );
+		if ( ! logicCache || logicCache.key !== key ) {
+			const model =
+				params.mode === 'binary'
+					? buildBinary( {
+							size: params.binarySize,
+							diff: params.logicDiff,
+							seed: params.seed,
+					  } )
+					: params.mode === 'inequality'
+					? buildInequality( {
+							size: params.inequalitySize,
+							diff: params.logicDiff,
+							seed: params.seed,
+					  } )
+					: buildMathChains( {
+							rows: params.mathRows,
+							steps: params.mathSteps,
+							diff: params.mathDiff,
+							seed: params.seed,
+					  } );
+			logicCache = { key, model };
+		}
+		return logicCache.model;
+	};
+
 	function bake() {
 		const common = {
 			title: params.title,
 			colors: resolvedColors(),
 			font: params.font,
 			textScale: params.textScale,
+			rules: puzzleRules( params.mode ),
 		};
 		warn.textContent = '';
 		const two = ( build, render ) => ( {
@@ -1656,6 +1847,19 @@ function openStudio( ctx ) {
 				? render( like(), build, { ...common, solution: true } )
 				: null,
 		} );
+		if (
+			[ 'binary', 'inequality', 'mathchains' ].includes( params.mode )
+		) {
+			const model = logicModel();
+			return model
+				? two(
+						model,
+						params.mode === 'mathchains'
+							? renderMathChains
+							: renderLogicGrid
+				  )
+				: null;
+		}
 		if ( 'wordsearch' === params.mode ) {
 			const ws = buildWordSearch( params.words.split( /\n+/ ), {
 				size: params.size,
@@ -2148,7 +2352,10 @@ function openStudio( ctx ) {
 			};
 			const stored = { ...params };
 			const modeLabel = t(
-				MODES.find( ( m ) => m.id === params.mode ).label
+				// A saved mode the list no longer knows must not throw on
+				// insert (EXTZUSTAND-06): the first mode stands in.
+				( MODES.find( ( m ) => m.id === params.mode ) || MODES[ 0 ] )
+					.label
 			);
 			if ( editing ) {
 				const fitC = baked.sheet;

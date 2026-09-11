@@ -1,0 +1,183 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-keep-life-sweet-and-slightly-messy",
+	"label": "Keep life sweet and slightly messy",
+	"category": "wordart",
+	"w": 766,
+	"h": 573,
+	"layers": [
+		{
+			"id": "waf-keep-life-sweet-and-slightly-messy-0",
+			"type": "text",
+			"name": "KEEP LIFE SWEET AND SLIGHTLY MESSY",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 110.8,
+			"y": 45,
+			"w": 560,
+			"h": 460,
+			"rot": -4,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#fff1d3",
+					"size": 2,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "KEEP LIFE\nSWEET AND\nSLIGHTLY MESSY",
+			"fontSize": 100,
+			"fontFamily": "Barlow Condensed",
+			"weight": 900,
+			"color": "#db9240",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "KEEP LIFE\n",
+					"s": {
+						"color": "#db9240"
+					}
+				},
+				{
+					"text": "SWEET AND\n",
+					"s": {
+						"color": "#bf5b53"
+					}
+				},
+				{
+					"text": "SLIGHTLY MESSY",
+					"s": {
+						"color": "#eac571"
+					}
+				}
+			],
+			"textFX": {
+				"twoTone": {
+					"angle": 12,
+					"split": 51,
+					"color": "#db9240",
+					"color2": "#bf5b53"
+				},
+				"extrude": {
+					"angle": 40,
+					"depth": 7,
+					"color": "#734739"
+				}
+			}
+		},
+		{
+			"id": "waf-keep-life-sweet-and-slightly-messy-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 29.8,
+			"y": 414,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#eac571",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-keep-life-sweet-and-slightly-messy-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 707.8,
+			"y": 83,
+			"w": 28,
+			"h": 28,
+			"rot": 45,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#bf5b53",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-keep-life-sweet-and-slightly-messy-3",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 320.8,
+			"y": 546,
+			"w": 140,
+			"h": 3,
+			"rot": 0,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "rect",
+			"fill": "#db9240",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 1.5,
+			"sides": 6,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0
+		}
+	]
+}

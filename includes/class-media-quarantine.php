@@ -15,7 +15,7 @@
  *    is a proposal; the action re-proves it.
  *
  * 2. `wp_scheduled_delete()` empties the trash after EMPTY_TRASH_DAYS and would
- *    walk right past the retention period. A targeted `pre_delete_post` filter
+ *    walk right past the retention period. A targeted `pre_delete_attachment` filter
  *    blocks that instead of changing EMPTY_TRASH_DAYS, which would silently
  *    alter behaviour for the whole site.
  *
@@ -46,8 +46,26 @@ class Media_Quarantine {
 	public function hooks() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 		add_action( self::CRON, array( __CLASS__, 'sweep' ) );
-		add_filter( 'pre_delete_post', array( __CLASS__, 'hold_during_retention' ), 10, 3 );
+		add_filter( 'pre_delete_attachment', array( __CLASS__, 'hold_during_retention' ), 10, 3 );
+		add_action( 'untrashed_post', array( __CLASS__, 'release_on_untrash' ) );
 		add_action( 'init', array( __CLASS__, 'schedule' ) );
+	}
+
+	/**
+	 * WordPress' own "Restore" from the trash ends the hold too.
+	 *
+	 * The flag used to stay behind, and hold_during_retention() then refused
+	 * every deletion of that attachment for good - nothing but our sweep
+	 * could ever remove it. Our own restore drops the flag itself; this
+	 * covers the other door.
+	 *
+	 * @param int $post_id Post id.
+	 * @return void
+	 */
+	public static function release_on_untrash( $post_id ) {
+		if ( 'attachment' === get_post_type( $post_id ) && is_array( get_post_meta( $post_id, self::META, true ) ) ) {
+			delete_post_meta( $post_id, self::META );
+		}
 	}
 
 	/**
@@ -90,10 +108,9 @@ class Media_Quarantine {
 		if ( ! empty( $GLOBALS['wpie_quarantine_releasing'] ) ) {
 			return $check;
 		}
-		if ( time() < (int) $rec['at'] + ( self::days() * DAY_IN_SECONDS ) ) {
-			return false;
-		}
-		return $check;
+		// Even an expired hold needs our live usage check before deletion.
+		// WordPress's scheduled trash cleanup must not race that decision.
+		return false;
 	}
 
 	/* ------------------------------- actions ------------------------------ */
@@ -110,6 +127,7 @@ class Media_Quarantine {
 		$moved  = array();
 		$kept   = array();
 		$denied = array();
+		$todo   = array();
 
 		foreach ( array_map( 'intval', (array) $ids ) as $id ) {
 			if ( $id <= 0 || 'attachment' !== get_post_type( $id ) ) {
@@ -119,9 +137,19 @@ class Media_Quarantine {
 				$denied[] = $id;
 				continue;
 			}
+			$todo[] = $id;
+		}
 
-			// The list may be minutes or weeks old. Prove it again, now.
-			$places = Media_Usage::find_for( $id );
+		// The list may be minutes or weeks old. Prove it again, now - the
+		// whole list in one pass, not one image at a time.
+		$places_by = Media_Usage::find_for_many( $todo );
+		if ( is_wp_error( $places_by ) ) {
+			// A lookup that failed has proven nothing. Nothing moves.
+			return $places_by;
+		}
+
+		foreach ( $todo as $id ) {
+			$places = $places_by[ $id ] ?? array();
 			if ( $places && ! $force ) {
 				$kept[] = array(
 					'id'     => $id,
@@ -140,7 +168,19 @@ class Media_Quarantine {
 					'by'     => get_current_user_id(),
 				)
 			);
-			if ( wp_trash_post( $id ) ) {
+			// EMPTY_TRASH_DAYS=0 makes wp_trash_post delete immediately.
+			// Our holding room still has its own retention period on such sites.
+			if ( EMPTY_TRASH_DAYS ) {
+				$trashed = wp_trash_post( $id );
+			} else {
+				$previous = get_post_field( 'post_status', $id );
+				$trashed  = wp_update_post( array( 'ID' => $id, 'post_status' => 'trash' ), true );
+				if ( ! is_wp_error( $trashed ) && $trashed ) {
+					update_post_meta( $id, '_wp_trash_meta_status', $previous );
+					update_post_meta( $id, '_wp_trash_meta_time', time() );
+				}
+			}
+			if ( ! is_wp_error( $trashed ) && $trashed ) {
 				$moved[] = $id;
 			} else {
 				delete_post_meta( $id, self::META );
@@ -168,16 +208,7 @@ class Media_Quarantine {
 			if ( $id <= 0 || ! current_user_can( 'delete_post', $id ) ) {
 				continue;
 			}
-			if ( wp_untrash_post( $id ) ) {
-				// Untrashing can leave an attachment in 'draft' depending on
-				// what core remembers; attachments belong in 'inherit'.
-				wp_update_post(
-					array(
-						'ID'          => $id,
-						'post_status' => 'inherit',
-					)
-				);
-				delete_post_meta( $id, self::META );
+			if ( self::restore_held( $id ) ) {
 				$back[] = $id;
 			}
 		}
@@ -188,16 +219,46 @@ class Media_Quarantine {
 	}
 
 	/**
+	 * Internal restore for an already-authorized user or the scheduled sweep.
+	 * Never exposed as a route; only attachments carrying our hold may enter.
+	 */
+	private static function restore_held( $id ) {
+		if ( 'attachment' !== get_post_type( $id ) || ! is_array( get_post_meta( $id, self::META, true ) ) ) {
+			return false;
+		}
+		if ( 'trash' === get_post_field( 'post_status', $id ) && ! wp_untrash_post( $id ) ) {
+			return false;
+		}
+		$result = wp_update_post( array( 'ID' => $id, 'post_status' => 'inherit' ), true );
+		if ( is_wp_error( $result ) || ! $result || 'inherit' !== get_post_field( 'post_status', $id ) ) {
+			return false;
+		}
+		delete_post_meta( $id, self::META );
+		return true;
+	}
+
+	/**
 	 * Everything currently held, newest first.
 	 *
 	 * @return array[]
 	 */
 	public static function items() {
+		return self::held( false );
+	}
+
+	/**
+	 * Held attachments, newest first: the 300 the list shows, or all of
+	 * them for the sweep.
+	 *
+	 * @param bool $all Every held attachment.
+	 * @return array[]
+	 */
+	public static function held( $all = false ) {
 		$q = new \WP_Query(
 			array(
 				'post_type'      => 'attachment',
 				'post_status'    => 'trash',
-				'posts_per_page' => 300,
+				'posts_per_page' => $all ? -1 : 300,
 				'orderby'        => 'modified',
 				'order'          => 'DESC',
 				'no_found_rows'  => true,
@@ -237,26 +298,46 @@ class Media_Quarantine {
 		$rescued = array();
 		$cutoff  = time() - ( self::days() * DAY_IN_SECONDS );
 
-		foreach ( self::items() as $item ) {
-			if ( $item['at'] > $cutoff ) {
-				continue;
+		// Every held attachment, not the 300 newest the list shows: past
+		// that many, the oldest never came up for release and stayed
+		// trapped in the trash by our own filter.
+		$due = array();
+		foreach ( self::held( true ) as $item ) {
+			if ( $item['at'] <= $cutoff ) {
+				$due[] = (int) $item['id'];
 			}
+		}
 
-			// The second look. Something may have started using this image
-			// while it sat in the trash, and a restored page is exactly the
-			// kind of thing that does it.
-			if ( Media_Usage::find_for( $item['id'] ) ) {
-				self::restore( array( $item['id'] ) );
-				$rescued[] = $item['id'];
+		// The second look, for the whole batch in one pass. Something may
+		// have started using an image while it sat in the trash, and a
+		// restored page is exactly the kind of thing that does it.
+		$places_by = $due ? Media_Usage::find_for_many( $due ) : array();
+		$error     = '';
+		if ( is_wp_error( $places_by ) ) {
+			// A lookup that failed has proven nothing: nothing is released
+			// today, the next sweep tries again.
+			$error = $places_by->get_error_message();
+			$due   = array();
+		}
+
+		foreach ( $due as $id ) {
+			if ( ! empty( $places_by[ $id ] ) ) {
+				if ( self::restore_held( $id ) ) {
+					$rescued[] = $id;
+				}
 				continue;
 			}
 
 			$GLOBALS['wpie_quarantine_releasing'] = true;
-			delete_post_meta( $item['id'], self::META );
-			if ( wp_delete_attachment( $item['id'], true ) ) {
-				++$deleted;
+			try {
+				// Core deletes the hold meta with the attachment. A refused or
+				// failed deletion must retain it so the next sweep can retry.
+				if ( wp_delete_attachment( $id, true ) ) {
+					++$deleted;
+				}
+			} finally {
+				unset( $GLOBALS['wpie_quarantine_releasing'] );
 			}
-			unset( $GLOBALS['wpie_quarantine_releasing'] );
 		}
 
 		if ( $rescued ) {
@@ -270,6 +351,7 @@ class Media_Quarantine {
 			'deleted' => $deleted,
 			'rescued' => $rescued,
 			'files'   => (int) $files['deleted'],
+			'error'   => $error,
 		);
 	}
 
@@ -308,11 +390,23 @@ class Media_Quarantine {
 		);
 		register_rest_route(
 			WPIE_REST_NS,
+			'/media-quarantine/rescued',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'rest_ack_rescued' ),
+				'permission_callback' => $perm,
+			)
+		);
+		register_rest_route(
+			WPIE_REST_NS,
 			'/media-quarantine/purge',
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'rest_purge' ),
-				'permission_callback' => $perm,
+				// Releasing what is due deletes attachments for good, other
+				// people's included. Same bar as the orphan tool it belongs
+				// to, not the editor capability the other routes make do with.
+				'permission_callback' => array( Media_Orphans::class, 'can_manage' ),
 			)
 		);
 	}
@@ -323,15 +417,34 @@ class Media_Quarantine {
 	 * @return array
 	 */
 	public function rest_list() {
+		// Reading no longer clears the "rescued" note: a GET that writes
+		// bypasses the demo guard and every cache in front of it. The
+		// client acknowledges through POST /media-quarantine/rescued once
+		// it has shown the note.
 		$rescued = (array) get_option( 'wpie_quarantine_rescued', array() );
-		if ( $rescued ) {
-			delete_option( 'wpie_quarantine_rescued' );
-		}
 		return array(
 			'items'   => self::items(),
 			'days'    => self::days(),
 			'rescued' => array_values( array_map( 'intval', $rescued ) ),
 		);
+	}
+
+	/**
+	 * POST /media-quarantine/rescued: the note about rescued images was
+	 * shown, drop it.
+	 *
+	 * @return array
+	 */
+	public function rest_ack_rescued() {
+		// The note is shared by everyone who opens the cleanup dialog, so
+		// dismissing it is a shared write: only somebody who may work on
+		// the library at all gets to do that (the wporg gate flags a shared
+		// write behind the bare editor capability, and rightly so).
+		if ( ! current_user_can( 'upload_files' ) ) {
+			return new \WP_Error( 'wpie_forbidden', __( 'You are not allowed to do that.', 'wunderpaint' ), array( 'status' => 403 ) );
+		}
+		delete_option( 'wpie_quarantine_rescued' );
+		return array( 'ok' => true );
 	}
 
 	/**

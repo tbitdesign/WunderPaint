@@ -26,6 +26,7 @@ import {
 	findConflict,
 	comboString,
 	comboOf,
+	RESERVED_COMBOS,
 } from '../lib/shortcuts';
 
 /**
@@ -106,6 +107,11 @@ export function ShortcutHelpDialog( { onClose } ) {
 			__( 'Delete layer (or clear selection contents)', 'wunderpaint' ),
 		],
 		[ '0–9', __( 'Layer opacity', 'wunderpaint' ) ],
+		// The fixed keys findConflict knows about but nothing listed, so the
+		// dialog's "every key" was four keys short (HILFE-05).
+		...RESERVED_COMBOS.filter( ( r ) =>
+			[ 'save', 'quick-insert', 'swap-colors', 'help' ].includes( r.id )
+		).map( ( r ) => [ prettify( r.combo ), r.label ] ),
 	];
 
 	return (
@@ -114,6 +120,7 @@ export function ShortcutHelpDialog( { onClose } ) {
 				className="export-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Keyboard shortcuts', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -320,6 +327,7 @@ export function AboutDialog( { onClose } ) {
 				className="export-dialog about-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'About', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -527,6 +535,7 @@ export function FontFirstRunDialog( { onClose } ) {
 				className="export-dialog about-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Fonts', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

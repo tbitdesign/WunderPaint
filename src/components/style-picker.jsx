@@ -188,7 +188,7 @@ export function StyleButton( { value, onChange, getValue, compact = false } ) {
 						type="text"
 						className="dsm-input"
 						style={ { margin: 6, width: 'calc(100% - 12px)' } }
-						placeholder={ __( 'Search styles…', 'wunderpaint' ) }
+						placeholder={ __( 'Search styles', 'wunderpaint' ) }
 						value={ query }
 						/* eslint-disable-next-line jsx-a11y/no-autofocus -- search box of a just-opened picker */
 						autoFocus

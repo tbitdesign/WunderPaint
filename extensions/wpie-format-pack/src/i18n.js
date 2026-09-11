@@ -47,6 +47,23 @@ const DE = {
 	'LinkedIn Post': 'LinkedIn-Post',
 	'X Header': 'X-Header',
 	'Facebook Cover': 'Facebook-Cover',
+	'Crop': 'Beschnitt',
+	'Keep the subject in frame': 'Motiv im Bild halten',
+	'Find the subject': 'Motiv suchen',
+	'Looking for the subject…': 'Suche das Motiv…',
+	'Subject at %s': 'Motiv bei %s',
+	'No clear subject - the crop stays centered.': 'Kein klares Motiv - der Beschnitt bleibt mittig.',
+	'The depth model is not available.': 'Das Tiefenmodell steht nicht bereit.',
+	'The depth model returned nothing.': 'Das Tiefenmodell hat nichts geliefert.',
+	'The subject could not be found.': 'Das Motiv konnte nicht gefunden werden.',
+	'A square design cut to a story keeps its middle by default - which is often the gap between the things that matter.': 'Ein quadratisches Design im Story-Format behaelt sonst seine Mitte - und das ist oft die Luecke zwischen den wichtigen Dingen.',
+	'Show the safe zones in the preview': 'Sicherheitszonen in der Vorschau zeigen',
+	'Instagram': 'Instagram',
+	'Pinterest': 'Pinterest',
+	'YouTube': 'YouTube',
+	'Facebook': 'Facebook',
+	'X': 'X',
+	'LinkedIn': 'LinkedIn',
 };
 
 const ES = {
@@ -82,6 +99,17 @@ const ES = {
 	'LinkedIn Post': 'Post de LinkedIn',
 	'X Header': 'Cabecera de X',
 	'Facebook Cover': 'Portada de Facebook',
+	'Crop': 'Recorte',
+	'Keep the subject in frame': 'Mantener el sujeto en el encuadre',
+	'Find the subject': 'Buscar el sujeto',
+	'Looking for the subject…': 'Buscando el sujeto…',
+	'Subject at %s': 'Sujeto en %s',
+	'No clear subject - the crop stays centered.': 'Sin sujeto claro: el recorte queda centrado.',
+	'The depth model is not available.': 'El modelo de profundidad no está disponible.',
+	'The depth model returned nothing.': 'El modelo de profundidad no devolvió nada.',
+	'The subject could not be found.': 'No se pudo encontrar el sujeto.',
+	'A square design cut to a story keeps its middle by default - which is often the gap between the things that matter.': 'Un diseño cuadrado recortado a story conserva su centro, que suele ser el hueco entre lo que importa.',
+	'Show the safe zones in the preview': 'Mostrar las zonas seguras en la vista previa',
 };
 
 const FR = {
@@ -118,6 +146,17 @@ const FR = {
 	'LinkedIn Post': 'Post LinkedIn',
 	'X Header': 'En-tête X',
 	'Facebook Cover': 'Couverture Facebook',
+	'Crop': 'Recadrage',
+	'Keep the subject in frame': 'Garder le sujet dans le cadre',
+	'Find the subject': 'Trouver le sujet',
+	'Looking for the subject…': 'Recherche du sujet…',
+	'Subject at %s': 'Sujet à %s',
+	'No clear subject - the crop stays centered.': 'Pas de sujet net : le recadrage reste centré.',
+	'The depth model is not available.': 'Le modèle de profondeur n’est pas disponible.',
+	'The depth model returned nothing.': 'Le modèle de profondeur n’a rien renvoyé.',
+	'The subject could not be found.': 'Le sujet n’a pas pu être trouvé.',
+	'A square design cut to a story keeps its middle by default - which is often the gap between the things that matter.': 'Un design carré recadré en story garde son centre, qui est souvent le vide entre les choses importantes.',
+	'Show the safe zones in the preview': 'Afficher les zones sûres dans l’aperçu',
 };
 
 const PT = {
@@ -153,6 +192,17 @@ const PT = {
 	'LinkedIn Post': 'Post do LinkedIn',
 	'X Header': 'Cabeçalho do X',
 	'Facebook Cover': 'Capa do Facebook',
+	'Crop': 'Recorte',
+	'Keep the subject in frame': 'Manter o assunto no enquadramento',
+	'Find the subject': 'Procurar o assunto',
+	'Looking for the subject…': 'Procurando o assunto…',
+	'Subject at %s': 'Assunto em %s',
+	'No clear subject - the crop stays centered.': 'Sem assunto claro: o recorte fica centralizado.',
+	'The depth model is not available.': 'O modelo de profundidade não está disponível.',
+	'The depth model returned nothing.': 'O modelo de profundidade não devolveu nada.',
+	'The subject could not be found.': 'Não foi possível encontrar o assunto.',
+	'A square design cut to a story keeps its middle by default - which is often the gap between the things that matter.': 'Um design quadrado recortado para story mantém o meio, que costuma ser o vão entre o que importa.',
+	'Show the safe zones in the preview': 'Mostrar as zonas seguras na pré-visualização',
 };
 
 const IT = {
@@ -188,6 +238,17 @@ const IT = {
 	'LinkedIn Post': 'Post LinkedIn',
 	'X Header': 'Intestazione X',
 	'Facebook Cover': 'Copertina Facebook',
+	'Crop': 'Ritaglio',
+	'Keep the subject in frame': 'Tieni il soggetto nell’inquadratura',
+	'Find the subject': 'Trova il soggetto',
+	'Looking for the subject…': 'Cerco il soggetto…',
+	'Subject at %s': 'Soggetto a %s',
+	'No clear subject - the crop stays centered.': 'Nessun soggetto chiaro: il ritaglio resta centrato.',
+	'The depth model is not available.': 'Il modello di profondità non è disponibile.',
+	'The depth model returned nothing.': 'Il modello di profondità non ha restituito nulla.',
+	'The subject could not be found.': 'Non è stato possibile trovare il soggetto.',
+	'A square design cut to a story keeps its middle by default - which is often the gap between the things that matter.': 'Un design quadrato ritagliato in story conserva il centro, che spesso è il vuoto fra le cose che contano.',
+	'Show the safe zones in the preview': 'Mostra le zone sicure nell’anteprima',
 };
 const NL = {
 	'One design, re-laid-out for every platform.':
@@ -223,6 +284,17 @@ const NL = {
 	'LinkedIn Post': 'LinkedIn-post',
 	'X Header': 'X-header',
 	'Facebook Cover': 'Facebook-omslag',
+	'Crop': 'Uitsnede',
+	'Keep the subject in frame': 'Onderwerp in beeld houden',
+	'Find the subject': 'Onderwerp zoeken',
+	'Looking for the subject…': 'Onderwerp zoeken…',
+	'Subject at %s': 'Onderwerp op %s',
+	'No clear subject - the crop stays centered.': 'Geen duidelijk onderwerp: de uitsnede blijft gecentreerd.',
+	'The depth model is not available.': 'Het dieptemodel is niet beschikbaar.',
+	'The depth model returned nothing.': 'Het dieptemodel gaf niets terug.',
+	'The subject could not be found.': 'Het onderwerp kon niet worden gevonden.',
+	'A square design cut to a story keeps its middle by default - which is often the gap between the things that matter.': 'Een vierkant ontwerp bijgesneden tot story houdt zijn midden, en dat is vaak het gat tussen wat ertoe doet.',
+	'Show the safe zones in the preview': 'Veilige zones in het voorbeeld tonen',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

@@ -1,0 +1,122 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-less-scrolling-more-living",
+	"label": "Less Scrolling, More Living",
+	"category": "wordart",
+	"w": 622,
+	"h": 563,
+	"layers": [
+		{
+			"id": "waf-less-scrolling-more-living-0",
+			"type": "text",
+			"name": "LESS\nSCROLLING",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 40.11,
+			"y": 38.3,
+			"w": 552,
+			"h": 206,
+			"rot": -3,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"text": "LESS\nSCROLLING",
+			"fontSize": 100,
+			"fontFamily": "Anton",
+			"weight": 400,
+			"color": "#8a81ba",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"textFX": {
+				"grunge": {
+					"amount": 18,
+					"scale": 35,
+					"seed": 4
+				}
+			}
+		},
+		{
+			"id": "waf-less-scrolling-more-living-1",
+			"type": "text",
+			"name": "MORE\nLIVING",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 32.11,
+			"y": 267.3,
+			"w": 554,
+			"h": 252,
+			"rot": 4,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#24456b",
+					"size": 2,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "MORE\nLIVING",
+			"fontSize": 100,
+			"fontFamily": "Anton",
+			"weight": 400,
+			"color": "#49c5c6",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"textFX": {
+				"chromatic": {
+					"offset": 3,
+					"angle": 0
+				},
+				"glow": {
+					"color": "#4d7ba6",
+					"size": 4
+				}
+			}
+		}
+	]
+}

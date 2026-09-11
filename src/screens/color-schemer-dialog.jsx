@@ -350,6 +350,7 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 				} }
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Color Schemer', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">

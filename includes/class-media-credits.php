@@ -146,7 +146,9 @@ class Media_Credits {
 				delete_post_meta( $id, $key );
 				continue;
 			}
-			update_post_meta( $id, $key, $value );
+			// wp_slash(): update_metadata() unslashes, REST parameters are not
+			// slashed - a photographer called O'Brien\Meier lost the backslash.
+			update_post_meta( $id, $key, wp_slash( $value ) );
 		}
 		return self::get( $id );
 	}
@@ -194,8 +196,28 @@ class Media_Credits {
 			)
 		);
 
+		// Eine Runde fuer die ganze Seite statt zwei Abfragen je Zeile.
+		// get_posts() mit fields => ids kehrt frueh zurueck und waermt WEDER
+		// den Beitrags- NOCH den Metacache (WP_Query), also loeste jedes
+		// self::get() ein eigenes update_meta_cache und jedes get_the_title()
+		// ein eigenes get_post aus: rund zweihundert Abfragen je Aufruf, und
+		// der Dialog ruft die Route beim Oeffnen. Media_Library::broken()
+		// macht es genau so vor.
+		if ( $soon ) {
+			_prime_post_caches( $soon, false, true );
+		}
+
 		$items = array();
 		foreach ( $soon as $id ) {
+			// Nur was der Aufrufer auch bearbeiten darf. Die Einzelroute
+			// nebenan wurde am 16.08.2026 bewusst auf can_edit_attachment
+			// gehoben, mit der Begruendung, sonst koenne jeder
+			// upload_files-Nutzer die Lizenzdaten jedes Anhangs ziehen - und
+			// diese Uebersicht lieferte genau diese Daten fuer bis zu hundert
+			// fremde Anhaenge auf einmal, samt Titel und Vorschaubild.
+			if ( ! current_user_can( 'edit_post', (int) $id ) ) {
+				continue;
+			}
 			$rec     = self::get( $id );
 			$items[] = array(
 				'id'      => (int) $id,

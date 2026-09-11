@@ -8,6 +8,7 @@
  * The last settings are remembered.
  */
 
+import { siteStorage } from '../lib/local-storage';
 import { useState, useEffect, useRef, useId } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -16,6 +17,7 @@ import { useEscape } from '../components/use-escape';
 import { HelpLink } from './help-dialog';
 import { MediaPicker } from '../components/media-picker';
 import { watermarkRect, applyWatermark } from '../lib/watermark';
+import { watermarkBatch } from '../lib/watermark-batch';
 import { loadImage } from '../store/document';
 import { saveAsNew, buildFormData, uploadMediaFile } from '../lib/api';
 import { createCanvas } from '../lib/raster';
@@ -24,9 +26,7 @@ const STORE_KEY = 'wpie-batch-watermark';
 
 const defaultSettings = () => {
 	try {
-		const stored = JSON.parse(
-			window.localStorage.getItem( STORE_KEY ) || 'null'
-		);
+		const stored = JSON.parse( siteStorage.getItem( STORE_KEY ) || 'null' );
 		if ( stored?.url ) {
 			return stored;
 		}
@@ -182,7 +182,25 @@ function Preview( { wm, target } ) {
 export function BatchWatermarkDialog( { onClose, extras, initialTargets } ) {
 	// Unique per mounted dialog, so two of them can never share an id.
 	const fieldId = useId();
-	useEscape( onClose );
+	// A run in progress: Escape, the backdrop and the x used to close the
+	// dialog unchecked while the loop went on creating attachments, unseen.
+	// Now they ask the loop to stop after the current image; the dialog
+	// closes once it has.
+	const runningRef = useRef( false );
+	const cancelRef = useRef( false );
+	const requestClose = () => {
+		if ( runningRef.current ) {
+			if ( ! cancelRef.current ) {
+				cancelRef.current = true;
+				extras.toasts.toast(
+					__( 'Stopping after the current image…', 'wunderpaint' )
+				);
+			}
+			return;
+		}
+		onClose();
+	};
+	useEscape( requestClose );
 	const [ wm, setWm ] = useState( defaultSettings );
 	// Tools (Media Library Manager) can hand a preselection over; the
 	// item shape matches the media browser's ({id, url, title, ...}).
@@ -230,15 +248,21 @@ export function BatchWatermarkDialog( { onClose, extras, initialTargets } ) {
 			return;
 		}
 		try {
-			window.localStorage.setItem( STORE_KEY, JSON.stringify( wm ) );
+			siteStorage.setItem( STORE_KEY, JSON.stringify( wm ) );
 		} catch ( e ) {}
 		setProgress( { done: 0, total: targets.size } );
+		cancelRef.current = false;
+		runningRef.current = true;
 		let done = 0;
 		let failed = 0;
+		let stopped = false;
 		try {
 			const wmImg = await loadImage( wm.url );
-			for ( const item of targets.values() ) {
-				try {
+			( { done, failed, stopped } = await watermarkBatch( {
+				items: [ ...targets.values() ],
+				cancelled: () => cancelRef.current,
+				onProgress: setProgress,
+				render: async ( item ) => {
 					const img = await loadImage( item.fullUrl || item.url );
 					const canvas = createCanvas(
 						img.naturalWidth,
@@ -246,14 +270,16 @@ export function BatchWatermarkDialog( { onClose, extras, initialTargets } ) {
 					);
 					canvas.getContext( '2d' ).drawImage( img, 0, 0 );
 					applyWatermark( canvas, wmImg, wm );
-					const blob = await new Promise( ( resolve ) =>
+					return new Promise( ( resolve ) =>
 						canvas.toBlob( resolve, 'image/jpeg', 0.92 )
 					);
+				},
+				save: ( item, blob ) => {
 					const base = ( item.title || `image-${ item.id }` ).replace(
 						/\.[a-z0-9]+$/i,
 						''
 					);
-					await saveAsNew(
+					return saveAsNew(
 						buildFormData(
 							{ file: blob },
 							{
@@ -264,14 +290,26 @@ export function BatchWatermarkDialog( { onClose, extras, initialTargets } ) {
 							}
 						)
 					);
-					done++;
-				} catch ( err ) {
-					failed++;
-				}
-				setProgress( { done: done + failed, total: targets.size } );
-			}
+				},
+			} ) );
 		} finally {
+			runningRef.current = false;
 			setProgress( null );
+		}
+		if ( stopped ) {
+			extras.toasts.toast(
+				sprintf(
+					/* translators: 1: done count, 2: total count. */
+					__(
+						'Stopped: %1$d of %2$d image(s) watermarked.',
+						'wunderpaint'
+					),
+					done,
+					targets.size
+				)
+			);
+			onClose();
+			return;
 		}
 		if ( failed ) {
 			extras.toasts.error(
@@ -324,11 +362,16 @@ export function BatchWatermarkDialog( { onClose, extras, initialTargets } ) {
 	);
 
 	return (
-		<div className="modal-backdrop" onClick={ onClose } role="presentation">
+		<div
+			className="modal-backdrop"
+			onClick={ requestClose }
+			role="presentation"
+		>
 			<div
 				className="export-dialog watermark-dialog"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
+				aria-modal="true"
 				aria-label={ __( 'Batch Watermark', 'wunderpaint' ) }
 			>
 				<div className="dsm-head">
@@ -349,7 +392,7 @@ export function BatchWatermarkDialog( { onClose, extras, initialTargets } ) {
 					</div>
 					<button
 						className="dsm-close"
-						onClick={ onClose }
+						onClick={ requestClose }
 						aria-label={ __( 'Close', 'wunderpaint' ) }
 					>
 						{ I.close ? I.close( { size: 17 } ) : '✕' }
@@ -536,7 +579,10 @@ export function BatchWatermarkDialog( { onClose, extras, initialTargets } ) {
 							  ) }
 					</span>
 					<div className="dsm-actions">
-						<button className="ai-btn ghost" onClick={ onClose }>
+						<button
+							className="ai-btn ghost"
+							onClick={ requestClose }
+						>
 							{ __( 'Cancel', 'wunderpaint' ) }
 						</button>
 						<button

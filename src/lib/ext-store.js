@@ -5,6 +5,7 @@
  * Bridged as `storage.get` / `storage.set`.
  */
 
+import { siteStorage } from './local-storage';
 import { request } from './api';
 
 const NS_RE = /^[a-z0-9][a-z0-9-]{2,63}$/;
@@ -34,7 +35,7 @@ export async function storeGet( ns ) {
 	assertNs( ns );
 	if ( window.WPIE?.demo ) {
 		try {
-			const raw = window.localStorage.getItem( demoKey( ns ) );
+			const raw = siteStorage.getItem( demoKey( ns ) );
 			const val = raw ? JSON.parse( raw ) : null;
 			return val && 'object' === typeof val ? val : {};
 		} catch ( e ) {
@@ -56,10 +57,7 @@ export async function storeSet( ns, value ) {
 	assertNs( ns );
 	if ( window.WPIE?.demo ) {
 		try {
-			window.localStorage.setItem(
-				demoKey( ns ),
-				JSON.stringify( value || {} )
-			);
+			siteStorage.setItem( demoKey( ns ), JSON.stringify( value || {} ) );
 		} catch ( e ) {
 			// Quota or private mode: the demo pref is simply not remembered.
 		}

@@ -60,17 +60,23 @@ export const OP_CODE = { d: 0, t: 1, c: 2, v: 3, w: 4, a: 5, o: 6 };
 
 export const TOOLS = [
 	'drop',
+	'lace',
 	'flower',
 	'needle',
+	'stylus',
 	'comb',
+	'wavycomb',
 	'arc',
 	'ringcomb',
 	'wave',
 	'vortex',
 	'splatter',
+	'feather',
+	'fan',
+	'twin',
 ];
 
-export const FLOWER_KINDS = [ 'tulip', 'carnation', 'daisy' ];
+export const FLOWER_KINDS = [ 'tulip', 'carnation', 'daisy', 'rose', 'iris' ];
 
 /**
  * The default inks: an Ebru palette - indigo, terracotta, cream, gold and
@@ -97,10 +103,21 @@ export const DEFAULTS = Object.freeze( {
 	dropSize: 0.05,
 	rings: 1,
 	spacing: 0.11,
-	softness: 0.018,
+	softness: 0.012,
+	// v1.3: the needle and the combs cap their pull here - a stroke across
+	// the whole bath used to drag every drop a bath-length along the
+	// teeth, and every composition ended up as the same long stripes.
+	force: 0.55,
+	// v1.4: every gesture twinned across the middle of the bath.
+	mirror: false,
+	// v1.4: the film can also be the print - the sheet lifted off.
+	// replay | water | interactive
+	embed: 'replay',
 	waveAmp: 0.05,
 	waveLen: 0.3,
 	vortexRadius: 0.16,
+	fanSpread: 75,
+	fanTeeth: 7,
 	arcForce: 0.5,
 	flowerKind: 'tulip',
 	flowerSize: 0.15,
@@ -230,9 +247,14 @@ export function mergeParams( raw ) {
 	p.rings = clamp( Math.round( num( p.rings, 1, 7, 1 ) ), 1, 7 );
 	p.spacing = num( p.spacing, 0.02, 0.5, d.spacing );
 	p.softness = num( p.softness, 0.004, 0.12, d.softness );
+	p.force = num( p.force, 0.1, 1.4, d.force );
+	p.mirror = !! p.mirror;
+	p.embed = pick( p.embed, [ 'replay', 'water', 'interactive' ], d.embed );
 	p.waveAmp = num( p.waveAmp, 0.005, 0.25, d.waveAmp );
 	p.waveLen = num( p.waveLen, 0.05, 1.2, d.waveLen );
 	p.vortexRadius = num( p.vortexRadius, 0.04, 0.6, d.vortexRadius );
+	p.fanSpread = num( p.fanSpread, 20, 140, d.fanSpread );
+	p.fanTeeth = Math.round( num( p.fanTeeth, 3, 13, d.fanTeeth ) );
 	p.arcForce = num( p.arcForce, 0.05, 1.2, d.arcForce );
 	p.flowerKind = pick( p.flowerKind, FLOWER_KINDS, d.flowerKind );
 	p.flowerSize = num( p.flowerSize, 0.05, 0.3, d.flowerSize );
@@ -249,7 +271,7 @@ export function mergeParams( raw ) {
 		g.reduce( ( a, b ) => a + b, 0 ) === p.ops.length
 			? g
 			: p.ops.map( () => 1 );
-	p.video = pick( p.video, [ 'grow', 'water' ], d.video );
+	p.video = pick( p.video, [ 'grow', 'water', 'print' ], d.video );
 	p.waterAmp = num( p.waterAmp, 0, 1, d.waterAmp );
 	p.loop = num( p.loop, 2, 16, d.loop );
 	return p;
@@ -594,6 +616,48 @@ export const RECIPES = [
 	},
 ];
 
+/*
+ * v1.3, two more classics. Spanish wave: the sheet is rocked as it is
+ * laid on, so a fine comb pattern carries long diagonal folds - here a
+ * long slanted sway with a faint cross ripple. Italian vein: the bath is
+ * showered with gall, which opens cells between the colours; a light
+ * comb then draws the thin veins that run between them.
+ */
+RECIPES.push(
+	{
+		id: 'spanish',
+		label: 'Spanish wave',
+		build: ( rand, aspect, inks ) => [
+			...groundOps( rand, aspect, inks ),
+			...gelgitOps( aspect ),
+			[ OP.COMB, aspect / 2, 0.5, 1, 0, 0.5, 0.011, 0.052 ],
+			[ OP.WAVE, 0.94, 0.34, 0.075, 0.62, rand() * 6.28 ],
+			[ OP.WAVE, -0.34, 0.94, 0.012, 0.09, rand() * 6.28 ],
+		],
+	},
+	{
+		id: 'italian',
+		label: 'Italian vein',
+		build: ( rand, aspect, inks ) => {
+			const ops = [
+				...groundOps( rand, aspect, inks ),
+				...sprinkleOps( rand, aspect, inks, 8, 0.03, 0.07 ),
+			];
+			for ( let i = 0; i < 70; i++ ) {
+				ops.push( [
+					OP.DROP,
+					0.04 + rand() * ( aspect - 0.08 ),
+					0.04 + rand() * 0.92,
+					0.008 + rand() * 0.022,
+					GALL,
+				] );
+			}
+			ops.push( [ OP.COMB, aspect / 2, 0.5, 0, 1, 0.16, 0.008, 0.07 ] );
+			return ops;
+		},
+	}
+);
+
 export const recipeOf = ( id ) => RECIPES.find( ( r ) => r.id === id ) || null;
 
 /**
@@ -615,6 +679,88 @@ export function buildRecipe( id, seed, aspect, inks ) {
 		.map( cleanOp )
 		.filter( Boolean )
 		.slice( 0, MAX_OPS );
+}
+
+/* --------------------------------- mirror --------------------------------- */
+
+/**
+ * The twin of an op across the bath's middle (x -> aspect - x). Every
+ * op's decay coordinate is a distance or a lattice distance, both even
+ * under the flip, so the twin is exact: the mirrored bath is the bath
+ * of the mirrored history. Rotations and the wave's shear flip sign.
+ *
+ * @param {Array}  op     A clean op.
+ * @param {number} aspect Bath aspect (the width in bath units).
+ * @return {Array} The mirrored op.
+ */
+export function mirrorOp( op, aspect ) {
+	const A = aspect;
+	switch ( op[ 0 ] ) {
+		case OP.DROP:
+			return [ op[ 0 ], A - op[ 1 ], op[ 2 ], op[ 3 ], op[ 4 ] ];
+		case OP.TINE:
+			return [
+				op[ 0 ],
+				A - op[ 1 ],
+				op[ 2 ],
+				-op[ 3 ],
+				op[ 4 ],
+				op[ 5 ],
+				op[ 6 ],
+			];
+		case OP.COMB:
+			return [
+				op[ 0 ],
+				A - op[ 1 ],
+				op[ 2 ],
+				-op[ 3 ],
+				op[ 4 ],
+				op[ 5 ],
+				op[ 6 ],
+				op[ 7 ],
+			];
+		case OP.VORTEX:
+			return [ op[ 0 ], A - op[ 1 ], op[ 2 ], -op[ 3 ], op[ 4 ] ];
+		case OP.WAVE:
+			return [
+				op[ 0 ],
+				-op[ 1 ],
+				op[ 2 ],
+				-op[ 3 ],
+				op[ 4 ],
+				op[ 5 ] + ( 2 * Math.PI * A * op[ 1 ] ) / op[ 4 ],
+			];
+		case OP.ARC:
+			return [
+				op[ 0 ],
+				A - op[ 1 ],
+				op[ 2 ],
+				op[ 3 ],
+				-op[ 4 ],
+				op[ 5 ],
+			];
+		case OP.RING:
+			return [
+				op[ 0 ],
+				A - op[ 1 ],
+				op[ 2 ],
+				op[ 3 ],
+				-op[ 4 ],
+				op[ 5 ],
+				op[ 6 ],
+			];
+		default:
+			return op.slice();
+	}
+}
+
+/** The history as the engine renders it: each op followed by its twin. */
+export function mirroredOps( ops, aspect ) {
+	const out = [];
+	for ( const op of ops ) {
+		out.push( op, mirrorOp( op, aspect ) );
+	}
+	return out.slice( 0, MAX_OPS );
 }
 
 /* -------------------------------- flowers --------------------------------- */
@@ -687,6 +833,58 @@ export function flowerOps( kind, cx, cy, size, rotDeg, o ) {
 				size * 0.1,
 			] );
 		}
+	} else if ( 'rose' === kind ) {
+		// Rose: the rings curled by a vortex - the workshop's own trick -
+		// then a few short pulls that tuck the outer petals in.
+		ops.push( [ OP.VORTEX, cx, cy, 2.6, size * 0.95 ] );
+		const n = Math.max( 4, Math.round( petals * 0.6 ) );
+		for ( let i = 0; i < n; i++ ) {
+			const a = ( i / n ) * Math.PI * 2;
+			const off = rot2(
+				Math.cos( a ) * size * 0.8,
+				Math.sin( a ) * size * 0.8,
+				c,
+				sn
+			);
+			const dir = rot2( -Math.cos( a ), -Math.sin( a ), c, sn );
+			ops.push( [
+				OP.TINE,
+				cx + off[ 0 ],
+				cy + off[ 1 ],
+				dir[ 0 ],
+				dir[ 1 ],
+				size * 0.22,
+				size * 0.08,
+			] );
+		}
+	} else if ( 'iris' === kind ) {
+		// Iris: three standards pulled up, three falls pulled down and
+		// out, a dab of the accent ink for the beard.
+		for ( const a of [ -0.55, 0, 0.55 ] ) {
+			const dir = rot2( Math.sin( a ), -Math.cos( a ), c, sn );
+			ops.push( [
+				OP.TINE,
+				cx,
+				cy,
+				dir[ 0 ],
+				dir[ 1 ],
+				size * 1.15,
+				size * 0.16,
+			] );
+		}
+		for ( const a of [ -0.9, 0, 0.9 ] ) {
+			const dir = rot2( Math.sin( a ), Math.cos( a ), c, sn );
+			ops.push( [
+				OP.TINE,
+				cx,
+				cy,
+				dir[ 0 ],
+				dir[ 1 ],
+				size * 0.8,
+				size * 0.14,
+			] );
+		}
+		ops.push( [ OP.DROP, cx, cy, size * 0.18, o.inkB ] );
 	} else {
 		// Daisy: lines through the centre; each makes an out-petal on
 		// one end and a notch on the other - petals all around.
@@ -711,7 +909,15 @@ export function flowerOps( kind, cx, cy, size, rotDeg, o ) {
 		// the blossom - drop displacement doing the drawing, the same way
 		// pulled-heart vines are made on real water.
 		const base =
-			'tulip' === kind ? 0.75 : 'carnation' === kind ? 1.65 : 1.25;
+			'tulip' === kind
+				? 0.75
+				: 'carnation' === kind
+				? 1.65
+				: 'iris' === kind
+				? 1.4
+				: 'rose' === kind
+				? 1.15
+				: 1.25;
 		for ( let i = 0; i <= 14; i++ ) {
 			const t = i / 14;
 			ops.push( [
@@ -727,6 +933,35 @@ export function flowerOps( kind, cx, cy, size, rotDeg, o ) {
 }
 
 /** Splatter: the flick of the brush - a fan of tiny drops along a path. */
+/**
+ * The lace drop (v1.3): the Stormont technique - a drop of colour, then a
+ * shower of tiny gall drops inside it. Each gall drop opens a cell of
+ * water, and the colour between the cells becomes lace. Seeded, bounded.
+ *
+ * @param {Function} rand  Seeded generator.
+ * @param {number}   cx    Centre x (bath units).
+ * @param {number}   cy    Centre y.
+ * @param {number}   r     Drop radius.
+ * @param {number}   ink   Ink slot.
+ * @param {number}   [n]   Cells (default 18).
+ * @return {Array} ops.
+ */
+export function laceOps( rand, cx, cy, r, ink, n = 18 ) {
+	const ops = [ [ OP.DROP, cx, cy, r, ink ] ];
+	for ( let i = 0; i < n; i++ ) {
+		const a = rand() * Math.PI * 2;
+		const d = Math.sqrt( rand() ) * r * 0.78;
+		ops.push( [
+			OP.DROP,
+			cx + Math.cos( a ) * d,
+			cy + Math.sin( a ) * d,
+			r * ( 0.09 + rand() * 0.17 ),
+			GALL,
+		] );
+	}
+	return ops;
+}
+
 export function splatterOps( rand, ax, ay, bx, by, baseR, ink ) {
 	const ops = [];
 	const L = Math.hypot( bx - ax, by - ay );
@@ -782,3 +1017,40 @@ export const ease = ( t ) => {
 	const k = clamp( t, 0, 1 );
 	return k * k * ( 3 - 2 * k );
 };
+
+/** Two composed tools reuse the exact reversible operations and history format. */
+export function sweepToolOps( tool, start, end, params, pressure = 1 ) {
+	const p = mergeParams( params );
+	const dx = end.x - start.x,
+		dy = end.y - start.y,
+		length = Math.hypot( dx, dy );
+	if ( length < 0.008 || ! [ 'fan', 'twin' ].includes( tool ) ) {
+		return [];
+	}
+	const angle = Math.atan2( dy, dx );
+	if ( tool === 'fan' ) {
+		const spread = ( p.fanSpread * Math.PI ) / 180;
+		return Array.from( { length: p.fanTeeth }, ( _, i ) => {
+			const theta = angle + ( i / ( p.fanTeeth - 1 ) - 0.5 ) * spread;
+			return [
+				OP.TINE,
+				start.x,
+				start.y,
+				Math.cos( theta ),
+				Math.sin( theta ),
+				( Math.min( p.force * pressure, length ) * 1.8 ) / p.fanTeeth,
+				p.softness,
+			];
+		} );
+	}
+	const radius = p.vortexRadius,
+		offset = radius * 0.72;
+	const turn = Math.min( 10, length * 20 ) * pressure;
+	return [ -1, 1 ].map( ( side ) => [
+		OP.VORTEX,
+		start.x + dx * 0.35 - ( dy / length ) * offset * side,
+		start.y + dy * 0.35 + ( dx / length ) * offset * side,
+		side * turn,
+		radius,
+	] );
+}

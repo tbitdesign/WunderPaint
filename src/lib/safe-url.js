@@ -30,7 +30,14 @@ export function safeUrl( url ) {
 		return '';
 	}
 	const value = url.trim();
-	if ( value.startsWith( '//' ) ) {
+	// A backslash after the first slash ("/\\host") is read as "//host" by
+	// browsers, and a tab or newline inside the address is dropped by them
+	// before parsing ("/\t/host" becomes "//host" as well). Neither is a
+	// link; the allowlist below only sees what the browser would see.
+	if ( /[\u0000-\u001f\u007f]/.test( value ) ) {
+		return '';
+	}
+	if ( /^[\/\\][\/\\]/.test( value ) ) {
 		return '';
 	}
 	return /^(https?:|mailto:|tel:|\/|#)/i.test( value ) ? value : '';

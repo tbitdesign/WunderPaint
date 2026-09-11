@@ -1,0 +1,148 @@
+{
+	"format": "wpie-combo@1",
+	"id": "wordart-take-the-long-way-back-to-yourself",
+	"label": "Take the long way back to yourself",
+	"category": "wordart",
+	"w": 764,
+	"h": 570,
+	"layers": [
+		{
+			"id": "waf-take-the-long-way-back-to-yourself-0",
+			"type": "text",
+			"name": "TAKE THE LONG WAY BACK TO YOURSELF",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 105.27,
+			"y": 52.01,
+			"w": 560,
+			"h": 460,
+			"rot": -6,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": {
+				"stroke": {
+					"color": "#e9faff",
+					"size": 1.5,
+					"position": "outside",
+					"opacity": 1
+				}
+			},
+			"parent": null,
+			"text": "TAKE THE LONG WAY\nBACK TO\nYOURSELF",
+			"fontSize": 100,
+			"fontFamily": "Archivo",
+			"weight": 900,
+			"color": "#26acc0",
+			"align": "center",
+			"valign": "middle",
+			"letterSpacing": 0,
+			"lineHeight": 1.04,
+			"curve": 0,
+			"italic": false,
+			"underline": false,
+			"textFit": "fluid",
+			"fixedWidth": true,
+			"outlineColor": null,
+			"outlineW": 0,
+			"shadowOn": false,
+			"shadowColor": "#000000",
+			"bgColor": null,
+			"bgRadius": 8,
+			"fillType": "solid",
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"pattern": "none",
+			"patternData": null,
+			"spans": [
+				{
+					"text": "TAKE THE LONG WAY\n",
+					"s": {
+						"color": "#26acc0"
+					}
+				},
+				{
+					"text": "BACK TO\n",
+					"s": {
+						"color": "#e667a1"
+					}
+				},
+				{
+					"text": "YOURSELF",
+					"s": {
+						"color": "#e5c649"
+					}
+				}
+			],
+			"textFX": {
+				"extrude": {
+					"angle": 45,
+					"depth": 11,
+					"color": "#294d6d"
+				}
+			}
+		},
+		{
+			"id": "waf-take-the-long-way-back-to-yourself-1",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 26.27,
+			"y": 150.01,
+			"w": 35,
+			"h": 35,
+			"rot": -8,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e667a1",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		},
+		{
+			"id": "waf-take-the-long-way-back-to-yourself-2",
+			"type": "shape",
+			"name": "Accent",
+			"visible": true,
+			"locked": false,
+			"opacity": 1,
+			"blend": "normal",
+			"x": 689.27,
+			"y": 395.01,
+			"w": 47,
+			"h": 47,
+			"rot": 9,
+			"mask": null,
+			"filter": "none",
+			"adjust": null,
+			"styles": null,
+			"parent": null,
+			"shape": "star",
+			"fill": "#e5c649",
+			"stroke": null,
+			"strokeW": 0,
+			"radius": 0,
+			"sides": 4,
+			"pattern": "none",
+			"patternData": null,
+			"gradientStops": null,
+			"gradientAngle": 0,
+			"innerRatio": 0.22
+		}
+	]
+}
