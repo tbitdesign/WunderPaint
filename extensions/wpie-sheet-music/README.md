@@ -1,76 +1,86 @@
 # Sheet Music (wpie-sheet-music)
 
-Engraved scores, chord sheets, chord diagrams, fretboard or keyboard
-maps, and since 0.2 the lesson papeterie (manuscript paper, note cards,
-scale sheets) from the user's own material, inserted as an editable vector group
-(notes and lines as paths, titles, lyrics and chord names as text layers).
-Free, category tools. Spec: `docs/superpowers/specs/2026-09-03-sheet-music-design.md`,
-plan: `docs/superpowers/plans/2026-09-03-sheet-music.md`.
+Editable music graphics for teaching materials, song sheets and graphic designs.
+The studio combines visual melody entry, engraved notation, instrument diagrams,
+rhythm exercises and harmony charts. Output is a vector group with editable text;
+the group's generator parameters reopen the original studio configuration.
 
-## Scripts
+## Music and design
 
-- `npm run build`  esbuild bundle -> extension.js (abcjs 6.7, MIT, is bundled: ~590 KB)
-- `npm test`       node tests for the DOM-free engine modules and the i18n tables
-- `npm run qa`     dialog QA on the shared mock (one headless browser)
-- `npm run proof`  every starter rendered by the real engine -> dist/proof/sheet.png (look at it)
+- Melody Builder: enter pitches on a keyboard, select note values, add rests,
+  click directly in the engraved staff, or drag a note to change its pitch.
+  Select a phrase with Shift-click, repeat or reverse it, shift pitches and
+  scale durations. Set pickups, ties and phrase slurs; notes crossing a bar
+  line split into tied notes automatically.
+- Rhythm Workshop: seeded rhythm exercises with counting, accents, rests and
+  completion bars, plus static strumming, fingerpicking and drum-groove graphics.
+- Harmony Atlas: circle of fifths, interval comparisons, chord construction,
+  inversions and progressions with scale-degree labels and instrument diagrams.
+  Voice-leading charts connect common tones and moving voices with optional
+  automatic inversions. Mode comparisons highlight changed notes against a
+  reference scale on the staff, keyboard or guitar neck.
+- Rhythm graphics: proportional note-value and rest trees, beat strips with
+  dotted and triplet subdivisions, and static polyrhythm comparisons.
+- Drum Builder: edit percussion lanes, normal/accented/soft hits and hand
+  assignments. Show a grid, percussion notation, or both. Reducing the grid
+  refuses changes that would discard occupied steps.
+- Exercise Sheets: complete scales or measures, construct intervals, add
+  accidentals and correct altered notes. A saved variation identifies matching
+  question and solution views, which can be inserted separately.
+- Guitar Maps: overlapping scale positions, highlighted chord tones, suggested
+  finger numbers and ascending practice routes with string/fret references.
+- Song Builder: reorder sections with drag and drop or arrows, duplicate
+  sections, set repeat labels and attach chords to cursor positions in lyrics.
+  Uses the existing chord-sheet layout, transposition and capo support.
+- Musical analysis: colored brackets, phrase arcs and numbered callouts on
+  melody note ranges or original score measure ranges, with explanatory text.
+- Lesson Sheet: notation, keyboard, fretboard and diatonic chords follow the same
+  root and scale. Notes, fingering and diagram visibility are configurable.
+- Chord Diagrams: select alternative positions, compare fingerings, customize
+  frets and finger numbers, or show diagrams with left-handed string order.
+- Study cards: notes, intervals, chords, key signatures and rhythm questions,
+  with matching answer sides. Answer columns mirror the corresponding fronts.
+- Score: ABC entry or MusicXML/MXL import, transposition, tablature, selected
+  measures or a voice, and optional emphasis of measures or voices.
+- Chord sheets, scale sheets and manuscript paper retain their existing controls.
+- Illustrated presets with search and categories, coordinated design looks,
+  transparent notation, optional page fitting, preview zoom and panning.
 
-## How it is built
+Everything is computed locally in the browser. The extension has no player or
+animation timeline. Existing ABC material remains separate from the visual
+melody model, so editing a simple melody never rewrites an imported score.
 
-- `src/cards.js` holds the seven cards as pure functions `render(params, env)
-  -> { svg, width, height, warnings }`. `env` carries what needs a browser:
-  `renderScore` (abcjs), `measure` (canvas text widths), `t`, `kits`.
-- `src/engine/` is DOM-free except `abc.js` (abcjs draws into a hidden
-  element) and `xml2abc.js` (loads the vendored converter on demand).
-- Colours and fonts are SVG attributes, never classes: the editor's SVG
-  importer (`bridge.svg.importSvg`) reads attributes. `abc.js` strips the
-  abcjs classes and styles and inlines the colours.
-- The score is engraved in unscaled units; the size dial works through the
-  viewBox (and a `<g transform="scale()">` on the paper), which both the
-  importer and an `<img>` preview understand.
-- `assets/xml2abc.js` is Wim Vree's MusicXML to ABC converter (LGPL-3.0,
-  unmodified, licence next to it). It calls jQuery freely; `src/engine/
-  xml2abc.js` installs a small jQuery-subset shim over the DOM around the
-  call instead of bundling jQuery. `.mxl` is unzipped in the browser with
-  DecompressionStream (deflate-raw), the magic bytes decide, not the name.
-- Insert: the root `<svg>` is given the target box as width/height (the
-  viewBox stays), so the importer scales every layer; the layers get the
-  box offset and a group with `generator = { id, params }`. Without an SVG
-  importer (older core, or when the import yields nothing) a PNG layer with
-  the same params is inserted instead.
+## Building
 
-- `src/engine/notation.js` (0.2, DOM-free) builds the ABC of the lesson
-  cards: `paperAbc()` (invisible rests `x` draw only clef, key, meter and
-  bar lines; `%%score {1 2}` for the grand staff; `%%staffsep` for the
-  spacing), `flashNotes()` / `flashAbc()` (one whole note per card, the
-  ranges as letter and octave tables), `scaleAbc()` (a scale spelled
-  against the key signature AND the bar: ABC accidentals hold for the
-  bar, so a natural after a raised note is written `=`; diatonic scales
-  ride on `K:root mode`, the rest carry explicit accidentals) and the
-  standard piano fingerings as annotations `"^1"` (right) and `"_5"`
-  (left). The cards hand the ABC to `env.renderScore` like the score.
+`npm run build` bundles `src/main.js` with esbuild into `extension.js`.
+`npm test` runs the DOM-free engine and translation tests. The optional `qa`
+and `proof` scripts use the shared browser fixture and the real engraving engine.
 
-## Bug classes met while building
+## Architecture
 
-- **`t( cond ? 'A' : 'B' )` is invisible to the i18n test.** Write
-  `cond ? t( 'A' ) : t( 'B' )`.
-- **Twelve scale systems on a fixed page overflow.** The twelve-key
-  starters use the line format, which grows with the content.
+- `src/cards.js`: normalized parameters, layouts, style resolution and renderers.
+- `src/engine/workshop.js`: integer musical durations, melody/rhythm generation,
+  diatonic spelling, chord inversions and cached voicing alternatives.
+- `src/engine/studio.js`: phrase transforms, voice-leading optimization,
+  percussion grids, reproducible questions, fretboard routes and song models.
+- `src/engine/score-layout.js`: staff geometry from the engraving engine,
+  transformed preview hit areas and annotations tied to musical events.
+- `src/studio-cards.js`: additional teaching charts and visual song layouts.
+- `src/workshop-cards.js`: theory charts, coordinated lessons and study cards,
+  composed from the existing SVG, fretboard and abcjs engines.
+- `src/engine/excerpt.js`: selections on the parsed score tree, including voice
+  data, lyrics and compressed rests. Original source text is retained.
+- `src/ui/`: the shared editor UI kit, visual music controls and canvas preview.
+  Thumbnail engraving is queued, cached and requested when presets enter view.
+- `src/i18n.js`: UI and new preset translations for German, Spanish, French,
+  Italian, Dutch and Portuguese, keyed by the American English source strings.
+  Additional studio vocabulary is shared through `src/studio-i18n.js`.
 
-- **abcjs `staffwidth` and `scale` are in different units.** Rendering with
-  `scale > 1` and then rewriting width/height from `getBBox()` silently
-  drops the scale (the SVG coordinates are unscaled). Engrave at scale 1
-  and apply the factor through the viewBox.
-- **`svg.outerHTML` of an inline SVG has no xmlns** and does not load as an
-  image. Serialize with `XMLSerializer` and add the namespace if missing.
-- **`%%score (1 2)` merges voices onto ONE staff**; a piano system needs
-  the brace: `%%score {1 2}`.
-- **xml2abc needs `$`**: without jQuery it returns an empty result and puts
-  "ReferenceError: $ is not defined" into its info string. The shim covers
-  find, text, attr, children, each, map, eq, add, get, first, filter, prop
-  and `$.parseXML`.
-- **Only allow-listed files ship** (`extensions/pkg-contents.sh`): a file
-  next to extension.js that is not in `PKG_FILES` is silently left out of
-  every deploy. Extra runtime files belong in `assets/`.
-- **Tile labels in six languages do not fit 62 px on one line**; the name
-  wraps to two lines at 9 px instead of being cut.
-- **A dialog without a height grows and shrinks with its cards.** The `.wpiesm-dialog` class first set only a width; the columns were capped at 72vh and the body had a min-height, so every tile click resized the modal (Thomas, 04.09.). The dialog class now carries `height: min(900px, 94vh)` as a flex column, the body is `flex: 1; min-height: 0` and the columns scroll at `max-height: 100%`. The dialog QA measures the height across all cards.
+The bundled abcjs engine engraves into unscaled coordinates; its SVG is embedded
+with the matching scale transform. SVG styling uses explicit attributes for the
+editor's importer. Native text anchors are normalized at insertion. A PNG fallback
+supports hosts without the SVG importer.
+
+`assets/xml2abc.js` is the vendored MusicXML converter, with its license alongside
+it. The import shim and existing MXL decompressor remain local. Extra runtime
+files belong under `assets/` and must be versioned when loaded lazily.

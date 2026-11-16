@@ -1,0 +1,111 @@
+/* Title-bar search (v1.434, Thomas 27.09.2026): a magnifier between the
+ * Undo/Redo pair and Quick export. A click or ⌘K turns it into a slim field
+ * that opens to the left over Undo and Redo, so nothing else moves. Fixed
+ * sizes, the library tray's field as the measure; the result list borrows
+ * the menu look (.ed-dropdown, .ed-head, .ed-item).
+ *
+ * Its own class on purpose: .ed-search is the panels' search field and
+ * grows with flex: 1, which pulled the whole group to the middle of the
+ * title bar (Thomas, 28.09.2026). */
+#wpie-root .ed-titlebar .ed-title-search {
+	position: relative;
+	display: flex;
+	flex: none;
+	align-items: center;
+}
+
+#wpie-root .ed-titlebar .ed-title-search.is-open .ed-search-toggle {
+	visibility: hidden;
+}
+
+#wpie-root .ed-titlebar .ed-search-field {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	z-index: 401;
+	width: 170px;
+	height: 24px;
+	transform: translateY(-50%);
+}
+
+/* The central no-focus-ring rule (ui-controls.css) paints a focused field's
+ * border var(--border-strong), a light grey in the light theme that stood
+ * out as a frame on the always-dark title bar (Thomas, 28.09.2026). The
+ * field is focused whenever it is open, so the token takes the title bar's
+ * grey here. */
+#wpie-root .ed-titlebar .ed-search-field input {
+	--border-strong: #3c434a;
+	width: 100%;
+
+	/* wp-admin gives text fields a 30px minimum. */
+	height: 24px;
+	min-height: 24px;
+	margin: 0;
+	padding: 0 8px 0 24px;
+	border: 1px solid var(--border-strong);
+	border-radius: 3px;
+	background: #2c3338;
+	color: #f0f0f1;
+	font-size: 12px;
+	line-height: 22px;
+
+	/* No focus ring or glow on fields (Thomas, 18.09.2026). */
+	box-shadow: none;
+	outline: none;
+}
+
+#wpie-root .ed-titlebar .ed-search-field input::placeholder {
+	color: #8c8f94;
+	opacity: 1;
+}
+
+#wpie-root .ed-titlebar .ed-search-icon {
+	position: absolute;
+	top: 50%;
+	left: 7px;
+	z-index: 1;
+	display: flex;
+	color: #8c8f94;
+	transform: translateY(-50%);
+	pointer-events: none;
+}
+
+/* Hangs from the lower edge of the title bar, like the menus. */
+#wpie-root .ed-titlebar .ed-search-results {
+	top: calc(100% + 10px);
+	right: 0;
+	left: auto;
+	width: 420px;
+	max-height: min(60vh, 520px);
+	overflow-y: auto;
+	color: var(--ed-text);
+}
+
+#wpie-root .ed-titlebar .ed-search-results .ed-search-label {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* A menu path, not a shortcut: the text face, not the menus' mono. */
+#wpie-root .ed-titlebar .ed-search-results button.ed-item .kbd-hint {
+	flex: none;
+	max-width: 55%;
+	overflow: hidden;
+	font-family: inherit;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* Cannot run right now (no layer selected, no text layer): greyed, the
+ * reason in the tooltip, and a click says it. */
+#wpie-root .ed-titlebar .ed-search-results .ed-item.is-disabled,
+#wpie-root .quick-insert-list button.is-disabled {
+	opacity: 0.45;
+}
+
+#wpie-root .ed-titlebar .ed-search-empty {
+	padding: 8px 12px;
+	font-size: 12px;
+	color: var(--ed-text-muted);
+}

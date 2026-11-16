@@ -392,10 +392,19 @@ export function paintByNumbers( source, opts = {} ) {
 			? String( opts.labelFor( compColor[ k ], k ) )
 			: String( compColor[ k ] + 1 );
 		gg.font = `600 ${ fs }px sans-serif`;
-		while ( fs > 7 && gg.measureText( txt ).width > bestD[ k ] * S * 1.7 ) {
+		while (
+			fs > 10 &&
+			gg.measureText( txt ).width > bestD[ k ] * S * 1.7
+		) {
 			fs--;
 			gg.font = `600 ${ fs }px sans-serif`;
 		}
+		// Omit labels that cannot fit legibly; never cover the region boundary.
+		if (
+			gg.measureText( txt ).width > bestD[ k ] * S * 1.7 ||
+			fs > bestD[ k ] * S * 1.7
+		)
+			continue;
 		gg.fillStyle = '#3a3f46';
 		gg.fillText( txt, ( p % W ) * S, ( ( p / W ) | 0 ) * S );
 		regions++;
@@ -556,7 +565,7 @@ function drawBorders( g, map, S, o = {} ) {
 			g.arc(
 				ox + x * S + S / 2,
 				oy + y * S + S / 2,
-				S * 0.9,
+				S * 0.72,
 				0,
 				Math.PI * 2
 			);
@@ -897,62 +906,73 @@ export function connectTheDots( source, opts = {} ) {
  */
 export function gridSheet( source, opts = {} ) {
 	const cells = Math.max( 4, Math.min( 16, opts.cells || 8 ) );
-	const W = 360;
-	const H = Math.round( ( W * source.height ) / source.width );
-	const S = 2;
-	const top = 44;
-	const c = makeCanvas( source, W * 2 * S + 40, H * S + top + 10 );
-	const gg = c.getContext( '2d' );
-	gg.fillStyle = '#ffffff';
-	gg.fillRect( 0, 0, c.width, c.height );
-	// Manual grayscale (ctx.filter is not portable to node-canvas).
-	const photo = makeCanvas( source, W, H );
-	const pg = photo.getContext( '2d' );
+	const scale = [ 0.75, 1, 1.5, 2 ].includes( Number( opts.scale ) )
+		? Number( opts.scale )
+		: 1;
+	const W = 520,
+		H = Math.round( ( W * source.height ) / source.width );
+	const rows = Math.max( 1, Math.round( ( cells * H ) / W ) );
+	const margin = 42,
+		top = 48,
+		gap = 60;
+	const c = makeCanvas(
+		source,
+		Math.ceil( margin * 2 + W + gap + W * scale ),
+		Math.ceil( top + Math.max( H, H * scale ) + margin )
+	);
+	const g = c.getContext( '2d' );
+	g.fillStyle = '#ffffff';
+	g.fillRect( 0, 0, c.width, c.height );
+	const photo = makeCanvas( source, W, H ),
+		pg = photo.getContext( '2d' );
 	pg.drawImage( source, 0, 0, W, H );
-	const pid = pg.getImageData( 0, 0, W, H );
+	const pixels = pg.getImageData( 0, 0, W, H );
 	for ( let i = 0; i < W * H; i++ ) {
-		const l = lumaOf( pid.data, i );
-		pid.data[ i * 4 ] = l;
-		pid.data[ i * 4 + 1 ] = l;
-		pid.data[ i * 4 + 2 ] = l;
+		const value = lumaOf( pixels.data, i );
+		pixels.data[ i * 4 ] = value;
+		pixels.data[ i * 4 + 1 ] = value;
+		pixels.data[ i * 4 + 2 ] = value;
 	}
-	pg.putImageData( pid, 0, 0 );
-	gg.drawImage( photo, 0, top, W * S, H * S );
-
-	const cell = ( W * S ) / cells;
-	const rows = Math.max( 1, Math.round( ( H * S ) / cell ) );
-	const drawGrid = ( ox ) => {
-		gg.strokeStyle = opts.gridColor || 'rgba(200,60,60,0.75)';
-		gg.lineWidth = 1;
+	pg.putImageData( pixels, 0, 0 );
+	g.drawImage( photo, margin, top );
+	for ( const [ ox, factor ] of [
+		[ margin, 1 ],
+		[ margin + W + gap, scale ],
+	] ) {
+		const w = W * factor,
+			h = H * factor;
+		g.strokeStyle = opts.gridColor || '#99a6af';
+		g.lineWidth = 1;
 		for ( let i = 0; i <= cells; i++ ) {
-			gg.beginPath();
-			gg.moveTo( ox + i * cell, top );
-			gg.lineTo( ox + i * cell, top + rows * cell );
-			gg.stroke();
+			g.beginPath();
+			g.moveTo( ox + ( i * w ) / cells, top );
+			g.lineTo( ox + ( i * w ) / cells, top + h );
+			g.stroke();
 		}
-		for ( let r = 0; r <= rows; r++ ) {
-			gg.beginPath();
-			gg.moveTo( ox, top + r * cell );
-			gg.lineTo( ox + cells * cell, top + r * cell );
-			gg.stroke();
+		for ( let i = 0; i <= rows; i++ ) {
+			g.beginPath();
+			g.moveTo( ox, top + ( i * h ) / rows );
+			g.lineTo( ox + w, top + ( i * h ) / rows );
+			g.stroke();
 		}
-		gg.fillStyle = opts.gridColor || '#8a2b2b';
-		gg.font = '600 13px sans-serif';
-		gg.textAlign = 'center';
-		for ( let i = 0; i < cells; i++ ) {
-			gg.fillText(
+		g.fillStyle = opts.gridColor || '#4f606c';
+		g.font = '600 15px sans-serif';
+		g.textAlign = 'center';
+		for ( let i = 0; i < cells; i++ )
+			g.fillText(
 				String.fromCharCode( 65 + i ),
-				ox + ( i + 0.5 ) * cell,
-				top - 12
+				ox + ( ( i + 0.5 ) * w ) / cells,
+				top - 15
 			);
-		}
-		gg.textAlign = 'right';
-		for ( let r = 0; r < rows; r++ ) {
-			gg.fillText( String( r + 1 ), ox - 6, top + ( r + 0.62 ) * cell );
-		}
-	};
-	drawGrid( 0 );
-	drawGrid( W * S + 40 );
+		g.textAlign = 'right';
+		for ( let i = 0; i < rows; i++ )
+			g.fillText(
+				String( i + 1 ),
+				ox - 10,
+				top + ( ( i + 0.56 ) * h ) / rows
+			);
+	}
+
 	return c;
 }
 
@@ -988,61 +1008,66 @@ export function tracingSheet( source, opts = {} ) {
  */
 export function symmetrySheet( source, opts = {} ) {
 	const cells = Math.max( 6, Math.min( 20, opts.cells || 12 ) );
-	const emptySide = 'left' === opts.side ? 'left' : 'right';
-	const W = 420;
-	const H = Math.round( ( W * source.height ) / source.width );
-	const S = 2;
-	const M = 26;
-	const c = makeCanvas( source, W * S + M * 2, H * S + M * 2 );
-	const g = c.getContext( '2d' );
+	const axis = [ 'vertical', 'horizontal', 'diagonal', 'quarter' ].includes(
+		opts.axis
+	)
+		? opts.axis
+		: 'vertical';
+	const w = 840,
+		h = Math.round( ( w * source.height ) / source.width ),
+		m = 30;
+	const c = makeCanvas( source, w + m * 2, h + m * 2 ),
+		g = c.getContext( '2d' );
 	g.fillStyle = '#ffffff';
 	g.fillRect( 0, 0, c.width, c.height );
-	// The kept half of the motif.
-	const halfW = ( W * S ) / 2;
-	const sx = 'right' === emptySide ? 0 : source.width / 2;
-	const dx = 'right' === emptySide ? M : M + halfW;
-	g.drawImage(
-		source,
-		sx,
-		0,
-		source.width / 2,
-		source.height,
-		dx,
-		M,
-		halfW,
-		H * S
-	);
-	// Light transfer grid over the whole sheet.
-	const cell = ( W * S ) / cells;
-	const rows = Math.max( 1, Math.round( ( H * S ) / cell ) );
-	g.strokeStyle = 'rgba(120,128,140,0.4)';
+	g.save();
+	g.beginPath();
+	if ( axis === 'horizontal' ) g.rect( m, m, w, h / 2 );
+	else if ( axis === 'quarter' ) g.rect( m, m, w / 2, h / 2 );
+	else if ( axis === 'diagonal' ) {
+		g.moveTo( m, m );
+		g.lineTo( m + w, m );
+		g.lineTo( m + w, m + h );
+		g.closePath();
+	} else g.rect( opts.side === 'left' ? m + w / 2 : m, m, w / 2, h );
+	g.clip();
+	g.drawImage( source, m, m, w, h );
+	g.restore();
+	const rows = Math.max( 1, Math.round( ( cells * h ) / w ) );
+	g.strokeStyle = '#d2d7dc';
 	g.lineWidth = 1;
 	for ( let i = 0; i <= cells; i++ ) {
 		g.beginPath();
-		g.moveTo( M + i * cell, M );
-		g.lineTo( M + i * cell, M + rows * cell );
+		g.moveTo( m + ( i * w ) / cells, m );
+		g.lineTo( m + ( i * w ) / cells, m + h );
 		g.stroke();
 	}
-	for ( let r = 0; r <= rows; r++ ) {
+	for ( let i = 0; i <= rows; i++ ) {
 		g.beginPath();
-		g.moveTo( M, M + r * cell );
-		g.lineTo( M + cells * cell, M + r * cell );
+		g.moveTo( m, m + ( i * h ) / rows );
+		g.lineTo( m + w, m + ( i * h ) / rows );
 		g.stroke();
 	}
-	// Dashed mirror line in the accent color.
 	g.save();
-	g.strokeStyle = opts.gridColor || '#e03131';
-	g.lineWidth = 2.4;
+	g.strokeStyle = opts.gridColor || '#758794';
+	g.lineWidth = 2.5;
 	g.setLineDash( [ 10, 7 ] );
 	g.beginPath();
-	g.moveTo( M + halfW, M - 6 );
-	g.lineTo( M + halfW, M + rows * cell + 6 );
+	if ( axis === 'vertical' || axis === 'quarter' ) {
+		g.moveTo( m + w / 2, m );
+		g.lineTo( m + w / 2, m + h );
+	}
+	if ( axis === 'horizontal' || axis === 'quarter' ) {
+		g.moveTo( m, m + h / 2 );
+		g.lineTo( m + w, m + h / 2 );
+	}
+	if ( axis === 'diagonal' ) {
+		g.moveTo( m, m );
+		g.lineTo( m + w, m + h );
+	}
 	g.stroke();
 	g.restore();
-	// Outer frame.
-	g.strokeStyle = 'rgba(0,0,0,0.5)';
-	g.lineWidth = 2;
-	g.strokeRect( M, M, W * S, rows * cell );
+
 	return c;
 }
 
@@ -1281,7 +1306,14 @@ export function stepGuide( source, opts = {} ) {
  * @return {Object} { targets: [ number|string ], taskFor( colorIdx ) }
  */
 export function codeTasks( o = {} ) {
-	const kind = [ 'add', 'sub', 'mul', 'mixed', 'letters' ].includes( o.kind )
+	const kind = [
+		'add',
+		'sub',
+		'mul',
+		'mixed',
+		'letters',
+		'symbols',
+	].includes( o.kind )
 		? o.kind
 		: 'add';
 	const range = [ 10, 20, 100 ].includes( Number( o.range ) )
@@ -1297,7 +1329,31 @@ export function codeTasks( o = {} ) {
 		return arr;
 	};
 	let targets;
-	if ( 'letters' === kind ) {
+	if ( 'symbols' === kind ) {
+		const symbols = [
+			'●',
+			'■',
+			'▲',
+			'◆',
+			'★',
+			'○',
+			'□',
+			'△',
+			'◇',
+			'+',
+			'×',
+			'=',
+			'⊕',
+			'⊗',
+			'⊙',
+			'≡',
+			'∩',
+			'∪',
+			'⊂',
+			'⊃',
+		];
+		targets = symbols.slice( 0, count );
+	} else if ( 'letters' === kind ) {
 		targets = Array.from( { length: count }, ( _, i ) =>
 			String.fromCharCode( 65 + ( i % 26 ) )
 		);
@@ -1332,7 +1388,7 @@ export function codeTasks( o = {} ) {
 	const between = ( a, b ) => a + Math.floor( rnd() * ( b - a + 1 ) );
 	const taskFor = ( ci ) => {
 		const v = targets[ ci % targets.length ];
-		if ( 'letters' === kind ) {
+		if ( [ 'letters', 'symbols' ].includes( kind ) ) {
 			return v;
 		}
 		let k = kind;

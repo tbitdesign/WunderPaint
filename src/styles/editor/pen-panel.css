@@ -1,0 +1,549 @@
+#wpie-root .pp {
+	container-type: inline-size;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	font-size: 12px;
+	gap: 8px;
+	padding: 10px;
+}
+
+#wpie-root .pp button {
+	cursor: pointer;
+}
+
+#wpie-root .pp button:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+#wpie-root .pp-tabs,
+#wpie-root .pp-actions {
+	display: flex;
+	gap: 4px;
+}
+
+#wpie-root .pp-tabs button,
+#wpie-root .pp-actions button {
+	flex: 1;
+	border: 1px solid var( --border-hairline );
+	border-radius: 4px;
+	padding: 6px 5px;
+	background: var( --surface-panel );
+	color: var( --text-primary );
+	font: inherit;
+}
+
+#wpie-root .pp-tabs .active,
+#wpie-root .pp-actions .active {
+	background: var( --accent );
+	color: #fff;
+	border-color: var( --accent );
+}
+
+#wpie-root .pp-status {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .pp-main {
+	display: grid;
+	grid-template-columns: 146px minmax( 0, 1fr );
+	gap: 10px;
+	flex: 1;
+	min-height: 0;
+}
+
+#wpie-root .pp-presets {
+	overflow: auto;
+	min-height: 0;
+	flex: 1;
+	padding-right: 4px;
+}
+
+#wpie-root .pp-presets button {
+	border: 1px solid var( --border-hairline );
+	background: var( --surface-panel );
+	color: var( --text-primary );
+	border-radius: 5px;
+	padding: 2px 5px 5px;
+	font-size: 10px;
+}
+
+#wpie-root .pp-presets button[aria-pressed='true'] {
+	border-color: var( --accent );
+	color: var( --accent );
+	background: var( --accent-soft );
+}
+
+#wpie-root .pp-presets svg,
+#wpie-root .pp-presets img {
+	display: block;
+	width: 100%;
+	height: 32px;
+	object-fit: contain;
+}
+
+#wpie-root .pp-presets span {
+	display: block;
+}
+
+#wpie-root .pp-settings {
+	overflow: auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 11px;
+	padding: 0 3px 5px 0;
+}
+
+#wpie-root .pp-paint {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+#wpie-root .pp-paint .ai-btn {
+	padding: 4px 6px;
+	font-size: 10px;
+}
+
+#wpie-root .pp-dial {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) auto;
+	gap: 4px 8px;
+	font-size: 11px;
+}
+
+#wpie-root .pp-dial output {
+	font-variant-numeric: tabular-nums;
+	color: var( --text-muted );
+}
+
+#wpie-root .pp-dial .snap-slider,
+#wpie-root .pp-dial input {
+	grid-column: 1/-1;
+	width: 100%;
+}
+
+#wpie-root .pp-choice {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	justify-content: space-between;
+}
+
+#wpie-root .pp-choice select {
+	max-width: 62%;
+	min-width: 80px;
+	font: inherit;
+}
+
+#wpie-root .pp-check {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+#wpie-root .pp-graph {
+	color: var( --accent );
+}
+
+#wpie-root .pp-graph svg {
+	display: block;
+	width: 100%;
+	background: var( --surface-panel );
+	border: 1px solid var( --border-hairline );
+	border-radius: 5px;
+	touch-action: none;
+	cursor: crosshair;
+}
+
+#wpie-root .pp-graph-grid {
+	stroke: var( --border-hairline );
+	stroke-width: 1;
+	fill: none;
+}
+
+#wpie-root .pp-graph-area {
+	fill: currentcolor;
+	opacity: 0.12;
+}
+
+#wpie-root .pp-graph-line {
+	fill: none;
+	stroke: currentcolor;
+	stroke-width: 2;
+}
+
+#wpie-root .pp-graph circle {
+	fill: var( --surface-panel );
+	stroke: currentcolor;
+	stroke-width: 2;
+}
+
+#wpie-root .pp-graph > span,
+#wpie-root .pp-hint {
+	font-size: 10px;
+	color: var( --text-muted );
+	line-height: 1.4;
+}
+
+#wpie-root .pp-actions {
+	flex-wrap: wrap;
+}
+
+#wpie-root .pp-actions button {
+	flex-basis: 45%;
+}
+
+#wpie-root .pp-foot {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	border-top: 1px solid var( --border-hairline );
+	padding-top: 8px;
+}
+
+#wpie-root .pp-foot .ai-btn {
+	padding: 6px 8px;
+	font-size: 11px;
+}
+
+#wpie-root .pp-link {
+	background: none;
+	border: 0;
+	padding: 0;
+	color: var( --text-muted );
+	text-decoration: underline;
+	font-size: 10px;
+}
+
+#wpie-root .pp-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 40;
+	cursor: crosshair;
+	overflow: hidden;
+	touch-action: none;
+	pointer-events: none;
+}
+
+#wpie-root .pp-overlay svg {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+#wpie-root .pp-overlay line {
+	stroke: var( --accent );
+	stroke-width: 1;
+}
+
+#wpie-root .pp-overlay circle,
+#wpie-root .pp-overlay rect {
+	fill: var( --surface-panel );
+	stroke: var( --accent );
+	stroke-width: 1.5;
+}
+
+#wpie-root .pp-overlay .selected {
+	fill: var( --accent );
+}
+
+#wpie-root .pp-overlay .pp-hit {
+	pointer-events: fill;
+}
+
+#wpie-root .pp-overlay .pp-hit-line {
+	pointer-events: stroke;
+}
+
+#wpie-root .pp-overlay .pp-grip {
+	pointer-events: all;
+	cursor: grab;
+}
+
+#wpie-root .pp-tools {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .pp-library {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	border-right: 1px solid var( --border-hairline );
+	padding-right: 8px;
+}
+
+#wpie-root .pp-preset-grid {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: 4px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .pp-presets h3 {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	margin: 0 0 5px;
+	padding: 5px 0;
+	background: var( --surface-panel );
+}
+
+#wpie-root .pp .bp-sect-head {
+	display: block;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var( --text-muted );
+}
+
+#wpie-root .pp-saved {
+	flex: none;
+	border-top: 1px solid var( --border-hairline );
+	padding-top: 9px;
+	margin-top: 5px;
+}
+
+#wpie-root .pp-saved .pp-actions {
+	margin-top: 5px;
+}
+
+#wpie-root .pp-saved button {
+	font-size: 10px;
+	padding: 5px;
+}
+
+#wpie-root .pp-settings > * {
+	flex-shrink: 0;
+}
+
+#wpie-root .pp-context {
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+}
+
+#wpie-root .pp-modes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+#wpie-root .pp-color-section {
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+}
+
+#wpie-root .pp-color-value {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var( --text-secondary );
+	font-size: 11px;
+}
+
+#wpie-root .pp-tools button {
+	flex: 1;
+	padding: 6px 4px;
+	font-size: 11px;
+	gap: 4px;
+}
+
+#wpie-root .pp-tools button svg {
+	flex-shrink: 0;
+}
+
+#wpie-root .pp-tools button[aria-pressed='true'] {
+	border-color: var( --accent );
+	background: var( --accent-soft );
+	color: var( --accent );
+}
+
+#wpie-root .pp-help {
+	margin: 0;
+	min-height: 28px;
+}
+
+#wpie-root .pp-dials {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: 12px;
+}
+
+#wpie-root .pp-dial span {
+	min-width: 0;
+}
+
+#wpie-root .pp-foot.dsm-foot {
+	flex: none;
+	margin: 0;
+	padding: 9px 0 0;
+	justify-content: space-between;
+	background: transparent;
+}
+
+#wpie-root .pp-foot .dsm-actions {
+	flex: none;
+	margin-left: auto;
+	display: flex;
+	gap: 5px;
+}
+
+#wpie-root .pp-overlay:focus {
+	outline: none;
+}
+
+#wpie-root .pp-overlay .pp-hit,
+#wpie-root .pp-overlay .pp-hit-line {
+	cursor: grab;
+}
+
+/* Keep the compact default usable, while retaining two preset columns
+ * when the user widens the panel. */
+@container (max-width: 400px) {
+
+	#wpie-root .pp-main {
+		grid-template-columns: 100px minmax( 0, 1fr );
+	}
+
+	#wpie-root .pp-preset-grid {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	#wpie-root .pp-saved .pp-actions {
+		flex-direction: column;
+	}
+
+	#wpie-root .pp-tools button {
+		flex-direction: column;
+		height: auto;
+		min-height: 42px;
+		min-width: 0;
+		font-size: 10px;
+	}
+
+	#wpie-root .pp-dials {
+		gap: 10px 8px;
+	}
+
+	#wpie-root .pp-dial {
+		font-size: 10px;
+		column-gap: 4px;
+	}
+}
+
+#wpie-root .pp-section summary {
+	cursor: pointer;
+	font-size: 11px;
+	color: var( --text-muted );
+	margin-bottom: 8px;
+}
+
+#wpie-root .pp-operations button {
+	min-width: 0;
+	white-space: normal;
+	font-size: 10px;
+}
+
+#wpie-root .pp-overlay .pp-round-grip,
+#wpie-root .pp-overlay .pp-join-grip {
+	fill: var( --surface-panel );
+	stroke-width: 2px;
+}
+
+#wpie-root .pp-overlay .pp-brush-radius {
+	fill: var( --accent-soft );
+	stroke: var( --accent );
+	stroke-dasharray: 4 3;
+	pointer-events: none;
+}
+
+#wpie-root .pp-mode-cut .pp-hit-line,
+#wpie-root .pp-mode-continue .pp-grip,
+#wpie-root .pp-mode-join .pp-grip {
+	cursor: crosshair;
+}
+
+#wpie-root .pp-library-toggle {
+	flex: none;
+	border: 1px solid var( --border-hairline );
+	background: var( --surface-panel );
+	color: var( --text-primary );
+	border-radius: 4px;
+	padding: 6px 3px;
+	font-size: 10px;
+	margin-bottom: 8px;
+}
+
+#wpie-root .pp-section > :not( summary ) {
+	margin-top: 8px;
+}
+
+#wpie-root .pp-color-stop {
+	display: grid;
+	grid-template-columns: 24px minmax( 0, 1fr ) 12px;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+#wpie-root .pp-user-style {
+	margin: 5px 0 9px;
+}
+
+#wpie-root .pp-style-pick,
+#wpie-root .pp-favorite-filter,
+#wpie-root .pp-style-name {
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .pp-style-pick span {
+	overflow-wrap: anywhere;
+}
+
+#wpie-root .pp-style-tools {
+	display: flex;
+	justify-content: space-between;
+	gap: 4px;
+	margin-top: 2px;
+}
+
+#wpie-root .pp-style-tools button {
+	flex: 1;
+	padding: 3px;
+}
+
+#wpie-root .pp-style-name {
+	font: inherit;
+	font-size: 10px;
+	padding: 5px;
+}
+
+#wpie-root .pp-overlay .pp-mirror-axis {
+	stroke: var( --accent );
+	stroke-dasharray: 5 5;
+	opacity: 0.55;
+	pointer-events: none;
+}
+
+#wpie-root .pp-overlay .pp-redraw-preview {
+	pointer-events: none;
+}
+
+#wpie-root .pp-mode-colors .pp-grip,
+#wpie-root .pp-mode-trim .pp-grip,
+#wpie-root .pp-overlay .pp-axis-grip {
+	cursor: grab;
+}

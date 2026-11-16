@@ -156,7 +156,7 @@ const DE = {
 	'90 x 60 mm': '90 x 60 mm',
 	'100 x 70 mm': '100 x 70 mm',
 	'Sticker sheet': 'Stickerbogen',
-	'A sheet of stickers: a photo in a shape, or the motif and a word on colour.':
+	'A sheet of stickers: a photo in a shape, or the motif and a word on color.':
 		'Ein Bogen Sticker: ein Foto in einer Form, oder das Motiv und ein Wort auf Farbe.',
 	'30 mm': '30 mm',
 	'Cards and stationery': 'Karten und Papeterie',
@@ -464,7 +464,7 @@ const DE = {
 	'160 x 50 mm (small jar)': '160 x 50 mm (kleines Glas)',
 	'260 x 90 mm (A4 landscape)': '260 x 90 mm (A4 quer)',
 	'Motif garland': 'Motivgirlande',
-	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colours in turn.':
+	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colors in turn.':
 		'Kreise, Herzen oder Sterne mit dem Motiv und zwei Löchern zum Auffädeln, abwechselnd in drei Farben.',
 	'Paper fan': 'Papierfächer',
 	'Strips to fold accordion-style into fans and rosettes: fold lines every 15 mm, the pattern all over, two strips make one rosette.':
@@ -515,7 +515,7 @@ const DE = {
 		'Nummerierte Karten für einen Adventskalender oder Countdown: von einer ersten bis zu einer letzten Zahl, das Motiv auf jeder.',
 	'65 mm': '65 mm',
 	'Confetti sheet': 'Konfetti-Bogen',
-	'A sheet of small circles, stars or hearts in the theme colours to punch out for the table.':
+	'A sheet of small circles, stars or hearts in the theme colors to punch out for the table.':
 		'Ein Bogen kleiner Kreise, Sterne oder Herzen in den Themenfarben zum Ausstanzen für den Tisch.',
 	'20 mm': '20 mm',
 	'15 mm': '15 mm',
@@ -616,7 +616,7 @@ const DE = {
 		'Würfle und ziehe deine Figur; wer zuerst im Ziel ist, gewinnt.',
 	Tournament: 'Turnier',
 	Winner: 'Sieger',
-	'Coloured by': 'Ausgemalt von',
+	'Colored by': 'Ausgemalt von',
 	Yes: 'Ja',
 	'Choose the pictures in the material panel; the cards show placeholders until then.':
 		'Wähle die Bilder im Materialpanel; bis dahin zeigen die Karten Platzhalter.',
@@ -625,7 +625,7 @@ const DE = {
 	Maze: 'Labyrinth',
 	Solution: 'Lösung',
 	'Welcome to the party': 'Willkommen zur Party',
-	'Colour me': 'Mal mich aus',
+	'Color me': 'Mal mich aus',
 	'Tic-tac-toe': 'Tic-Tac-Toe',
 	'Dots and boxes': 'Käsekästchen',
 	'Party bank': 'Partybank',
@@ -677,7 +677,7 @@ const DE = {
 	'One secret message per line': 'Eine Geheimbotschaft je Zeile',
 	'A5 landscape (210 x 148 mm)': 'A5 quer (210 x 148 mm)',
 	'Fortune teller': 'Himmel und Hölle',
-	'The folded paper game: four colours on the corners, eight numbers, eight fortunes from your lines under the flaps.':
+	'The folded paper game: four colors on the corners, eight numbers, eight fortunes from your lines under the flaps.':
 		'Das Faltspiel: vier Farben auf den Ecken, acht Zahlen, acht Sprüche aus deinen Zeilen unter den Klappen.',
 	'Eight fortunes, one per line': 'Acht Sprüche, je eine Zeile',
 	'190 mm square (A4)': '190 mm Quadrat (A4)',
@@ -703,11 +703,11 @@ const DE = {
 	'Title over the puzzle': 'Titel über dem Rätsel',
 	'150 mm': '150 mm',
 	'Coloring page': 'Ausmalbild',
-	'The motif of the occasion big as an outline to colour, with a frame and the name of the artist.':
+	'The motif of the occasion big as an outline to color, with a frame and the name of the artist.':
 		'Das Motiv des Anlasses gross als Umriss zum Ausmalen, mit Rahmen und dem Namen des Künstlers.',
 	'Line under the picture': 'Zeile unter dem Bild',
 	"Kids' place mat": 'Kinder-Tischset',
-	"A landscape sheet for the kids' table: a maze, the motif to colour, three tic-tac-toe grids and a dot grid for dots and boxes.":
+	"A landscape sheet for the kids' table: a maze, the motif to color, three tic-tac-toe grids and a dot grid for dots and boxes.":
 		'Ein Querformat für den Kindertisch: ein Labyrinth, das Motiv zum Ausmalen, drei Tic-Tac-Toe-Felder und ein Punkteraster für Käsekästchen.',
 	'Line at the top': 'Zeile oben',
 	'Notes for the toy shop and the casino night: one value per line, a few copies of each, the motif or a photo in the oval.':
@@ -872,7 +872,7 @@ const ES = {
 	'90 x 60 mm': '90 x 60 mm',
 	'100 x 70 mm': '100 x 70 mm',
 	'Sticker sheet': 'Hoja de pegatinas',
-	'A sheet of stickers: a photo in a shape, or the motif and a word on colour.':
+	'A sheet of stickers: a photo in a shape, or the motif and a word on color.':
 		'Una hoja de pegatinas: una foto en una forma, o el motivo y una palabra sobre color.',
 	'30 mm': '30 mm',
 	'Cards and stationery': 'Tarjetas y papelería',
@@ -1181,7 +1181,7 @@ const ES = {
 	'160 x 50 mm (small jar)': '160 x 50 mm (tarro pequeño)',
 	'260 x 90 mm (A4 landscape)': '260 x 90 mm (A4 horizontal)',
 	'Motif garland': 'Guirnalda de motivos',
-	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colours in turn.':
+	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colors in turn.':
 		'Círculos, corazones o estrellas con el motivo y dos agujeros para enhebrar, en tres colores alternos.',
 	'Paper fan': 'Abanico de papel',
 	'Strips to fold accordion-style into fans and rosettes: fold lines every 15 mm, the pattern all over, two strips make one rosette.':
@@ -1231,7 +1231,7 @@ const ES = {
 		'Tarjetas numeradas para un calendario de adviento o una cuenta atrás: de un primer a un último número, el motivo en cada una.',
 	'65 mm': '65 mm',
 	'Confetti sheet': 'Hoja de confeti',
-	'A sheet of small circles, stars or hearts in the theme colours to punch out for the table.':
+	'A sheet of small circles, stars or hearts in the theme colors to punch out for the table.':
 		'Una hoja de pequeños círculos, estrellas o corazones en los colores del tema para troquelar para la mesa.',
 	'20 mm': '20 mm',
 	'15 mm': '15 mm',
@@ -1331,7 +1331,7 @@ const ES = {
 		'Tira el dado y mueve tu ficha; gana quien llegue primero a la meta.',
 	Tournament: 'Torneo',
 	Winner: 'Ganador',
-	'Coloured by': 'Coloreado por',
+	'Colored by': 'Coloreado por',
 	Yes: 'Sí',
 	'Choose the pictures in the material panel; the cards show placeholders until then.':
 		'Elige las imágenes en el panel de material; hasta entonces las tarjetas muestran marcadores.',
@@ -1340,7 +1340,7 @@ const ES = {
 	Maze: 'Laberinto',
 	Solution: 'Solución',
 	'Welcome to the party': 'Bienvenidos a la fiesta',
-	'Colour me': 'Coloréame',
+	'Color me': 'Coloréame',
 	'Tic-tac-toe': 'Tres en raya',
 	'Dots and boxes': 'Puntos y cajas',
 	'Party bank': 'Banco de la fiesta',
@@ -1392,7 +1392,7 @@ const ES = {
 	'One secret message per line': 'Un mensaje secreto por línea',
 	'A5 landscape (210 x 148 mm)': 'A5 horizontal (210 x 148 mm)',
 	'Fortune teller': 'Comecocos',
-	'The folded paper game: four colours on the corners, eight numbers, eight fortunes from your lines under the flaps.':
+	'The folded paper game: four colors on the corners, eight numbers, eight fortunes from your lines under the flaps.':
 		'El juego de papel plegado: cuatro colores en las esquinas, ocho números, ocho mensajes de tus líneas bajo las solapas.',
 	'Eight fortunes, one per line': 'Ocho mensajes, uno por línea',
 	'190 mm square (A4)': 'Cuadrado de 190 mm (A4)',
@@ -1418,11 +1418,11 @@ const ES = {
 	'Title over the puzzle': 'Título sobre el pasatiempo',
 	'150 mm': '150 mm',
 	'Coloring page': 'Página para colorear',
-	'The motif of the occasion big as an outline to colour, with a frame and the name of the artist.':
+	'The motif of the occasion big as an outline to color, with a frame and the name of the artist.':
 		'El motivo de la ocasión en grande como contorno para colorear, con marco y el nombre del artista.',
 	'Line under the picture': 'Línea bajo la imagen',
 	"Kids' place mat": 'Mantel infantil',
-	"A landscape sheet for the kids' table: a maze, the motif to colour, three tic-tac-toe grids and a dot grid for dots and boxes.":
+	"A landscape sheet for the kids' table: a maze, the motif to color, three tic-tac-toe grids and a dot grid for dots and boxes.":
 		'Una hoja horizontal para la mesa infantil: un laberinto, el motivo para colorear, tres cuadrículas de tres en raya y una cuadrícula de puntos para puntos y cajas.',
 	'Line at the top': 'Línea arriba',
 	'Notes for the toy shop and the casino night: one value per line, a few copies of each, the motif or a photo in the oval.':
@@ -1587,7 +1587,7 @@ const FR = {
 	'90 x 60 mm': '90 x 60 mm',
 	'100 x 70 mm': '100 x 70 mm',
 	'Sticker sheet': 'Planche de stickers',
-	'A sheet of stickers: a photo in a shape, or the motif and a word on colour.':
+	'A sheet of stickers: a photo in a shape, or the motif and a word on color.':
 		'Une planche de stickers : une photo dans une forme, ou le motif et un mot sur fond coloré.',
 	'30 mm': '30 mm',
 	'Cards and stationery': 'Cartes et papeterie',
@@ -1895,7 +1895,7 @@ const FR = {
 	'160 x 50 mm (small jar)': '160 x 50 mm (petit pot)',
 	'260 x 90 mm (A4 landscape)': '260 x 90 mm (A4 paysage)',
 	'Motif garland': 'Guirlande de motifs',
-	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colours in turn.':
+	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colors in turn.':
 		'Des cercles, cœurs ou étoiles avec le motif et deux trous pour enfiler, en trois couleurs à tour de rôle.',
 	'Paper fan': 'Éventail en papier',
 	'Strips to fold accordion-style into fans and rosettes: fold lines every 15 mm, the pattern all over, two strips make one rosette.':
@@ -1945,7 +1945,7 @@ const FR = {
 		"Des cartes numérotées pour un calendrier de l'Avent ou un compte à rebours : d'un premier à un dernier chiffre, le motif sur chacune.",
 	'65 mm': '65 mm',
 	'Confetti sheet': 'Planche de confettis',
-	'A sheet of small circles, stars or hearts in the theme colours to punch out for the table.':
+	'A sheet of small circles, stars or hearts in the theme colors to punch out for the table.':
 		'Une planche de petits cercles, étoiles ou cœurs aux couleurs du thème à découper pour la table.',
 	'20 mm': '20 mm',
 	'15 mm': '15 mm',
@@ -2045,7 +2045,7 @@ const FR = {
 		"Lance le dé et avance ton pion ; le premier à l'arrivée gagne.",
 	Tournament: 'Tournoi',
 	Winner: 'Vainqueur',
-	'Coloured by': 'Colorié par',
+	'Colored by': 'Colorié par',
 	Yes: 'Oui',
 	'Choose the pictures in the material panel; the cards show placeholders until then.':
 		"Choisis les images dans le panneau de matériel ; d'ici là, les cartes montrent des espaces réservés.",
@@ -2054,7 +2054,7 @@ const FR = {
 	Maze: 'Labyrinthe',
 	Solution: 'Solution',
 	'Welcome to the party': 'Bienvenue à la fête',
-	'Colour me': 'Colorie-moi',
+	'Color me': 'Colorie-moi',
 	'Tic-tac-toe': 'Morpion',
 	'Dots and boxes': 'Petits carrés',
 	'Party bank': 'Banque de la fête',
@@ -2105,7 +2105,7 @@ const FR = {
 	'One secret message per line': 'Un message secret par ligne',
 	'A5 landscape (210 x 148 mm)': 'A5 paysage (210 x 148 mm)',
 	'Fortune teller': 'Cocotte en papier',
-	'The folded paper game: four colours on the corners, eight numbers, eight fortunes from your lines under the flaps.':
+	'The folded paper game: four colors on the corners, eight numbers, eight fortunes from your lines under the flaps.':
 		'Le jeu en papier plié : quatre couleurs aux coins, huit chiffres, huit prédictions de tes lignes sous les rabats.',
 	'Eight fortunes, one per line': 'Huit prédictions, une par ligne',
 	'190 mm square (A4)': 'Carré de 190 mm (A4)',
@@ -2131,11 +2131,11 @@ const FR = {
 	'Title over the puzzle': 'Titre au-dessus de la grille',
 	'150 mm': '150 mm',
 	'Coloring page': 'Coloriage',
-	'The motif of the occasion big as an outline to colour, with a frame and the name of the artist.':
+	'The motif of the occasion big as an outline to color, with a frame and the name of the artist.':
 		"Le motif de l'occasion en grand, en contour à colorier, avec un cadre et le nom de l'artiste.",
 	'Line under the picture': "Ligne sous l'image",
 	"Kids' place mat": 'Set de table enfants',
-	"A landscape sheet for the kids' table: a maze, the motif to colour, three tic-tac-toe grids and a dot grid for dots and boxes.":
+	"A landscape sheet for the kids' table: a maze, the motif to color, three tic-tac-toe grids and a dot grid for dots and boxes.":
 		'Une feuille paysage pour la table des enfants : un labyrinthe, le motif à colorier, trois grilles de morpion et une grille de points pour les petits carrés.',
 	'Line at the top': 'Ligne en haut',
 	'Notes for the toy shop and the casino night: one value per line, a few copies of each, the motif or a photo in the oval.':
@@ -2300,7 +2300,7 @@ const IT = {
 	'90 x 60 mm': '90 x 60 mm',
 	'100 x 70 mm': '100 x 70 mm',
 	'Sticker sheet': 'Foglio di adesivi',
-	'A sheet of stickers: a photo in a shape, or the motif and a word on colour.':
+	'A sheet of stickers: a photo in a shape, or the motif and a word on color.':
 		'Un foglio di adesivi: una foto in una forma, oppure il motivo e una parola su colore.',
 	'30 mm': '30 mm',
 	'Cards and stationery': 'Carte e cartoleria',
@@ -2608,7 +2608,7 @@ const IT = {
 	'160 x 50 mm (small jar)': '160 x 50 mm (vasetto piccolo)',
 	'260 x 90 mm (A4 landscape)': '260 x 90 mm (A4 orizzontale)',
 	'Motif garland': 'Ghirlanda di motivi',
-	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colours in turn.':
+	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colors in turn.':
 		'Cerchi, cuori o stelle con il motivo e due fori per infilare, in tre colori a turno.',
 	'Paper fan': 'Ventaglio di carta',
 	'Strips to fold accordion-style into fans and rosettes: fold lines every 15 mm, the pattern all over, two strips make one rosette.':
@@ -2660,7 +2660,7 @@ const IT = {
 		"Carte numerate per un calendario dell'Avvento o un conto alla rovescia: da un primo a un ultimo numero, il motivo su ognuna.",
 	'65 mm': '65 mm',
 	'Confetti sheet': 'Foglio di coriandoli',
-	'A sheet of small circles, stars or hearts in the theme colours to punch out for the table.':
+	'A sheet of small circles, stars or hearts in the theme colors to punch out for the table.':
 		'Un foglio di piccoli cerchi, stelle o cuori nei colori del tema da fustellare per la tavola.',
 	'20 mm': '20 mm',
 	'15 mm': '15 mm',
@@ -2760,7 +2760,7 @@ const IT = {
 		'Tira il dado e muovi la pedina; vince chi arriva primo.',
 	Tournament: 'Torneo',
 	Winner: 'Vincitore',
-	'Coloured by': 'Colorato da',
+	'Colored by': 'Colorato da',
 	Yes: 'Sì',
 	'Choose the pictures in the material panel; the cards show placeholders until then.':
 		'Scegli le immagini nel pannello del materiale; fino ad allora le carte mostrano segnaposto.',
@@ -2769,7 +2769,7 @@ const IT = {
 	Maze: 'Labirinto',
 	Solution: 'Soluzione',
 	'Welcome to the party': 'Benvenuti alla festa',
-	'Colour me': 'Coloriami',
+	'Color me': 'Coloriami',
 	'Tic-tac-toe': 'Tris',
 	'Dots and boxes': 'Punti e quadrati',
 	'Party bank': 'Banca della festa',
@@ -2820,7 +2820,7 @@ const IT = {
 	'One secret message per line': 'Un messaggio segreto per riga',
 	'A5 landscape (210 x 148 mm)': 'A5 orizzontale (210 x 148 mm)',
 	'Fortune teller': 'Inferno e paradiso',
-	'The folded paper game: four colours on the corners, eight numbers, eight fortunes from your lines under the flaps.':
+	'The folded paper game: four colors on the corners, eight numbers, eight fortunes from your lines under the flaps.':
 		'Il gioco di carta piegata: quattro colori agli angoli, otto numeri, otto messaggi dalle tue righe sotto le alette.',
 	'Eight fortunes, one per line': 'Otto messaggi, uno per riga',
 	'190 mm square (A4)': 'Quadrato da 190 mm (A4)',
@@ -2846,11 +2846,11 @@ const IT = {
 	'Title over the puzzle': 'Titolo sopra lo schema',
 	'150 mm': '150 mm',
 	'Coloring page': 'Disegno da colorare',
-	'The motif of the occasion big as an outline to colour, with a frame and the name of the artist.':
+	'The motif of the occasion big as an outline to color, with a frame and the name of the artist.':
 		"Il motivo dell'occasione grande come contorno da colorare, con cornice e il nome dell'artista.",
 	'Line under the picture': "Riga sotto l'immagine",
 	"Kids' place mat": 'Tovaglietta per bambini',
-	"A landscape sheet for the kids' table: a maze, the motif to colour, three tic-tac-toe grids and a dot grid for dots and boxes.":
+	"A landscape sheet for the kids' table: a maze, the motif to color, three tic-tac-toe grids and a dot grid for dots and boxes.":
 		'Un foglio orizzontale per il tavolo dei bambini: un labirinto, il motivo da colorare, tre griglie di tris e una griglia di punti per punti e quadrati.',
 	'Line at the top': 'Riga in alto',
 	'Notes for the toy shop and the casino night: one value per line, a few copies of each, the motif or a photo in the oval.':
@@ -3015,7 +3015,7 @@ const NL = {
 	'90 x 60 mm': '90 x 60 mm',
 	'100 x 70 mm': '100 x 70 mm',
 	'Sticker sheet': 'Stickervel',
-	'A sheet of stickers: a photo in a shape, or the motif and a word on colour.':
+	'A sheet of stickers: a photo in a shape, or the motif and a word on color.':
 		'Een vel stickers: een foto in een vorm, of het motief en een woord op kleur.',
 	'30 mm': '30 mm',
 	'Cards and stationery': 'Kaarten en papier',
@@ -3321,7 +3321,7 @@ const NL = {
 	'160 x 50 mm (small jar)': '160 x 50 mm (klein potje)',
 	'260 x 90 mm (A4 landscape)': '260 x 90 mm (A4 liggend)',
 	'Motif garland': 'Motievenslinger',
-	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colours in turn.':
+	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colors in turn.':
 		'Cirkels, harten of sterren met het motief en twee gaten om te rijgen, in drie kleuren om de beurt.',
 	'Paper fan': 'Papieren waaier',
 	'Strips to fold accordion-style into fans and rosettes: fold lines every 15 mm, the pattern all over, two strips make one rosette.':
@@ -3371,7 +3371,7 @@ const NL = {
 		'Genummerde kaarten voor een adventskalender of een aftelling: van een eerste tot een laatste getal, het motief op elk.',
 	'65 mm': '65 mm',
 	'Confetti sheet': 'Confettivel',
-	'A sheet of small circles, stars or hearts in the theme colours to punch out for the table.':
+	'A sheet of small circles, stars or hearts in the theme colors to punch out for the table.':
 		'Een vel kleine cirkels, sterren of harten in de themakleuren om uit te ponsen voor de tafel.',
 	'20 mm': '20 mm',
 	'15 mm': '15 mm',
@@ -3471,7 +3471,7 @@ const NL = {
 		'Gooi de dobbelsteen en zet je pion; wie het eerst bij de finish is, wint.',
 	Tournament: 'Toernooi',
 	Winner: 'Winnaar',
-	'Coloured by': 'Ingekleurd door',
+	'Colored by': 'Ingekleurd door',
 	Yes: 'Ja',
 	'Choose the pictures in the material panel; the cards show placeholders until then.':
 		'Kies de afbeeldingen in het materiaalpaneel; tot dan tonen de kaarten plaatshouders.',
@@ -3480,7 +3480,7 @@ const NL = {
 	Maze: 'Doolhof',
 	Solution: 'Oplossing',
 	'Welcome to the party': 'Welkom op het feest',
-	'Colour me': 'Kleur mij',
+	'Color me': 'Kleur mij',
 	'Tic-tac-toe': 'Boter-kaas-en-eieren',
 	'Dots and boxes': 'Kamertje verhuren',
 	'Party bank': 'Feestbank',
@@ -3532,7 +3532,7 @@ const NL = {
 	'One secret message per line': 'Eén geheim bericht per regel',
 	'A5 landscape (210 x 148 mm)': 'A5 liggend (210 x 148 mm)',
 	'Fortune teller': 'Hemel en hel',
-	'The folded paper game: four colours on the corners, eight numbers, eight fortunes from your lines under the flaps.':
+	'The folded paper game: four colors on the corners, eight numbers, eight fortunes from your lines under the flaps.':
 		'Het vouwspel: vier kleuren op de hoeken, acht cijfers, acht voorspellingen uit je regels onder de flappen.',
 	'Eight fortunes, one per line': 'Acht voorspellingen, één per regel',
 	'190 mm square (A4)': 'Vierkant van 190 mm (A4)',
@@ -3558,11 +3558,11 @@ const NL = {
 	'Title over the puzzle': 'Titel boven de puzzel',
 	'150 mm': '150 mm',
 	'Coloring page': 'Kleurplaat',
-	'The motif of the occasion big as an outline to colour, with a frame and the name of the artist.':
+	'The motif of the occasion big as an outline to color, with a frame and the name of the artist.':
 		'Het motief van de gelegenheid groot als omtrek om in te kleuren, met een kader en de naam van de kunstenaar.',
 	'Line under the picture': 'Regel onder de afbeelding',
 	"Kids' place mat": 'Kinderplacemat',
-	"A landscape sheet for the kids' table: a maze, the motif to colour, three tic-tac-toe grids and a dot grid for dots and boxes.":
+	"A landscape sheet for the kids' table: a maze, the motif to color, three tic-tac-toe grids and a dot grid for dots and boxes.":
 		'Een liggend vel voor de kindertafel: een doolhof, het motief om in te kleuren, drie boter-kaas-en-eieren-rasters en een puntenraster voor kamertje verhuren.',
 	'Line at the top': 'Regel bovenaan',
 	'Notes for the toy shop and the casino night: one value per line, a few copies of each, the motif or a photo in the oval.':
@@ -3727,7 +3727,7 @@ const PT = {
 	'90 x 60 mm': '90 x 60 mm',
 	'100 x 70 mm': '100 x 70 mm',
 	'Sticker sheet': 'Folha de autocolantes',
-	'A sheet of stickers: a photo in a shape, or the motif and a word on colour.':
+	'A sheet of stickers: a photo in a shape, or the motif and a word on color.':
 		'Uma folha de autocolantes: uma foto numa forma, ou o motivo e uma palavra sobre cor.',
 	'30 mm': '30 mm',
 	'Cards and stationery': 'Cartões e papelaria',
@@ -4035,7 +4035,7 @@ const PT = {
 	'160 x 50 mm (small jar)': '160 x 50 mm (frasco pequeno)',
 	'260 x 90 mm (A4 landscape)': '260 x 90 mm (A4 horizontal)',
 	'Motif garland': 'Grinalda de motivos',
-	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colours in turn.':
+	'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colors in turn.':
 		'Círculos, corações ou estrelas com o motivo e dois furos para enfiar, em três cores à vez.',
 	'Paper fan': 'Leque de papel',
 	'Strips to fold accordion-style into fans and rosettes: fold lines every 15 mm, the pattern all over, two strips make one rosette.':
@@ -4085,7 +4085,7 @@ const PT = {
 		'Cartões numerados para um calendário do Advento ou uma contagem: de um primeiro a um último número, o motivo em cada um.',
 	'65 mm': '65 mm',
 	'Confetti sheet': 'Folha de confetes',
-	'A sheet of small circles, stars or hearts in the theme colours to punch out for the table.':
+	'A sheet of small circles, stars or hearts in the theme colors to punch out for the table.':
 		'Uma folha de pequenos círculos, estrelas ou corações nas cores do tema para furar para a mesa.',
 	'20 mm': '20 mm',
 	'15 mm': '15 mm',
@@ -4185,7 +4185,7 @@ const PT = {
 		'Lança o dado e move a tua peça; ganha quem chegar primeiro.',
 	Tournament: 'Torneio',
 	Winner: 'Vencedor',
-	'Coloured by': 'Colorido por',
+	'Colored by': 'Colorido por',
 	Yes: 'Sim',
 	'Choose the pictures in the material panel; the cards show placeholders until then.':
 		'Escolhe as imagens no painel de material; até lá os cartões mostram marcadores.',
@@ -4194,7 +4194,7 @@ const PT = {
 	Maze: 'Labirinto',
 	Solution: 'Solução',
 	'Welcome to the party': 'Bem-vindos à festa',
-	'Colour me': 'Pinta-me',
+	'Color me': 'Pinta-me',
 	'Tic-tac-toe': 'Jogo do galo',
 	'Dots and boxes': 'Pontos e caixas',
 	'Party bank': 'Banco da festa',
@@ -4246,7 +4246,7 @@ const PT = {
 	'One secret message per line': 'Uma mensagem secreta por linha',
 	'A5 landscape (210 x 148 mm)': 'A5 horizontal (210 x 148 mm)',
 	'Fortune teller': 'Quantos queres',
-	'The folded paper game: four colours on the corners, eight numbers, eight fortunes from your lines under the flaps.':
+	'The folded paper game: four colors on the corners, eight numbers, eight fortunes from your lines under the flaps.':
 		'O jogo de papel dobrado: quatro cores nos cantos, oito números, oito mensagens das tuas linhas sob as abas.',
 	'Eight fortunes, one per line': 'Oito mensagens, uma por linha',
 	'190 mm square (A4)': 'Quadrado de 190 mm (A4)',
@@ -4272,11 +4272,11 @@ const PT = {
 	'Title over the puzzle': 'Título por cima do puzzle',
 	'150 mm': '150 mm',
 	'Coloring page': 'Página para colorir',
-	'The motif of the occasion big as an outline to colour, with a frame and the name of the artist.':
+	'The motif of the occasion big as an outline to color, with a frame and the name of the artist.':
 		'O motivo da ocasião em grande como contorno para colorir, com moldura e o nome do artista.',
 	'Line under the picture': 'Linha por baixo da imagem',
 	"Kids' place mat": 'Jogo americano infantil',
-	"A landscape sheet for the kids' table: a maze, the motif to colour, three tic-tac-toe grids and a dot grid for dots and boxes.":
+	"A landscape sheet for the kids' table: a maze, the motif to color, three tic-tac-toe grids and a dot grid for dots and boxes.":
 		'Uma folha horizontal para a mesa das crianças: um labirinto, o motivo para colorir, três grelhas do jogo do galo e uma grelha de pontos para pontos e caixas.',
 	'Line at the top': 'Linha no topo',
 	'Notes for the toy shop and the casino night: one value per line, a few copies of each, the motif or a photo in the oval.':

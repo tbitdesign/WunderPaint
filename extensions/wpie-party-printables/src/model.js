@@ -368,7 +368,7 @@ export const ITEM_DEFAULTS = {
 		h: 105,
 	},
 	fortuneteller: {
-		text: 'You will get cake\nA surprise is coming\nSing a song\nDance with the host\nYou win a prize\nTell a secret\nHug your neighbour\nMake a wish',
+		text: 'You will get cake\nA surprise is coming\nSing a song\nDance with the host\nYou win a prize\nTell a secret\nHug your neighbor\nMake a wish',
 		s: 190,
 		count: 1,
 		motif: true,

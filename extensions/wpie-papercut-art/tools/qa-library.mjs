@@ -46,14 +46,14 @@ try {
 	check(
 		( await page
 			.locator( '.wpiepca-tile[data-library-key^="preset:"]' )
-			.count() ) === 48,
-		'48 starter scene cards'
+			.count() ) === 98,
+		'98 starter scene cards'
 	);
 	check(
 		( await page
 			.locator( '.wpiepca-tile[data-library-key^="win:"]' )
-			.count() ) === 34,
-		'34 frame cards'
+			.count() ) === 38,
+		'38 frame cards'
 	);
 	const search = page.getByRole( 'searchbox', { name: 'Motive suchen' } ),
 		category = page.getByRole( 'combobox', {
@@ -64,8 +64,8 @@ try {
 	await category.selectOption( 'scenes' );
 	await theme.selectOption( 'tropical' );
 	check(
-		( await page.locator( '.wpiepca-tile:visible' ).count() ) === 4,
-		'tropical filter shows its four scenes'
+		( await page.locator( '.wpiepca-tile:visible' ).count() ) === 5,
+		'tropical filter shows its five scenes'
 	);
 	await search.fill( 'wasserfall' );
 	check(
@@ -184,14 +184,16 @@ try {
 		scenes: window.__pcaLibrary.scenes,
 	} ) );
 	check(
-		catalog.samples.length === 89 && catalog.scenes.length === 32,
-		'121 additions in total'
+		catalog.samples.length === 119 && catalog.scenes.length === 82,
+		'119 motifs and 82 themed scenes'
 	);
 	const results = [];
 	// Contact sheets in the actual renderer, with labels outside the paper image.
 	for ( const [ name, entries ] of [
 		[ 'scenes-1', catalog.scenes.slice( 0, 16 ) ],
-		[ 'scenes-2', catalog.scenes.slice( 16 ) ],
+		[ 'scenes-2', catalog.scenes.slice( 16, 32 ) ],
+		[ 'scenes-3', catalog.scenes.slice( 32, 48 ) ],
+		[ 'scenes-4', catalog.scenes.slice( 48 ) ],
 		[ 'windows', catalog.samples.filter( ( e ) => e.kind === 'frame' ) ],
 		[ 'trees', catalog.samples.filter( ( e ) => e.kind === 'trees' ) ],
 		[ 'plants', catalog.samples.filter( ( e ) => e.kind === 'plants' ) ],

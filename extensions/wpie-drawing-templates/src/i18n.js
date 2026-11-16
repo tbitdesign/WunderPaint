@@ -1,3 +1,4 @@
+import { EXTRA_TRANSLATIONS } from './practice-i18n.js';
 /**
  * Translations for this extension.
  *
@@ -24,7 +25,7 @@ const DE = {
 	Colors: 'Farben',
 	Settings: 'Einstellungen',
 	'Whole document': 'Gesamtes Dokument',
-	'Media library…': 'Mediathek…',
+	'Media Library': 'Mediathek',
 	'Choose image': 'Bild wählen',
 	'Use image': 'Bild verwenden',
 	'Could not load the image.': 'Bild konnte nicht geladen werden.',
@@ -103,7 +104,7 @@ const ES = {
 	Colors: 'Colores',
 	Settings: 'Ajustes',
 	'Whole document': 'Documento completo',
-	'Media library…': 'Biblioteca de medios…',
+	'Media Library': 'Biblioteca de medios',
 	'Choose image': 'Elegir imagen',
 	'Use image': 'Usar imagen',
 	'Could not load the image.': 'No se pudo cargar la imagen.',
@@ -182,7 +183,7 @@ const FR = {
 	Colors: 'Couleurs',
 	Settings: 'Réglages',
 	'Whole document': 'Document entier',
-	'Media library…': 'Médiathèque…',
+	'Media Library': 'Médiathèque',
 	'Choose image': 'Choisir une image',
 	'Use image': "Utiliser l'image",
 	'Could not load the image.': "Impossible de charger l'image.",
@@ -261,7 +262,7 @@ const PT = {
 	Colors: 'Cores',
 	Settings: 'Configurações',
 	'Whole document': 'Documento inteiro',
-	'Media library…': 'Biblioteca de mídia…',
+	'Media Library': 'Biblioteca de mídia',
 	'Choose image': 'Escolher imagem',
 	'Use image': 'Usar imagem',
 	'Could not load the image.': 'Não foi possível carregar a imagem.',
@@ -340,7 +341,7 @@ const IT = {
 	Colors: 'Colori',
 	Settings: 'Impostazioni',
 	'Whole document': 'Documento intero',
-	'Media library…': 'Libreria media…',
+	'Media Library': 'Libreria media',
 	'Choose image': 'Scegli immagine',
 	'Use image': 'Usa immagine',
 	'Could not load the image.': "Impossibile caricare l'immagine.",
@@ -419,7 +420,7 @@ const NL = {
 	Colors: 'Kleuren',
 	Settings: 'Instellingen',
 	'Whole document': 'Hele document',
-	'Media library…': 'Mediabibliotheek…',
+	'Media Library': 'Mediabibliotheek',
 	'Choose image': 'Afbeelding kiezen',
 	'Use image': 'Afbeelding gebruiken',
 	'Could not load the image.': 'De afbeelding kon niet worden geladen.',
@@ -488,4 +489,5 @@ const NL = {
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };
 const DICT = DICTS[ LOCALE.slice( 0, 2 ) ] || null;
-export const t = ( s ) => ( DICT && DICT[ s ] ) || s;
+const EXTRA = EXTRA_TRANSLATIONS[ LOCALE.slice( 0, 2 ) ] || {};
+export const t = ( s ) => EXTRA[ s ] || ( DICT && DICT[ s ] ) || s;

@@ -1,6 +1,6 @@
 {
 	"name": "wpie-chaos-art",
-	"version": "1.10.5",
+	"version": "1.13.1",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: Chaos Art - autonomous painters make unrepeatable abstract art",

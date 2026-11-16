@@ -1,3 +1,4 @@
+import { strokePaintStyle } from './patterns';
 import { pathGlyphLayout, sampledPathFor } from '../text-path';
 import { layoutTextInShape, maskSpanFn } from '../text-shape';
 import { hasSpans, layoutRichText, textTopPad } from '../rich-text';
@@ -12,7 +13,8 @@ import {
 	textLineStyle,
 	wrapLine,
 } from './text-metrics';
-import { charFxFor, drawLineHighlights, paintGlyphFx } from './text-paint';
+import { charFxFor, paintGlyphFx } from './text-paint';
+import { drawLineHighlights } from './text-annotations';
 
 /** Dash pattern for a text layer's outline, or null for solid. */
 const outlineDashFor = ( layer, width = layer.outlineW ) =>
@@ -49,28 +51,20 @@ export function drawRichText( ctx, layer ) {
 	const baseFill = textFillStyle( ctx, layer );
 	const { lines } = layoutRichText( ctx, layer );
 
-	// Hand-drawn highlights per line (straight text only, v1.141.0).
-	if (
-		! layer.curve &&
-		! layer.textPath?.d &&
-		( layer.textFX?.marker ||
-			layer.textFX?.circleMark ||
-			layer.textFX?.scribbleUnder ||
-			layer.textFX?.strikeFx )
-	) {
-		drawLineHighlights(
-			ctx,
-			layer.textFX,
-			lines
-				.filter( ( line ) => line.frags.length )
-				.map( ( line ) => ( {
-					x: line.x,
-					baseline: line.baseline,
-					width: line.width,
-					size: Math.max( ...line.frags.map( ( f ) => f.st.size ) ),
-				} ) )
-		);
-	}
+	const annotationRects =
+		! layer.curve && ! layer.textPath?.d && layer.textFX
+			? lines
+					.filter( ( line ) => line.frags.length )
+					.map( ( line ) => ( {
+						x: line.x,
+						baseline: line.baseline,
+						width: line.width,
+						size: Math.max(
+							...line.frags.map( ( f ) => f.st.size )
+						),
+					} ) )
+			: [];
+	drawLineHighlights( ctx, layer.textFX, annotationRects, 'behind' );
 
 	// Word-level marker highlights (v1.141.1): fragments whose span style
 	// carries `mark` get a hand-drawn swipe, adjacent same-color fragments
@@ -165,14 +159,23 @@ export function drawRichText( ctx, layer ) {
 	};
 	const hasOutline = layer.outlineColor && layer.outlineW > 0;
 	if ( hasOutline ) {
-		ctx.strokeStyle = layer.outlineColor;
+		ctx.strokeStyle = strokePaintStyle( ctx, layer );
 		ctx.lineWidth = layer.outlineW;
 		ctx.lineJoin = 'round';
 		applyOutlineDash( ctx, layer );
 	}
+	const outlineSpace =
+		hasOutline && layer.strokeGradient ? ctx.getTransform() : null;
 	const paintGlyph = ( text, gx, gy, st ) => {
 		applyShadow( st );
 		if ( hasOutline ) {
+			if ( outlineSpace ) {
+				ctx.strokeStyle = strokePaintStyle(
+					ctx,
+					layer,
+					ctx.getTransform().inverse().multiply( outlineSpace )
+				);
+			}
 			ctx.strokeText( text, gx, gy );
 			clearShadow();
 		}
@@ -284,6 +287,7 @@ export function drawRichText( ctx, layer ) {
 			}
 		}
 	}
+	drawLineHighlights( ctx, layer.textFX, annotationRects, 'front' );
 }
 
 /**
@@ -387,7 +391,7 @@ export function drawTextInShape( ctx, layer ) {
 	// scales with the same factor so the stitch density stays constant.
 	const oDash = hasOutline ? outlineDashFor( layer ) : null;
 	if ( hasOutline ) {
-		ctx.strokeStyle = layer.outlineColor;
+		ctx.strokeStyle = strokePaintStyle( ctx, layer );
 		ctx.lineJoin = 'round';
 		if ( oDash && 'dotted' === layer.outlineDash ) {
 			ctx.lineCap = 'round';
@@ -534,144 +538,31 @@ export function drawText( ctx, layer ) {
 	}
 	const baseAt = ( i ) => bases[ i ];
 
-	// Hand-drawn highlights per line (straight text only, v1.141.0).
-	if (
-		! layer.curve &&
-		! layer.textPath?.d &&
-		( layer.textFX?.marker ||
-			layer.textFX?.circleMark ||
-			layer.textFX?.scribbleUnder ||
-			layer.textFX?.strikeFx )
-	) {
-		const rects = lines.map( ( line, i ) => {
-			const st = sty[ i ];
-			ctx.font = st.font;
-			const width = measureWithSpacing( ctx, line, st.ls );
-			let x = 0;
-			if ( 'center' === layer.align ) {
-				x = ( layer.w - width ) / 2;
-			} else if ( 'right' === layer.align ) {
-				x = layer.w - width;
-			}
-			return {
-				x,
-				baseline: baseAt( i ),
-				width: line ? width : 0,
-				size: st.size,
-			};
-		} );
-		drawLineHighlights( ctx, layer.textFX, rects );
-		ctx.fillStyle = baseFill;
-	}
-
-	// Clean highlight box per line: a rounded block that hugs the text.
-	if ( layer.textFX?.highlight && ! layer.curve && ! layer.textPath?.d ) {
-		const hl = layer.textFX.highlight;
-		const padP = Math.max( 0, Math.min( 40, hl.pad ?? 14 ) );
-		ctx.save();
-		ctx.globalAlpha =
-			Math.max( 10, Math.min( 100, hl.opacity ?? 100 ) ) / 100;
-		ctx.fillStyle = hl.color || '#ffe066';
-		lines.forEach( ( line, i ) => {
-			if ( ! line ) {
-				return;
-			}
-			const st = sty[ i ];
-			ctx.font = st.font;
-			const width = measureWithSpacing( ctx, line, st.ls );
-			let x = 0;
-			if ( 'center' === layer.align ) {
-				x = ( layer.w - width ) / 2;
-			} else if ( 'right' === layer.align ) {
-				x = layer.w - width;
-			}
-			const padX = st.size * 0.12 + padP * 0.4;
-			const padY = st.size * 0.14 + padP * 0.25;
-			const y = baseAt( i );
-			const rx = x - padX;
-			const ry = y - st.size * 0.78 - padY;
-			const rw = width + padX * 2;
-			const rh = st.size + padY * 2;
-			const rr = Math.min(
-				Math.max( 0, Math.min( 60, hl.radius ?? 8 ) ),
-				rh / 2
-			);
-			ctx.beginPath();
-			ctx.moveTo( rx + rr, ry );
-			ctx.arcTo( rx + rw, ry, rx + rw, ry + rh, rr );
-			ctx.arcTo( rx + rw, ry + rh, rx, ry + rh, rr );
-			ctx.arcTo( rx, ry + rh, rx, ry, rr );
-			ctx.arcTo( rx, ry, rx + rw, ry, rr );
-			ctx.closePath();
-			ctx.fill();
-		} );
-		ctx.restore();
-		ctx.fillStyle = baseFill;
-	}
-
-	// Decorative underline per line (solid / double / wavy / zigzag).
-	if ( layer.textFX?.underlineFx && ! layer.curve && ! layer.textPath?.d ) {
-		const u = layer.textFX.underlineFx;
-		const style = Math.round( Math.max( 0, Math.min( 3, u.style ?? 0 ) ) );
-		ctx.save();
-		ctx.strokeStyle = u.color || '#e5484d';
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		lines.forEach( ( line, i ) => {
-			if ( ! line ) {
-				return;
-			}
-			const st = sty[ i ];
-			ctx.font = st.font;
-			const width = measureWithSpacing( ctx, line, st.ls );
-			let x = 0;
-			if ( 'center' === layer.align ) {
-				x = ( layer.w - width ) / 2;
-			} else if ( 'right' === layer.align ) {
-				x = layer.w - width;
-			}
-			const th = Math.max( 1, ( ( u.thickness ?? 8 ) / 100 ) * st.size );
-			const yb =
-				baseAt( i ) +
-				st.size * 0.16 +
-				( ( u.offset ?? 8 ) / 100 ) * st.size;
-			ctx.lineWidth = th;
-			if ( 2 === style || 3 === style ) {
-				const amp = th * 1.3;
-				const period = Math.max( 8, st.size * 0.55 );
-				ctx.beginPath();
-				for ( let px = 0; px <= width; px += 2 ) {
-					const t = px / period;
-					const frac = t - Math.floor( t );
-					const osc =
-						3 === style
-							? 4 * Math.abs( frac - 0.5 ) - 1
-							: Math.sin( frac * Math.PI * 2 );
-					const yy = yb + osc * amp;
-					if ( 0 === px ) {
-						ctx.moveTo( x + px, yy );
-					} else {
-						ctx.lineTo( x + px, yy );
+	const annotationRects =
+		! layer.curve && ! layer.textPath?.d && layer.textFX
+			? lines.map( ( line, i ) => {
+					const st = sty[ i ];
+					ctx.font = st.font;
+					let width = measureWithSpacing( ctx, line, st.ls );
+					if ( isJustify && softWrap[ i ] && / /.test( line ) ) {
+						width = Math.max( width, layer.w );
 					}
-				}
-				ctx.stroke();
-			} else {
-				ctx.beginPath();
-				ctx.moveTo( x, yb );
-				ctx.lineTo( x + width, yb );
-				ctx.stroke();
-				if ( 1 === style ) {
-					const y2 = yb + th * 2.2;
-					ctx.beginPath();
-					ctx.moveTo( x, y2 );
-					ctx.lineTo( x + width, y2 );
-					ctx.stroke();
-				}
-			}
-		} );
-		ctx.restore();
-		ctx.fillStyle = baseFill;
-	}
+					let x = 0;
+					if ( layer.align === 'center' ) {
+						x = ( layer.w - width ) / 2;
+					} else if ( layer.align === 'right' ) {
+						x = layer.w - width;
+					}
+					return {
+						x,
+						baseline: baseAt( i ),
+						width: line.trim() ? width : 0,
+						size: st.size,
+					};
+			  } )
+			: [];
+	drawLineHighlights( ctx, layer.textFX, annotationRects, 'behind' );
+	ctx.fillStyle = baseFill;
 
 	// Pill background per line (v0.6), straight text only.
 	if ( layer.bgColor && ! layer.curve && ! layer.textPath?.d ) {
@@ -727,14 +618,23 @@ export function drawText( ctx, layer ) {
 	};
 	const hasOutline = layer.outlineColor && layer.outlineW > 0;
 	if ( hasOutline ) {
-		ctx.strokeStyle = layer.outlineColor;
+		ctx.strokeStyle = strokePaintStyle( ctx, layer );
 		ctx.lineWidth = layer.outlineW;
 		ctx.lineJoin = 'round';
 		applyOutlineDash( ctx, layer );
 	}
+	const outlineSpace =
+		hasOutline && layer.strokeGradient ? ctx.getTransform() : null;
 	const paintGlyph = ( text, gx, gy, st ) => {
 		applyShadow( st );
 		if ( hasOutline ) {
+			if ( outlineSpace ) {
+				ctx.strokeStyle = strokePaintStyle(
+					ctx,
+					layer,
+					ctx.getTransform().inverse().multiply( outlineSpace )
+				);
+			}
 			ctx.strokeText( text, gx, gy );
 			clearShadow();
 		}
@@ -844,4 +744,5 @@ export function drawText( ctx, layer ) {
 			);
 		}
 	} );
+	drawLineHighlights( ctx, layer.textFX, annotationRects, 'front' );
 }

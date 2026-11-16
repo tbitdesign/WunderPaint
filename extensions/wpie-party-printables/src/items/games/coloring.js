@@ -4,11 +4,11 @@ import { SHAPES, bg, outline, outlineMotif, label } from '../common.js';
 export const ITEM = {
 	id: 'coloring',
 	label: 'Coloring page',
-	hint: 'The motif of the occasion big as an outline to colour, with a frame and the name of the artist.',
+	hint: 'The motif of the occasion big as an outline to color, with a frame and the name of the artist.',
 	group: 'games',
 	uses: { text: true, names: false, photo: 'none', event: [ 'title' ] },
 	textLabel: 'Line under the picture',
-	placeholder: 'Coloured by',
+	placeholder: 'Colored by',
 	sizes: [
 		{ label: 'A4 (210 x 297 mm)', w: 194, h: 281 },
 		{ label: 'A5 (148 x 210 mm)', w: 140, h: 200 },
@@ -56,7 +56,7 @@ export const ITEM = {
 		] ) {
 			parts.push( outlineMotif( motif, x, y, small, ink, 0.4 ) );
 		}
-		const line = [ item.text || t( 'Coloured by' ), ctx.event.title ]
+		const line = [ item.text || t( 'Colored by' ), ctx.event.title ]
 			.filter( Boolean )
 			.join( ' · ' );
 		parts.push(

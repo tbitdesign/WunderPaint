@@ -10,26 +10,15 @@ Two modules the three.js studios had carried as byte-identical copies:
 Identical by md5, not merely similar, which is why merging them needed no
 decisions - only the confidence that they really were the same file.
 
-## Why `text3d.js` and `fonts.js` are NOT here
+## `text3d.js` moved to `shared/text3d/` (20.10.2026)
 
-They were the bigger prize (517 and 232 lines, two copies each) and the first
-attempt moved them too. It does not work, and the reason is worth writing down
-so nobody tries again on a slow afternoon: esbuild resolves a bare specifier
-from the directory of the file that writes it, not from the entry point.
-`text3d.js` imports `three` and `fonts.js` imports `opentype.js`; from
-`extensions/shared/three3d/` there is no `node_modules` above it that carries
-either, so the build fails outright.
-
-The ways out are all worse than the duplication:
-
-* an `--alias:` per package and per dependency - grows with every new import,
-  and silently wrong the day someone forgets one;
-* a `node_modules` of its own next to `shared/` - a second copy of three.js
-  on disk to avoid a second copy of a 517-line file;
-* injecting `THREE` and `opentype` as parameters, the way the fx `motifs.js`
-  fork does. That is the right end state, but it is an API change across six
-  call sites in two packages, so it is a refactor with its own risk budget,
-  not a de-duplication.
+The bigger prize was blocked here by one fact: esbuild resolves a bare
+specifier from the directory of the file that writes it, and nothing above
+`extensions/shared/` holds `three`. It is solved by pointing every build and
+every Node run at the extension's own `node_modules` (`NODE_PATH` for the
+esbuild CLI, `nodePaths` for the API, `--import ../shared/node-resolve.mjs` for
+Node), see `shared/text3d/README.md`. `fonts.js` stays per extension: it
+imports the extension's own woff2 stamp.
 
 So the rule for this folder: **a module belongs here only if it imports
 nothing but relative paths.**

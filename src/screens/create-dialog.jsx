@@ -26,6 +26,7 @@ import { StarterPreview, TemplateFilterBar } from './library-dialog';
 import { filterTemplates } from '../content/template-filter';
 import { mergeTemplateCategories } from '../content/template-categories';
 import { useExtensionTemplatePacks } from '../components/use-extension-packs';
+import { HEIC_ACCEPT, normalizeImageFile } from '../lib/heic';
 
 const UNITS = { px: 1, in: null, cm: null }; // converted via DPI
 
@@ -158,6 +159,9 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 				setW( psdDoc.w );
 				setH( psdDoc.h );
 			} else {
+				// A HEIC photo goes on as JPEG: the browser cannot show it,
+				// and the Media Library gets a file with thumbnails.
+				f = await normalizeImageFile( f );
 				const src = URL.createObjectURL( f );
 				const img = await loadImage( src );
 				setOpenFile( {
@@ -581,7 +585,7 @@ export function CreateDialog( { onClose, extras, welcome = false } ) {
 								<input
 									ref={ fileInput }
 									type="file"
-									accept="image/*,.psd"
+									accept={ 'image/*,.psd,' + HEIC_ACCEPT }
 									hidden
 									onChange={ ( e ) =>
 										takeFile( e.target.files?.[ 0 ] )

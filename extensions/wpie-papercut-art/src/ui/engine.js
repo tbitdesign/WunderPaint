@@ -7,7 +7,7 @@
  */
 
 import { buildScene } from '../core/scene.js';
-import { ringsToPath, scaleRings, rng } from '../core/geom.js';
+import { ringsToPath, scaleRings } from '../core/geom.js';
 import {
 	lumaOf,
 	blurLuma,
@@ -17,6 +17,8 @@ import {
 } from '../core/photo.js';
 import { trace as traceMask } from '../core/mask.js';
 import { lookById } from '../core/model.js';
+import { paperLight, FINISH_DEFAULTS } from '../core/finishes.js';
+import { paintPaperSurface, paperTint } from './paper-material.js';
 
 const SELECT_COLOR = 'rgba(59, 102, 255, 0.95)';
 // Handles sit this far outside the shape, in canvas pixels.
@@ -24,63 +26,12 @@ const HANDLE_PAD = 4;
 // Page-covering objects have no meaningful corner to drag.
 const FULL_PAGE_KINDS = [ 'backdrop', 'terrain', 'border', 'frame' ];
 
-/** Deterministic paper-grain tile, generated once. */
-function grainTile() {
-	const c = document.createElement( 'canvas' );
-	c.width = 128;
-	c.height = 128;
-	const g = c.getContext( '2d' );
-	const img = g.createImageData( 128, 128 );
-	const r = rng( 4711 );
-	for ( let i = 0; i < 128 * 128; i++ ) {
-		const v = 118 + Math.floor( r() * 20 );
-		img.data[ i * 4 ] = v;
-		img.data[ i * 4 + 1 ] = v;
-		img.data[ i * 4 + 2 ] = v;
-		img.data[ i * 4 + 3 ] = 255;
-	}
-	g.putImageData( img, 0, 0 );
-	return c;
-}
-
-/**
- * Deterministic paper-FIBRE tile: the same noise drawn out sideways, so
- * it reads as a tooth in the sheet rather than as sand. Generated once.
- */
-function fibreTile() {
-	const c = document.createElement( 'canvas' );
-	c.width = 96;
-	c.height = 96;
-	const g = c.getContext( '2d' );
-	const img = g.createImageData( 96, 96 );
-	const r = rng( 1907 );
-	// One value per row-run: a fibre is long in x and thin in y.
-	for ( let y = 0; y < 96; y++ ) {
-		let x = 0;
-		while ( x < 96 ) {
-			const run = 3 + Math.floor( r() * 12 );
-			const v = 108 + Math.floor( r() * 40 );
-			for ( let k = 0; k < run && x < 96; k++, x++ ) {
-				const i = y * 96 + x;
-				img.data[ i * 4 ] = v;
-				img.data[ i * 4 + 1 ] = v;
-				img.data[ i * 4 + 2 ] = v;
-				img.data[ i * 4 + 3 ] = 255;
-			}
-		}
-	}
-	g.putImageData( img, 0, 0 );
-	return c;
-}
-
 export class PaperEngine {
 	constructor( canvas ) {
 		this.canvas = canvas;
 		this.ctx = canvas.getContext( '2d' );
 		this.w = 2;
 		this.h = 2;
-		this.grain = grainTile();
-		this.fibre = fibreTile();
 		this.scene = null;
 		this.params = null;
 		// Photo pixels arrive as canvases; luma caches per size+blur.
@@ -90,6 +41,14 @@ export class PaperEngine {
 		// Per-sheet build cache for the live preview: only what changed
 		// is recomputed, which is what makes dragging feel immediate.
 		this._cache = new Map();
+		// v3.8: the PAINT cache for drags (renderLive). The build cache
+		// spared the geometry, but every frame still rasterized every
+		// sheet with its soft shadows - 64 ms a step in the median, 144
+		// with ten sheets. Now the sheets below and above what changes
+		// are kept as two finished images.
+		this._live = null;
+		this._ringIds = new WeakMap();
+		this._ringSeq = 0;
 	}
 
 	setSize( w, h ) {
@@ -298,6 +257,63 @@ export class PaperEngine {
 		return rings.length ? [ rings ] : [];
 	}
 
+	/**
+	 * One of the editor's shapes as paper (v3.8): its path data from
+	 * bridge.shapes, filled at the object's size into a small canvas
+	 * around it and traced like the letters. Rotation is applied to the
+	 * traced outline later, the way it is for every object.
+	 *
+	 * @param {Object} obj Clean form object.
+	 * @param {number} w   Target width.
+	 * @param {number} h   Target height.
+	 * @return {Array} Stamps.
+	 */
+	formStamps( obj, w, h ) {
+		const shapes =
+			'undefined' !== typeof window &&
+			window.WPIE &&
+			window.WPIE.bridge &&
+			window.WPIE.bridge.shapes;
+		if ( ! shapes || 'function' !== typeof shapes.pathD ) {
+			return [];
+		}
+		const size = Math.max( 4, ( obj.scale / 100 ) * h );
+		let d = '';
+		try {
+			d = shapes.pathD( obj.shape, size, size ) || '';
+		} catch ( e ) {
+			d = '';
+		}
+		if ( ! d ) {
+			return [];
+		}
+		const pad = 2;
+		const side = Math.ceil( size ) + pad * 2;
+		const c = document.createElement( 'canvas' );
+		c.width = side;
+		c.height = side;
+		const g = c.getContext( '2d' );
+		g.translate( pad, pad );
+		if ( obj.flip ) {
+			g.translate( size, 0 );
+			g.scale( -1, 1 );
+		}
+		g.fillStyle = '#fff';
+		g.fill( new Path2D( d ), 'evenodd' );
+		const mask = alphaMask(
+			g.getImageData( 0, 0, side, side ).data,
+			side,
+			side,
+			0.4
+		);
+		const ox = obj.x * w - size / 2 - pad;
+		const oy = obj.y * h - size / 2 - pad;
+		const rings = traceMask( { w: side, h: side, data: mask } ).map(
+			( ring ) => ring.map( ( [ x, y ] ) => [ x + ox, y + oy ] )
+		);
+		return rings.length ? [ rings ] : [];
+	}
+
 	rasterLetter( letter, w, h ) {
 		const c = document.createElement( 'canvas' );
 		c.width = w;
@@ -342,6 +358,7 @@ export class PaperEngine {
 			photo: live ? this.lumaAt( w, h, params.photo.blur ) : null,
 			subject: params.photo.subject ? this.subjectAt( w, h ) : null,
 			textStamps: ( obj, ww, hh ) => this.textStamps( obj, ww, hh ),
+			formStamps: ( obj, ww, hh ) => this.formStamps( obj, ww, hh ),
 			rasterLetter: ( l, ww, hh ) => this.rasterLetter( l, ww, hh ),
 		};
 	}
@@ -394,54 +411,71 @@ export class PaperEngine {
 	 * @param {number} opts.h     Target height in px.
 	 * @param {number} opts.baseW Width the rings were built at, for scale.
 	 */
-	paintLayer( g, layer, { w, h, baseW } = {} ) {
-		const p = this.params;
-		if ( ! layer.rings.length ) {
-			return;
-		}
+	paintLayer(
+		g,
+		layer,
+		{ w = this.w, h = this.h, baseW = this.w, params = this.params } = {}
+	) {
+		const p = params;
+		if ( ! layer.rings.length ) return;
 		const path = this.layerPath( layer, w, h, baseW );
-		const amt = ( layer.layer.shadow ?? 100 ) / 100;
+		const light = paperLight( p );
+		const unit = h / 700;
+		const lift = ( layer.layer.elevation ?? 100 ) / 100;
+		const strength =
+			( p.shadow / 100 ) * ( ( layer.layer.shadow ?? 100 ) / 100 );
+		const material = layer.layer.paper || p.paper || 'smooth';
+		const index = Math.max(
+			0,
+			p.layers.findIndex( ( l ) => l.id === layer.layer.id )
+		);
+		const rim = p.edge === 'rim';
+		const distance =
+			unit * ( rim ? 2 : 3 + lift * 17 ) * ( 0.3 + p.shadow / 100 );
 		g.save();
-		if ( 'rim' === p.edge ) {
-			const d = 1 + ( p.shadow / 100 ) * h * 0.004 * amt;
-			g.shadowColor = `rgba(10, 12, 20, ${ 0.42 * amt })`;
-			g.shadowBlur = 0;
-			g.shadowOffsetX = -( p.lightX / 100 ) * d;
-			g.shadowOffsetY = d;
-		} else {
-			const depth = 1 + ( p.shadow / 100 ) * h * 0.028 * amt;
-			g.shadowColor = `rgba(10, 12, 20, ${
-				( 0.16 + ( p.shadow / 100 ) * 0.3 ) * amt
-			})`;
-			g.shadowBlur = 1 + ( p.soft / 100 ) * h * 0.02;
-			g.shadowOffsetX = -( p.lightX / 100 ) * depth;
-			g.shadowOffsetY = depth * 0.85;
-		}
 		g.fillStyle = layer.color;
-		g.fill( path, 'evenodd' );
-		g.shadowColor = 'transparent';
-		const fibre = 'fibre' === p.paper;
-		if ( p.grain > 0 || fibre ) {
-			g.clip( path, 'evenodd' );
-			g.globalCompositeOperation = 'overlay';
-			if ( p.grain > 0 ) {
-				g.globalAlpha = ( p.grain / 100 ) * 0.16;
-				g.fillStyle = g.createPattern( this.grain, 'repeat' );
-				g.fillRect( 0, 0, w, h );
+		if ( strength > 0 ) {
+			// A broad cast gives height; the separate short contact shadow anchors the edge.
+			g.shadowColor =
+				'rgba(10,14,22,' + Math.min( 0.72, strength * 0.57 ) + ')';
+			g.shadowBlur = rim
+				? 0
+				: unit * ( 1 + ( p.soft / 100 ) * ( 7 + lift * 16 ) );
+			g.shadowOffsetX = -light.x * distance;
+			g.shadowOffsetY = -light.y * distance;
+			g.fill( path, 'evenodd' );
+			if ( ! rim ) {
+				g.shadowColor =
+					'rgba(8,12,18,' + Math.min( 0.4, strength * 0.32 ) + ')';
+				g.shadowBlur = unit * ( 1.2 + lift * 1.6 );
+				g.shadowOffsetX = -light.x * unit * 1.3;
+				g.shadowOffsetY = -light.y * unit * 1.3;
+				g.fill( path, 'evenodd' );
 			}
-			if ( fibre ) {
-				// A coarser, drawn-out tooth on top of the fine grain.
-				// Scaled with the picture so a 2000px still does not look
-				// like sandpaper next to a 700px stage.
-				const s = Math.max( 1, h / 700 );
-				g.globalAlpha = 0.3;
+		}
+		g.shadowColor = 'transparent';
+		g.shadowBlur = g.shadowOffsetX = g.shadowOffsetY = 0;
+		const thickness =
+			( p.thickness ?? FINISH_DEFAULTS.thickness ) *
+			unit *
+			( rim ? 0.028 : 0.078 );
+		if ( thickness > 0 ) {
+			// Draw the paper core, not a uniform outline around the silhouette.
+			const steps = Math.min( 10, Math.max( 1, Math.ceil( thickness ) ) );
+			g.fillStyle = paperTint( layer.color, -0.22 );
+			for ( let i = steps; i > 0; i-- ) {
 				g.save();
-				g.scale( s, s );
-				g.fillStyle = g.createPattern( this.fibre, 'repeat' );
-				g.fillRect( 0, 0, w / s, h / s );
+				g.translate(
+					( -light.nx * thickness * i ) / steps,
+					( -light.ny * thickness * i ) / steps
+				);
+				g.fill( path, 'evenodd' );
 				g.restore();
 			}
 		}
+		g.fillStyle = layer.color;
+		g.fill( path, 'evenodd' );
+		paintPaperSurface( g, path, layer.color, material, p, { w, h, index } );
 		g.restore();
 	}
 
@@ -455,7 +489,8 @@ export class PaperEngine {
 		if ( params.glow > 0 ) {
 			const r = Math.max( w, h ) * 0.75;
 			const cx = w * ( 0.5 + params.lightX / 400 );
-			const cy = h * 0.34;
+			const cy =
+				h * ( 0.5 + ( params.lightY ?? FINISH_DEFAULTS.lightY ) / 400 );
 			const rad = g.createRadialGradient( cx, cy, 0, cx, cy, r );
 			rad.addColorStop( 0, look.glow );
 			rad.addColorStop( 1, look.bg[ 1 ] );
@@ -502,6 +537,8 @@ export class PaperEngine {
 	render( { selected = null } = {} ) {
 		const g = this.ctx;
 		const { w, h } = this;
+		// A full paint is the truth; any frozen drag images are stale now.
+		this._live = null;
 		if ( ! this.scene ) {
 			return;
 		}
@@ -510,6 +547,131 @@ export class PaperEngine {
 		layers.forEach( ( layer ) => {
 			this.paintLayer( g, layer, { w, h, baseW: w } );
 		} );
+		this.paintSelection( g, selected, layers );
+	}
+
+	/** What decides how a built sheet looks, as one comparable string. */
+	_paintSig( built, i ) {
+		let id = this._ringIds.get( built.rings );
+		if ( ! id ) {
+			id = ++this._ringSeq;
+			this._ringIds.set( built.rings, id );
+		}
+		const l = built.layer || {};
+		return [
+			i,
+			id,
+			built.color,
+			l.id,
+			l.dx || 0,
+			l.dy || 0,
+			l.elevation ?? 100,
+			l.shadow ?? 100,
+			l.paper || '',
+			this.params.layers.findIndex( ( x ) => x.id === l.id ),
+		].join( '|' );
+	}
+
+	/** Everything outside the sheets that changes how they are painted. */
+	_globalSig() {
+		const rest = { ...this.params };
+		delete rest.layers;
+		return this.w + 'x' + this.h + JSON.stringify( rest );
+	}
+
+	/**
+	 * Paint for a drag or a slider (v3.8). Exactly the picture render()
+	 * makes - sheets are laid source-over, and the one blend they use
+	 * (soft-light grain) stays inside their own opaque paper - but the
+	 * sheets below and above the ones that changed are painted once into
+	 * two images and reused while only the changed range moves.
+	 *
+	 * @param {Object} opts
+	 * @param {string} opts.selected The selection to outline.
+	 */
+	renderLive( { selected = null } = {} ) {
+		if ( ! this.scene ) {
+			return;
+		}
+		const layers = this.allLayers();
+		const sig = layers.map( ( l, i ) => this._paintSig( l, i ) );
+		const global = this._globalSig();
+		const live = this._live;
+		if (
+			! live ||
+			live.global !== global ||
+			live.base.length !== sig.length
+		) {
+			this.render( { selected } );
+			this._live = {
+				global,
+				base: sig,
+				lo: -1,
+				hi: -1,
+				below: null,
+				above: null,
+			};
+			return;
+		}
+		let lo = Infinity,
+			hi = -1;
+		sig.forEach( ( s, i ) => {
+			if ( s !== live.base[ i ] ) {
+				lo = Math.min( lo, i );
+				hi = Math.max( hi, i );
+			}
+		} );
+		if ( hi < 0 ) {
+			if ( live.below ) {
+				this._composeLive( layers, live, selected );
+			} else {
+				this.render( { selected } );
+				this._live = live;
+			}
+			return;
+		}
+		if ( ! live.below || lo < live.lo || hi > live.hi ) {
+			const { w, h } = this;
+			const make = () => {
+				const c = document.createElement( 'canvas' );
+				c.width = w;
+				c.height = h;
+				return c;
+			};
+			live.lo = lo;
+			live.hi = hi;
+			live.below = live.below || make();
+			live.above = live.above || make();
+			const gb = live.below.getContext( '2d' );
+			gb.clearRect( 0, 0, w, h );
+			this.paintBackdrop( gb, w, h );
+			for ( let i = 0; i < lo; i++ ) {
+				this.paintLayer( gb, layers[ i ], { w, h, baseW: w } );
+			}
+			const ga = live.above.getContext( '2d' );
+			ga.clearRect( 0, 0, w, h );
+			for ( let i = hi + 1; i < layers.length; i++ ) {
+				this.paintLayer( ga, layers[ i ], { w, h, baseW: w } );
+			}
+		}
+		this._composeLive( layers, live, selected );
+	}
+
+	_composeLive( layers, live, selected ) {
+		const g = this.ctx;
+		const { w, h } = this;
+		g.clearRect( 0, 0, w, h );
+		g.drawImage( live.below, 0, 0 );
+		for ( let i = live.lo; i <= live.hi; i++ ) {
+			this.paintLayer( g, layers[ i ], { w, h, baseW: w } );
+		}
+		g.drawImage( live.above, 0, 0 );
+		this.paintSelection( g, selected, layers );
+	}
+
+	/** The dashed outline and handles of what is selected. */
+	paintSelection( g, selected, layers ) {
+		const { w } = this;
 		if ( ! selected ) {
 			return;
 		}
@@ -694,7 +856,7 @@ export class PaperEngine {
 		const g = c.getContext( '2d' );
 		this.paintBackdrop( g, w, h, params );
 		for ( const sheet of this.allLayers( scene ) ) {
-			this.paintLayer( g, sheet, { w, h, baseW: w } );
+			this.paintLayer( g, sheet, { w, h, baseW: w, params } );
 		}
 		return c.toDataURL( 'image/png' );
 	}
@@ -711,7 +873,7 @@ export class PaperEngine {
 			c.width = w;
 			c.height = h;
 			const g = c.getContext( '2d' );
-			this.paintLayer( g, sheet, { w, h, baseW: w } );
+			this.paintLayer( g, sheet, { w, h, baseW: w, params } );
 			out.push( {
 				layer: sheet,
 				src: c.toDataURL( 'image/png' ),

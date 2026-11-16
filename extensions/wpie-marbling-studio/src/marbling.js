@@ -128,6 +128,11 @@ export const DEFAULTS = Object.freeze( {
 	paper: 0.22,
 	// Gesture groups: how many ops each committed move added (undo unit).
 	groups: [],
+	// v1.9: a seamless tile - the bath wraps around its edges.
+	seamless: false,
+	// v1.9: a picture floating on the water instead of a plain colour
+	// (a downscaled JPEG data URL; '' = none).
+	picture: '',
 	// The video: how the finished bath moves.
 	video: 'grow', // 'grow' (the making, replayed) | 'water' (living loop)
 	waterAmp: 0.35,
@@ -271,6 +276,19 @@ export function mergeParams( raw ) {
 		g.reduce( ( a, b ) => a + b, 0 ) === p.ops.length
 			? g
 			: p.ops.map( () => 1 );
+	p.seamless = !! p.seamless;
+	p.picture =
+		'string' === typeof p.picture &&
+		/^data:image\/(jpeg|png|webp);base64,/.test( p.picture ) &&
+		p.picture.length < 6000000
+			? p.picture
+			: '';
+	// A picture has edges of its own; it cannot wrap without a seam. And
+	// it IS the water, so the water is not clear.
+	if ( p.picture ) {
+		p.seamless = false;
+		p.bathClear = false;
+	}
 	p.video = pick( p.video, [ 'grow', 'water', 'print' ], d.video );
 	p.waterAmp = num( p.waterAmp, 0, 1, d.waterAmp );
 	p.loop = num( p.loop, 2, 16, d.loop );
@@ -387,6 +405,9 @@ export function colorAt( ops, x, y, opt ) {
 export function traceColor( ops, x, y, opt ) {
 	const count = opt && Number.isFinite( opt.count ) ? opt.count : ops.length;
 	const lastT = opt && Number.isFinite( opt.lastT ) ? opt.lastT : 1;
+	if ( opt && opt.seamless ) {
+		return traceSeamless( ops, x, y, count, lastT, opt.aspect || 1 );
+	}
 	let px = x;
 	let py = y;
 	for ( let k = count - 1; k >= 0; k-- ) {
@@ -424,7 +445,224 @@ export function traceColor( ops, x, y, opt ) {
 		px = out[ 0 ];
 		py = out[ 1 ];
 	}
-	return { ink: -1, edge: 0, u: 0, v: 0, k: -1 };
+	// Where the point started on the water - a picture floating on the
+	// bath shows its colour from exactly there.
+	return { ink: -1, edge: 0, u: 0, v: 0, k: -1, x: px, y: py };
+}
+
+/* ------------------------------ seamless tile ----------------------------- */
+
+/*
+ * v1.9: the bath as a tile that wraps around its edges (a torus of
+ * aspect x 1). The exact drop pushes ink out to infinity, which a finite
+ * tile cannot hold, so every op gets a periodic form that is still
+ * exactly invertible:
+ *
+ *   drop     displaces only within the reach (just under half the tile):
+ *            r'^2 = r^2 + r0^2 (1 - r^2/R^2) maps 0..R onto r..R - near the
+ *            drop it is the classic drop, at the reach it is still.
+ *   curl,    rotate by an angle that depends only on the distance (that
+ *   arc      is what makes them exact); in the tile it fades to zero at
+ *            the reach.
+ *   needle,  are snapped (toSeamless) to directions and spacings whose
+ *   comb,    lines close on themselves across the tile - a needle on a
+ *   wave     torus is a comb of its own wrapped copies.
+ *
+ * Distances are taken to the nearest copy of the centre (the reach is
+ * under half the tile, so that copy is unambiguous).
+ */
+export const seamReach = ( aspect ) => 0.48 * Math.min( aspect, 1 );
+
+const wrapIn = ( v, size ) => ( ( v % size ) + size ) % size;
+const nearest = ( d, size ) => d - size * Math.round( d / size );
+
+function traceSeamless( ops, x, y, count, lastT, A ) {
+	const R = seamReach( A );
+	let px = wrapIn( x, A );
+	let py = wrapIn( y, 1 );
+	for ( let k = count - 1; k >= 0; k-- ) {
+		const op = ops[ k ];
+		const s = k === count - 1 ? lastT : 1;
+		if ( s <= 0 ) {
+			continue;
+		}
+		const t = op[ 0 ];
+		if ( OP.DROP === t ) {
+			const dx = nearest( px - op[ 1 ], A );
+			const dy = nearest( py - op[ 2 ], 1 );
+			const r = op[ 3 ] * s;
+			const L2 = dx * dx + dy * dy;
+			if ( L2 <= r * r ) {
+				return {
+					ink: op[ 4 ],
+					edge: Math.sqrt( L2 ) / r,
+					u: dx / r,
+					v: dy / r,
+					k,
+				};
+			}
+			if ( L2 < R * R ) {
+				const q = Math.sqrt(
+					( ( L2 - r * r ) * R * R ) / ( ( R * R - r * r ) * L2 )
+				);
+				px = op[ 1 ] + dx * q;
+				py = op[ 2 ] + dy * q;
+			}
+		} else if ( OP.VORTEX === t ) {
+			const dx = nearest( px - op[ 1 ], A );
+			const dy = nearest( py - op[ 2 ], 1 );
+			const L = Math.hypot( dx, dy );
+			if ( L < R ) {
+				const q = 1 + ( L / op[ 4 ] ) * ( L / op[ 4 ] );
+				const qc = 1 + ( R / op[ 4 ] ) * ( R / op[ 4 ] );
+				const th =
+					( -op[ 3 ] * s * ( 1 / ( q * q ) - 1 / ( qc * qc ) ) ) /
+					( 1 - 1 / ( qc * qc ) );
+				const c = Math.cos( th );
+				const sn = Math.sin( th );
+				px = op[ 1 ] + dx * c - dy * sn;
+				py = op[ 2 ] + dx * sn + dy * c;
+			}
+		} else if ( OP.ARC === t || OP.RING === t ) {
+			const dx = nearest( px - op[ 1 ], A );
+			const dy = nearest( py - op[ 2 ], 1 );
+			const L = Math.hypot( dx, dy );
+			if ( L < R ) {
+				const Rc = Math.max( 0.02, op[ 3 ] );
+				let dist = L - Rc;
+				if ( OP.RING === t ) {
+					const sp = op[ 6 ];
+					dist =
+						( ( ( ( dist + sp / 2 ) % sp ) + sp ) % sp ) - sp / 2;
+				}
+				const fade = ( 1 - ( L / R ) * ( L / R ) ) ** 2;
+				const phi =
+					( ( op[ 4 ] * s ) / Rc ) *
+					( op[ 5 ] / ( op[ 5 ] + Math.abs( dist ) ) ) *
+					fade;
+				const c = Math.cos( -phi );
+				const sn = Math.sin( -phi );
+				px = op[ 1 ] + dx * c - dy * sn;
+				py = op[ 2 ] + dx * sn + dy * c;
+			}
+		} else {
+			// Needles, combs and waves arrive snapped; their own formulas
+			// are periodic then.
+			const out =
+				OP.TINE === t
+					? unTine( px, py, op, s )
+					: OP.COMB === t
+					? unComb( px, py, op, s )
+					: unWave( px, py, op, s );
+			px = out[ 0 ];
+			py = out[ 1 ];
+		}
+		px = wrapIn( px, A );
+		py = wrapIn( py, 1 );
+	}
+	return { ink: -1, edge: 0, u: 0, v: 0, k: -1, x: px, y: py };
+}
+
+const gcd = ( a, b ) => ( b ? gcd( b, a % b ) : Math.abs( a ) );
+
+/*
+ * A line family that closes on the tile: normal n parallel to
+ * (i / A, j) with whole numbers i, j; the copies are 1 / |(i/A, j)|
+ * apart. snapComb picks the family closest to a wanted normal and
+ * spacing; a lone needle takes the widest family in its direction.
+ */
+function snapLines( nx, ny, A, spacing ) {
+	if ( spacing ) {
+		const i = Math.round( ( A * nx ) / spacing );
+		const j = Math.round( ny / spacing );
+		if ( i || j ) {
+			const L = Math.hypot( i / A, j );
+			return { nx: i / A / L, ny: j / L, sp: 1 / L };
+		}
+	}
+	let best = null;
+	for ( let i = -4; i <= 4; i++ ) {
+		for ( let j = -4; j <= 4; j++ ) {
+			if ( ( ! i && ! j ) || 1 !== gcd( Math.abs( i ), Math.abs( j ) ) ) {
+				continue;
+			}
+			const L = Math.hypot( i / A, j );
+			const c = ( ( i / A ) * nx + j * ny ) / L;
+			if ( ! best || c > best.c + 1e-9 ) {
+				best = { c, nx: i / A / L, ny: j / L, sp: 1 / L };
+			}
+		}
+	}
+	return best;
+}
+
+/**
+ * The history as the seamless tile renders it: needles become combs of
+ * their wrapped copies, combs and waves snap to spacings that close on
+ * the tile, drops and arcs stay inside the reach. Pure and idempotent;
+ * the stored history is never changed, so switching the tile off brings
+ * the open bath back exactly.
+ *
+ * @param {Array}  ops    Clean ops.
+ * @param {number} aspect Tile aspect.
+ * @return {Array} Ops for the seamless renderer.
+ */
+export function toSeamless( ops, aspect ) {
+	const A = aspect;
+	const R = seamReach( A );
+	return ops.map( ( op ) => {
+		const t = op[ 0 ];
+		if ( OP.DROP === t ) {
+			return [
+				t,
+				op[ 1 ],
+				op[ 2 ],
+				Math.min( op[ 3 ], R * 0.9 ),
+				op[ 4 ],
+			];
+		}
+		if ( OP.ARC === t || OP.RING === t ) {
+			const out = [ ...op ];
+			out[ 3 ] = Math.min( op[ 3 ], R * 0.85 );
+			return out;
+		}
+		if ( OP.TINE === t || OP.COMB === t ) {
+			const ux = op[ 3 ];
+			const uy = op[ 4 ];
+			const snap = snapLines( -uy, ux, A, OP.COMB === t ? op[ 7 ] : 0 );
+			// u is the normal turned back; keep the pull's sense.
+			let nux = snap.ny;
+			let nuy = -snap.nx;
+			if ( nux * ux + nuy * uy < 0 ) {
+				nux = -nux;
+				nuy = -nuy;
+			}
+			return [
+				OP.COMB,
+				op[ 1 ],
+				op[ 2 ],
+				nux,
+				nuy,
+				op[ 5 ],
+				op[ 6 ],
+				snap.sp,
+			];
+		}
+		if ( OP.WAVE === t ) {
+			let a = Math.round( ( A * op[ 1 ] ) / op[ 4 ] );
+			let b = Math.round( op[ 2 ] / op[ 4 ] );
+			if ( ! a && ! b ) {
+				if ( Math.abs( op[ 1 ] ) * A >= Math.abs( op[ 2 ] ) ) {
+					a = op[ 1 ] < 0 ? -1 : 1;
+				} else {
+					b = op[ 2 ] < 0 ? -1 : 1;
+				}
+			}
+			const L = Math.hypot( a / A, b );
+			return [ t, a / A / L, b / L, op[ 3 ], 1 / L, op[ 5 ] ];
+		}
+		return op;
+	} );
 }
 
 /** The forward comb shear - the tests prove rim EXACTNESS through it. */
@@ -522,6 +760,18 @@ const groundOps = ( rand, aspect, inkCount ) => {
 	return ops;
 };
 
+/*
+ * v1.9: the gel-git lying on its side, pulled left and right, so the
+ * nonpareil comb can cross its bands from above.
+ */
+const lyingGelgit = ( rand, aspect, spacing = 0.08 ) => {
+	const y = 0.5 + rand() * spacing;
+	return [
+		[ OP.COMB, aspect / 2, y, 1, 0, 0.3, 0.02, spacing ],
+		[ OP.COMB, aspect / 2, y + spacing / 2, -1, 0, 0.3, 0.02, spacing ],
+	];
+};
+
 const gelgitOps = ( aspect, spacing = 0.15, alpha = 0.45, lambda = 0.024 ) => [
 	[ OP.COMB, aspect / 2, 0.5, 0, 1, alpha, lambda, spacing ],
 	[ OP.COMB, aspect / 2 + spacing / 2, 0.5, 0, -1, alpha, lambda, spacing ],
@@ -548,26 +798,38 @@ export const RECIPES = [
 			...gelgitOps( aspect ),
 		],
 	},
+	// v1.9: the fine-comb patterns were rebuilt. Their combs used to pull
+	// half a bath-length through an already fine gel-git, which smeared
+	// every one of them into the same grainy streaks; now each pull is
+	// sized to its tooth spacing, so the pattern's own shape shows.
 	{
 		id: 'nonpareil',
 		label: 'Nonpareil',
 		build: ( rand, aspect, inks ) => [
 			...groundOps( rand, aspect, inks ),
-			...gelgitOps( aspect ),
-			[ OP.COMB, aspect / 2, 0.5, 1, 0, 0.5, 0.011, 0.052 ],
+			...lyingGelgit( rand, aspect ),
+			// The fine comb, pulled once across the bands: a row of small
+			// arches in every band.
+			[ OP.COMB, aspect / 2, 0.5, 0, 1, 0.06, 0.01, 0.035 ],
 		],
 	},
 	{
 		id: 'chevron',
 		label: 'Chevron',
-		build: ( rand, aspect, inks ) => [
-			...groundOps( rand, aspect, inks ),
-			...gelgitOps( aspect ),
-			[ OP.COMB, aspect / 2, 0.5, 1, 0, 0.5, 0.011, 0.052 ],
-			// The herringbone: a crosswise sway of exactly two tooth
-			// spacings shifts neighbouring rows against each other.
-			[ OP.WAVE, 0, 1, 0.03, 0.104, 0 ],
-		],
+		build: ( rand, aspect, inks ) => {
+			const ground = [
+				...groundOps( rand, aspect, inks ),
+				...gelgitOps( aspect, 0.08, 0.3, 0.02 ),
+			];
+			// One comb across, then the same comb back, shifted by half a
+			// tooth: neighbouring rows point opposite ways - arrows.
+			const y = 0.5 + rand() * 0.07;
+			return [
+				...ground,
+				[ OP.COMB, aspect / 2, y, 1, 0, 0.07, 0.01, 0.07 ],
+				[ OP.COMB, aspect / 2, y + 0.035, -1, 0, 0.07, 0.01, 0.07 ],
+			];
+		},
 	},
 	{
 		id: 'bouquet',
@@ -608,10 +870,21 @@ export const RECIPES = [
 		label: 'Peacock',
 		build: ( rand, aspect, inks ) => [
 			...groundOps( rand, aspect, inks ),
-			...gelgitOps( aspect ),
-			[ OP.COMB, aspect / 2, 0.5, 0, 1, 0.5, 0.014, 0.08 ],
-			[ OP.WAVE, 0, 1, 0.04, 0.16, rand() * 6.28 ],
-			[ OP.COMB, aspect / 2 + 0.02, 0.5, 0, -1, 0.28, 0.01, 0.08 ],
+			...lyingGelgit( rand, aspect, 0.1 ),
+			// A wide comb down and the same back up between its teeth
+			// opens rounded fans; a fine comb sets the feathers in them.
+			[
+				OP.COMB,
+				aspect / 2 + rand() * 0.16,
+				0.5,
+				0,
+				1,
+				0.22,
+				0.03,
+				0.16,
+			],
+			[ OP.COMB, aspect / 2 + 0.08, 0.5, 0, -1, 0.16, 0.03, 0.16 ],
+			[ OP.COMB, aspect / 2, 0.5, 0, 1, 0.05, 0.01, 0.04 ],
 		],
 	},
 ];
@@ -629,30 +902,218 @@ RECIPES.push(
 		label: 'Spanish wave',
 		build: ( rand, aspect, inks ) => [
 			...groundOps( rand, aspect, inks ),
-			...gelgitOps( aspect ),
-			[ OP.COMB, aspect / 2, 0.5, 1, 0, 0.5, 0.011, 0.052 ],
-			[ OP.WAVE, 0.94, 0.34, 0.075, 0.62, rand() * 6.28 ],
-			[ OP.WAVE, -0.34, 0.94, 0.012, 0.09, rand() * 6.28 ],
+			...gelgitOps( aspect, 0.08, 0.3, 0.02 ),
+			[ OP.COMB, aspect / 2, 0.5, 1, 0, 0.06, 0.01, 0.035 ],
+			[ OP.WAVE, 0.94, 0.34, 0.07, 0.62, rand() * 6.28 ],
+			[ OP.WAVE, -0.34, 0.94, 0.01, 0.12, rand() * 6.28 ],
 		],
 	},
 	{
 		id: 'italian',
 		label: 'Italian vein',
+		// v1.9: the vein colour first, as one sheet over the bath; every
+		// later drop squeezes it into the thin veins between the cells -
+		// exactly what the drop mathematics does to earlier ink.
 		build: ( rand, aspect, inks ) => {
-			const ops = [
-				...groundOps( rand, aspect, inks ),
-				...sprinkleOps( rand, aspect, inks, 8, 0.03, 0.07 ),
-			];
-			for ( let i = 0; i < 70; i++ ) {
+			const vein = Math.min( 4, inks - 1 );
+			const ops = [ [ OP.DROP, aspect / 2, 0.5, 0.95, vein ] ];
+			for ( let i = 0; i < 160; i++ ) {
 				ops.push( [
 					OP.DROP,
-					0.04 + rand() * ( aspect - 0.08 ),
-					0.04 + rand() * 0.92,
-					0.008 + rand() * 0.022,
+					0.02 + rand() * ( aspect - 0.04 ),
+					0.02 + rand() * 0.96,
+					0.04 + rand() * 0.07,
+					( i % 4 ) % inks,
+				] );
+			}
+			for ( let i = 0; i < 40; i++ ) {
+				ops.push( [
+					OP.DROP,
+					0.02 + rand() * ( aspect - 0.04 ),
+					0.02 + rand() * 0.96,
+					0.006 + rand() * 0.012,
 					GALL,
 				] );
 			}
-			ops.push( [ OP.COMB, aspect / 2, 0.5, 0, 1, 0.16, 0.008, 0.07 ] );
+			ops.push( [ OP.WAVE, 0.4, 0.92, 0.025, 0.55, rand() * 6.28 ] );
+			return ops;
+		},
+	}
+);
+
+/*
+ * v1.9, five more classics.
+ *
+ * Suminagashi: the Japanese floating ink - ink and clear water dropped
+ * in turn on the same spots make rings of fine lines, which a breath and
+ * a stir set flowing. Hatip: the Turkish spot patterns, small ebru
+ * flowers on a light stone ground. Bird wing: nonpareil with a coarse
+ * comb pulled across it, the arches folding into feathers. Zebra: rows
+ * of drops in two inks make bands, two sways and two curls set them
+ * rolling. French shell: every drop lies in a pale halo of its own.
+ */
+RECIPES.push(
+	{
+		id: 'suminagashi',
+		label: 'Suminagashi',
+		build: ( rand, aspect, inks ) => {
+			const ops = [];
+			const centers = [
+				[ 0.26 * aspect, 0.36 ],
+				[ 0.75 * aspect, 0.3 ],
+				[ 0.52 * aspect, 0.78 ],
+			].map( ( [ x, y ] ) => [
+				x + ( rand() - 0.5 ) * 0.12,
+				y + ( rand() - 0.5 ) * 0.1,
+			] );
+			const sumi = Math.min( 4, inks - 1 );
+			for ( let k = 0; k < 34; k++ ) {
+				for ( const [ cx, cy ] of centers ) {
+					ops.push( [
+						OP.DROP,
+						cx,
+						cy,
+						0.042,
+						k % 2 ? GALL : 4 === k % 6 ? 0 : sumi,
+					] );
+				}
+			}
+			ops.push(
+				[
+					OP.VORTEX,
+					0.41 * aspect + ( rand() - 0.5 ) * 0.1,
+					0.5,
+					1.6 + rand() * 0.8,
+					0.3,
+				],
+				[
+					OP.VORTEX,
+					0.79 * aspect + ( rand() - 0.5 ) * 0.1,
+					0.62,
+					-1.3 - rand() * 0.6,
+					0.26,
+				],
+				[ OP.WAVE, 0.3, 0.95, 0.07, 0.6, rand() * 6.28 ],
+				[ OP.WAVE, 0.95, -0.3, 0.04, 0.33, rand() * 6.28 ]
+			);
+			return ops;
+		},
+	},
+	{
+		id: 'hatip',
+		label: 'Hatip',
+		build: ( rand, aspect, inks ) => {
+			const ops = [];
+			const light = [ 2, 3, 2 ].map( ( k ) => k % inks );
+			for ( let i = 0; i < 40; i++ ) {
+				ops.push( [
+					OP.DROP,
+					0.03 + rand() * ( aspect - 0.06 ),
+					0.03 + rand() * 0.94,
+					0.06 + rand() * 0.07,
+					light[ i % 3 ],
+				] );
+			}
+			const kinds = [ 'tulip', 'carnation', 'daisy' ];
+			const cols = 3;
+			for ( let i = 0; i < 6; i++ ) {
+				ops.push(
+					...flowerOps(
+						kinds[ ( i + Math.floor( rand() * 3 ) ) % 3 ],
+						( ( ( i % cols ) + 0.5 ) / cols ) * aspect +
+							( rand() - 0.5 ) * 0.06,
+						0.3 + Math.floor( i / cols ) * 0.42,
+						0.07 + rand() * 0.015,
+						( rand() - 0.5 ) * 24,
+						{
+							inkA: [ 0, 1, 4 ][ i % 3 ] % inks,
+							inkB: [ 1, 0, 3 ][ i % 3 ] % inks,
+							inkStem: 4 % inks,
+							petals: 9,
+							stem: true,
+						}
+					)
+				);
+			}
+			return ops;
+		},
+	},
+	{
+		id: 'birdwing',
+		label: 'Bird wing',
+		build: ( rand, aspect, inks ) => [
+			...groundOps( rand, aspect, inks ),
+			...lyingGelgit( rand, aspect ),
+			[ OP.COMB, aspect / 2, 0.5, 0, 1, 0.06, 0.01, 0.035 ],
+			[
+				OP.COMB,
+				aspect / 2,
+				0.5 + rand() * 0.24,
+				1,
+				0,
+				0.14,
+				0.03,
+				0.24,
+			],
+		],
+	},
+	{
+		id: 'zebra',
+		label: 'Zebra',
+		build: ( rand, aspect, inks ) => {
+			const ops = [];
+			const a = Math.min( 4, inks - 1 );
+			const b = 2 % inks;
+			// Rows of overlapping drops - well inside MAX_OPS, or the
+			// sways at the end would be cut off.
+			for ( let row = 0; row < 12; row++ ) {
+				for ( let x = -0.02; x < aspect + 0.06; x += 0.06 ) {
+					ops.push( [
+						OP.DROP,
+						x,
+						( row + 0.5 ) / 12,
+						0.052,
+						row % 2 ? b : a,
+					] );
+				}
+			}
+			ops.push(
+				[ OP.WAVE, 1, 0, 0.07, 0.48, rand() * 6.28 ],
+				[ OP.WAVE, 0.25, 0.97, 0.035, 0.22, rand() * 6.28 ],
+				[
+					OP.VORTEX,
+					( 0.25 + rand() * 0.15 ) * aspect,
+					0.3 + rand() * 0.2,
+					1.0,
+					0.25,
+				],
+				[
+					OP.VORTEX,
+					( 0.6 + rand() * 0.15 ) * aspect,
+					0.55 + rand() * 0.2,
+					-1.1,
+					0.25,
+				]
+			);
+			return ops;
+		},
+	},
+	{
+		id: 'shell',
+		label: 'French shell',
+		build: ( rand, aspect, inks ) => {
+			const ops = [];
+			const halo = 2 % inks;
+			const colors = [ 0, 1, 3, 4 ].map( ( k ) => k % inks );
+			for ( let i = 0; i < 90; i++ ) {
+				const x = 0.03 + rand() * ( aspect - 0.06 );
+				const y = 0.03 + rand() * 0.94;
+				const r = 0.045 + rand() * 0.08 * ( 1 - i / 110 );
+				ops.push(
+					[ OP.DROP, x, y, r, halo ],
+					[ OP.DROP, x, y, r * 0.86, colors[ i % 4 ] ]
+				);
+			}
 			return ops;
 		},
 	}
@@ -1019,6 +1480,122 @@ export const ease = ( t ) => {
 };
 
 /** Two composed tools reuse the exact reversible operations and history format. */
+/**
+ * v1.9.1: the wavy comb, exact. It used to be a chain of short combs -
+ * every one of them spanning the whole bath in a slightly different
+ * direction, and every one pulling by its own length, so a long wavy
+ * stroke dragged the entire bath further than its width and frayed it
+ * everywhere. A rake that follows a wave is a straight comb seen through
+ * a sway: sway the bath straight (the wave, half a turn shifted), pull
+ * the comb, sway it back. Ink then travels along wavy tooth paths, every
+ * step stays exactly invertible, and the pull is capped by the force
+ * like any comb.
+ *
+ * The drawn path gives the direction (start to end) and a sine fitted to
+ * how far it strays to the side; a straight path is a straight comb.
+ *
+ * @param {Array}  path     Points { x, y } of the stroke so far.
+ * @param {Object} params   Studio params (force, softness, spacing).
+ * @param {number} pressure Pen pressure factor.
+ * @return {Array} [] (too short), [ comb ] or [ wave, comb, wave ].
+ */
+export function wavyCombOps( path, params, pressure = 1 ) {
+	const p = mergeParams( params );
+	if ( ! path || path.length < 2 ) {
+		return [];
+	}
+	const a = path[ 0 ];
+	const b = path[ path.length - 1 ];
+	const L = Math.hypot( b.x - a.x, b.y - a.y );
+	if ( L < 0.03 ) {
+		return [];
+	}
+	const ux = ( b.x - a.x ) / L;
+	const uy = ( b.y - a.y ) / L;
+	const nx = -uy;
+	const ny = ux;
+	const pts = path.map( ( q ) => ( {
+		v: ( q.x - a.x ) * ux + ( q.y - a.y ) * uy,
+		e: ( q.x - a.x ) * nx + ( q.y - a.y ) * ny,
+	} ) );
+	// Least squares for e(v) = A sin(w v) + B cos(w v), the wavelength
+	// scanned coarse, then fine around the best.
+	let best = { err: Infinity, amp: 0, lam: 1, ph: 0 };
+	const tryLam = ( lam ) => {
+		let ss = 0;
+		let sc = 0;
+		let cc = 0;
+		let es = 0;
+		let ec = 0;
+		for ( const q of pts ) {
+			const w = ( 2 * Math.PI * q.v ) / lam;
+			const sn = Math.sin( w );
+			const cs = Math.cos( w );
+			ss += sn * sn;
+			sc += sn * cs;
+			cc += cs * cs;
+			es += q.e * sn;
+			ec += q.e * cs;
+		}
+		const det = ss * cc - sc * sc;
+		if ( Math.abs( det ) < 1e-9 ) {
+			return;
+		}
+		const A1 = ( es * cc - ec * sc ) / det;
+		const B1 = ( ec * ss - es * sc ) / det;
+		let err = 0;
+		for ( const q of pts ) {
+			const w = ( 2 * Math.PI * q.v ) / lam;
+			err += ( q.e - A1 * Math.sin( w ) - B1 * Math.cos( w ) ) ** 2;
+		}
+		if ( err < best.err ) {
+			best = {
+				err,
+				amp: Math.hypot( A1, B1 ),
+				lam,
+				ph: Math.atan2( B1, A1 ),
+			};
+		}
+	};
+	for ( let lam = 0.06; lam <= 1.2; lam *= 1.03 ) {
+		tryLam( lam );
+	}
+	const coarse = best.lam;
+	for ( let k = -15; k <= 15; k++ ) {
+		tryLam( coarse * ( 1 + k * 0.002 ) );
+	}
+	const alpha = Math.min( p.force * pressure, L * 0.95 );
+	const amp = Math.min( 0.3, best.amp );
+	// Too little sway to matter: the plain comb.
+	if ( amp < 0.004 ) {
+		return [ [ OP.COMB, a.x, a.y, ux, uy, alpha, p.softness, p.spacing ] ];
+	}
+	// The wave op measures its phase from the origin, the fit from a.
+	const v0 = a.x * ux + a.y * uy;
+	const norm = ( t ) =>
+		( ( ( t % ( 2 * Math.PI ) ) + 3 * Math.PI ) % ( 2 * Math.PI ) ) -
+		Math.PI;
+	const ph = norm( best.ph - ( 2 * Math.PI * v0 ) / best.lam );
+	// The straightening sway is the same wave half a turn on (a stored
+	// wave amplitude is never negative).
+	const back = norm( ph + Math.PI );
+	const lift = -amp * Math.sin( ( 2 * Math.PI * v0 ) / best.lam + ph );
+	return [
+		[ OP.WAVE, ux, uy, amp, best.lam, back ],
+		[
+			OP.COMB,
+			a.x + nx * lift,
+			a.y + ny * lift,
+			ux,
+			uy,
+			alpha,
+			p.softness,
+			p.spacing,
+		],
+		[ OP.WAVE, ux, uy, amp, best.lam, ph ],
+	];
+}
+
 export function sweepToolOps( tool, start, end, params, pressure = 1 ) {
 	const p = mergeParams( params );
 	const dx = end.x - start.x,

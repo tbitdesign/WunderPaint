@@ -26,7 +26,7 @@ import * as DocOps from '../doc-ops';
 import {
 	renderToCanvas,
 	sharedImageCache,
-	layerOvershoot,
+	contentBounds,
 } from '../../lib/raster';
 import { applyEffectToLayer, rasterizeActiveLayer } from '../effect-ops';
 import { confirmDialog, promptDialog } from '../../lib/dialogs';
@@ -216,7 +216,7 @@ export async function presentDocument(
 	// pages travel on BOTH ways out of here. The in-place LOAD_DOCUMENT
 	// below got them on 11.09.2026; this call kept handing the new tab doc,
 	// layers and name, so a multi-page project opened into a tab came up
-	// with one page (Codex C01).
+	// with one page (audit C01).
 	if (
 		extras?.openDocInNewTab?.( {
 			doc,
@@ -345,26 +345,6 @@ export async function convertToSmartOp( editor ) {
 	if ( ! leaves.length ) {
 		return;
 	}
-	// Grow by each leaf's visual overshoot (stroke, styles, effects, text)
-	// so a stroked/shadowed shape isn't clipped at the crop bounds (v1.24.5).
-	const minX = Math.floor(
-		Math.min( ...leaves.map( ( l ) => l.x - layerOvershoot( l ) ) )
-	);
-	const minY = Math.floor(
-		Math.min( ...leaves.map( ( l ) => l.y - layerOvershoot( l ) ) )
-	);
-	const maxX = Math.ceil(
-		Math.max( ...leaves.map( ( l ) => l.x + l.w + layerOvershoot( l ) ) )
-	);
-	const maxY = Math.ceil(
-		Math.max( ...leaves.map( ( l ) => l.y + l.h + layerOvershoot( l ) ) )
-	);
-	const bounds = {
-		x: minX,
-		y: minY,
-		w: Math.max( 1, maxX - minX ),
-		h: Math.max( 1, maxY - minY ),
-	};
 
 	// Only the subtree roots go top-level; children keep their parent
 	// links so groups inside the selection still resolve and re-edit.
@@ -375,6 +355,7 @@ export async function convertToSmartOp( editor ) {
 		previewEffect: null,
 		parent: memberSet.has( l.parent ) ? l.parent : null,
 	} ) );
+	const bounds = contentBounds( subtree, { includeHidden: true } );
 	await sharedImageCache.warm( members );
 	const preview = await renderToCanvas(
 		{ ...state.doc, bg: 'transparent' },
@@ -399,11 +380,14 @@ export async function convertToSmartOp( editor ) {
 			kind: 'layers',
 			bytes: null,
 			layers: serializeLayers(
-				subtree.map( ( l ) => ( {
-					...l,
-					x: l.x - bounds.x,
-					y: l.y - bounds.y,
-				} ) )
+				subtree.map( ( l ) => {
+					const moved = DocOps.offsetLayer( l, -bounds.x, -bounds.y );
+					// Stroke paths are absolute. Preserve their original reference
+					// point so the new x/y translates the ink into the embedded doc.
+					return 'stroke' === l.type
+						? { ...moved, x0: l.x0 ?? l.x, y0: l.y0 ?? l.y }
+						: moved;
+				} )
 			),
 			doc: { w: bounds.w, h: bounds.h, bg: 'transparent' },
 		},
@@ -538,7 +522,7 @@ export function openProjectOp( editor, extras ) {
 				// downloadProjectOp() writes pages and currentPage into the
 				// file; opening it read only doc and layers, so a multi-page
 				// design came back as page one and the rest was gone. The
-				// second half of Codex' F02, and the reason a multi-page
+				// second half of audit finding F02, and the reason a multi-page
 				// project was not actually transportable.
 				pages: Array.isArray( data.pages ) ? data.pages : undefined,
 				currentPage: data.currentPage,
@@ -649,9 +633,13 @@ export function placeSvgLayers( editor, parsed, name, label ) {
 							? DocOps.scalePathD( layer.pathD, scale, scale )
 							: layer.pathD,
 				  };
-		return { ...scaled, parent: group.id };
+		// Imported group structure (v1.431) keeps its own parents; only the
+		// top level joins the wrapper group.
+		return scaled.parent ? scaled : { ...scaled, parent: group.id };
 	} );
-	group.children = members.map( ( l ) => l.id );
+	group.children = members
+		.filter( ( l ) => l.parent === group.id )
+		.map( ( l ) => l.id );
 	const dx = Math.round( ( state.doc.w - width * scale ) / 2 );
 	const dy = Math.round( ( state.doc.h - height * scale ) / 2 );
 	const moved = members.map( ( l ) => DocOps.offsetLayer( l, dx, dy ) );
@@ -678,7 +666,8 @@ export function importSvgOp( editor, extras ) {
 				/* webpackChunkName: "svg-io" */ '../../lib/svg-io'
 			);
 			const { layers, warnings, width, height } = importSvg(
-				await file.text()
+				await file.text(),
+				{ groups: true }
 			);
 			if ( ! layers.length ) {
 				throw new Error(

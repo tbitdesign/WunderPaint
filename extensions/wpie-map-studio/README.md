@@ -13,7 +13,19 @@ Poster-style maps from OpenStreetMap data, rendered live in the editor.
   close up. Tunnels and rail yards are filtered out server-side.
 - **Geocoded pins** with labels, straight or curved route lines and a
   total-distance pill.
-- **Shape masks**: square, rounded, circle, heart, hexagon.
+- **Shape masks**: square, rounded, circle, heart, hexagon and more.
+- **Poster types** (v2.1, left column): street map, lettering (the map
+  seen through big letters - `fitLetters`/`letterAspect`, the map takes
+  the letters' proportions), several places (one slot of data per place,
+  the active one uses the fetch machinery, the others load one after the
+  other), figure-ground (buildings in ink, fetched close up), water
+  network, street compass (streets split by bearing once per scene,
+  `orientOf`, plus a direction rose), old map (paper grain, double-line
+  roads, engraved shore lines, compass rose, frame) and directions sketch
+  (cased main roads, distance rings). The engine takes `kind`, `letters`
+  and the details `north`, `scale`, `ticks`, `numbered`, `rings`, `rose`.
+- `node tools/kinds-sheet.mjs <city.json> <out.png> [closeup.json] [region.json]`
+  renders a contact sheet of the types and details.
 - **Text block**: classic poster layout (title, divider, subtitle,
   coordinates line) or corner layout, inserted as real, editable text
   layers; the required "© OpenStreetMap contributors" attribution is

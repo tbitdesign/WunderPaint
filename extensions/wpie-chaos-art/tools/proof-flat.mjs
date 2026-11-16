@@ -94,7 +94,10 @@ for ( const school of schools ) {
 	const tiles = [];
 	for ( let v = 0; v < variants; v++ ) {
 		const pool = makePool();
-		// Deterministic per tile, so a sheet can be re-rendered.
+		// Deterministic per tile, so a sheet can be re-rendered and a
+		// school compared before and after a change: makePool() starts
+		// from crypto, so the pool is cleared and the feed alone decides.
+		pool.words.fill( 0 );
 		for ( let i = 0; i < 40; i++ ) {
 			pool.feed(
 				( v + 1 ) * 7919 * ( i + 1 ),

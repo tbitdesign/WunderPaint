@@ -547,6 +547,7 @@ export function ImportPostsOverlay( { source: initial, onApply, onClose } ) {
 										<label key={ item.id }>
 											<input
 												type="checkbox"
+												data-checkbox="selection"
 												checked={ source.fields.includes(
 													item.id
 												) }

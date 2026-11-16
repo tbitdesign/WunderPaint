@@ -22,8 +22,9 @@ import {
 	postCancelled,
 } from '../lib/embed-host';
 import { useEditor } from '../store/editor-context';
+import { TitleSearch } from './title-search';
 
-export function EditorTitleBar( { onExport, nested, extras } ) {
+export function EditorTitleBar( { onExport, nested, extras, searchFocusRef } ) {
 	const { state, dispatch, undo, redo, canUndo, canRedo, dirty, WPIE } =
 		useEditor();
 	const toasts = useToasts();
@@ -126,6 +127,15 @@ export function EditorTitleBar( { onExport, nested, extras } ) {
 				{ I.redo( { size: 14 } ) }
 			</button>
 			<div className="ed-divider" />
+			{ searchFocusRef && (
+				<>
+					<TitleSearch
+						extras={ extras }
+						focusRef={ searchFocusRef }
+					/>
+					<div className="ed-divider" />
+				</>
+			) }
 			{ ! nested && (
 				<button
 					title={ __(

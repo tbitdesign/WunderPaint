@@ -1,15 +1,16 @@
 /**
- * Mockup Generator (v1.117.0): puts the selected layer or the flattened
- * document onto a studio-style product mockup (ebook, software box, DVD
- * case, CD case, report stack, monitor) rendered by the little 3D
- * pipeline in lib/mockup.js. The result is a regular image layer with a
+ * Mockup Generator (v1.117.0, more models in v1.433.0): puts the selected
+ * layer or the flattened document onto a studio-style product mockup
+ * (ebook, software box, DVD case, CD case, report stack, monitor, phone,
+ * tablet, framed print, canvas print) rendered by the little 3D pipeline
+ * in lib/mockup.js, with an optional reflection in the floor. The result is a regular image layer with a
  * transparent background; all parameters plus the artwork live on the
  * layer, so Edit Mockup in the context menus reopens this dialog and
  * re-renders in place.
  */
 
-import { useEffect, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { useEffect, useRef, useState } from '@wordpress/element';
+import { __, sprintf } from '@wordpress/i18n';
 
 import { I } from '../icons';
 import { useEditor } from '../store/editor-context';
@@ -17,11 +18,18 @@ import { useEscape } from '../components/use-escape';
 import { HelpLink } from './help-dialog';
 import { SwatchButton } from '../components/color-popover';
 import { createBlankDoc, makeImage } from '../store/document';
-import { MOCKUP_DEFAULTS, renderMockup, trimTransparent } from '../lib/mockup';
+import {
+	MOCKUP_DEFAULTS,
+	mockupOnBackdrop,
+	renderMockup,
+	trimTransparent,
+} from '../lib/mockup';
 import { renderToCanvas, sharedImageCache, createCanvas } from '../lib/raster';
+import { encodeCanvas } from '../lib/canvas-encode';
 
 const SOURCE_TYPES = [ 'image', 'raster', 'smart' ];
-const OUT_SIZE = 1600; // longest edge of the baked render
+const OUT_SIZE = 1600; // longest edge of the baked render (at least)
+const OUT_MAX = 3200; // and at most, on a large document
 const SRC_CAP = 1400; // stored artwork cap (keeps layer.mockup sane)
 
 const TYPE_LABELS = () => [
@@ -31,6 +39,10 @@ const TYPE_LABELS = () => [
 	[ 'cd', __( 'CD case', 'wunderpaint' ) ],
 	[ 'report', __( 'Report', 'wunderpaint' ) ],
 	[ 'monitor', __( 'Monitor', 'wunderpaint' ) ],
+	[ 'phone', __( 'Phone', 'wunderpaint' ) ],
+	[ 'tablet', __( 'Tablet', 'wunderpaint' ) ],
+	[ 'frame', __( 'Framed print', 'wunderpaint' ) ],
+	[ 'canvas', __( 'Canvas print', 'wunderpaint' ) ],
 ];
 
 const typeName = ( type ) => {
@@ -41,8 +53,48 @@ const typeName = ( type ) => {
 const PRESETS = () => [
 	[ __( 'Front', 'wunderpaint' ), { yaw: 4, pitch: 2 } ],
 	[ __( 'Classic', 'wunderpaint' ), { yaw: 22, pitch: 5 } ],
+	[ __( 'Mirrored', 'wunderpaint' ), { yaw: -22, pitch: 5 } ],
 	[ __( 'Steep', 'wunderpaint' ), { yaw: 34, pitch: 12 } ],
+	[ __( 'Low angle', 'wunderpaint' ), { yaw: 18, pitch: -8 } ],
 ];
+
+/** Material presets that suit each model (v1.433.0). */
+function materialsFor( type ) {
+	if ( 'phone' === type || 'tablet' === type ) {
+		return [
+			[ '#3a3d42', __( 'Graphite', 'wunderpaint' ) ],
+			[ '#c9cdd2', __( 'Silver', 'wunderpaint' ) ],
+			[ '#1f2a3a', __( 'Midnight', 'wunderpaint' ) ],
+			[ '#e3cfae', __( 'Gold', 'wunderpaint' ) ],
+		];
+	}
+	if ( 'monitor' === type ) {
+		return [
+			[ '#1c1d21', __( 'Black', 'wunderpaint' ) ],
+			[ '#c9cdd2', __( 'Silver', 'wunderpaint' ) ],
+			[ '#eceef1', __( 'White', 'wunderpaint' ) ],
+		];
+	}
+	if ( 'frame' === type ) {
+		return [
+			[ '#1c1c1e', __( 'Black', 'wunderpaint' ) ],
+			[ '#f2f2f0', __( 'White', 'wunderpaint' ) ],
+			[ '#b58a5a', __( 'Oak', 'wunderpaint' ) ],
+			[ '#6b4a33', __( 'Walnut', 'wunderpaint' ) ],
+			[ '#c9a55c', __( 'Gold', 'wunderpaint' ) ],
+		];
+	}
+	if ( 'canvas' === type ) {
+		return [];
+	}
+	return [
+		[ '#2f3d57', __( 'Navy', 'wunderpaint' ) ],
+		[ '#1c1d21', __( 'Black', 'wunderpaint' ) ],
+		[ '#b23a48', __( 'Red', 'wunderpaint' ) ],
+		[ '#2f6f5e', __( 'Green', 'wunderpaint' ) ],
+		[ '#efe6d2', __( 'Cream', 'wunderpaint' ) ],
+	];
+}
 
 /**
  * Where a baked mockup lands on the current document: centred, at 80% of the
@@ -62,6 +114,22 @@ const PRESETS = () => [
  * @param {Object} baked Baked canvas with width/height.
  * @return {{x:number,y:number,w:number,h:number}} Layer rectangle.
  */
+/**
+ * How large to bake (19.10.2026): the size the mockup will take in the
+ * document. A fixed 1600 px bake never scaled up (mockupInsertRect) and so
+ * covered only half of a print-size page instead of the intended 80%; the
+ * render itself costs little more at twice the size. The render fits the
+ * model into 90% of its square canvas, hence the 0.9.
+ *
+ * @param {Object} box The document, or the edited layer's box ({ w, h }).
+ * @param {number} k   Share of the box the mockup should cover.
+ * @return {number} Longest edge of the bake, OUT_SIZE..OUT_MAX.
+ */
+export function mockupBakeSize( box, k = 0.8 ) {
+	const want = ( k * Math.max( box.w || 0, box.h || 0 ) ) / 0.9;
+	return Math.round( Math.max( OUT_SIZE, Math.min( OUT_MAX, want ) ) );
+}
+
 export function mockupInsertRect( doc, baked ) {
 	const scale = Math.min(
 		1,
@@ -79,18 +147,23 @@ export function mockupInsertRect( doc, baked ) {
 
 function Slider( { label, value, min, max, onChange } ) {
 	return (
-		<label style={ { display: 'grid', gap: 4, fontSize: 12 } }>
-			<span className="dsm-label">
-				{ label } { value }
-			</span>
+		<div className="dsm-sliderrow">
+			<div className="dsm-sliderrow-head">
+				<span data-number-label>{ label }</span>
+				<span className="dsm-sliderrow-val" data-number-value>
+					{ value }
+				</span>
+			</div>
 			<input
 				type="range"
+				className="dsm-range"
 				min={ min }
 				max={ max }
 				value={ value }
+				aria-label={ label }
 				onChange={ ( e ) => onChange( +e.target.value ) }
 			/>
-		</label>
+		</div>
 	);
 }
 
@@ -215,6 +288,8 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 		};
 	} );
 	const [ output, setOutput ] = useState( 'doc' ); // doc | tab
+	// The color the Background checkbox brings back (20.10.2026).
+	const lastBackdrop = useRef( editLayer?.mockup?.backdrop || '#eef0f3' );
 	const [ preview, setPreview ] = useState( null );
 	const [ busy, setBusy ] = useState( false );
 
@@ -224,8 +299,12 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 	useEffect( () => {
 		const t = setTimeout( () => {
 			try {
+				const shown = renderMockup( params, sourceCanvas, 460, 380 );
 				setPreview(
-					renderMockup( params, sourceCanvas, 460, 380 ).toDataURL()
+					( params.backdrop
+						? mockupOnBackdrop( shown, params.backdrop, 0 )
+						: shown
+					).toDataURL()
 				);
 			} catch ( e ) {
 				setPreview( null );
@@ -235,21 +314,60 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ paramsKey, sourceCanvas ] );
 
-	const apply = () => {
-		if ( ! sourceCanvas ) {
+	// Rendering, encoding the bake and the stored artwork ran in one go on
+	// the main thread; the button says so first now and both encode off it
+	// (19.10.2026).
+	const mounted = useRef( true );
+	useEffect(
+		() => () => {
+			mounted.current = false;
+		},
+		[]
+	);
+
+	const apply = async () => {
+		if ( ! sourceCanvas || busy ) {
 			return;
 		}
 		setBusy( true );
+		await new Promise( ( resolve ) =>
+			requestAnimationFrame( () => setTimeout( resolve, 0 ) )
+		);
 		try {
-			const baked = trimTransparent(
-				renderMockup( params, sourceCanvas, OUT_SIZE, OUT_SIZE )
+			let size = OUT_SIZE;
+			if ( editLayer ) {
+				size = mockupBakeSize( editLayer, 1 );
+			} else if ( 'tab' !== output ) {
+				size = mockupBakeSize( state.doc );
+			}
+			const trimmed = trimTransparent(
+				renderMockup( params, sourceCanvas, size, size )
 			);
-			const src = baked.toDataURL( 'image/png' );
-			const mockup = {
-				...params,
-				source: sourceCanvas.toDataURL( 'image/png' ),
-			};
-			const name = 'Mockup: ' + typeName( params.type );
+			const baked = params.backdrop
+				? mockupOnBackdrop( trimmed, params.backdrop )
+				: trimmed;
+			const [ src, source ] = await Promise.all( [
+				encodeCanvas( baked, 'image/png' ),
+				encodeCanvas( sourceCanvas, 'image/png' ),
+			] );
+			if ( ! mounted.current ) {
+				return;
+			}
+			const mockup = { ...params, source };
+			const name = sprintf(
+				/* translators: %s: mockup model, e.g. Ebook. */
+				__( 'Mockup: %s', 'wunderpaint' ),
+				typeName( params.type )
+			);
+			const ownName = ( n ) =>
+				/^Mockup\b/.test( n ) ||
+				n.startsWith(
+					sprintf(
+						/* translators: %s: mockup model, e.g. Ebook. */
+						__( 'Mockup: %s', 'wunderpaint' ),
+						''
+					)
+				);
 			if ( editLayer ) {
 				// Keep the box width, follow the new aspect ratio.
 				const h = Math.round(
@@ -264,9 +382,7 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 						naturalH: baked.height,
 						h,
 						mockup,
-						...( /^Mockup\b/.test( editLayer.name || '' )
-							? { name }
-							: {} ),
+						...( ownName( editLayer.name || '' ) ? { name } : {} ),
 					},
 				} );
 				commit( __( 'Edit mockup', 'wunderpaint' ) );
@@ -329,7 +445,9 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 				__( 'The mockup could not be generated.', 'wunderpaint' )
 			);
 		} finally {
-			setBusy( false );
+			if ( mounted.current ) {
+				setBusy( false );
+			}
 		}
 	};
 
@@ -338,7 +456,7 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 			<div
 				className="stock-dialog"
 				style={ {
-					width: 'min(860px, 96vw)',
+					width: 'min(1120px, 96vw)',
 					height: 'auto',
 					maxHeight: '92vh',
 					gridTemplateRows: 'auto 1fr auto',
@@ -550,8 +668,9 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 						<div
 							style={ {
 								display: 'grid',
-								gridTemplateColumns: '1fr 1fr',
-								gap: 12,
+								gridTemplateColumns:
+									'repeat(4, minmax(0, 1fr))',
+								gap: '8px 14px',
 							} }
 						>
 							<Slider
@@ -575,11 +694,19 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 								max={ 100 }
 								onChange={ ( v ) => patch( { shadow: v } ) }
 							/>
+							<Slider
+								label={ __( 'Reflection', 'wunderpaint' ) }
+								value={ params.reflection || 0 }
+								min={ 0 }
+								max={ 100 }
+								onChange={ ( v ) => patch( { reflection: v } ) }
+							/>
 							<div
 								style={ {
 									display: 'grid',
 									gap: 4,
 									fontSize: 12,
+									gridColumn: '1 / -1',
 								} }
 							>
 								<span className="dsm-label">
@@ -606,10 +733,14 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 											} )
 										}
 									/>
-									{ kitColors.map( ( c ) => (
+									{ [
+										...materialsFor( params.type ),
+										...kitColors.map( ( c ) => [ c, c ] ),
+									].map( ( [ c, name ] ) => (
 										<button
 											key={ c }
-											title={ c }
+											title={ name }
+											aria-label={ name }
 											onClick={ () =>
 												patch( { material: c } )
 											}
@@ -626,7 +757,63 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 									) ) }
 								</div>
 							</div>
+							<label
+								style={ {
+									display: 'flex',
+									gap: 8,
+									alignItems: 'center',
+									fontSize: 12,
+									gridColumn: '1 / -1',
+								} }
+							>
+								<input
+									type="checkbox"
+									checked={ !! params.backdrop }
+									onChange={ ( e ) =>
+										patch( {
+											backdrop: e.target.checked
+												? lastBackdrop.current
+												: '',
+										} )
+									}
+								/>
+								{ __( 'Background', 'wunderpaint' ) }
+								{ !! params.backdrop && (
+									<SwatchButton
+										color={ params.backdrop }
+										size={ 26 }
+										title={ __(
+											'Background color',
+											'wunderpaint'
+										) }
+										onChange={ ( v ) => {
+											lastBackdrop.current = v.slice(
+												0,
+												7
+											);
+											patch( {
+												backdrop: lastBackdrop.current,
+											} );
+										} }
+									/>
+								) }
+							</label>
 						</div>
+
+						{ ( params.reflection || 0 ) > 0 &&
+							params.pitch <= 0 && (
+								<div
+									style={ {
+										fontSize: 11,
+										color: 'var(--ed-text-muted)',
+									} }
+								>
+									{ __(
+										'The floor only mirrors when the camera looks down onto it.',
+										'wunderpaint'
+									) }
+								</div>
+							) }
 
 						{ ! editLayer && (
 							<div style={ { display: 'grid', gap: 6 } }>
@@ -660,7 +847,7 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 					{ /* ------------------------- preview ------------------------- */ }
 					<div
 						style={ {
-							width: 320,
+							width: 380,
 							display: 'grid',
 							gap: 8,
 							alignContent: 'start',
@@ -668,7 +855,7 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 					>
 						<div
 							style={ {
-								width: 320,
+								width: 380,
 								borderRadius: 8,
 								border: '1px solid var(--ed-border-strong)',
 								overflow: 'hidden',
@@ -697,10 +884,15 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 								color: 'var(--ed-text-muted)',
 							} }
 						>
-							{ __(
-								'Baked at high resolution with a transparent background, so it sits on any design.',
-								'wunderpaint'
-							) }
+							{ params.backdrop
+								? __(
+										'Baked at high resolution on the background color, shadow and reflection included.',
+										'wunderpaint'
+								  )
+								: __(
+										'Baked at high resolution with a transparent background, so it sits on any design.',
+										'wunderpaint'
+								  ) }
 						</div>
 					</div>
 				</div>
@@ -725,9 +917,11 @@ export function MockupDialog( { onClose, extras, layerId = null } ) {
 							disabled={ ! sourceCanvas || busy }
 							onClick={ apply }
 						>
-							{ editLayer
-								? __( 'Update mockup', 'wunderpaint' )
-								: __( 'Insert mockup', 'wunderpaint' ) }
+							{ busy && __( 'Rendering…', 'wunderpaint' ) }
+							{ ! busy &&
+								( editLayer
+									? __( 'Update mockup', 'wunderpaint' )
+									: __( 'Insert mockup', 'wunderpaint' ) ) }
 						</button>
 					</div>
 				</div>

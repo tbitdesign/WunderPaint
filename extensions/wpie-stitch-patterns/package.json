@@ -1,6 +1,6 @@
 {
 	"name": "wpie-stitch-patterns",
-	"version": "2.7.4",
+	"version": "3.1.0",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: photos as counted craft charts",
@@ -9,6 +9,8 @@
 		"qa": "node tools/qa-dialog.mjs"
 	},
 	"devDependencies": {
-		"esbuild": "^0.24.0"
+		"esbuild": "^0.24.0",
+		"gifenc": "^1.0.3",
+		"mp4-muxer": "^5.2.2"
 	}
 }

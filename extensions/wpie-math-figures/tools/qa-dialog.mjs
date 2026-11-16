@@ -62,10 +62,10 @@ try {
 
 	// Add a text block through the block cards (v0.5: in the column, no
 	// popover any more).
-	check( ( await page.locator( '.wpiemf-type' ).count() ) === 19, 'nineteen block cards in the column' );
+	check( ( await page.locator( '.wpiemf-type' ).count() ) === 26, 'twenty-six block cards in the column' );
 	check( 0 === ( await page.locator( '.wpiemf-picker, .wpiemf-add' ).count() ), 'no popover picker left' );
 	await page.locator( '.wpiemf-chip[data-group="explain"]' ).click();
-	check( ( await page.locator( '.wpiemf-type' ).count() ) < 19, 'a group chip filters the cards' );
+	check( ( await page.locator( '.wpiemf-type' ).count() ) < 26, 'a group chip filters the cards' );
 	await page.locator( '.wpiemf-chip[data-group="all"]' ).click();
 	let before = await frames();
 	await page.locator( '.wpiemf-type[data-type="text"]' ).click();
@@ -180,7 +180,7 @@ try {
 	before = await frames();
 	await page.evaluate( () => window.__wpiemfProof.open( { card: 'graph', functions: 'f(x) = x', xmin: -2, xmax: 2, text: { title: 'Old group' } } ) );
 	st = await settled( before );
-	check( 1 === st.blocks.length && 'graph' === st.blocks[ 0 ] && 2 === st.params.v && st.last.svg.includes( '>Old group<' ), '0.1 params open as a one-block figure' );
+	check( 1 === st.blocks.length && 'graph' === st.blocks[ 0 ] && 3 === st.params.v && st.last.svg.includes( '>Old group<' ), '0.1 params open as a one-block figure' );
 
 	// Insert, then edit.
 	before = await frames();
@@ -198,7 +198,7 @@ try {
 		return { group: !! group, kids: kids.length, paths: kids.filter( ( l ) => l.pathD ).length, texts: kids.filter( ( l ) => 'text' === l.type ).length, v: group && group.generator.params.v, blocks: group ? group.generator.params.blocks.map( ( b ) => b.type ) : [], doc: window.__editor.state.doc.w, minX: Math.min( ...kids.map( ( l ) => l.x ) ), maxX: Math.max( ...kids.map( ( l ) => l.x + l.w ) ), bold: kids.filter( ( l ) => 'text' === l.type && l.weight >= 600 ).length };
 	} );
 	check( !! added && added.group && added.paths >= 5 && added.texts >= 3, 'insert adds a group of paths and texts (' + ( added && added.kids ) + ' layers)' );
-	check( !! added && 2 === added.v && 'formula,text' === added.blocks.join( ',' ), 'the group carries the figure params' );
+	check( !! added && 3 === added.v && 'formula,text' === added.blocks.join( ',' ), 'the group carries the figure params' );
 	check( !! added && added.bold >= 1 && added.bold < added.texts, 'the title is bold, the text is not' );
 	check( !! added && added.minX >= 0 && added.maxX <= added.doc + 2, 'inside the document (' + ( added && added.minX ) + '..' + ( added && added.maxX ) + ')' );
 	await page.evaluate( () => {

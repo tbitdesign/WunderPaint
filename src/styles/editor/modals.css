@@ -2960,13 +2960,21 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 
 #wpie-root .bp-tip.is-on {
 	border-color: var( --accent, #3b66ff );
-	background: rgb( 59 102 255 / 14% );
+
+	/* Previews contain pale strokes: retain the opaque tile in both themes. */
 }
 
 #wpie-root .bp-tip img {
 	display: block;
 	width: 100%;
 	height: auto;
+
+	/* Match the cards: grey when idle, pale when selected on the dark tile. */
+	opacity: 0.55;
+}
+
+#wpie-root .bp-tip.is-on img {
+	opacity: 1;
 }
 
 #wpie-root .bp-main {
@@ -3245,6 +3253,35 @@ body.wpie-modal-dragging #wpie-root .dsm-head {
 	justify-content: space-between;
 	gap: 3px;
 	margin-top: 3px;
+}
+
+/* The style's own brushes as strokes of their MEDIUM: one fixed 126 x 32
+   cell of the engine-rendered sprite per row (media-tips.js). 126 + the
+   tile's 1px padding and 1px border each side = 130, inside the strip's
+   131 usable pixels. Only a light dim when idle: the paper and the colour
+   ARE the information, and the 0.55 of the grey tip shapes would hide the
+   medium; the accent border marks the brush in hand. */
+#wpie-root .bp-tipgrid.is-media {
+	grid-template-columns: 130px;
+	justify-content: start;
+}
+
+#wpie-root .bp-tip.is-media {
+	background: #f5f2ea;
+	opacity: 0.82;
+}
+
+#wpie-root .bp-tip.is-media:hover,
+#wpie-root .bp-tip.is-media.is-on {
+	opacity: 1;
+}
+
+#wpie-root .bp-media {
+	display: block;
+	width: 126px;
+	height: 32px;
+	border-radius: 4px;
+	background-repeat: no-repeat;
 }
 
 

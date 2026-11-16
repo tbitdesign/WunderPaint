@@ -431,6 +431,7 @@ function UnusedTab( { status, onChanged } ) {
 				<label>
 					<input
 						type="checkbox"
+						data-checkbox="selection"
 						checked={
 							sel.size === items.length && items.length > 0
 						}
@@ -608,6 +609,7 @@ function FilesTab() {
 							<label>
 								<input
 									type="checkbox"
+									data-checkbox="selection"
 									checked={ sel.has( f.path ) }
 									onChange={ () => {
 										const next = new Set( sel );
@@ -756,6 +758,7 @@ function OversizeTab( { extras, onClose } ) {
 						<label>
 							<input
 								type="checkbox"
+								data-checkbox="selection"
 								checked={ chosen.includes( it.id ) }
 								onChange={ () => {
 									// First interaction turns the implicit

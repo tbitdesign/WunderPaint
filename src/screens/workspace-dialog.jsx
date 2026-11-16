@@ -1,7 +1,7 @@
 /**
  * Workspace manager (v1.184.0): switch and save personal workspaces, set the
- * toolbar icon size, and tick main-UI regions on or off. Everything here is
- * purely cosmetic; see src/lib/workspace.js. The View menu deliberately
+ * toolbar icon size and layout, and tick main-UI regions on or off. Everything
+ * here is purely cosmetic; see src/lib/workspace.js. The View menu deliberately
  * stays visible, so this dialog is always reachable.
  */
 
@@ -25,6 +25,8 @@ import {
 	setKeyHidden,
 	getIconSize,
 	setIconSize,
+	getToolbarColumns,
+	setToolbarColumns,
 	showAll,
 	ICON_SIZES,
 } from '../lib/workspace';
@@ -61,6 +63,7 @@ export function WorkspaceDialog( { extras, onClose } ) {
 	const saved = workspaces.filter( ( w ) => ! w.builtin );
 	const base = activeBase();
 	const iconSize = getIconSize();
+	const columns = getToolbarColumns();
 	const groups = workspaceGroups();
 
 	const saveCurrent = () => {
@@ -211,6 +214,37 @@ export function WorkspaceDialog( { extras, onClose } ) {
 										onClick={ () => setIconSize( s ) }
 									>
 										{ SIZE_LABELS[ s ] }
+									</button>
+								) ) }
+							</div>
+						</div>
+
+						<div className="wpie-ws-row">
+							<span className="wpie-ws-lbl">
+								{ __( 'Toolbar layout', 'wunderpaint' ) }
+							</span>
+							<div
+								className="dsm-seg"
+								role="group"
+								aria-label={ __(
+									'Toolbar layout',
+									'wunderpaint'
+								) }
+							>
+								{ [ 1, 2 ].map( ( count ) => (
+									<button
+										key={ count }
+										className={
+											columns === count ? 'active' : ''
+										}
+										aria-pressed={ columns === count }
+										onClick={ () =>
+											setToolbarColumns( count )
+										}
+									>
+										{ count === 1
+											? __( '1 Column', 'wunderpaint' )
+											: __( '2 Columns', 'wunderpaint' ) }
 									</button>
 								) ) }
 							</div>

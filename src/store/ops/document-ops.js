@@ -26,6 +26,7 @@ import {
 	imageToRaster,
 	clearSelectedRegion,
 	trimRasterPatch,
+	opaqueBounds,
 } from '../../lib/raster-layer';
 import { selectionUnits, unitsBounds } from '../../lib/selection-units';
 
@@ -97,8 +98,8 @@ export async function layerViaCopyOp( editor ) {
 	if ( ! layer || ! sel ) {
 		return;
 	}
-	const bounds = selectionBounds( sel );
-	if ( ! bounds || bounds.w < 1 || bounds.h < 1 ) {
+	const selectionBox = selectionBounds( sel );
+	if ( ! selectionBox || selectionBox.w < 1 || selectionBox.h < 1 ) {
 		return;
 	}
 	const rendered = await renderToCanvas(
@@ -110,8 +111,16 @@ export async function layerViaCopyOp( editor ) {
 		feather: sel.feather,
 	} );
 	const ctx = rendered.getContext( '2d' );
+	ctx.save();
 	ctx.globalCompositeOperation = 'destination-in';
 	ctx.drawImage( mask, 0, 0 );
+	ctx.restore();
+	// Feather extends beyond the geometric selection. Trim the actual
+	// copied pixels, retaining the soft edge and ignoring empty results.
+	const bounds = opaqueBounds( rendered );
+	if ( ! bounds ) {
+		return;
+	}
 	const clipped = createCanvas(
 		Math.ceil( bounds.w ),
 		Math.ceil( bounds.h )
@@ -137,13 +146,18 @@ export async function layerViaCopyOp( editor ) {
 export function fillSelectionOp( editor ) {
 	const { state, dispatch, commit } = editor;
 	const sel = state.selection;
-	const bounds = sel && selectionBounds( sel );
-	if ( ! bounds || bounds.w < 1 || bounds.h < 1 ) {
+	if ( ! sel ) {
 		return;
 	}
 	const mask = selectionToMaskCanvas( sel, state.doc.w, state.doc.h, {
 		feather: sel.feather,
 	} );
+	// Feather extends beyond the geometric selection. Keep every nonzero
+	// alpha pixel of the document-sized mask, including the outer falloff.
+	const bounds = opaqueBounds( mask );
+	if ( ! bounds ) {
+		return;
+	}
 	const clipped = createCanvas(
 		Math.ceil( bounds.w ),
 		Math.ceil( bounds.h )

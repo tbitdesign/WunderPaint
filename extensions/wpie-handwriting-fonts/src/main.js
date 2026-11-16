@@ -36,6 +36,7 @@ import { auditGlyphs, snapToBaseline } from './core/audit.js';
 import { DrawSurface } from './ui/draw-canvas.js';
 import { GlyphGrid } from './ui/glyph-grid.js';
 import { SheetPanel } from './ui/sheet-panel.js';
+import { AiPanel } from './ui/ai-panel.js';
 import { SpacingPanel } from './ui/spacing-panel.js';
 
 const SLUG = 'wpie-handwriting-fonts';
@@ -118,13 +119,16 @@ function openStudio( ctx ) {
 	const tabs = ui.el( 'div', 'dsm-seg wpiehw-tabs', stage );
 	const drawTab = ui.el( 'button', 'wpiehw-tab is-active', tabs, t( 'Draw' ) );
 	const sheetTab = ui.el( 'button', 'wpiehw-tab', tabs, t( 'Sheet' ) );
+	const genTab = ui.el( 'button', 'wpiehw-tab', tabs, t( 'Generate' ) );
 	const spaceTab = ui.el( 'button', 'wpiehw-tab', tabs, t( 'Spacing' ) );
 	drawTab.type = 'button';
 	sheetTab.type = 'button';
+	genTab.type = 'button';
 	spaceTab.type = 'button';
 
 	const drawPane = ui.el( 'div', 'wpiehw-pane', stage );
 	const sheetPane = ui.el( 'div', 'wpiehw-pane is-hidden', stage );
+	const genPane = ui.el( 'div', 'wpiehw-pane is-hidden', stage );
 	const spacePane = ui.el( 'div', 'wpiehw-pane is-hidden', stage );
 
 	const charHead = ui.el( 'div', 'wpiehw-charhead', drawPane );
@@ -179,6 +183,7 @@ function openStudio( ctx ) {
 		project: state.project,
 		t,
 		ui,
+		icons: ICONS,
 		onStatus: ( msg ) => setStatus( msg ),
 		onImport: ( keys ) => {
 			state.cache.clear();
@@ -187,6 +192,23 @@ function openStudio( ctx ) {
 			scheduleSave();
 			updateFoot();
 			setStatus( t( 'Took over %d characters' ).replace( '%d', keys.length ) );
+		},
+	} );
+
+	const writer = new AiPanel( genPane, {
+		project: state.project,
+		t,
+		ui,
+		icons: ICONS,
+		onStatus: ( msg, sticky ) => setStatus( msg, sticky ),
+		// The characters arrive sheet by sheet; the panel says how many
+		// in the end, so this only brings every view up to date.
+		onImport: () => {
+			state.cache.clear();
+			grid.refreshAll();
+			schedulePreview();
+			scheduleSave();
+			updateFoot();
 		},
 	} );
 
@@ -207,13 +229,18 @@ function openStudio( ctx ) {
 		state.tab = name;
 		drawTab.classList.toggle( 'is-active', 'draw' === name );
 		sheetTab.classList.toggle( 'is-active', 'sheet' === name );
+		genTab.classList.toggle( 'is-active', 'generate' === name );
 		spaceTab.classList.toggle( 'is-active', 'spacing' === name );
 		drawPane.classList.toggle( 'is-hidden', 'draw' !== name );
 		sheetPane.classList.toggle( 'is-hidden', 'sheet' !== name );
+		genPane.classList.toggle( 'is-hidden', 'generate' !== name );
 		spacePane.classList.toggle( 'is-hidden', 'spacing' !== name );
 		if ( 'draw' === name ) {
 			surface.render();
 			paintPreview();
+		}
+		if ( 'generate' === name ) {
+			writer.refresh();
 		}
 		if ( 'spacing' === name ) {
 			bench.render();
@@ -221,6 +248,7 @@ function openStudio( ctx ) {
 	};
 	drawTab.onclick = () => setTab( 'draw' );
 	sheetTab.onclick = () => setTab( 'sheet' );
+	genTab.onclick = () => setTab( 'generate' );
 	spaceTab.onclick = () => setTab( 'spacing' );
 
 	/* -------------------------------- left ------------------------------- */
@@ -257,6 +285,7 @@ function openStudio( ctx ) {
 		const weightRow = ui.el( 'div', 'wpiehw-checks', fontSec );
 		for ( const w of WEIGHTS ) {
 			ui.check( weightRow, {
+				selection: true,
 				label: t( w.style ),
 				checked: ( o.weights || [] ).includes( w.id ),
 				onChange: ( on ) => {

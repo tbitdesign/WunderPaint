@@ -37,6 +37,7 @@ import {
 	aiVariations,
 	insertResultLayer,
 	selectSubject,
+	selectByText,
 	removeObject,
 	removeObjectLocal,
 	blurBackground,
@@ -56,6 +57,11 @@ import {
 	urlToDataUrl,
 } from '../../lib/ai-actions';
 import { placeSvgLayers } from '../../store/ops';
+import {
+	builtinAiButtons,
+	resolveAiButtons,
+	runAiButton,
+} from '../../lib/ai-buttons';
 import { PostPickerDialog } from '../post-picker-dialog';
 import { HelpLink } from '../help-dialog';
 import { StyleButton } from '../../components/style-picker';
@@ -83,6 +89,78 @@ import { useTip } from '../../components/use-tip';
  */
 const STANDALONE_DEAD_ACTIONS = [ 'inpaint', 'outpaint', 'variations' ];
 
+// Block C (Thomas, 16.09.2026): every built-in button is an icon tile
+// sized like the library tray's cards; the caption wraps, it is never cut.
+// One glyph per id; an extension tool without one gets the wand.
+const TOOL_GLYPH = {
+	selectSubject:
+		'M4 4h4M16 4h4M4 20h4M16 20h4M4 4v4M4 16v4M20 4v4M20 16v4M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+	selectByText:
+		'M4 4h4M16 4h4M4 20h4M16 20h4M4 4v4M4 16v4M20 4v4M20 16v4M9 10h6M12 10v5',
+	removeObjectLocal: 'M3 17l9-9 5 5-6 6H7zM13 21h8',
+	removeObject:
+		'M3 17l9-9 5 5-6 6H7zM13 21h5M18 3l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z',
+	enhanceLayer:
+		'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 17l.6 1.7 1.7.6-1.7.6-.6 1.7-.6-1.7-1.7-.6 1.7-.6z',
+	enhanceDesign:
+		'M4 5h16v14H4zM4 11h16M10 11v8M15 6.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z',
+	designReview:
+		'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+	improveText: 'M5 6h14M12 6v14M8 20h8',
+	removeBg:
+		'M6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM20 4L8.5 15.5M20 20L8.5 8.5',
+	blurBg: 'M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5 20a7 7 0 0 1 14 0M3 6h2M19 6h2M3 10h2M19 10h2',
+	depthBlur: 'M3 18c3-5 6-5 9 0s6 5 9 0M3 12c3-5 6-5 9 0s6 5 9 0M12 3v4',
+	blurfaces:
+		'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 10h2v2H8zM14 10h2v2h-2zM9 16h6',
+	vectorize: 'M4 20c4-8 8-12 16-16M4 20l4-1-3-3zM14 6l4 4',
+	upscale: 'M4 10V4h6M20 14v6h-6M4 4l6 6M20 20l-6-6',
+	inpaint: 'M4 4h16v16H4zM8 16c0-3 2-4 4-6l2 2c-2 2-3 4-6 4z',
+	outpaint:
+		'M8 8h8v8H8zM4 12H2M22 12h-2M12 4V2M12 22v-2M4 4l2 2M20 4l-2 2M4 20l2-2M20 20l-2-2',
+	enhance:
+		'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5',
+	colorize:
+		'M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11zM9 14a3 3 0 0 0 3 3',
+	cartoon: 'M4 5h16v11H9l-5 4zM9 9h.01M12 9h.01M15 9h.01',
+	restore:
+		'M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4M14 7l1 1.5L16.5 9 15 9.5 14 11l-1-1.5L11.5 9l1.5-.5z',
+	replaceBg:
+		'M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 20a6 6 0 0 1 12 0M3 3l3 3-3 3M21 21l-3-3 3-3',
+	refineEdges:
+		'M6 6h12v12H6zM6 3v1M18 3v1M6 20v1M18 20v1M3 6h1M3 18h1M20 6h1M20 18h1',
+	cropSubject: 'M6 2v16h16M2 6h16v16',
+	sticker:
+		'M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z',
+	textBehind:
+		'M4 5h10M9 5v8M15 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM9 21a6 6 0 0 1 12 0',
+	colorPop: 'M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11zM12 3v17',
+	productShot: 'M7 7h10v8H7zM4 19h16M9 15v4M15 15v4',
+	neonRim:
+		'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 2v3M12 19v3M2 12h3M19 12h3',
+	speedBlur: 'M14 6l4 6-4 6M3 8h8M2 12h9M3 16h8',
+	depthFog: 'M3 20c3-6 6-6 9 0s6 6 9 0M3 14h5M10 14h4M17 14h4M5 9h4M14 9h5',
+	variations: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+};
+const WAND =
+	'M4 20l10-10M13 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1zM19 13l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z';
+
+const ToolGlyph = ( { id } ) => (
+	<svg
+		width="22"
+		height="22"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="1.7"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		aria-hidden="true"
+	>
+		<path d={ TOOL_GLYPH[ id ] || WAND } />
+	</svg>
+);
+
 export function AIPanel( { extras } ) {
 	const editor = useEditor();
 	const { state, WPIE } = editor;
@@ -103,6 +181,10 @@ export function AIPanel( { extras } ) {
 	const aspectParam =
 		'auto' === aspect || '360°' === aspect ? undefined : aspect;
 	const [ busy, setBusy ] = useState( null ); // action id
+	// A running action's own progress line (AI upscale: "part 3 of 12").
+	const [ busyNote, setBusyNote ] = useState( null );
+	// Stops actions that can stop between steps (AI upscale) on Cancel.
+	const abortRun = useRef( null );
 	// Extension AI tools may register after mount (v1.122).
 	const [ , setExtTick ] = useState( 0 );
 	useEffect(
@@ -112,6 +194,16 @@ export function AIPanel( { extras } ) {
 	const [ variants, setVariants ] = useState( null );
 	const [ review, setReview ] = useState( null ); // Design Review text (v1.378)
 	const [ textAlts, setTextAlts ] = useState( null ); // Improve Text (v1.378)
+	// AI Studio Buttons (spec 2026-09-16): the dialog saves the site option
+	// and says so; the sections are rebuilt from window.WPIE on the next
+	// render, which this tick provokes.
+	const [ , setButtonsTick ] = useState( 0 );
+	useEffect( () => {
+		const bump = () => setButtonsTick( ( t ) => t + 1 );
+		window.addEventListener( 'wpie:ai-buttons-updated', bump );
+		return () =>
+			window.removeEventListener( 'wpie:ai-buttons-updated', bump );
+	}, [] );
 	const [ includeBrand, setIncludeBrand ] = useState( false );
 	const [ pickPost, setPickPost ] = useState( false );
 	const cancelled = useRef( false );
@@ -306,13 +398,15 @@ export function AIPanel( { extras } ) {
 		// of the run before sailed through onto the same layer.
 		const guard = guardedRun( editor );
 		runGuard.current = guard;
+		abortRun.current = new window.AbortController();
+		setBusyNote( null );
 		setBusy( id );
 		try {
 			await fn( prepared, guard.editor );
 			if ( guard.revoked() ) {
 				extras.toasts.toast(
 					__(
-						'Cancelled. The result arrived afterwards and was discarded.',
+						'Canceled. The result arrived afterwards and was discarded.',
 						'wunderpaint'
 					)
 				);
@@ -330,95 +424,66 @@ export function AIPanel( { extras } ) {
 				);
 			}
 		}
+		abortRun.current = null;
+		setBusyNote( null );
 		setBusy( null );
 	};
 
 	// Every quick action explains itself via tooltip (v1.4.3).
+	// The runnable side of every built-in button: id plus closure. Label,
+	// tooltip, kind and order come from the table in lib/ai-buttons.js, own
+	// buttons and hiding from the site option (spec 2026-09-16).
 	const quickActions = [
 		{
 			id: 'selectSubject',
-			label: __( 'Select Subject', 'wunderpaint' ),
-			needsProvider: false, // local U2-Netp (v0.2)
+			needsProvider: false, // local subject model (v0.2)
 			fn: ( _p, ed ) => selectSubject( ed ),
-			title: __(
-				'Detects the main subject of the active image and turns it into a selection.',
-				'wunderpaint'
-			),
+		},
+		{
+			// Florence-2 finds it, SlimSAM cuts it (20.10.2026).
+			id: 'selectByText',
+			needsProvider: false,
+			needsPrompt: true,
+			fn: ( _p, ed ) => selectByText( ed, prompt ),
 		},
 		{
 			id: 'removeObjectLocal',
-			label: __( 'Remove Object', 'wunderpaint' ),
 			needsProvider: false,
 			requires: 'selection',
 			fn: ( _p, ed ) => removeObjectLocal( ed ),
-			title: __(
-				'Erases the selected area and fills it from the surrounding pixels. ① Select the object (Smart Select “K” / Select Subject). ② Click this. (For tricky fills, the AI-cloud version is stronger.)',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'enhanceLayer',
-			label: __( 'Enhance Layer', 'wunderpaint' ),
 			fn: ( _p, ed ) =>
 				aiEnhanceLayer( ed, { provider: currentProvider } ),
-			title: __(
-				'Sends the active layer to the AI and recreates it at much higher quality, sharper, cleaner and more detailed, keeping the same subject, colors and composition.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'enhanceDesign',
-			label: __( 'Enhance Design', 'wunderpaint' ),
 			fn: ( _p, ed ) =>
 				aiEnhanceDesign( ed, { provider: currentProvider } ),
-			title: __(
-				'Flattens the whole canvas as a reference and redesigns it to a professional standard, keeping the layout, text and composition but making it noticeably cooler and more polished. Adds the result as a new layer on top.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'designReview',
-			label: __( 'Design Review', 'wunderpaint' ),
 			fn: async ( _p, ed ) => setReview( await designReview( ed ) ),
-			title: __(
-				'An art director looks at your design and answers in your editor language: one overall verdict plus the few changes with the biggest impact.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'improveText',
-			label: __( 'Improve Text', 'wunderpaint' ),
 			fn: async ( _p, ed ) =>
 				setTextAlts( await improveTextAlternatives( ed ) ),
-			title: __(
-				'Five stronger alternatives for the selected text layer, same language and length - pick one and it replaces the text.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'removeObject',
-			label: __( 'Remove Object', 'wunderpaint' ),
 			requires: 'selection',
 			fn: ( _p, ed ) => removeObject( ed, { provider: currentProvider } ),
-			title: __(
-				'Erases the selected area, the AI reconstructs what was behind it. ① Select the object (Smart Select tool “K”, or “Select Subject” below). ② Click this.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'removeBg',
-			label: __( 'Remove BG', 'wunderpaint' ),
 			needsProvider: false, // guaranteed local (spec 11.1)
 			fn: ( _p, ed ) => aiRemoveBg( ed ),
-			title: __(
-				'Cuts out the subject of the active image layer, the background becomes transparent.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'blurBg',
-			label: __( 'Blur Background', 'wunderpaint' ),
-			needsProvider: false, // local U2-Netp (v0.4)
+			needsProvider: false, // local subject model (v0.4)
 			prepare: () =>
 				promptDialog( {
 					title: __( 'Blur Background', 'wunderpaint' ),
@@ -430,25 +495,15 @@ export function AIPanel( { extras } ) {
 				blurBackground( ed, {
 					radius: Math.max( 1, parseInt( value, 10 ) || 18 ),
 				} ),
-			title: __(
-				'Keeps the subject sharp and blurs everything behind it (portrait effect), asks for the blur strength.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'depthBlur',
-			label: __( 'Depth Blur', 'wunderpaint' ),
 			needsProvider: false, // local Depth Anything (v1.27)
 			fn: () => extras.openDepthBlur(),
-			title: __(
-				'Graduated background blur with a focus/strength slider, from a depth map (depth-of-field).',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'blurfaces',
-			label: __( 'Blur Faces', 'wunderpaint' ),
-			needsProvider: false, // local Florence-2 grounding (v1.241)
+			needsProvider: false, // bundled face finder, Florence-2 adds (20.10.2026)
 			fn: async ( _p, ed ) => {
 				const r = await aiBlurFaces( ed );
 				extras.toasts.success(
@@ -459,14 +514,9 @@ export function AIPanel( { extras } ) {
 					)
 				);
 			},
-			title: __(
-				'Finds every face on the active layer and pixelates it beyond recognition, e.g. for privacy-safe photos. Runs locally, nothing leaves your browser.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'vectorize',
-			label: __( 'Vectorize', 'wunderpaint' ),
 			needsProvider: false, // imagetracerjs, pure JS (v1.77)
 			fn: async ( _p, ed ) => {
 				const parsed = await vectorizeActiveLayer( ed );
@@ -487,17 +537,26 @@ export function AIPanel( { extras } ) {
 					)
 				);
 			},
-			title: __(
-				'Traces the active image into editable vector shapes (SVG paths).',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'upscale',
-			label: __( 'Upscale', 'wunderpaint' ),
 			needsProvider: false,
 			fn: async ( _p, ed ) => {
-				const r = await aiUpscale( ed, 2 );
+				const r = await aiUpscale( ed, 2, {
+					signal: abortRun.current?.signal,
+					onProgress: ( done, total ) =>
+						setBusyNote(
+							sprintf(
+								/* translators: 1: finished part, 2: all parts. */
+								__(
+									'Adding detail with AI: part %1$d of %2$d.',
+									'wunderpaint'
+								),
+								done,
+								total
+							)
+						),
+				} );
 				// The layer intentionally keeps its canvas size, so say
 				// what actually happened instead of looking like a no-op.
 				extras.toasts.success(
@@ -509,193 +568,136 @@ export function AIPanel( { extras } ) {
 						),
 						r.width,
 						r.height
-					)
+					) +
+						( r.ai
+							? ''
+							: ' ' +
+							  __(
+									'This picture is too large for the AI upscaler, so it was enlarged without added detail.',
+									'wunderpaint'
+							  ) )
 				);
 			},
-			title: __(
-				'Doubles the source resolution of the active image layer; the layer keeps its size on canvas.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'inpaint',
-			label: __( 'Inpaint', 'wunderpaint' ),
 			needsPrompt: true,
 			requires: 'selection',
 			fn: ( _p, ed ) =>
 				aiInpaint( ed, { prompt, provider: currentProvider } ),
-			title: __(
-				'Repaints ONLY the selected area from your prompt, everything else stays. ① Select an area. ② Type what should go there (prompt box above). ③ Click this.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'outpaint',
-			label: __( 'Outpaint', 'wunderpaint' ),
 			fn: ( _p, ed ) =>
 				aiOutpaint( ed, { prompt, provider: currentProvider } ),
-			/*
-			 * The rule below reads "25% per" as a %p placeholder. There is
-			 * none; it is a literal percentage and needs no translator note.
-			 */
-			// eslint-disable-next-line @wordpress/i18n-translator-comments
-			title: __(
-				'Extends the picture outward, the AI invents more scenery. Fills empty canvas around your image, or enlarges the canvas by 25% per side if it’s already full. An optional prompt steers what appears.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'enhance',
-			label: __( 'Enhance', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => aiEnhance( ed ),
-			title: __(
-				'One-click auto color, contrast and sharpness boost for the active image layer.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'colorize',
-			label: __( 'Colorize', 'wunderpaint' ),
 			fn: ( _p, ed ) => aiColorize( ed, { provider: currentProvider } ),
-			title: __(
-				'Adds natural, realistic color to a black-and-white photo on the active image layer.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'cartoon',
-			label: __( 'Cartoon', 'wunderpaint' ),
 			fn: ( _p, ed ) => aiCartoon( ed, { provider: currentProvider } ),
-			title: __(
-				'Redraws the active image layer as a clean, vibrant cartoon illustration.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'restore',
-			label: __( 'Restore Photo', 'wunderpaint' ),
 			fn: ( _p, ed ) => aiRestore( ed, { provider: currentProvider } ),
-			title: __(
-				'Repairs an old or damaged photo on the active layer, removes scratches, dust and noise and improves clarity.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'replaceBg',
-			label: __( 'Replace BG', 'wunderpaint' ),
 			needsPrompt: true,
 			fn: ( _p, ed ) =>
 				replaceBackground( ed, {
 					prompt,
 					provider: currentProvider,
 				} ),
-			title: __(
-				'Keeps the subject (cut out locally) and generates a NEW background from your prompt behind it. Type the background you want in the prompt box first.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'refineEdges',
-			label: __( 'Refine Edges', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => refineEdges( ed ),
-			title: __(
-				'Smooths and slightly tightens the cutout edge of the active image layer, cleans Remove-BG fringes.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'cropSubject',
-			label: __( 'Crop to Subject', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => cropToSubject( ed ),
-			title: __(
-				'Crops the canvas to the detected subject with a small margin.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'sticker',
-			label: __( 'Sticker', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => makeSticker( ed ),
-			title: __(
-				'Cuts out the subject and adds a white sticker outline with a soft shadow.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'textBehind',
-			label: __( 'Text Behind Subject', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => textBehindSubject( ed ),
-			title: __(
-				'Cuts out the subject locally and slides an editable headline between background and subject - the magazine cover look.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'colorPop',
-			label: __( 'Color Pop', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => colorPop( ed ),
-			title: __(
-				'Keeps the subject in color and turns everything else black and white - fully local, soft edges included.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'productShot',
-			label: __( 'Product Shot', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => productShot( ed ),
-			title: __(
-				'Cuts out the subject and centers it on clean white with a soft contact shadow - the catalog look.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'neonRim',
-			label: __( 'Neon Rim', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => neonRim( ed ),
-			title: __(
-				'Dims the background and wraps the subject in a glowing rim - uses your first vivid Brand Kit color when one is set.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'speedBlur',
-			label: __( 'Speed Blur', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => speedBlur( ed ),
-			title: __(
-				'Zoom-blurs the background around the sharp subject - instant motion.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'depthFog',
-			label: __( 'Depth Fog', 'wunderpaint' ),
 			needsProvider: false,
 			fn: ( _p, ed ) => depthFog( ed ),
-			title: __(
-				'Adds atmospheric haze staged by real depth - clear up front, misty in the distance.',
-				'wunderpaint'
-			),
 		},
 		{
 			id: 'variations',
-			label: __( 'Variations', 'wunderpaint' ),
 			fn: async ( _p, ed ) => setVariants( await aiVariations( ed, 2 ) ),
 			hidden: ! WPIE.providers?.openai, // dall-e-2 only (spec 11.1)
-			title: __(
-				'Generates 4 alternative takes on the active layer to choose from (OpenAI).',
-				'wunderpaint'
-			),
 		},
 	];
+
+	const fnById = Object.fromEntries(
+		quickActions.map( ( a ) => [ a.id, a ] )
+	);
+	const sections = resolveAiButtons(
+		window.WPIE?.aiButtons || null,
+		builtinAiButtons()
+	);
+	const toAction = ( row ) => {
+		if ( row.custom ) {
+			return {
+				id: row.id,
+				label: row.label,
+				title: row.title,
+				custom: row.custom,
+				fn: async ( _p, ed ) => {
+					const r = await runAiButton( ed, row.custom, {
+						provider: currentProvider,
+					} );
+					if ( 'alternatives' === r.kind ) {
+						setTextAlts( r );
+					}
+				},
+			};
+		}
+		const a = fnById[ row.id ];
+		return a ? { ...a, label: row.label, title: row.title } : null;
+	};
+	const localActions = sections.local.map( toAction ).filter( Boolean );
+	const cloudActions = sections.cloud.map( toAction ).filter( Boolean );
 
 	// Friendly, action-specific status label for the busy card.
 	const busyLabel = ( () => {
@@ -707,7 +709,9 @@ export function AIPanel( { extras } ) {
 		if ( named[ busy ] ) {
 			return named[ busy ];
 		}
-		const qa = quickActions.find( ( a ) => a.id === busy );
+		const qa = [ ...localActions, ...cloudActions ].find(
+			( a ) => a.id === busy
+		);
 		return qa ? qa.label + '…' : __( 'Working…', 'wunderpaint' );
 	} )();
 
@@ -723,8 +727,9 @@ export function AIPanel( { extras } ) {
 			>
 				<span
 					style={ {
-						fontSize: 10,
-						color: 'var(--ed-text-muted)',
+						fontSize: 11,
+						fontWeight: 600,
+						color: 'var(--ed-text)',
 						textTransform: 'uppercase',
 						letterSpacing: 0.5,
 					} }
@@ -748,8 +753,9 @@ export function AIPanel( { extras } ) {
 			<div style={ { display: 'grid', gap: 4 } }>
 				<span
 					style={ {
-						fontSize: 10,
-						color: 'var(--ed-text-muted)',
+						fontSize: 11,
+						fontWeight: 600,
+						color: 'var(--ed-text)',
 						textTransform: 'uppercase',
 						letterSpacing: 0.5,
 					} }
@@ -779,8 +785,9 @@ export function AIPanel( { extras } ) {
 			<div style={ { display: 'grid', gap: 4 } }>
 				<span
 					style={ {
-						fontSize: 10,
-						color: 'var(--ed-text-muted)',
+						fontSize: 11,
+						fontWeight: 600,
+						color: 'var(--ed-text)',
 						textTransform: 'uppercase',
 						letterSpacing: 0.5,
 					} }
@@ -1074,40 +1081,47 @@ export function AIPanel( { extras } ) {
 				} }
 			>
 				{ ( () => {
-					const visible = quickActions.filter(
-						( a ) =>
-							! a.hidden &&
-							! (
-								window.WPIE?.standalone &&
-								STANDALONE_DEAD_ACTIONS.includes( a.id )
-							)
+					const usable = ( a ) =>
+						! a.hidden &&
+						! (
+							window.WPIE?.standalone &&
+							STANDALONE_DEAD_ACTIONS.includes( a.id )
+						);
+					const local = localActions.filter( usable );
+					const cloud = cloudActions.filter(
+						( a ) => usable( a ) && ! a.custom
 					);
-					const local = visible.filter(
-						( a ) => false === a.needsProvider
+					// AI Presets (spec 2026-09-16, block C try-out): the
+					// site's own presets sit at the top as list cards with
+					// the reference image, title and description; admins
+					// (the browser's owner in the studio) get the manager
+					// link here and, without presets yet, a first-step card.
+					const own = cloudActions.filter(
+						( a ) => usable( a ) && a.custom
 					);
-					const cloud = visible.filter(
-						( a ) => false !== a.needsProvider
-					);
+					const canManage =
+						!! (
+							window.WPIE?.canManage || window.WPIE?.standalone
+						) && !! extras?.openAiButtons;
 					const headStyle = {
 						display: 'flex',
 						alignItems: 'center',
 						gap: 6,
 						fontSize: 11,
-						color: 'var(--ed-text-muted)',
+						fontWeight: 600,
+						color: 'var(--ed-text)',
 						textTransform: 'uppercase',
 						letterSpacing: 0.5,
 						marginBottom: 8,
 					};
-					const btn = ( action ) => (
+					const tile = ( action ) => (
 						<button
 							key={ action.id }
-							className="ai-btn secondary"
+							type="button"
+							className="ai-tile"
 							{ ...tipFor( action.title ) }
 							disabled={ !! busy }
 							onClick={ () => {
-								// The button disables itself on click; a
-								// disabled button fires no mouseleave, so
-								// the tip would stick around.
 								hideTip();
 								run( action.id, action.fn, {
 									needsProvider:
@@ -1118,14 +1132,115 @@ export function AIPanel( { extras } ) {
 								} );
 							} }
 						>
-							{ busy === action.id ? (
-								<span className="spin" />
-							) : null }{ ' ' }
-							{ action.label }
+							<span className="ai-tile-icon">
+								{ busy === action.id ? (
+									<span className="spin" />
+								) : (
+									<ToolGlyph id={ action.id } />
+								) }
+							</span>
+							<span className="ai-tile-name">
+								{ action.label }
+							</span>
 						</button>
 					);
+					const presetCard = ( action ) => {
+						const c = action.custom;
+						const thumb = c.refThumbUrl || c.refImageUrl || '';
+						return (
+							<button
+								key={ action.id }
+								type="button"
+								className="ai-preset"
+								{ ...tipFor( action.title ) }
+								disabled={ !! busy }
+								onClick={ () => {
+									hideTip();
+									run( action.id, action.fn, {
+										needsProvider: true,
+									} );
+								} }
+							>
+								<span className="ai-preset-thumb">
+									{ thumb ? (
+										<img src={ thumb } alt="" />
+									) : 'text' === c.input ? (
+										I.pencil( { size: 15 } )
+									) : (
+										I.image( { size: 15 } )
+									) }
+								</span>
+								<span className="ai-preset-text">
+									<b>{ action.label }</b>
+									<small>{ c.description || c.prompt }</small>
+								</span>
+								{ busy === action.id ? (
+									<span className="spin" />
+								) : null }
+							</button>
+						);
+					};
 					return (
 						<div>
+							{ ( own.length > 0 || canManage ) && (
+								<div className="ai-presets-sect">
+									<div
+										style={ headStyle }
+										className="ai-presets-head"
+									>
+										<span>
+											{ __(
+												'Your presets',
+												'wunderpaint'
+											) }
+										</span>
+										{ canManage && (
+											<button
+												type="button"
+												className="ai-panel-link"
+												onClick={ () =>
+													extras.openAiButtons()
+												}
+											>
+												{ __(
+													'Manage',
+													'wunderpaint'
+												) }
+											</button>
+										) }
+									</div>
+									<div className="ai-presets">
+										{ own.map( presetCard ) }
+										{ ! own.length && canManage && (
+											<button
+												type="button"
+												className="ai-preset ai-preset-add"
+												onClick={ () =>
+													extras.openAiButtons()
+												}
+											>
+												<span className="ai-preset-thumb">
+													{ I.plus( { size: 15 } ) }
+												</span>
+												<span className="ai-preset-text">
+													<b>
+														{ __(
+															'Add your first preset',
+															'wunderpaint'
+														) }
+													</b>
+													<small>
+														{ __(
+															'Your own prompt, one click away.',
+															'wunderpaint'
+														) }
+													</small>
+												</span>
+											</button>
+										) }
+									</div>
+								</div>
+							) }
 							<div style={ headStyle }>
 								{ __( 'Local tools', 'wunderpaint' ) }
 							</div>
@@ -1133,6 +1248,7 @@ export function AIPanel( { extras } ) {
 								style={ {
 									fontSize: 11,
 									color: 'var(--ed-text-muted)',
+									marginTop: -5,
 									marginBottom: 8,
 									lineHeight: 1.3,
 								} }
@@ -1142,12 +1258,12 @@ export function AIPanel( { extras } ) {
 									'wunderpaint'
 								) }
 							</div>
-							<div className="ai-quick-grid">
-								{ local.map( btn ) }
+							<div className="ai-tiles">
+								{ local.map( tile ) }
 								{ /* Extension AI tools (v1.122) run in the
 								     same busy/error harness. */ }
 								{ listExtensionAiTools().map( ( tool ) =>
-									btn( {
+									tile( {
 										id: tool.id,
 										label: tool.label,
 										title: tool.title || tool.label,
@@ -1174,6 +1290,7 @@ export function AIPanel( { extras } ) {
 								style={ {
 									fontSize: 11,
 									color: 'var(--ed-text-muted)',
+									marginTop: -5,
 									marginBottom: 8,
 									lineHeight: 1.3,
 								} }
@@ -1187,22 +1304,9 @@ export function AIPanel( { extras } ) {
 											'These need an AI provider key (may cost).',
 											'wunderpaint'
 									  ) }
-								{ ! hasProvider && ' ' }
-								{ ! hasProvider && (
-									<a
-										href={ WPIE.settingsUrl }
-										target="_blank"
-										rel="noreferrer"
-									>
-										{ __(
-											'add one in Settings',
-											'wunderpaint'
-										) }
-									</a>
-								) }
 							</div>
-							<div className="ai-quick-grid">
-								{ cloud.map( btn ) }
+							<div className="ai-tiles">
+								{ cloud.map( tile ) }
 							</div>
 						</div>
 					);
@@ -1230,10 +1334,11 @@ export function AIPanel( { extras } ) {
 								<span className="ai-status-label">
 									{ busyLabel }
 									<span className="ai-status-sub">
-										{ __(
-											'This can take a few seconds.',
-											'wunderpaint'
-										) }
+										{ busyNote ||
+											__(
+												'This can take a few seconds.',
+												'wunderpaint'
+											) }
 									</span>
 								</span>
 								<button
@@ -1244,6 +1349,7 @@ export function AIPanel( { extras } ) {
 										if ( runGuard.current ) {
 											runGuard.current.revoke();
 										}
+										abortRun.current?.abort();
 										setBusy( null );
 									} }
 								>

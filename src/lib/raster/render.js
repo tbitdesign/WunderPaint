@@ -1,4 +1,6 @@
-import { effectById } from '../effects';
+import { gradeCanvas, hasColorGrade } from '../filter-grades';
+import { renderMaskCoverage } from './mask';
+import { applyEffectToCanvas, effectById } from '../effects';
 import {
 	evalBezierMesh,
 	homographyFromQuad,
@@ -12,15 +14,17 @@ import {
 	supportsCtxFilter,
 } from './env';
 import { defaultCache } from './cache';
-import { layerDeviceBounds, stylesPadding } from './bounds';
+import {
+	layerDeviceBounds,
+	stylesPadding,
+	liveEffectPadding,
+	warpSourceBounds,
+} from './bounds';
 import { drawContent } from './content';
 import { encodeCanvasBlob } from './encode-worker';
-import {
-	applyLayerStyles,
-	blurCanvas,
-	drawStrokePaths,
-	scaleEffectParams,
-} from './styles';
+import { renderRepeatToDevice, repeatDeviceBounds } from './repeat';
+import { cachedGroup } from './group-cache';
+import { applyLayerStyles, drawStrokePaths, scaleEffectParams } from './styles';
 
 /* ------------------------------ layer render --------------------------- */
 
@@ -39,7 +43,8 @@ import {
  *                                        spec 13.6) applied before the
  *                                        quad homography.
  */
-export function drawWarped( ctx, src, quad, mesh ) {
+export function drawWarped( ctx, src, quad, mesh, region = {} ) {
+	const { u0: minU = 0, v0: minV = 0, u1: maxU = 1, v1: maxV = 1 } = region;
 	const N = mesh ? 16 : 8;
 	const w = src.width;
 	const h = src.height;
@@ -54,6 +59,8 @@ export function drawWarped( ctx, src, quad, mesh ) {
 		quad.bl.y,
 	] );
 	const at = ( u, v ) => {
+		u = minU + u * ( maxU - minU );
+		v = minV + v * ( maxV - minV );
 		if ( mesh ) {
 			[ u, v ] = evalBezierMesh( mesh, u, v );
 		}
@@ -133,6 +140,17 @@ export function drawWarped( ctx, src, quad, mesh ) {
 	}
 }
 
+/** Render extents for leaves, groups and live Repeat copies. */
+function deviceBoundsFor( layer, env ) {
+	if ( 'group' === layer.type ) {
+		return groupDeviceBounds( layer, env );
+	}
+	if ( 'repeat' === layer.type ) {
+		return repeatDeviceBounds( layer, env, deviceBoundsFor );
+	}
+	return layerDeviceBounds( layer, env );
+}
+
 /**
  * Render one layer (or group) into a device-space scratch canvas clipped to
  * the viewport. Returns { canvas, x, y } in device pixels, or null.
@@ -140,10 +158,39 @@ export function drawWarped( ctx, src, quad, mesh ) {
  * @param env
  */
 export function renderLayerToDevice( layer, env ) {
-	const bounds =
-		'group' === layer.type
-			? groupDeviceBounds( layer, env )
-			: layerDeviceBounds( layer, env );
+	if ( 'repeat' === layer.type ) {
+		const rendered = renderRepeatToDevice(
+			layer,
+			env,
+			renderLayerToDevice,
+			deviceBoundsFor
+		);
+		if ( rendered ) {
+			gradeCanvas( rendered.canvas, layer );
+			if ( effectById( layer.previewEffect?.id )?.collection ) {
+				applyEffectToCanvas(
+					rendered.canvas,
+					layer.previewEffect.id,
+					layer.previewEffect.params
+				);
+			}
+		}
+		return rendered;
+	}
+	// The editor keeps finished generator groups as bitmaps while nothing
+	// in them changes (raster/group-cache.js); exports never pass a cache.
+	if ( env.groupCache && 'group' === layer.type ) {
+		const hit = cachedGroup(
+			layer,
+			env,
+			renderLayerToDevice,
+			deviceBoundsFor
+		);
+		if ( undefined !== hit ) {
+			return hit;
+		}
+	}
+	const bounds = deviceBoundsFor( layer, env );
 	if ( ! bounds ) {
 		return null;
 	}
@@ -238,14 +285,22 @@ export function renderLayerToDevice( layer, env ) {
 			drawStrokePaths( ctx, layer );
 		} else if ( layer.quad ) {
 			// Free transform (v0.7): render content flat, then mesh-warp it.
+			const source = warpSourceBounds( layer, env.scale );
 			const flat = createCanvas(
-				Math.max( 1, Math.round( layer.w * env.scale ) ),
-				Math.max( 1, Math.round( layer.h * env.scale ) )
+				source.w * env.scale,
+				source.h * env.scale
 			);
 			const fx = flat.getContext( '2d' );
 			fx.scale( env.scale, env.scale );
+			fx.translate( source.pad, source.pad );
 			drawContent( fx, layer, env );
-			drawWarped( ctx, flat, layer.quad, layer.warpMesh || null );
+			drawWarped(
+				ctx,
+				flat,
+				layer.quad,
+				layer.warpMesh || null,
+				source.region
+			);
 		} else {
 			const cx = layer.x + layer.w / 2;
 			const cy = layer.y + layer.h / 2;
@@ -273,66 +328,25 @@ export function renderLayerToDevice( layer, env ) {
 		}
 	}
 
-	// Mask: multiply alpha (destination-in), inverted → destination-out.
+	// The same transformed coverage drives export and the mask preview.
 	if ( layer.mask && layer.mask.enabled !== false ) {
-		const maskSource =
-			layer.mask.canvas ||
-			( 'string' === typeof layer.mask.data
-				? env.cache.get( layer.mask.data )
-				: null );
-		if ( maskSource ) {
-			let mask = maskSource;
-			if ( layer.mask.feather ) {
-				const wrapped = createCanvas(
-					maskSource.width,
-					maskSource.height
-				);
-				wrapped.getContext( '2d' ).drawImage( maskSource, 0, 0 );
-				mask = blurCanvas( wrapped, layer.mask.feather * env.scale );
-			}
-			worldTransform();
-			ctx.globalCompositeOperation = layer.mask.inverted
-				? 'destination-out'
-				: 'destination-in';
-			const anchor = layer.mask.anchor;
-			if ( anchor && 'stroke' !== layer.type && ! layer.quad ) {
-				// Linked mask (v1.27): map the mask region that was under the
-				// layer at mask time (anchor) onto the layer's local content and
-				// apply the SAME transform as the content, so the mask follows
-				// move / resize / scale / rotate / flip.
-				const cx = layer.x + layer.w / 2;
-				const cy = layer.y + layer.h / 2;
-				ctx.translate( cx, cy );
-				if ( layer.rot ) {
-					ctx.rotate( ( layer.rot * Math.PI ) / 180 );
-				}
-				if ( layer.flipX || layer.flipY ) {
-					ctx.scale( layer.flipX ? -1 : 1, layer.flipY ? -1 : 1 );
-				}
-				ctx.translate( -layer.w / 2, -layer.h / 2 );
-				ctx.drawImage(
-					mask,
-					anchor.x,
-					anchor.y,
-					anchor.w,
-					anchor.h,
-					0,
-					0,
-					layer.w,
-					layer.h
-				);
-			} else {
-				// Legacy / stroke / free-transform masks stay in doc space.
-				ctx.drawImage( mask, 0, 0, env.doc.w, env.doc.h );
-			}
-			ctx.globalCompositeOperation = 'source-over';
+		const mask = renderMaskCoverage( layer, env, bounds );
+		if ( mask ) {
+			ctx.save();
+			ctx.setTransform( 1, 0, 0, 1, 0, 0 );
+			ctx.globalCompositeOperation = 'destination-in';
+			ctx.drawImage( mask, 0, 0 );
+			ctx.restore();
 		}
 	}
 
 	// Live effect preview (v1.0.5): the effect dialog patches a transient
 	// previewEffect onto the layer, applied here at device scale, exactly
 	// like Smart Filters, so the canvas shows the result before Apply.
-	if ( layer.previewEffect ) {
+	if (
+		layer.previewEffect &&
+		! effectById( layer.previewEffect.id )?.collection
+	) {
 		const previewFx = effectById( layer.previewEffect.id );
 		if ( previewFx && canvas.width && canvas.height ) {
 			const pctx = canvas.getContext( '2d' );
@@ -358,10 +372,63 @@ export function renderLayerToDevice( layer, env ) {
 		}
 	}
 
+	gradeCanvas( canvas, layer );
+
 	const styled = layer.styles
 		? applyLayerStyles( canvas, layer, env.scale )
 		: canvas;
+	// Editable layers and groups are rendered into their Smart Object or
+	// baked source first. Their finish therefore follows grade, mask and styles.
+	// Raster and existing Smart Object previews already ran in drawContent.
+	if (
+		effectById( layer.previewEffect?.id )?.collection &&
+		layer.type !== 'smart' &&
+		! ( layer.type === 'raster' && layer.canvas )
+	) {
+		applyEffectToCanvas(
+			styled,
+			layer.previewEffect.id,
+			layer.previewEffect.params
+		);
+	}
 	return { canvas: styled, x: bounds.x, y: bounds.y };
+}
+
+/**
+ * Full subtree bounds in document pixels, without viewport clipping. Reuses
+ * exactly the render traversal; layout/selection geometry stays unchanged.
+ * @param {Array} layers Full layer list, including Repeat source dependencies.
+ * @param {Object} options Root objects, extra filter padding, hidden content.
+ * @param {Array} options.roots Subtree roots to measure.
+ * @param {number} options.pad Extra document-space filter reach.
+ * @param {boolean} options.includeHidden Include invisible embedded content.
+ * @return {Object} Integer document-space rectangle.
+ */
+export function contentBounds(
+	layers,
+	{ roots, pad = 0, includeHidden = false } = {}
+) {
+	const ids = new Set( layers.map( ( l ) => l.id ) );
+	const selected = roots || layers.filter( ( l ) => ! ids.has( l.parent ) );
+	const env = {
+		layers,
+		scale: 1,
+		viewport: { x: 0, y: 0, w: 0, h: 0 },
+		unclipped: true,
+		tight: true,
+		includeHidden,
+	};
+	const box = groupDeviceBounds(
+		{ children: selected.map( ( l ) => l.id ) },
+		env
+	) || { x: 0, y: 0, w: 1, h: 1 };
+	const extra = Math.ceil( pad );
+	return {
+		x: box.x - extra,
+		y: box.y - extra,
+		w: box.w + 2 * extra,
+		h: box.h + 2 * extra,
+	};
 }
 
 export function groupDeviceBounds( layer, env ) {
@@ -370,13 +437,10 @@ export function groupDeviceBounds( layer, env ) {
 		.filter( Boolean );
 	let box = null;
 	for ( const child of children ) {
-		if ( ! child.visible ) {
+		if ( ! child.visible && ! env.includeHidden ) {
 			continue;
 		}
-		const b =
-			'group' === child.type
-				? groupDeviceBounds( child, env )
-				: layerDeviceBounds( child, env );
+		const b = deviceBoundsFor( child, env );
 		if ( ! b ) {
 			continue;
 		}
@@ -395,18 +459,33 @@ export function groupDeviceBounds( layer, env ) {
 	}
 	// Group layer styles (v1.118) paint outside the children union: pad
 	// the scratch like layerDeviceBounds does, clamped to the viewport.
-	if ( box && layer.styles ) {
-		const pad = Math.ceil( stylesPadding( layer ) * env.scale );
+	if (
+		box &&
+		( layer.styles || layer.previewEffect || layer.smartFilters )
+	) {
+		const pad = Math.ceil(
+			( ( layer.styles ? stylesPadding( layer ) : 0 ) +
+				liveEffectPadding( layer ) ) *
+				env.scale
+		);
 		if ( pad > 0 ) {
 			const vw = env.viewport.w * env.scale;
 			const vh = env.viewport.h * env.scale;
-			const x0 = Math.max( 0, box.x - pad );
-			const y0 = Math.max( 0, box.y - pad );
+			const x0 = Math.max( env.unclipped ? -Infinity : 0, box.x - pad );
+			const y0 = Math.max( env.unclipped ? -Infinity : 0, box.y - pad );
 			box = {
 				x: x0,
 				y: y0,
-				w: Math.min( vw, box.x + box.w + pad ) - x0,
-				h: Math.min( vh, box.y + box.h + pad ) - y0,
+				w:
+					Math.min(
+						env.unclipped ? Infinity : vw,
+						box.x + box.w + pad
+					) - x0,
+				h:
+					Math.min(
+						env.unclipped ? Infinity : vh,
+						box.y + box.h + pad
+					) - y0,
 			};
 		}
 	}
@@ -442,8 +521,77 @@ export function mergeClipAdjust( layer, env ) {
 
 /* ------------------------------- composite ----------------------------- */
 
+/**
+ * A raster the editor can draw straight onto the composite: pixels and a
+ * placement, nothing renderLayerToDevice would do to its scratch canvas
+ * (filter, grade, mask, styles, warp, a live effect preview).
+ *
+ * @param {Object} layer Layer.
+ * @param {Object} env   Render env.
+ * @return {boolean} Plain.
+ */
+function plainRaster( layer, env ) {
+	return (
+		'raster' === layer.type &&
+		!! layer.canvas &&
+		! layer.quad &&
+		! layer.styles &&
+		! layer.previewEffect &&
+		! layer.smartFilters?.length &&
+		! ( layer.mask && false !== layer.mask.enabled ) &&
+		! ( hasColorGrade( layer.filter ) && 0 !== layer.filterAmount ) &&
+		! filterCssFor( { ...layer, adjust: mergeClipAdjust( layer, env ) } )
+	);
+}
+
+/**
+ * The editor's DIRECT path for a plain raster: its pixels go onto the
+ * composite in one draw, with the transform, opacity and blend the
+ * scratch canvas would have got. Every frame used to give each such layer
+ * - the one being painted, the wet overlay above it - a new viewport-sized
+ * canvas, drawn once and thrown away: a full-screen allocation and copy
+ * per layer and frame, garbage the collector then had to catch up with.
+ *
+ * @param {CanvasRenderingContext2D} mainCtx The composite.
+ * @param {Object}                   layer   A plainRaster() layer.
+ * @param {Object}                   env     Render env.
+ * @param {Object}                   offset  Device offset of mainCtx.
+ */
+function drawPlainRaster( mainCtx, layer, env, offset ) {
+	mainCtx.save();
+	mainCtx.setTransform( 1, 0, 0, 1, -offset.x, -offset.y );
+	mainCtx.scale( env.scale, env.scale );
+	mainCtx.translate( -env.viewport.x, -env.viewport.y );
+	const cx = layer.x + layer.w / 2;
+	const cy = layer.y + layer.h / 2;
+	mainCtx.translate( cx, cy );
+	if ( layer.rot ) {
+		mainCtx.rotate( ( layer.rot * Math.PI ) / 180 );
+	}
+	if ( layer.flipX || layer.flipY ) {
+		mainCtx.scale( layer.flipX ? -1 : 1, layer.flipY ? -1 : 1 );
+	}
+	mainCtx.translate( -layer.w / 2, -layer.h / 2 );
+	mainCtx.globalAlpha = layer.opacity ?? 1;
+	mainCtx.globalCompositeOperation = blendToComposite( layer.blend );
+	mainCtx.imageSmoothingEnabled = true;
+	mainCtx.imageSmoothingQuality = 'low';
+	drawContent( mainCtx, layer, env );
+	mainCtx.restore();
+}
+
 export function compositeLayers( mainCtx, layerList, env ) {
 	let lastBase = null; // previous non-clipped rendered layer (clipping base)
+	// A plain raster drawn directly: rendered on its own only if a clipped
+	// layer above turns out to need it as its base.
+	let lazyBase = null;
+	const baseNow = () => {
+		if ( lazyBase ) {
+			lastBase = renderLayerToDevice( lazyBase, env ) || lastBase;
+			lazyBase = null;
+		}
+		return lastBase;
+	};
 	// Prefix-cache repaints start mid-stack: resolve the clipping base from
 	// the layers below the slice, lazily and only once (v1.11.2).
 	let clipSeed = env.clipSeed || null;
@@ -497,12 +645,27 @@ export function compositeLayers( mainCtx, layerList, env ) {
 			}
 			continue;
 		}
+		// The editor (env.direct) draws plain rasters straight onto the
+		// composite; exports keep the scratch path, byte for byte.
+		if (
+			env.direct &&
+			! layer.clipped &&
+			plainRaster( layer, env ) &&
+			layerDeviceBounds( layer, env )
+		) {
+			drawPlainRaster( mainCtx, layer, env, offset );
+			lazyBase = layer;
+			continue;
+		}
 		const rendered = renderLayerToDevice( layer, env );
 		if ( ! rendered ) {
 			continue;
 		}
 		// Clipping mask: restrict to the alpha of the base layer below
 		// (spec 06.1). destination-in against the base's silhouette.
+		if ( layer.clipped ) {
+			baseNow();
+		}
 		if ( layer.clipped && ! lastBase && clipSeed ) {
 			seedClipBase();
 		}
@@ -522,6 +685,7 @@ export function compositeLayers( mainCtx, layerList, env ) {
 			rendered.canvas = clippedCanvas;
 		} else if ( ! layer.clipped ) {
 			lastBase = rendered;
+			lazyBase = null;
 		}
 		mainCtx.globalAlpha = layer.opacity ?? 1;
 		mainCtx.globalCompositeOperation = blendToComposite( layer.blend );
@@ -544,6 +708,7 @@ export function applyAdjustmentToAccumulated( mainCtx, layer ) {
 	const canvas = mainCtx.canvas;
 	const css = filterCssFor( layer );
 	if ( ! css ) {
+		gradeCanvas( canvas, layer );
 		return;
 	}
 	if ( supportsCtxFilter() ) {
@@ -563,6 +728,7 @@ export function applyAdjustmentToAccumulated( mainCtx, layer ) {
 		);
 		mainCtx.putImageData( data, 0, 0 );
 	}
+	gradeCanvas( canvas, layer );
 }
 
 /* --------------------------------- API --------------------------------- */
@@ -584,8 +750,13 @@ export function renderSync( ctx, doc, layers, opts = {} ) {
 		// (prefix cache), otherwise groups in the slice render empty (v1.4).
 		layers: opts.allLayers || layers,
 		scale: opts.scale || 1,
+		gradientQuality: opts.gradientQuality || 'final',
 		viewport: opts.viewport || { x: 0, y: 0, w: doc.w, h: doc.h },
 		cache: opts.cache || defaultCache,
+		// The editor's bitmaps of unchanged generator groups (group-cache.js).
+		groupCache: opts.groupCache || null,
+		// The editor's direct path for plain rasters (compositeLayers).
+		direct: !! opts.direct,
 	};
 	const width = Math.ceil( env.viewport.w * env.scale );
 	const height = Math.ceil( env.viewport.h * env.scale );

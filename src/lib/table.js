@@ -10,7 +10,7 @@
  * samples fresh designs from the same axes with a seed.
  */
 
-import { __ } from '@wordpress/i18n';
+import { __, _x, sprintf } from '@wordpress/i18n';
 
 import { makeShape, makeText, makeGroup } from '../store/document';
 import { tightenPathLayer } from './path-edit';
@@ -479,7 +479,20 @@ export function buildTable( spec ) {
 	);
 	const rad = Math.max( 0, o.radius || 0 );
 
-	const group = makeGroup( { name: `Table (${ type })`, x, y, w, h } );
+	const group = makeGroup( {
+		name: sprintf(
+			/* translators: %s: a label from the chart data. */ _x(
+				'Table (%s)',
+				'chart part',
+				'wunderpaint'
+			),
+			type
+		),
+		x,
+		y,
+		w,
+		h,
+	} );
 	const layers = [];
 	const push = ( layer ) => {
 		if ( layer.pathD ) {
@@ -700,7 +713,7 @@ export function buildTable( spec ) {
 		const size = Math.round( fs * 1.7 );
 		push(
 			makeText( {
-				name: 'Title',
+				name: _x( 'Title', 'chart part', 'wunderpaint' ),
 				text: o.title,
 				x: bx,
 				y: top,
@@ -717,7 +730,7 @@ export function buildTable( spec ) {
 	if ( o.subtitle ) {
 		push(
 			makeText( {
-				name: 'Subtitle',
+				name: _x( 'Subtitle', 'chart part', 'wunderpaint' ),
 				text: o.subtitle,
 				x: bx,
 				y: top,
@@ -1097,7 +1110,14 @@ export function buildTable( spec ) {
 			const priceFs = Math.round( fs * 2.4 );
 			push(
 				makeText( {
-					name: `Price ${ tier.name }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Price %s',
+							'chart part',
+							'wunderpaint'
+						),
+						tier.name
+					),
 					text: String( tier.price ?? '' ),
 					x: Math.round( cardX ),
 					y: Math.round( cy ),
@@ -1259,7 +1279,14 @@ export function buildTable( spec ) {
 			if ( desc ) {
 				push(
 					makeText( {
-						name: `Desc ${ r + 1 }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Desc %s',
+								'chart part',
+								'wunderpaint'
+							),
+							r + 1
+						),
 						text: desc,
 						x: Math.round( bx ),
 						y: Math.round( yTop + fs * 1.9 ),
@@ -1364,7 +1391,14 @@ export function buildTable( spec ) {
 			} );
 			push(
 				makeText( {
-					name: `Value ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Value %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					text: value,
 					x: Math.round( tx ),
 					y: Math.round( ty + th * 0.16 ),
@@ -1470,7 +1504,14 @@ export function buildTable( spec ) {
 			} );
 			push(
 				makeText( {
-					name: `Day number ${ d }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Day number %s',
+							'chart part',
+							'wunderpaint'
+						),
+						d
+					),
 					text: String( d ),
 					x: Math.round( cx + fs * 0.5 ),
 					y: Math.round( cy + fs * 0.4 ),
@@ -1493,7 +1534,14 @@ export function buildTable( spec ) {
 				);
 				push(
 					makeText( {
-						name: `Event ${ d }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Event %s',
+								'chart part',
+								'wunderpaint'
+							),
+							d
+						),
 						text: events[ d ].join( ', ' ),
 						x: Math.round( cx + fs * 0.5 ),
 						y: Math.round( cy + chh - fs * 1.5 ),

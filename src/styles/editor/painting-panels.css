@@ -1,0 +1,177 @@
+.painting-panel {
+	padding: 10px;
+	overflow: auto;
+	height: 100%;
+	box-sizing: border-box;
+	color: var(--text-primary);
+	font-size: 12px;
+}
+
+.painting-section {
+	border-top: 1px solid var(--ed-border);
+	margin-top: 10px;
+	padding-top: 10px;
+}
+
+.painting-section h3,
+.painting-section summary {
+	font-size: 12px;
+	font-weight: 600;
+	margin: 0 0 8px;
+	color: var(--text-primary);
+}
+
+.painting-section summary {
+	cursor: pointer;
+}
+
+.painting-hint {
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--ed-text-dim);
+	margin: 8px 0;
+}
+
+.painting-target {
+	margin: 0 0 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.painting-color,
+.painting-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.painting-color > span:last-child {
+	color: var(--ed-text-dim);
+}
+
+.painting-actions > button {
+	flex: 1;
+}
+
+.painting-fieldset {
+	border: 0;
+	padding: 0;
+	margin: 0 0 12px;
+	min-width: 0;
+}
+
+.painting-mode-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.tool-setting {
+	display: grid;
+	grid-template-columns: minmax(76px, 0.9fr) minmax(56px, 1fr) 84px;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.tool-setting-number {
+	grid-column: 3;
+	grid-row: 1;
+	justify-content: flex-end;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.tool-setting-number input {
+	width: 64px;
+	min-width: 0;
+	padding: 4px;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: var(--ed-panel-alt);
+	color: var(--text-primary);
+	font: inherit;
+}
+
+.tool-setting input[type="range"] {
+	grid-column: 2;
+	grid-row: 1;
+	width: 100%;
+	margin: 0;
+	accent-color: var(--accent);
+}
+
+.tool-setting .cp-alpha {
+	grid-column: 2;
+	grid-row: 1;
+	min-width: 0;
+}
+
+#wpie-root .tool-setting .cp-alpha input[type="range"] {
+	outline: none;
+	box-shadow: none;
+}
+
+.tool-choices {
+	display: flex;
+	width: 100%;
+}
+
+.tool-choices button {
+	flex: 1;
+	min-width: 0;
+}
+
+.mask-panel-preview {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin: 0 auto;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+}
+
+.painting-mask-target {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.painting-mask-target > span {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.mask-panel-overview {
+	display: grid;
+	grid-template-columns: 96px minmax(0, 1fr);
+	align-items: center;
+	gap: 12px;
+}
+
+.mask-panel-overview .painting-hint {
+	margin: 0;
+}
+
+.mask-panel-view {
+	margin-top: 10px;
+}
+
+.painting-section .painting-actions {
+	margin-top: 8px;
+}
+
+/* Compact starting colors for the reflective leaf medium; the wheel stays free. */
+#wpie-root .bp-metal-swatches {
+	grid-template-columns: repeat(4, 24px);
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+#wpie-root .bp-metal-swatches .sw[aria-pressed="true"] {
+	border-color: var(--accent);
+}

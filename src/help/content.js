@@ -32,7 +32,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'"Save to Media Library" overwrites the attachment but keeps the previous file as a restorable version (History panel, bottom section). "Save as New Image" creates a separate attachment. "Export" downloads a file without touching the library.',
+				'"Save to Media Library" overwrites the attachment but keeps the previous file as a restorable version (History window, View → History, bottom section). "Save as New Image" creates a separate attachment. "Export" downloads a file without touching the library.',
 				'wunderpaint'
 			),
 			__(
@@ -44,11 +44,15 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'Prefer a simpler surface? Help → Easy Mode swaps the editor chrome for a beginner shell with just the essentials; "Switch to full editor" brings everything back.',
+				'The editor tour starts only from Help → Show Tour. It follows your current Full or Easy Mode and never opens automatically.',
 				'wunderpaint'
 			),
 			__(
-				'Two doors reach everything without a menu: ⌘K opens the command palette, type the name of any command, tool or panel and press Enter. Help → Help Assistant opens a chat that answers "how do I…?" questions from this handbook and offers to play the matching tour.',
+				'Prefer a simpler surface? Help → Easy Mode swaps the editor chrome for a beginner shell with Start, Edit and Elements on the right and direct tools on the left; "Switch to full editor" brings everything back. The article Easy Mode has the details.',
+				'wunderpaint'
+			),
+			__(
+				'Two doors reach everything without a menu: the magnifier in the title bar (⌘K) opens a search that finds every command, tool, filter, effect and extension by name, even with a typo, and Enter runs it. Help → Help Assistant opens a chat that answers "how do I…?" questions from this handbook and offers to play the matching tour.',
 				'wunderpaint'
 			),
 		],
@@ -56,10 +60,6 @@ export const HELP_ARTICLES = [
 			{
 				label: __( 'Create a new document', 'wunderpaint' ),
 				run: ( extras ) => extras.openCreate(),
-			},
-			{
-				label: __( 'Replay the welcome tour', 'wunderpaint' ),
-				run: ( extras ) => extras.openTour(),
 			},
 		],
 	},
@@ -69,7 +69,7 @@ export const HELP_ARTICLES = [
 		title: __( 'The tools', 'wunderpaint' ),
 		body: [
 			__(
-				'The eyedropper samples a point or the average of a 3 by 3 or 5 by 5 square, and Alt-click picks the background color. The clone stamp needs a source first: Alt-click sets it. Its bar has size, opacity and hardness and an Aligned switch: on, the distance between source and brush stays across strokes, so a texture continues; off, every stroke starts again at the source. The effect brush blurs, sharpens, smudges, dodges, burns and sponges. With the pen, a click sets a corner, a drag pulls out handles and Alt breaks a handle pair; its freehand mode draws like a pencil and fits smooth anchors to the stroke on release, the fidelity decides how closely.',
+				'The eyedropper opens the Color panel and starts a loupe over the canvas at once: it samples a point or the average of a 3 by 3 or 5 by 5 square of document pixels, the loupe pauses while you are over the panel, and Alt at the start sends the color to the background instead. Pick on screen is the separate action for colors outside the canvas. The clone stamp needs a source first: Alt-click sets it. Its bar has size, opacity and hardness and an Aligned switch: on, the distance between source and brush stays across strokes, so a texture continues; off, every stroke starts again at the source. The effect brush blurs, sharpens, smudges, dodges, burns and sponges. With the pen, a click sets a corner, a drag pulls out handles and Alt breaks a handle pair; its freehand mode draws like a pencil and fits smooth anchors to the stroke on release, the fidelity decides how closely.',
 				'wunderpaint'
 			),
 			__(
@@ -105,6 +105,10 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
+				'Four dry media join them. Wax crayon and Colored pencil ride the tooth of the paper and leave its pores white until you press harder, and both glaze over paint that is already there: blue pencil over yellow reads green. The Airbrush keeps spraying while you hold still, in fine droplets at the fringe and an even film where it builds. Metal leaf lays small platelets of metal that mirror their surroundings, each at its own tilt, with a fine sparkle of pigment in them. Gold, Silver, Copper and Rose gold sit above the color wheel as a start.',
+				'wunderpaint'
+			),
+			__(
 				'Color is a choice of three. Solid is the color you picked. Jitter gives every mark a shade of its own, which is what stops a stroke reading as printed by a machine. Gradient runs a ramp along the stroke, from where you set down to where you lift off.',
 				'wunderpaint'
 			),
@@ -128,6 +132,26 @@ export const HELP_ARTICLES = [
 			),
 		],
 		tips: [
+			__(
+				'Every style comes with brushes tuned to it, pinned at the top of the tip strip. Picking a style puts the first of them in your hand.',
+				'wunderpaint'
+			),
+			__(
+				"Without a pen, a stroke still starts and ends like one: it swells in, lifts off light, and a quick stroke lays less than a slow one. Taper, in the style's own section, sets how far; at 0 a mouse stroke lays full load end to end.",
+				'wunderpaint'
+			),
+			__(
+				'With a pen, Pressure curve under Smoothing fits the pressure to your hand and tablet: 50 is the tablet as it comes, lower answers a light touch sooner, higher wants a firmer hand. A mouse has no pressure and ignores it.',
+				'wunderpaint'
+			),
+			__(
+				"A wet brush carries a charge. It lays evenly until most of it is spent; then the water gives out first and the last of it breaks into dry brush, over the tooth and along the bristles. Going back over your own wet paint costs nothing, and lifting the brush reloads it. Paint load, in the style's own section, sets how far a charge goes; at 100 it never runs out.",
+				'wunderpaint'
+			),
+			__(
+				"A selection works like masking film for every style: paint across its edge and only the inside takes the paint, with all of the medium's own behavior.",
+				'wunderpaint'
+			),
 			__(
 				'Draw a brush tip builds your own tip out of shapes, holes included. It is kept as a recipe, so it stays sharp at any size and travels inside the document.',
 				'wunderpaint'
@@ -160,11 +184,15 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'View → Workspace shows and hides whole editor zones - or lets you click the parts you want gone. View → Guides & Grid adds grids, guide lines and snapping for precise layouts.',
+				'View → Workspace shows and hides whole editor zones - or lets you click the parts you want gone - and sets the toolbar layout to one or two columns when the window is short. View → Guides & Grid adds grids, guide lines and snapping for precise layouts.',
 				'wunderpaint'
 			),
 			__(
 				'Hold the Compare button (title bar) to see the saved original. Help → Keyboard Shortcuts lists every key.',
+				'wunderpaint'
+			),
+			__(
+				'Every slider and number field in the editor is set the same way: Alt for fine steps, Shift for fast ones, a click on the readout to type an exact value. The article Sliders and number fields has the details.',
 				'wunderpaint'
 			),
 		],
@@ -184,6 +212,213 @@ export const HELP_ARTICLES = [
 		],
 	},
 	{
+		id: 'numeric-controls',
+		cat: 'basics',
+		title: __( 'Sliders and number fields', 'wunderpaint' ),
+		body: [
+			__(
+				'Every value in a tool panel, a dialog or an extension is set the same way. Drag a slider for a quick change. Hold Alt while you drag for fine steps, so a value such as 90 percent is easy to hit even on a short slider. Hold Shift to move faster. A number field’s label is a handle too: pull it left or right to change the value without typing.',
+				'wunderpaint'
+			),
+			__(
+				'Click a slider’s readout to type an exact value. Enter applies it, Tab or a click outside applies it too, and Escape restores the value from before you opened that editor. A decimal point and a decimal comma both work. Number fields that are already editable take typed values directly.',
+				'wunderpaint'
+			),
+			__(
+				'Number fields carry compact arrows that match the light or dark theme. Click the upper arrow to add one step and the lower one to subtract; hold an arrow to keep going, and hold Shift for ten steps at a time. The keyboard works as well: the arrow keys change a focused slider by one step, Up and Down do the same in a number field, and Shift makes it ten. On a slider, Home and End jump to the limits and Page Up and Page Down move ten steps.',
+				'wunderpaint'
+			),
+			__(
+				'The X, Y, width, height and font size fields have the same arrows and still take expressions such as 100+20, /2 or *1.5. Enter or leaving the field applies the expression, Escape discards the draft. Clicking an arrow while an expression is pending applies it once and then steps the result.',
+				'wunderpaint'
+			),
+			__(
+				'Angle sliders with snapping pause at 45 degree intervals, 0°, 90° and 180° among them where the range allows. Alt-drag, keyboard steps and typed values pass those snap points, so 89° or 91° stay easy to reach.',
+				'wunderpaint'
+			),
+			__(
+				'On/off settings are compact switches: click the switch or its label, or press Space when it has focus. Gray is off, the accent color is on. Square checkboxes remain for picking several files, formats or other items, and a dash in a group checkbox means only some of them are selected. Color fields join a swatch and an editable value: click the swatch for the color picker or type the value; a checkerboard means transparency.',
+				'wunderpaint'
+			),
+		],
+		steps: [
+			__(
+				'Press B for the Brush and set the size to 192. Hold Alt and drag a little to the right: 193. Drag back: 192.',
+				'wunderpaint'
+			),
+			__(
+				'Open View → Navigator, click the zoom percentage and type 90. You enter the value in percent, even though the slider works on its own scale underneath.',
+				'wunderpaint'
+			),
+			__(
+				'Select a layer, go to Properties → Transform and click the rotation readout. Type 90. Drag next to it and it snaps; hold Alt or use an arrow key and 89° or 91° is yours.',
+				'wunderpaint'
+			),
+		],
+		tips: [
+			__(
+				'A drag or a held arrow is one undo step when the setting changes the document. Tool options and dialog previews keep their usual history behavior.',
+				'wunderpaint'
+			),
+			__(
+				'Fields keep their limits and their increments. Decimal settings stay decimal, and a setting with fixed choices, such as the radius in Map Studio, picks the nearest supported choice.',
+				'wunderpaint'
+			),
+			__(
+				'Many sliders jump back to their default on a double-click. That is the slider’s own feature, not the number editor’s, so not every field has it.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
+		id: 'color-panel',
+		cat: 'basics',
+		title: __( 'Color panel and eyedropper', 'wunderpaint' ),
+		body: [
+			__(
+				'Color is a main panel on the right, with solid colors, gradients, patterns, presets and color tools. Solid-color swatches open a small picker at the top right; gradient and pattern swatches open the full editor. An already visible full editor is reused. Both views start with the color wheel. Open gradients & patterns in the small picker opens the full editor with the same target.',
+				'wunderpaint'
+			),
+			__(
+				'Color follows the selected object and shows its actual fill. Fill and Stroke switch the paint target. While editing text, choose selected characters or the entire text. A swatch for a shadow or a gradient stop edits that specific color. The eyedropper icon and I open Color and start the canvas pixel loupe immediately. The loupe pauses over panels; Esc ends sampling.',
+				'wunderpaint'
+			),
+			__(
+				'With one shape or text layer selected, the tool rail shows a Fill and a Stroke swatch that open the panel on that target. A stroke can carry a gradient too, and a stroke that was 0 px wide gets 2 px as soon as it gets a color. The Gradient tool opens the same panel in its gradient view: without a gradient layer selected you edit the settings for the next gradient, after drawing one the panel follows that layer, and New gradient prepares the next.',
+				'wunderpaint'
+			),
+			__(
+				'The Edit tab starts with the Solid, Gradient and Pattern cards. Solid shows the color wheel by default, with color field, RGB, HSL and grayscale views, HEX and an opacity bar from transparent to the full color. Gradient shows the visual editor: presets in a column on the left with search and your own gradients, then the preview, the stops with Add, Remove and Reverse, the type and angle, and Gradient settings for spreading, spread, midpoint and geometry. Pattern shows the pattern previews and your own patterns, with scale and Manage patterns. Explore colors folds in the harmonies as rows of tiles, a lock and Tune, Compare colors with Original, A and B, and the background preview; Sampling holds the sample size and Pick on screen.',
+				'wunderpaint'
+			),
+			__(
+				'The Swatches tab lists standard, grayscale, document, favorite, recent, image, saved and Brand Kit palettes. Hovering a swatch previews it on the target, a click applies it. Collect picks up to twelve colors from the canvas into a set you can save as a palette. The Apply, Find and Gradient switch decides what a click does: Find marks and selects every layer that uses the color, Gradient turns two to eight swatches into a linear, radial or angle fill, previews it, applies it in one undo step or saves it as a gradient preset. Sample line drags a line over the picture and returns eight colors along it. Paste palette reads HEX, RGB, HSL or CSS text and keeps the colors as an imported palette.',
+				'wunderpaint'
+			),
+			__(
+				'Tools holds the tools for whole designs. Linked colors let a stroke or text color follow another color with a lightness offset and keep following when the source changes. Palette mix maps the document’s colors onto a second palette with a slider from 0 to 100 percent and applies the result in one step. Result color computes the color a half-transparent shape needs so that a chosen point on the canvas ends up exactly in the color you want.',
+				'wunderpaint'
+			),
+		],
+		steps: [
+			__(
+				'Select a shape and click the eyedropper icon. The panel opens on Fill and the loupe is live; click a color in the picture and the shape takes it.',
+				'wunderpaint'
+			),
+			__(
+				'Switch to Swatches, choose Gradient, click three swatches, pick Radial and press Apply. The fill of the selected text or shape becomes that gradient.',
+				'wunderpaint'
+			),
+			__(
+				'Choose Find, click a swatch and press Select: every layer in that color is selected and its groups unfold in the Layers panel.',
+				'wunderpaint'
+			),
+		],
+		tips: [
+			__(
+				'Favorite in the footer stars the current color; Palettes opens the Color Schemer with what the panel shows, the harmony or the palette under Swatches.',
+				'wunderpaint'
+			),
+			__(
+				'The full Color panel stays open when switching tools. Colors in dialogs stay local until Apply; Cancel discards them. Named palettes require WordPress; favorites and collected colors also work in standalone mode.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
+		id: 'themes-panel',
+		cat: 'basics',
+		title: __( 'Themes panel', 'wunderpaint' ),
+		body: [
+			__(
+				'View → Tool Panels → Themes opens a card panel that gathers the tools, panels, dialogs and studios for one kind of work. Pick a theme at the top: Art & Painting, Vector & Shapes, Photo & Retouch, Text & Typography, Patterns & Backgrounds, Layout & Branding, 3D & Scenes, Motion & Video, Maps & Posters, Print & Craft, Data & Diagrams or Content & Automation. A theme named like a category of the Extensions menu shows exactly the studios of that category. The cards come in small groups, and the last theme you chose comes back the next time.',
+				'wunderpaint'
+			),
+			__(
+				'A tool card activates the tool and opens its settings beside the panel. A panel card switches the right-hand panel to Layers, Properties, Adjust, Effects or AI Studio, and shows that tab even when your workspace hides it. A studio card opens the full studio; when it closes, the theme is still there. Only installed studios appear, so a theme never shows a card that leads nowhere, and an empty theme points to the extensions manager.',
+				'wunderpaint'
+			),
+			__(
+				'The panel starts beside the toolbar, 280 by 600 pixels, and works like every other tool panel: pin it to keep it open while you switch tools, collapse it, drag it, resize it. Switching a theme changes nothing in the document, the tool or the workspace, and loads no studio in advance.',
+				'wunderpaint'
+			),
+		],
+		tips: [
+			__(
+				'Text on a card inserts a text layer in the middle of the canvas, ready to type, and the panel stays open. Mask needs a layer that already has a mask.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
+		id: 'easy-mode',
+		cat: 'basics',
+		title: __( 'Easy Mode', 'wunderpaint' ),
+		body: [
+			__(
+				'Help → Easy Mode swaps the editor chrome for a simpler shell; the choice is remembered for this site, and Switch to full editor brings everything back at any time. Documents, layers, dynamic bindings, saving and undo are the same as in the full editor, so nothing is lost on the way there or back.',
+				'wunderpaint'
+			),
+			__(
+				'The right side has three areas. Start offers cards for Text, Shapes, Improve photo and Draw, and the recommended creative functions with an arrow to the full Creative & AI choice. Edit shows the settings of the selected element or of the active drawing or crop tool in the sub-tabs Basics, Looks and Layout: text content, font, size, bold, italic, color and alignment; fill, stroke color, width and position for shapes, with a pencil icon that opens the full shape dialog; brightness, contrast, saturation and Remove background for images; opacity right in each section. Elements is the layer list with previews, groups, reordering, locking and deleting.',
+				'wunderpaint'
+			),
+			__(
+				'The left bar has ten direct entries: Select, Creative, Text, Shapes, Draw, Eraser, Crop, Photo, Looks and Layout. Creative opens the themed choice of studios and dialogs, Shapes opens the Shape Studio, Draw shows Brush, Pencil and Eraser with color and the basic sliders, Crop brings the crop panel with its format cards. The Asset Library tray at the bottom stays the one library for templates, photos, icons and text lockups. A fixed design row at the foot of the panel holds the document background, the pixel size and Resize with format groups.',
+				'wunderpaint'
+			),
+		],
+		tips: [
+			__(
+				'Help in Easy Mode is a small menu with Handbook and Show Tour; the tour follows Easy Mode and never starts on its own. Floating tool panels and the small context bar stay out of Easy Mode, their pins and positions are kept for the full editor.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
+		id: 'repeat',
+		cat: 'basics',
+		title: __( 'Repeat', 'wunderpaint' ),
+		body: [
+			__(
+				'Repeat (J) gives any layer or group a live Repeat layer that lays out copies for you: in a row, a grid, a circle or along a path you draw in the panel. Click a layer with the tool and the copies appear at once, wrapped with the source in a Repeat group. Change the source, and every copy follows; change the rule, and the layout follows.',
+				'wunderpaint'
+			),
+			__(
+				'The panel holds the rule: the mode on the left, then copies, step or gap, columns and rows, radius and sweep, or the path with its presets (line, arc, wave, S-curve) and whether copies stay upright or turn with the path. Stack decides whether the copies sit behind or in front of the source. A few handles on the canvas set the same values by dragging: the step of a row, the ring of a circle, the frame of a path.',
+				'wunderpaint'
+			),
+			__(
+				'Progression changes the copies over their run: size, opacity, rotation and color each get an end value and a curve, so a headline can trail ninety-nine copies one pixel apart that shrink and fade to black, and still follow every edit of the text. Bake turns the copies into real layers inside the group and switches to Move; Remove dissolves the Repeat and keeps the source.',
+				'wunderpaint'
+			),
+		],
+		steps: [
+			__(
+				'Press J, click a text layer. The row of copies appears with the panel; set Copies to 99, Step X and Step Y to 1.',
+				'wunderpaint'
+			),
+			__(
+				'Under Progression turn on Opacity with an end value of 0 and Color with black as the end color. The long shadow is done, and it follows the text when you retype it.',
+				'wunderpaint'
+			),
+			__(
+				'Switch the mode to Circle and drag the ring handle on the canvas to set the radius; Sweep decides whether the copies close the circle or stop on an arc.',
+				'wunderpaint'
+			),
+		],
+		tips: [
+			__(
+				'The Repeat layer in the Layers panel carries the repeat icon; select it to get the panel and the handles back. Selecting the source alone gives you the source’s own tools.',
+				'wunderpaint'
+			),
+			__(
+				'Grid Repeat and Radial Repeat from the Edit menu are folded into this tool.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
 		id: 'layers',
 		cat: 'basics',
 		title: __( 'Layers, groups & masks', 'wunderpaint' ),
@@ -197,7 +432,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'The right-click menu on the canvas is grouped: Edit, Convert, Combine, Arrange, Group & Mask and Layer. The Arrange row moves a layer to the front or back (Shift+Cmd+] and [), one step (Cmd+] and [), flips it or turns it a quarter; the Layer group renames, hides (Shift+Cmd+H), locks (Cmd+2) and deletes. Cmd+G groups, Shift+Cmd+G ungroups, Shift+Cmd+V pastes a copy exactly where it was copied from, and Select > Select Same picks every layer with the same fill, stroke, font or type. Where layers overlap, the menu lists everything under the cursor. Alt-click an eye in the Layers panel to see that layer alone, the folder button beside the filter collapses every group, and Grid Repeat lays copies out in rows and columns.',
+				'The right-click menu on the canvas is grouped: Edit, Convert, Combine, Arrange, Group & Mask and Layer. The Arrange row moves a layer to the front or back (Shift+Cmd+] and [), one step (Cmd+] and [), flips it or turns it a quarter; the Layer group renames, hides (Shift+Cmd+H), locks (Cmd+2) and deletes. Cmd+G groups, Shift+Cmd+G ungroups, Shift+Cmd+V pastes a copy exactly where it was copied from, and Select > Select Same picks every layer with the same fill, stroke, font or type. Where layers overlap, the menu lists everything under the cursor. Alt-click an eye in the Layers panel to see that layer alone, and the folder button beside the filter collapses every group.',
 				'wunderpaint'
 			),
 			__(
@@ -206,6 +441,14 @@ export const HELP_ARTICLES = [
 			),
 			__(
 				'Smart Objects preserve their content: filters applied to them stay editable as Smart Filters, and "Edit Contents" opens the embedded document.',
+				'wunderpaint'
+			),
+			__(
+				'Edit → Replace Colors swaps one color for another across the whole page: fills, strokes, text, styled characters, gradient stops, effects and the background, with a before/after preview and one undo step. Each hit keeps its own transparency.',
+				'wunderpaint'
+			),
+			__(
+				'With several layers of one kind selected, Properties shows Mixed where fills, stroke colors or widths differ. Typing a value sets it for every editable layer in the selection in one undo step; locked layers and the children of locked groups stay as they are.',
 				'wunderpaint'
 			),
 		],
@@ -299,7 +542,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'The Character section (Properties panel) controls font, size, weight, spacing and color. The font picker previews the families that are ready to use, all served from your own site; the rest of the catalogue can be downloaded under Settings, Fonts.',
+				'The Character section (Properties panel) controls font, size, weight, spacing and color. The font picker previews the families that are ready to use, all served from your own site; the rest of the catalog can be downloaded under Settings, Fonts.',
 				'wunderpaint'
 			),
 			__(
@@ -315,7 +558,11 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'The Effects tab holds one-click Text Styles (Gold, Chrome, Sticker, Comic, Neon sign, Glitch, Slime and more) plus dozens of single effects you can stack: shadows, glows, outlines, bevel, image fill, marker highlights, glitch, drips, confetti, pixelate, motion blur and a set of warp shapes. Everything stays editable text.',
+				'The Effects tab holds one-click Text Styles (Gold, Chrome, Sticker, Comic, Neon sign, Glitch, Slime and more) plus single effects you can stack: shadows, glows, outlines, bevel, image fill, marker highlights, glitch, drips, confetti, pixelate, motion blur and a set of warp shapes. Everything stays editable text.',
+				'wunderpaint'
+			),
+			__(
+				'The Text panel, the floating panel of the Text tool, lists the active effects of the layer at the top: a click on a name opens its controls, the x removes just that effect with one undo step. Layer effects such as shadows and glows have their own Blending tab there, with the parameters right under each switch; the outline stays under Appearance.',
 				'wunderpaint'
 			),
 		],
@@ -338,10 +585,18 @@ export const HELP_ARTICLES = [
 				'Image → Colors → Load LUT applies professional .cube color-grading files. Levels and Curves offer precise tonal control; Auto Levels/Contrast/Color fix common problems in one click.',
 				'wunderpaint'
 			),
+			__(
+				'In Adjust → Fine tune, hold Compare to see the layer without its slider adjustments; release, Esc or a click elsewhere brings them back. It compares the sliders only, not filters or effects, and it is not the saved original from the title bar.',
+				'wunderpaint'
+			),
 		],
 		tips: [
 			__(
 				'Tools → Vignette & Film opens a small studio for vignettes and film grain: the result is an editable overlay layer that adapts when the design is resized.',
+				'wunderpaint'
+			),
+			__(
+				'With a photo selected, Vignette & Film can put the overlay on that photo only, as a clipping mask, so text and logos above it stay untouched.',
 				'wunderpaint'
 			),
 		],
@@ -359,11 +614,23 @@ export const HELP_ARTICLES = [
 		title: __( 'Design tools', 'wunderpaint' ),
 		body: [
 			__(
-				'The Tools menu bundles small design studios. Color Schemer suggests matching palettes and recolors your document in one click; Background Studio generates gradient, pattern and texture backgrounds, optionally from the colors already in your document.',
+				'The Tools menu bundles small design studios. Color Schemer suggests matching palettes and recolors your document in one click; Background Studio generates backgrounds in your colors, from soft light and gradients to shapes and patterns.',
 				'wunderpaint'
 			),
 			__(
-				'Screenshot Beautifier wraps a screenshot in a rounded card with shadow and optional browser, window or phone chrome; the Mockup Generator puts your design onto a studio-style product mockup (ebook, software box, monitor and more); Chart & Table turns data (pasting from Excel/Sheets works) into chart or table layers that stay editable.',
+				'The Color Schemer shows a palette on your own design, in several variants side by side, and Apply to design recolors it in one undo step: every editable color becomes a palette color, dark to dark and light to light, and photos stay as they are. Palettes come from the harmony cards and the wheel, from an image or the document. Saved palettes can be renamed, duplicated, sorted and deleted with Undo; As gradient hands the palette to the Color panel.',
+				'wunderpaint'
+			),
+			__(
+				'Background Studio offers mesh gradients, organic and geometric shapes, low-poly, topographic lines, halftone, rings, confetti, terrazzo, plaid and scales, a starfield, and soft light: gradients, glow, aurora and bokeh. Looks start from a finished picture with a palette of its own; colors come from the document, your Brand Kits, saved palettes or chance, and the styles that tile also save as seamless patterns.',
+				'wunderpaint'
+			),
+			__(
+				'Screenshot Beautifier frames a screenshot in a card, a browser or app window, a phone, a tablet or a glass rim, lays it out centered, rising from the bottom edge or running into a corner, tilts it on request and puts a backdrop behind it: a gradient or pattern, a blurred copy of the shot or a solid color.',
+				'wunderpaint'
+			),
+			__(
+				'The Mockup Generator puts your design onto a studio-style product shot: phone, tablet, monitor, book, box, documents, framed print or canvas print, with camera angles, light, material presets and an optional reflection in the floor. Chart & Table turns data (pasting from Excel/Sheets works) into chart or table layers that stay editable.',
 				'wunderpaint'
 			),
 			__(
@@ -372,6 +639,10 @@ export const HELP_ARTICLES = [
 			),
 			__(
 				'Everything a tool inserts is a normal layer, so you can keep editing with the full toolset afterwards.',
+				'wunderpaint'
+			),
+			__(
+				'A framed screenshot and a mockup open again from the right-click menu: Edit Screenshot Beautifier replaces the frame and its backdrop in place, and Edit Mockup keeps the background color a mockup can sit on.',
 				'wunderpaint'
 			),
 		],
@@ -445,7 +716,7 @@ export const HELP_ARTICLES = [
 		title: __( 'Collage & Photo Grid', 'wunderpaint' ),
 		body: [
 			__(
-				'Tools → Collage & Photo Grid arranges a handful of photos from your media library into a collage: a clean grid, a justified mosaic, scattered polaroids with captions, a filmstrip or a contact sheet with file names.',
+				'Tools → Collage & Photo Grid arranges a handful of photos from your media library or from the document into a collage: a grid, a justified mosaic, masonry columns, bento, a hero with one big photo, strips, circles, hexagons, diagonal cuts, one photo split across panels, a photo with framed prints on top, scattered polaroids with captions, a filmstrip, a contact sheet with file names or a before and after comparison.',
 				'wunderpaint'
 			),
 			__(
@@ -455,11 +726,11 @@ export const HELP_ARTICLES = [
 		],
 		steps: [
 			__(
-				'Open Tools → Collage & Photo Grid and pick your images.',
+				'Open Tools → Collage & Photo Grid and pick your images, or use the photos already in the document.',
 				'wunderpaint'
 			),
 			__(
-				'Choose a layout and tune spacing, corners and frames on the live preview; Shuffle re-rolls the arrangement.',
+				'Pick a layout from the cards on the left, each drawn with your own photos, and tune spacing, corners, frames, shadow and background on the right; Shuffle re-rolls the arrangement.',
 				'wunderpaint'
 			),
 			__(
@@ -470,6 +741,22 @@ export const HELP_ARTICLES = [
 		tips: [
 			__(
 				'Polaroid and contact sheet can label every photo with its cleaned-up file name.',
+				'wunderpaint'
+			),
+			__(
+				'Click two photos in the preview to swap them, and right-click the inserted group for Edit Collage & Photo Grid to change the layout later.',
+				'wunderpaint'
+			),
+			__(
+				'Drag inside a photo in the preview to choose what its frame shows, and Add images… brings in more photos without starting over.',
+				'wunderpaint'
+			),
+			__(
+				'Keep faces in frame finds the faces in every photo, right in your browser, and crops each cell so they stay in it, in any layout.',
+				'wunderpaint'
+			),
+			__(
+				'Before and after shows the first two photos side by side, with a divider and labels you can edit afterwards.',
 				'wunderpaint'
 			),
 		],
@@ -521,7 +808,7 @@ export const HELP_ARTICLES = [
 		title: __( 'Templates', 'wunderpaint' ),
 		body: [
 			__(
-				'The Asset Library holds hundreds of ready-made starter templates in categories from social posts to marketing and seasonal designs. Every template opens as a fully editable, layered document in a new tab - your current work stays untouched.',
+				'The Asset Library holds a deep library of ready-made starter templates in categories from social posts to marketing and seasonal designs. Every template opens as a fully editable, layered document in a new tab - your current work stays untouched.',
 				'wunderpaint'
 			),
 			__(
@@ -576,6 +863,10 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
+				'My Archive connects a whole folder on your computer: File → Connect Folder, or the My Archive chip in the tray under the canvas. The folder is read in place, nothing is uploaded or copied, only small previews stay in this browser. Search by name and subfolder, click a tile to insert, or drag it onto the canvas. Chrome and Edge remember the folder; other browsers ask for it again on the next visit.',
+				'wunderpaint'
+			),
+			__(
 				'Tools → QR Code Generator builds QR codes: links, Wi-Fi access, contacts (vCard), email, phone or plain text, with brand-kit colors, styled modules and an optional center logo. QR layers stay editable, right-click one and choose Edit QR Code.',
 				'wunderpaint'
 			),
@@ -584,6 +875,10 @@ export const HELP_ARTICLES = [
 			{
 				label: __( 'Asset Library', 'wunderpaint' ),
 				run: ( extras ) => extras.openLibrary(),
+			},
+			{
+				label: __( 'My Archive', 'wunderpaint' ),
+				run: ( extras ) => extras.openLibrary( 'archive' ),
 			},
 			{
 				label: __( 'Stock Images', 'wunderpaint' ),
@@ -637,6 +932,29 @@ export const HELP_ARTICLES = [
 	},
 	/* -------------------------------- ai -------------------------------- */
 	{
+		id: 'ai-studio-buttons',
+		cat: 'ai',
+		title: __( 'AI Presets', 'wunderpaint' ),
+		body: [
+			__(
+				'Assets → AI Presets is where an administrator shapes the AI Studio panel for everyone on the site: hide presets nobody needs, put the important ones first, and add presets of your own.',
+				'wunderpaint'
+			),
+			__(
+				'An own preset is a prompt with a job. Pick what it works on (the active layer, the whole document, the words of a text layer, or nothing but the prompt), write the instruction, optionally choose a reference image from the Media Library as a style example, and decide where the result goes: replace the layer, a new layer on top, replace the text, or five alternatives to choose from.',
+				'wunderpaint'
+			),
+			__(
+				'Duplicate is the fastest start: Enhance Layer, Enhance Design, Colorize, Cartoon and Restore Photo can be copied with their proven prompt and reworded. The AI provider and model are the ones chosen in the AI Studio; a preset never picks them.',
+				'wunderpaint'
+			),
+			__(
+				'Changes apply when you save, and everyone sees the same panel. Hiding never disables anything: Show all brings every preset back.',
+				'wunderpaint'
+			),
+		],
+	},
+	{
 		id: 'ai',
 		cat: 'ai',
 		title: __( 'AI features', 'wunderpaint' ),
@@ -658,7 +976,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'Four newer cloud helpers: the 360° format chip generates seamless panoramas for the panorama tool, "Turn into editable vector" turns a prompt into real shape layers via the local tracer, Design Review has an art director judge your design in your editor language, and Improve Text offers five stronger alternatives for the selected text layer.',
+				'Newer cloud helpers: the 360° format chip generates seamless panoramas for the panorama tool, "Turn into editable vector" turns a prompt into real shape layers via the local tracer, Design Review has an art director judge your design in your editor language, and Improve Text offers five stronger alternatives for the selected text layer.',
 				'wunderpaint'
 			),
 			__(
@@ -733,7 +1051,7 @@ export const HELP_ARTICLES = [
 		title: __( 'Asset Generator', 'wunderpaint' ),
 		body: [
 			__(
-				'Assets → Asset Generator creates new editable layers from a short prompt, in four flavors: color gradients, styled text lockups, vector shapes and AI illustrations.',
+				'Assets → Asset Generator creates new editable layers from a short prompt, in several flavors: color gradients, styled text lockups, vector shapes and AI illustrations.',
 				'wunderpaint'
 			),
 			__(
@@ -984,7 +1302,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'The three embeds render differently, and that decides which one fits: Dynamic Image is a real image rendered by the editor engine, so it looks exactly like the design. A live badge is vector graphics (SVG) whose bound texts the server fills in as the page is served, so an edit shows up without waiting for a re-render - that costs a little visual fidelity.',
+				'The embeds render differently, and that decides which one fits: Dynamic Image is a real image rendered by the editor engine, so it looks exactly like the design. A live badge is vector graphics (SVG) whose bound texts the server fills in as the page is served, so an edit shows up without waiting for a re-render - that costs a little visual fidelity.',
 				'wunderpaint'
 			),
 		],
@@ -1109,7 +1427,7 @@ export const HELP_ARTICLES = [
 				'wunderpaint'
 			),
 			__(
-				'Every image also has a Usage tab showing where it is used, an Origin tab for source, creator and licence, and a Replace button that swaps the file while keeping the library entry. Deleting unused images has its own article, because it deserves to be read before it is used.',
+				'Every image also has a Usage tab showing where it is used, an Origin tab for source, creator and license, and a Replace button that swaps the file while keeping the library entry. Deleting unused images has its own article, because it deserves to be read before it is used.',
 				'wunderpaint'
 			),
 		],
@@ -1176,7 +1494,7 @@ export const HELP_ARTICLES = [
 		title: __( 'Saving, versions & export', 'wunderpaint' ),
 		body: [
 			__(
-				'"Save to Media Library" replaces the image and archives the previous file, restore any version from the History panel. Add a version note in the save dialog to remember what changed.',
+				'"Save to Media Library" replaces the image and archives the previous file, restore any version from the History window (View → History). Add a version note in the save dialog to remember what changed.',
 				'wunderpaint'
 			),
 			__(
@@ -1223,7 +1541,7 @@ export const HELP_ARTICLES = [
 		title: __( 'Extensions', 'wunderpaint' ),
 		body: [
 			__(
-				'Help → Manage Extensions installs add-ons directly inside the editor: a small ZIP package adds generators, asset packs, template packs, effects, tools or panels. Installed extensions open from the top-level Extensions menu. Extensions never appear in the WordPress plugin list, load only on the editor page and cannot run server code - installing needs administrator rights.',
+				'Help → Manage Extensions installs add-ons directly inside the editor: a small ZIP package adds generators, asset packs, template packs, effects, tools or panels. Installed extensions open from the top-level Extensions menu. Its headings say what you are about to do, the categories below them what you get: Create & Transform (Art & Illustration, Photo & Effects, Text & Typography), Build & Animate (3D & Scenes, Motion & Video), Hang & Print (Maps & Posters, Print & Craft) and Explain & Promote (Data & Diagrams, Marketing & Social). Extensions never appear in the WordPress plugin list, load only on the editor page and cannot run server code - installing needs administrator rights.',
 				'wunderpaint'
 			),
 			__(

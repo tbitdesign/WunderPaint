@@ -16,6 +16,13 @@
  */
 
 import {
+	captureAround,
+	docParts,
+	frameRect,
+	placeAt,
+	unplace,
+} from '../../shared/doc-preview.js';
+import {
 	MarblingEngine,
 	canRecordVideo,
 	recordingExtension,
@@ -32,13 +39,16 @@ import {
 	splatterOps,
 	laceOps,
 	sweepToolOps,
+	wavyCombOps,
 	mirroredOps,
+	toSeamless,
 	replaySchedule,
 	ease,
 	rng,
 } from './marbling.js';
 import { t } from './i18n.js';
 import { openFluidLab } from './fluid/studio.js';
+import { unpackLab } from './fluid/pack.js';
 import { labT } from './fluid/i18n.js';
 
 /**
@@ -211,19 +221,29 @@ const RECIPE_LABELS = {
 	peacock: 'Peacock',
 	spanish: 'Spanish wave',
 	italian: 'Italian vein',
+	suminagashi: 'Suminagashi',
+	hatip: 'Hatip',
+	birdwing: 'Bird wing',
+	zebra: 'Zebra',
+	shell: 'French shell',
 };
 
 // One line under each pattern card: what the recipe does to the bath.
 const RECIPE_SUBS = {
 	stone: 'Drops on drops, uncombed - the pebbled ground.',
 	gelgit: 'Two combs back and forth: the classic zigzag.',
-	nonpareil: 'Gel-git pulled through a fine comb, feather-tight.',
-	chevron: 'Nonpareil rocked into herringbone arrows.',
+	nonpareil: 'Lying gel-git crossed once by a fine comb: rows of arches.',
+	chevron: 'A comb across and back, half a tooth apart: arrows.',
 	bouquet: 'A wide comb, then a sway: fanned bouquets.',
 	curls: 'A field of curls, turning left and right.',
-	peacock: 'A wave and a counter-comb open the eyes.',
+	peacock: 'A wide comb down and back opens fans; a fine comb feathers them.',
 	spanish: 'Long slanted folds over a fine comb.',
-	italian: 'A shower of gall opens cells; thin veins between.',
+	italian: 'Drops squeeze a sheet of dark ink into thin veins.',
+	suminagashi: 'Ink and clear water in turn: rings that drift.',
+	hatip: 'Small ebru flowers on a light stone ground.',
+	birdwing: 'Nonpareil folded by a coarse comb into feathers.',
+	zebra: 'Bands of two inks, rolled by sways and curls.',
+	shell: 'Every drop lies in a pale halo of its own.',
 };
 
 // "Surprise me" draws its inks from these, so a roll never looks muddy.
@@ -266,15 +286,25 @@ function openStudio( ctx, session = {}, mode = null ) {
 	const editing = !! genLayer;
 	const saved = genLayer?.generator.params;
 	if ( mode === 'fluid' || ( ! mode && saved?.mode === 'fluid' ) ) {
-		openFluidLab( ctx, {
-			draft: session.lab || saved?.lab,
-			classic: session.classic || saved?.classic,
-			icons: ICONS,
-			onClassic: ( lab ) => {
-				session.lab = lab;
-				openStudio( ctx, session, 'classic' );
-			},
-		} );
+		const openLab = ( draft ) =>
+			openFluidLab( ctx, {
+				draft,
+				classic: session.classic || saved?.classic,
+				icons: ICONS,
+				onClassic: ( lab, stored ) => {
+					session.lab = lab;
+					session.storedLab = stored;
+					openStudio( ctx, session, 'classic' );
+				},
+			} );
+		// A layer holds the bath packed (fluid/pack.js); the session the
+		// exact one.
+		const draft = session.lab || saved?.lab;
+		if ( draft?.snapshot?.pack ) {
+			unpackLab( draft ).then( openLab );
+		} else {
+			openLab( draft );
+		}
 		return;
 	}
 	const doc = editor.state.doc || { w: 4, h: 3 };
@@ -386,7 +416,7 @@ function openStudio( ctx, session = {}, mode = null ) {
 	/* ------------------------------ show document -------------------------- */
 
 	let docBg = false;
-	let docBgUrl = null;
+	let docAround = null;
 	let docBgBusy = false;
 	const rasterBridge = bridge.raster || null;
 	const canDocBg = !! (
@@ -402,41 +432,59 @@ function openStudio( ctx, session = {}, mode = null ) {
 	if ( ! canDocBg ) {
 		docBtn.style.display = 'none';
 	}
-	const captureDocBg = async () => {
-		const st = editor.state;
-		const d = st.doc;
-		const full = await rasterBridge.renderToCanvas(
-			d,
-			( st.layers || [] ).filter(
-				( l ) => ! ( editing && genLayer && l.id === genLayer.id )
-			),
-			{
-				scale: Math.min( 1, 1400 / Math.max( d.w || 1, d.h || 1 ) ),
-				cache: rasterBridge.sharedImageCache,
-			}
-		);
-		const out = document.createElement( 'canvas' );
-		out.width = Math.max( 2, full.width );
-		out.height = Math.max( 2, full.height );
-		const g = out.getContext( '2d' );
-		if ( 'string' === typeof d.bg && d.bg && 'transparent' !== d.bg ) {
-			g.fillStyle = d.bg;
-			g.fillRect( 0, 0, out.width, out.height );
+	// v1.8.2 (shared doc-preview): the document split at the marbling's
+	// layer - below behind the bath, above in front - and the bath where
+	// its layer sits (a new one over the page, where it lands).
+	const parts = docParts( view, [ docBtn ] );
+	const docRect = () => {
+		const d = editor.state.doc;
+		if ( editing && genLayer ) {
+			return frameRect( genLayer );
 		}
-		g.drawImage( full, 0, 0 );
-		return out.toDataURL( 'image/png' );
+		return Math.abs( state.aspect - d.w / d.h ) < 0.01 * state.aspect
+			? frameRect( { x: 0, y: 0, w: d.w, h: d.h } )
+			: null;
+	};
+	const layoutDoc = () => {
+		const on = canDocBg && docBg && !! docAround;
+		stage.classList.toggle( 'is-doc', on );
+		stage.style.backgroundImage = '';
+		if ( ! on ) {
+			parts.hide();
+			unplace( stage );
+			stage.style.borderWidth = '';
+			return null;
+		}
+		const d = editor.state.doc;
+		const fitDoc = parts.fit( d.w, d.h );
+		parts.show( docAround, fitDoc );
+		const rect = docRect();
+		if ( ! rect ) {
+			unplace( stage );
+			stage.style.borderWidth = '';
+			return null;
+		}
+		// The frame's border would shift the bath off its layer.
+		stage.style.borderWidth = '0';
+		return placeAt(
+			stage,
+			rect,
+			fitDoc,
+			editing && genLayer ? genLayer : {}
+		);
 	};
 	const updateDocBg = () => {
-		const on = canDocBg && docBg;
 		docBtn.setAttribute( 'aria-pressed', docBg ? 'true' : 'false' );
-		stage.classList.toggle( 'is-doc', on && !! docBgUrl );
-		stage.style.backgroundImage =
-			on && docBgUrl ? 'url(' + docBgUrl + ')' : '';
-		if ( on && ! docBgUrl && ! docBgBusy ) {
+		fit();
+		if ( canDocBg && docBg && ! docAround && ! docBgBusy ) {
 			docBgBusy = true;
-			captureDocBg()
-				.then( ( url ) => {
-					docBgUrl = url;
+			captureAround(
+				bridge.raster,
+				editor.state,
+				editing && genLayer ? genLayer.id : null
+			)
+				.then( ( around ) => {
+					docAround = around;
 					docBgBusy = false;
 					updateDocBg();
 				} )
@@ -444,7 +492,6 @@ function openStudio( ctx, session = {}, mode = null ) {
 					docBg = false;
 					docBgBusy = false;
 					updateDocBg();
-					toasts.error( t( 'Could not render the document.' ) );
 				} );
 		}
 	};
@@ -585,6 +632,7 @@ function openStudio( ctx, session = {}, mode = null ) {
 					inks: state.inks,
 					bath: state.bath,
 					bathClear: state.bathClear,
+					seamless: state.seamless,
 					aspect: state.aspect,
 					veins: state.veins,
 					paper: 0,
@@ -604,7 +652,122 @@ function openStudio( ctx, session = {}, mode = null ) {
 	const refreshThumbs = () => {
 		window.clearTimeout( thumbTimer );
 		thumbTimer = window.setTimeout( paintRecipeThumbs, 120 );
+		refreshTileView();
 	};
+	// v1.9: the tile, repeated two by two, under the switch.
+	let tileView = null;
+	let tileTimer = 0;
+	function refreshTileView() {
+		window.clearTimeout( tileTimer );
+		tileTimer = window.setTimeout( () => {
+			if ( ! tileView || ! state.seamless || closed ) {
+				return;
+			}
+			try {
+				const w = 120;
+				const h = Math.max( 20, Math.round( w / state.aspect ) );
+				const still = engine.renderStill( w, h );
+				tileView.width = w * 2;
+				tileView.height = h * 2;
+				const g = tileView.getContext( '2d' );
+				g.clearRect( 0, 0, w * 2, h * 2 );
+				for ( let i = 0; i < 4; i++ ) {
+					g.drawImage(
+						still,
+						( i % 2 ) * w,
+						Math.floor( i / 2 ) * h
+					);
+				}
+			} catch ( e ) {
+				// The preview is a courtesy.
+			}
+		}, 220 );
+	}
+
+	/* ------------------------- v1.9: picture on the water ------------------ */
+
+	// The picture is stored with the layer, so it is kept modest: a JPEG,
+	// its long side at most 1600 px.
+	function pictureData( source ) {
+		const w = source.naturalWidth || source.width;
+		const h = source.naturalHeight || source.height;
+		const k = Math.min( 1, 1600 / Math.max( w, h ) );
+		const c = document.createElement( 'canvas' );
+		c.width = Math.max( 1, Math.round( w * k ) );
+		c.height = Math.max( 1, Math.round( h * k ) );
+		const g = c.getContext( '2d' );
+		g.imageSmoothingQuality = 'high';
+		g.drawImage( source, 0, 0, c.width, c.height );
+		return { canvas: c, url: c.toDataURL( 'image/jpeg', 0.9 ) };
+	}
+	function setPicture( url, canvasForEngine ) {
+		state.picture = url || '';
+		if ( state.picture ) {
+			state.seamless = false;
+			state.bathClear = false;
+		}
+		if ( ! state.picture ) {
+			engine.setPicture( null );
+		} else if ( canvasForEngine ) {
+			engine.setPicture( canvasForEngine );
+		}
+		setOps( state.ops );
+		refreshThumbs();
+		renderSide();
+	}
+	function loadPicture( src ) {
+		return new Promise( ( resolve, reject ) => {
+			const img = new Image();
+			img.onload = () => resolve( img );
+			img.onerror = () => reject( new Error( 'picture' ) );
+			img.src = src;
+		} );
+	}
+	async function pictureFromDocument() {
+		if ( ! canDocBg ) {
+			return;
+		}
+		try {
+			const d = editor.state.doc;
+			const layers = ( editor.state.layers || [] ).filter(
+				( l ) => ! ( editing && genLayer && l.id === genLayer.id )
+			);
+			const scale = Math.min( 1, 1600 / Math.max( d.w || 1, d.h || 1 ) );
+			const c = await rasterBridge.renderToCanvas( d, layers, { scale } );
+			if ( closed || ! c ) {
+				return;
+			}
+			const out = pictureData( c );
+			setPicture( out.url, out.canvas );
+		} catch ( e ) {
+			toasts.error( t( 'The picture could not be loaded.' ) );
+		}
+	}
+	async function pictureFromMedia() {
+		if ( ! ( window.WPIE && window.WPIE.pickMedia ) ) {
+			return;
+		}
+		try {
+			const items = await window.WPIE.pickMedia( {
+				multiple: false,
+				title: t( 'Choose a picture' ),
+				button: t( 'Use picture' ),
+				types: [ 'image' ],
+			} );
+			const item = items && items[ 0 ];
+			if ( closed || ! item ) {
+				return;
+			}
+			const img = await loadPicture( item.fullUrl || item.url );
+			if ( closed ) {
+				return;
+			}
+			const out = pictureData( img );
+			setPicture( out.url, out.canvas );
+		} catch ( e ) {
+			toasts.error( t( 'The picture could not be loaded.' ) );
+		}
+	}
 	const seedRow = ui.el( 'div', 'wpiemb-row wpiemb-seedrow', recipesBox );
 	ui.el( 'span', 'dsm-rowline-label wpiemb-label', seedRow, t( 'Seed' ) );
 	const seedInput = ui.el( 'input', 'dsm-input wpiemb-seed', seedRow );
@@ -814,7 +977,7 @@ function openStudio( ctx, session = {}, mode = null ) {
 				'dsm-note wpiemb-note',
 				tw,
 				t(
-					'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.'
+					'Click to lay a drop shot through with gall: cells of water open inside it, the color between them turns to lace.'
 				)
 			);
 		}
@@ -897,7 +1060,7 @@ function openStudio( ctx, session = {}, mode = null ) {
 				'dsm-note wpiemb-note',
 				tw,
 				t(
-					'Press at the centre, drag out to the radius; right pulls clockwise.'
+					'Press at the center, drag out to the radius; right pulls clockwise.'
 				)
 			);
 		}
@@ -1162,7 +1325,7 @@ function openStudio( ctx, session = {}, mode = null ) {
 				'dsm-note wpiemb-note',
 				co,
 				t(
-					'The gall drop pushes the colours aside and leaves open water.'
+					'The gall drop pushes the colors aside and leaves open water.'
 				)
 			);
 		}
@@ -1260,7 +1423,7 @@ function openStudio( ctx, session = {}, mode = null ) {
 				} )
 			);
 		}
-		ui.check( wa, {
+		const clear = ui.check( wa, {
 			label: t( 'Clear water (transparent)' ),
 			checked: p.bathClear,
 			onChange: ( v ) => {
@@ -1274,6 +1437,81 @@ function openStudio( ctx, session = {}, mode = null ) {
 			wa,
 			t( 'Clear water marbles veins straight over your design.' )
 		);
+		// v1.9: a picture floating on the water - every gesture then
+		// marbles the picture itself.
+		// A heading of its own: the fixed-width row label would cut it.
+		ui.el(
+			'div',
+			'dsm-rowline-label wpiemb-picrow',
+			wa,
+			t( 'Picture on the water' )
+		);
+		const picBtns = ui.el( 'div', 'wpiemb-picbtns', wa );
+		const picDoc = ui.btn( picBtns, {
+			label: t( 'Document' ),
+			onClick: () => pictureFromDocument(),
+		} );
+		picDoc.dataset.action = 'picture-document';
+		picDoc.disabled = ! canDocBg;
+		const picMedia = ui.btn( picBtns, {
+			label: t( 'Media Library' ),
+			onClick: () => pictureFromMedia(),
+		} );
+		picMedia.dataset.action = 'picture-media';
+		picMedia.disabled = ! ( window.WPIE && window.WPIE.pickMedia );
+		if ( p.picture ) {
+			const picOff = ui.btn( picBtns, {
+				label: t( 'Remove picture' ),
+				onClick: () => setPicture( '' ),
+			} );
+			picOff.dataset.action = 'picture-remove';
+		}
+		ui.el(
+			'div',
+			'dsm-note wpiemb-note',
+			wa,
+			t(
+				'With a picture on the water, every gesture marbles the picture.'
+			)
+		);
+		// v1.9: the tile.
+		const seam = ui.check( wa, {
+			label: t( 'Seamless tile' ),
+			checked: p.seamless,
+			onChange: ( v ) => {
+				state.seamless = v;
+				setOps( state.ops );
+				refreshThumbs();
+				renderSide();
+			},
+		} );
+		seam.dataset.action = 'seamless';
+		ui.el(
+			'div',
+			'dsm-note wpiemb-note',
+			wa,
+			p.picture
+				? t(
+						'A picture has edges of its own, so it cannot become a seamless tile.'
+				  )
+				: t(
+						'Drops and strokes run over the edge and come back on the other side: the marbling repeats without a seam.'
+				  )
+		);
+		if ( p.picture ) {
+			seam.inert = true;
+			seam.classList.add( 'is-disabled' );
+			clear.inert = true;
+			clear.classList.add( 'is-disabled' );
+		}
+		if ( p.seamless ) {
+			// Four tiles side by side: the proof that nothing breaks.
+			tileView = ui.el( 'canvas', 'wpiemb-tileview', wa );
+			tileView.setAttribute( 'aria-label', t( 'The tile, repeated' ) );
+			refreshTileView();
+		} else {
+			tileView = null;
+		}
 		row( wa, t( 'Pigment' ), 0, 1, 0.05, p.veins, ( v ) => {
 			state.veins = v;
 			syncInks();
@@ -1394,13 +1632,18 @@ function openStudio( ctx, session = {}, mode = null ) {
 	/* ------------------------------ state -> engine ------------------------- */
 
 	/** The history as the engine renders it (twinned when mirrored). */
-	const renderOps = ( ops ) =>
-		state.mirror ? mirroredOps( ops, state.aspect ) : ops;
+	const renderOps = ( ops ) => {
+		const twin = state.mirror ? mirroredOps( ops, state.aspect ) : ops;
+		// v1.9: on the tile every op takes its periodic form; the stored
+		// history stays as it was made.
+		return state.seamless ? toSeamless( twin, state.aspect ) : twin;
+	};
 	function syncInks() {
 		engine.setState( {
 			inks: state.inks,
 			bath: state.bath,
 			bathClear: state.bathClear,
+			seamless: state.seamless,
 			ops: renderOps( state.ops ),
 			aspect: state.aspect,
 			veins: state.veins,
@@ -1421,6 +1664,7 @@ function openStudio( ctx, session = {}, mode = null ) {
 			inks: state.inks,
 			bath: state.bath,
 			bathClear: state.bathClear,
+			seamless: state.seamless,
 			veins: state.veins,
 			paper: state.paper,
 		} );
@@ -1747,7 +1991,20 @@ function openStudio( ctx, session = {}, mode = null ) {
 			};
 			return;
 		}
-		if ( 'stylus' === tool || 'wavycomb' === tool ) {
+		if ( 'wavycomb' === tool ) {
+			// v1.9.1: the whole path becomes one exact wavy pull, rebuilt
+			// on every move from the path so far.
+			gesture = {
+				tool,
+				at: p,
+				last: p,
+				path: [ p ],
+				base: state.ops.slice(),
+				press: pressureOf( e ),
+			};
+			return;
+		}
+		if ( 'stylus' === tool ) {
 			// Freehand: the path becomes a chain of short exact pulls.
 			gesture = { tool, at: p, last: p, path: [ p ] };
 			return;
@@ -1918,7 +2175,18 @@ function openStudio( ctx, session = {}, mode = null ) {
 			drawGuide( g.at, p, 'needle' );
 			return;
 		}
-		if ( 'stylus' === g.tool || 'wavycomb' === g.tool ) {
+		if ( 'wavycomb' === g.tool ) {
+			if ( Math.hypot( p.x - g.last.x, p.y - g.last.y ) < 0.008 ) {
+				return;
+			}
+			g.last = p;
+			g.path.push( p );
+			const ops = wavyCombOps( g.path, state, forceK( g.press ) );
+			setOps( g.base.concat( ops ).slice( 0, MAX_OPS ) );
+			drawPath( g.path, g.tool );
+			return;
+		}
+		if ( 'stylus' === g.tool ) {
 			const sx = p.x - g.last.x;
 			const sy = p.y - g.last.y;
 			const seg = Math.hypot( sx, sy );
@@ -1931,27 +2199,15 @@ function openStudio( ctx, session = {}, mode = null ) {
 				state.force * 0.7 * forceK( g.press ),
 				seg * 1.15
 			);
-			const op =
-				'wavycomb' === g.tool
-					? [
-							OP.COMB,
-							g.at.x,
-							g.at.y,
-							ux,
-							uy,
-							alpha,
-							state.softness,
-							state.spacing,
-					  ]
-					: [
-							OP.TINE,
-							g.last.x,
-							g.last.y,
-							ux,
-							uy,
-							alpha,
-							state.softness,
-					  ];
+			const op = [
+				OP.TINE,
+				g.last.x,
+				g.last.y,
+				ux,
+				uy,
+				alpha,
+				state.softness,
+			];
 			setOps( state.ops.concat( [ op ] ) );
 			g.last = p;
 			g.path.push( p );
@@ -2271,6 +2527,8 @@ function openStudio( ctx, session = {}, mode = null ) {
 			inks: state.inks,
 			bath: state.bath,
 			bathClear: state.bathClear,
+			seamless: state.seamless,
+			picture: state.picture,
 			aspect: state.aspect,
 			veins: state.veins,
 			paper: state.paper,
@@ -2461,8 +2719,10 @@ function openStudio( ctx, session = {}, mode = null ) {
 
 	const storableParams = () => {
 		const stored = { ...state, mode: 'classic' };
-		if ( session.lab || saved?.lab ) {
-			stored.lab = session.lab || saved.lab;
+		// Never the session's exact bath: megabytes (see fluid/pack.js).
+		const lab = session.lab ? session.storedLab : saved?.lab;
+		if ( lab ) {
+			stored.lab = lab;
 		}
 		return stored;
 	};
@@ -2531,6 +2791,15 @@ function openStudio( ctx, session = {}, mode = null ) {
 	/* ------------------------------- lifecycle ------------------------------ */
 
 	function fit() {
+		// In place (v1.8.2): the bath at its layer in the shown document.
+		const place = layoutDoc();
+		if ( place ) {
+			engine.resize( place.w, place.h );
+			guide.width = place.w;
+			guide.height = place.h;
+			engine.render();
+			return;
+		}
 		const r = view.getBoundingClientRect();
 		const pad = 24;
 		const availW = Math.max( 200, r.width - pad * 2 );
@@ -2564,6 +2833,23 @@ function openStudio( ctx, session = {}, mode = null ) {
 				return;
 			}
 			close();
+			return;
+		}
+		// Ctrl+Z (Cmd+Z) is "Undo last move" (20.10.2026), outside text
+		// fields, and never reaches the document behind the studio.
+		if (
+			( e.ctrlKey || e.metaKey ) &&
+			! e.shiftKey &&
+			! e.altKey &&
+			'z' === e.key.toLowerCase() &&
+			! e.target.closest?.( 'input, textarea, [contenteditable]' ) &&
+			! backdrop.nextElementSibling?.matches?.( '.modal-backdrop' )
+		) {
+			e.preventDefault();
+			e.stopPropagation();
+			if ( ! gesture ) {
+				undoGroup();
+			}
 		}
 	}
 
@@ -2589,7 +2875,9 @@ function openStudio( ctx, session = {}, mode = null ) {
 		engine.dispose();
 		backdrop.remove();
 	}
-	backdrop.onclick = () => close();
+	// Only the dim area itself: the colour editor of a swatch is portalled
+	// into the backdrop, and picking a colour must not close the studio.
+	backdrop.onclick = ( e ) => e.target === backdrop && close();
 	window.addEventListener( 'resize', fit );
 	document.addEventListener( 'keydown', onKey );
 
@@ -2607,6 +2895,17 @@ function openStudio( ctx, session = {}, mode = null ) {
 	}
 	syncStatus();
 	refreshThumbs();
+	// v1.9: a reopened layer brings its picture back onto the water.
+	if ( state.picture ) {
+		loadPicture( state.picture )
+			.then( ( img ) => {
+				if ( ! closed ) {
+					engine.setPicture( img );
+					engine.render();
+				}
+			} )
+			.catch( () => {} );
+	}
 	// What the QA harness reads: the state the studio believes it is in.
 	window.__wpiembState = () => ( {
 		ready: true,

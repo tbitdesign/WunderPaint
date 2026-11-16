@@ -1,19 +1,8 @@
-/**
- * WPIE extension: Drawing Templates (v2 dialog).
- *
- * The whole document (default), any layer or a media-library image
- * becomes a printable drawing template: paint by numbers, a coloring
- * page, a tracing sheet, connect the dots, a symmetry drawing sheet,
- * the classic grid drawing aid and (v2.3) a step-by-step guide, colour
- * by code, shade by numbers, a one-line drawing, finish-the-drawing
- * and complete-the-mandala sheets. Paint colors can be pinned to ten
- * preset palettes, the brand kit or custom colors; every sheet takes
- * a multi-line title in the editor font catalog. Everything is
- * computed locally.
+/** Drawing Templates: local practice sheets, original motifs and image studies.
+ * Source selection and generator insertion use the editor's shared bridge.
  */
 
 import {
-	MODES,
 	paintByNumbers,
 	renderNumberLegend,
 	coloringPage,
@@ -28,6 +17,26 @@ import {
 	finishSheet,
 	mandalaSheet,
 } from './drawing-engine.js';
+
+import {
+	ALL_MODES as MODES,
+	PRACTICE_MODES,
+	PRACTICE_DEFAULTS,
+	DIFFICULTIES,
+	practiceOptions,
+} from './practice-catalog.js';
+import { renderPractice } from './practice-engine.js';
+import { motifCanvas, MOTIFS } from './motifs.js';
+import { mountLibrary } from './library.js';
+import { version as VERSION } from '../manifest.json';
+const BUNDLE_URL =
+	document.currentScript?.src ||
+	( window.WPIE?.extensions || [] ).find?.(
+		( extension ) => extension.slug === 'wpie-drawing-templates'
+	)?.main;
+const asset = ( file ) =>
+	new URL( 'assets/' + file + '?ver=' + VERSION, BUNDLE_URL || location.href )
+		.href;
 
 const GEN_ID = 'wpie-drawing-templates/sheet';
 
@@ -101,10 +110,11 @@ const PALETTES = [
 
 const DEFAULTS = {
 	image: null, // { id, url, title } for media picks
-	source: 'doc', // 'doc' | 'layer:<id>' | 'media'
-	mode: 'paintbynumbers',
+	source: 'motif', // 'motif' | 'doc' | 'layer:<id>' | 'media'
+	mode: 'warmup',
+	...PRACTICE_DEFAULTS,
 	title: '',
-	font: '',
+	font: 'Arial',
 	textScale: 100,
 	colors: 14,
 	smooth: 2,
@@ -138,6 +148,7 @@ const DEFAULTS = {
 
 import { t } from './i18n.js';
 import { sourceLayerOptions } from './source-list.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 /* -------------------------------- helpers -------------------------------- */
 
@@ -207,7 +218,18 @@ function openStudio( ctx ) {
 		...DEFAULTS,
 		...( editing ? layer.generator.params : {} ),
 	};
-	params.customColors = ( params.customColors || [] ).slice( 0, 4 );
+	Object.assign( params, practiceOptions( params ) );
+	if ( ! MODES.some( ( m ) => m.id === params.mode ) )
+		params.mode = DEFAULTS.mode;
+	params.customColors = Array.isArray( params.customColors )
+		? params.customColors.slice( 0, 4 )
+		: [];
+	const controlSync = [];
+	let closed = false,
+		loading = false;
+	const canRender = () =>
+		! MODES.find( ( m ) => m.id === params.mode ).source ||
+		( !! srcCanvas && ! loading );
 
 	let srcCanvas = null;
 	let srcToken = 0;
@@ -225,7 +247,7 @@ function openStudio( ctx ) {
 		'div',
 		'dsm-sub',
 		titles,
-		t( 'Printable drawing templates from one image - as editable layers.' )
+		t( 'Drawing practice, original motifs and templates from your images.' )
 	);
 	const closeBtn = el( 'button', 'dsm-x', head );
 	closeBtn.innerHTML = '&times;';
@@ -252,118 +274,32 @@ function openStudio( ctx ) {
 
 	/* --------------------------- template library ------------------------- */
 
-	const srcSec = section( library, ICONS.source, t( 'Source' ) );
-	srcSec.parentElement.classList.add( 'wpiedrw-source' );
-	const modeSec = section( library, ICONS.template, t( 'Template' ) );
-	const modeGrid = ui.picks( modeSec, { cell: 110, cls: 'wpiedrw-cards' } );
-	const modeTiles = new Map();
-	for ( const m of MODES ) {
-		const thumb = document.createElement( 'canvas' );
-		thumb.className = 'wpiedrw-tthumb';
-		thumb.width = 132;
-		thumb.height = 92;
-		const { node: card } = ui.pick( modeGrid, {
-			label: t( m.label ),
-			thumb,
-			cls: 'wpiedrw-tcard',
-			on: m.id === params.mode,
-			onClick: () => {
-				params.mode = m.id;
-				syncUi();
-				schedule();
-			},
-		} );
-		card.dataset.mode = m.id;
-		modeTiles.set( m.id, { card, thumb } );
-	}
-
-	// Live previews of the actual source per template (fallback swatch
-	// until the source loads). Rendered small to stay fast.
-	function thumbSource() {
-		const c = document.createElement( 'canvas' );
-		c.width = 132;
-		c.height = 92;
-		const g = c.getContext( '2d' );
-		if ( srcCanvas ) {
-			const s = Math.max(
-				c.width / srcCanvas.width,
-				c.height / srcCanvas.height
-			);
-			g.drawImage(
-				srcCanvas,
-				( c.width - srcCanvas.width * s ) / 2,
-				( c.height - srcCanvas.height * s ) / 2,
-				srcCanvas.width * s,
-				srcCanvas.height * s
-			);
-			return c;
-		}
-		const gr = g.createLinearGradient( 0, 0, 132, 92 );
-		gr.addColorStop( 0, '#a5d8ff' );
-		gr.addColorStop( 1, '#d0bfff' );
-		g.fillStyle = gr;
-		g.fillRect( 0, 0, 132, 92 );
-		g.fillStyle = '#e03131';
-		g.beginPath();
-		g.arc( 66, 46, 26, 0, Math.PI * 2 );
-		g.fill();
-		return c;
-	}
-	function paintCardThumbs() {
-		const src = thumbSource();
-		const accent = accentHex();
-		const renders = {
-			paintbynumbers: () =>
-				paintByNumbers( src, { colors: 8, smooth: 1 } ).canvas,
-			coloring: () => coloringPage( src, { detail: 2 } ),
-			tracing: () => tracingSheet( src, { detail: 2 } ),
-			dots: () => connectTheDots( src, { count: 40 } ).canvas,
-			symmetry: () =>
-				symmetrySheet( src, { cells: 10, gridColor: accent } ),
-			grid: () => gridSheet( src, { cells: 6, gridColor: accent } ),
-			steps: () =>
-				stepGuide( src, { steps: 4, accent: accent || undefined } )
-					.canvas,
-			code: () =>
-				colorByCode( src, { colors: 6, smooth: 2, kind: 'add' } )
-					.canvas,
-			shade: () => shadeByNumbers( src, { shades: 3 } ).canvas,
-			oneline: () =>
-				oneLineDrawing( src, { style: 'waves', lines: 30 } ).canvas,
-			finish: () =>
-				finishSheet( src, { variant: 'fade', amount: 50 } ).canvas,
-			mandala: () =>
-				mandalaSheet( src, {
-					segments: 8,
-					gridColor: accent || undefined,
-				} ),
-		};
-		for ( const m of MODES ) {
-			const { thumb } = modeTiles.get( m.id );
-			try {
-				const c = renders[ m.id ]();
-				const g = thumb.getContext( '2d' );
-				g.fillStyle = '#ffffff';
-				g.fillRect( 0, 0, thumb.width, thumb.height );
-				const s = Math.min(
-					thumb.width / c.width,
-					thumb.height / c.height
-				);
-				g.drawImage(
-					c,
-					( thumb.width - c.width * s ) / 2,
-					( thumb.height - c.height * s ) / 2,
-					c.width * s,
-					c.height * s
-				);
-			} catch ( e ) {}
-		}
-	}
-	let thumbTimer = 0;
-	const refreshThumbs = () => {
-		window.clearTimeout( thumbTimer );
-		thumbTimer = window.setTimeout( paintCardThumbs, 160 );
+	const srcSec = section( side, ICONS.source, t( 'Source' ) );
+	const choose = ( patch ) => {
+		const previousSource = params.source,
+			previousMotif = params.motif;
+		Object.assign( params, patch );
+		Object.assign( params, practiceOptions( params ) );
+		if ( ! MODES.some( ( m ) => m.id === params.mode ) )
+			params.mode = DEFAULTS.mode;
+		syncUi();
+		if (
+			previousSource !== params.source ||
+			previousMotif !== params.motif
+		)
+			loadSource();
+		schedule();
 	};
+	const libraryCtl = mountLibrary( {
+		parent: library,
+		ui,
+		t,
+		asset,
+		params,
+		choose,
+	} );
+	// Library thumbnails are generated from the same renderers at build time.
+	// Color and source edits only render the selected full-size worksheet.
 
 	/* ------------------------------- source ------------------------------- */
 
@@ -379,7 +315,8 @@ function openStudio( ctx ) {
 			o.textContent = label;
 			return o;
 		};
-		add( 'doc', t( 'Whole document' ) );
+		add( 'motif', t( 'Motif library' ) );
+		add( 'doc', t( 'Whole Document' ) );
 		// The layer entries come ready-indented from source-list.js - with
 		// non-breaking spaces, because a browser eats ordinary ones inside
 		// an <option> and the nesting would be gone.
@@ -388,19 +325,23 @@ function openStudio( ctx ) {
 			// Group headings only name what follows, they are no source.
 			o.disabled = entry.disabled;
 		}
-		add( 'media', t( 'Media library…' ) );
+		add( 'media', t( 'Media Library' ) );
 	}
 	fillSourceOptions();
-	srcSel.value =
-		[ 'doc', 'media' ].includes( params.source ) ||
-		// `:not( [disabled] )` keeps a stored empty source from landing on a
-		// group heading, which carries an empty value and is no source.
-		srcSel.querySelector(
-			`option[value="${ params.source }"]:not( [disabled] )`
+	if (
+		! Array.from( srcSel.options ).some(
+			( option ) => ! option.disabled && option.value === params.source
 		)
-			? params.source
-			: 'doc';
-	params.source = srcSel.value;
+	)
+		params.source = 'doc';
+	srcSel.value = params.source;
+	const motifButton = el(
+		'button',
+		'ai-btn secondary wpiedrw-wide',
+		srcSec,
+		t( 'Choose motif' )
+	);
+	motifButton.onclick = () => libraryCtl.open( 'motifs' );
 
 	async function loadFromMedia() {
 		// THE EDITOR'S OWN PICKER FIRST. `wp.media` is the WordPress admin
@@ -484,13 +425,22 @@ function openStudio( ctx ) {
 	}
 
 	async function loadSource() {
+		if ( closed ) return;
 		const token = ++srcToken;
+		loading = true;
+		apply.disabled = ! canRender();
 		const desc = params.source;
 		srcNote.textContent = '';
 		setStatus( t( 'Rendering the template' ) );
 		try {
 			let c = null;
-			if ( 'media' === desc ) {
+			if ( 'motif' === desc ) {
+				c = motifCanvas( canvas, params.motif, 900 );
+				srcNote.textContent = t(
+					MOTIFS.find( ( m ) => m.id === params.motif )?.label ||
+						'Fox'
+				);
+			} else if ( 'media' === desc ) {
 				if ( params.image && params.image.url ) {
 					c = await urlToCanvas( params.image.url );
 					srcNote.textContent = params.image.title || '';
@@ -508,7 +458,7 @@ function openStudio( ctx ) {
 				if ( target ) {
 					// The layer may be the child of a group: the renderer
 					// starts at roots without a parent and never reached it,
-					// so a grouped photo arrived as an empty canvas (Codex
+					// so a grouped photo arrived as an empty canvas (audit
 					// F15, 10.09.2026). Render a parent-less copy and hand the
 					// renderer its descendants for a group.
 					const byId = new Map(
@@ -542,25 +492,30 @@ function openStudio( ctx ) {
 				}
 			}
 			c = flattenWhite( c );
-			if ( token === srcToken ) {
+			if ( ! closed && token === srcToken ) {
 				srcCanvas = c;
-				apply.disabled = ! srcCanvas;
+				loading = false;
+				apply.disabled = ! canRender();
 				setStatus( '' );
-				refreshThumbs();
 				schedule();
 			}
 		} catch ( e ) {
-			if ( token === srcToken ) {
+			if ( ! closed && token === srcToken ) {
 				srcCanvas = null;
+				loading = false;
+				apply.disabled = ! canRender();
 				setStatus( t( 'Could not load the image.' ), true );
 				schedule();
 			}
 		}
 	}
 
+	let pickerToken = 0;
 	srcSel.onchange = async () => {
+		const selection = ++pickerToken;
 		if ( 'media' === srcSel.value ) {
 			const picked = await loadFromMedia();
+			if ( closed || selection !== pickerToken ) return;
 			if ( picked ) {
 				params.image = picked;
 				params.source = 'media';
@@ -593,7 +548,6 @@ function openStudio( ctx ) {
 			params.customColors = [];
 			params.useBrand = false;
 			syncUi();
-			refreshThumbs();
 			schedule();
 		};
 		palBtns.set( p.id, b );
@@ -612,7 +566,8 @@ function openStudio( ctx ) {
 			) || brandKits[ 0 ];
 		return ( kit && kit.colors ) || [];
 	};
-	let brandCb = null;
+	let brandCb = null,
+		kitCtl = null;
 	if ( brandKits.length ) {
 		const brandLbl = el( 'label', 'dsm-checkrow wpiedrw-check', colSec );
 		brandCb = el( 'input', null, brandLbl );
@@ -626,7 +581,6 @@ function openStudio( ctx ) {
 				params.paletteId = '';
 			}
 			syncUi();
-			refreshThumbs();
 			schedule();
 		};
 		if (
@@ -634,16 +588,18 @@ function openStudio( ctx ) {
 			bridge.components &&
 			bridge.components.mountKitPicker
 		) {
-			bridge.components.mountKitPicker( el( 'div', null, colSec ), {
-				value: params.brandKitId || brandKits[ 0 ].id,
-				onChange: ( id ) => {
-					params.brandKitId = id;
-					params.useBrand = true;
-					brandCb.checked = true;
-					refreshThumbs();
-					schedule();
-				},
-			} );
+			kitCtl = bridge.components.mountKitPicker(
+				el( 'div', null, colSec ),
+				{
+					value: params.brandKitId || brandKits[ 0 ].id,
+					onChange: ( id ) => {
+						params.brandKitId = id;
+						params.useBrand = true;
+						brandCb.checked = true;
+						schedule();
+					},
+				}
+			);
 		}
 	}
 
@@ -666,7 +622,6 @@ function openStudio( ctx ) {
 				customCtls[ i ].set( hex );
 			}
 			syncUi();
-			refreshThumbs();
 			schedule();
 		};
 		if ( mountSwatch ) {
@@ -697,7 +652,6 @@ function openStudio( ctx ) {
 		params.paletteId = '';
 		customCtls.forEach( ( ctl ) => ctl && ctl.set && ctl.set( '#cccccc' ) );
 		syncUi();
-		refreshThumbs();
 		schedule();
 	};
 
@@ -719,6 +673,11 @@ function openStudio( ctx ) {
 		return null;
 	}
 	function accentHex() {
+		// A single custom swatch is already enough for grid lines and titles.
+		const custom = params.customColors.find( ( color ) =>
+			/^#[0-9a-f]{6}$/i.test( String( color ) )
+		);
+		if ( custom ) return custom;
 		const fixed = resolvedFixed();
 		return fixed
 			? '#' +
@@ -759,7 +718,7 @@ function openStudio( ctx ) {
 	};
 	if ( bridge.components && bridge.components.mountFontPicker ) {
 		fontCtl = bridge.components.mountFontPicker( fontMount, {
-			value: params.font || 'Montserrat',
+			value: params.font || 'Arial',
 			onChange: onFont,
 		} );
 	} else {
@@ -788,6 +747,10 @@ function openStudio( ctx ) {
 		const out = el( 'output', null, row );
 		const suffix = unit || '';
 		out.textContent = String( get() ) + suffix;
+		controlSync.push( () => {
+			input.value = String( get() );
+			out.textContent = String( get() ) + suffix;
+		} );
 		input.oninput = () => {
 			set( parseInt( input.value, 10 ) );
 			out.textContent = input.value + suffix;
@@ -889,6 +852,9 @@ function openStudio( ctx ) {
 			o.textContent = l;
 		}
 		sel.value = String( get() );
+		controlSync.push( () => {
+			sel.value = String( get() );
+		} );
 		sel.onchange = () => {
 			set( sel.value );
 			schedule();
@@ -900,6 +866,9 @@ function openStudio( ctx ) {
 		const cb = el( 'input', null, lbl );
 		cb.type = 'checkbox';
 		cb.checked = !! get();
+		controlSync.push( () => {
+			cb.checked = !! get();
+		} );
 		el( 'span', null, lbl ).textContent = label;
 		cb.onchange = () => {
 			set( cb.checked );
@@ -926,6 +895,7 @@ function openStudio( ctx ) {
 			[ 'mixed', t( 'Addition and subtraction' ) ],
 			[ 'mul', t( 'Multiplication' ) ],
 			[ 'letters', t( 'Letters' ) ],
+			[ 'symbols', t( 'Symbols' ) ],
 		],
 		() => params.codeKind,
 		( v ) => ( params.codeKind = v )
@@ -1046,10 +1016,161 @@ function openStudio( ctx ) {
 		( v ) => ( params.mandalaHints = v )
 	);
 
+	const practiceSec = section( side, ICONS.template, t( 'Practice' ) );
+	side.insertBefore( practiceSec.parentElement, setSec.parentElement );
+	const difficultyRow = selectRowIn(
+		practiceSec,
+		t( 'Difficulty' ),
+		DIFFICULTIES.map( ( [ id, label ] ) => [ id, t( label ) ] ),
+		() => params.difficulty,
+		( v ) => {
+			params.difficulty = v;
+		}
+	);
+	const variantLabel = el( 'label', 'wpiedrw-text-row', practiceSec );
+	el( 'span', 'dsm-fieldlabel', variantLabel, t( 'Variant' ) );
+	const practiceVariant = el(
+		'select',
+		'dsm-select wpiedrw-wide',
+		variantLabel
+	);
+	practiceVariant.onchange = () => {
+		params.practiceVariant = Number( practiceVariant.value );
+		schedule();
+	};
+	let variantMode = '';
+	const rowCount = sliderRowIn(
+		practiceSec,
+		t( 'Practice rows' ),
+		3,
+		7,
+		() => params.rows,
+		( v ) => {
+			params.rows = v;
+		}
+	);
+	const hintRow = sliderRowIn(
+		practiceSec,
+		t( 'Guide opacity' ),
+		10,
+		70,
+		() => params.hintOpacity,
+		( v ) => {
+			params.hintOpacity = v;
+		},
+		'%'
+	);
+	const weightRow = sliderRowIn(
+		practiceSec,
+		t( 'Line weight' ),
+		1,
+		4,
+		() => params.strokeWeight,
+		( v ) => {
+			params.strokeWeight = v;
+		}
+	);
+	const ringRow = sliderRowIn(
+		practiceSec,
+		t( 'Rings' ),
+		2,
+		6,
+		() => params.rings,
+		( v ) => {
+			params.rings = v;
+		}
+	);
+	const textRow = el( 'label', 'wpiedrw-text-row', practiceSec );
+	el( 'span', 'dsm-fieldlabel', textRow, t( 'Practice text' ) );
+	const practiceText = el( 'input', 'dsm-input wpiedrw-wide', textRow );
+	practiceText.maxLength = 80;
+	practiceText.value = params.practiceText;
+	practiceText.oninput = () => {
+		params.practiceText = practiceText.value;
+		schedule();
+	};
+	const axisRow = selectRowIn(
+		setSec,
+		t( 'Mirror axis' ),
+		[
+			[ 'vertical', 'Vertical' ],
+			[ 'horizontal', 'Horizontal' ],
+			[ 'diagonal', 'Diagonal' ],
+			[ 'quarter', 'Quarter' ],
+		].map( ( [ id, label ] ) => [ id, t( label ) ] ),
+		() => params.symAxis,
+		( v ) => {
+			params.symAxis = v;
+		}
+	);
+	const scaleRow = selectRowIn(
+		setSec,
+		t( 'Drawing scale' ),
+		[
+			[ 0.75, '75%' ],
+			[ 1, '100%' ],
+			[ 1.5, '150%' ],
+			[ 2, '200%' ],
+		],
+		() => params.gridScale,
+		( v ) => {
+			params.gridScale = Number( v );
+		}
+	);
 	const syncUi = () => {
-		modeTiles.forEach( ( { card }, id ) =>
-			ui.pressed( card, id === params.mode )
-		);
+		libraryCtl.sync();
+		controlSync.forEach( ( sync ) => sync() );
+		srcSel.value = params.source;
+		hintsCb.checked = !! params.dotHints;
+		sideSel.value = params.symSide;
+		practiceText.value = params.practiceText;
+		motifButton.style.display =
+			params.source === 'motif' || params.mode === 'construction'
+				? ''
+				: 'none';
+		srcSel.hidden = params.mode === 'construction';
+		difficultyRow.hidden =
+			[ 'values', 'stippling', 'negative', 'construction' ].includes(
+				params.mode
+			) ||
+			( params.mode === 'rosette' && params.practiceVariant !== 3 );
+		const practice = PRACTICE_MODES.find( ( m ) => m.id === params.mode );
+		practiceSec.parentElement.hidden = ! practice;
+		srcSec.parentElement.hidden =
+			!! practice && ! practice.source && params.mode !== 'construction';
+		if ( practice && variantMode !== params.mode ) {
+			practiceVariant.replaceChildren();
+			practice.variants.forEach( ( label, i ) => {
+				const option = el( 'option', '', practiceVariant, t( label ) );
+				option.value = String( i );
+			} );
+			variantMode = params.mode;
+		}
+		practiceVariant.value = String( params.practiceVariant );
+		const practicingRows =
+			practice &&
+			! practice.source &&
+			! [ 'rosette', 'construction' ].includes( params.mode );
+		rowCount.hidden = ! practicingRows;
+		textRow.hidden = params.mode !== 'lettering';
+		ringRow.hidden = params.mode !== 'rosette';
+		weightRow.hidden = ! [
+			'warmup',
+			'forms',
+			'ornaments',
+			'rosette',
+			'construction',
+		].includes( params.mode );
+		hintRow.hidden = [
+			'negative',
+			'detailstudy',
+			'construction',
+			'values',
+			'stippling',
+		].includes( params.mode );
+		axisRow.hidden = params.mode !== 'symmetry';
+		scaleRow.hidden = params.mode !== 'grid';
+		apply.disabled = ! canRender();
 		palBtns.forEach( ( b, id ) =>
 			b.classList.toggle(
 				'sel',
@@ -1070,11 +1191,16 @@ function openStudio( ctx ) {
 		hintsLbl.style.display = 'dots' === m ? '' : 'none';
 		cellsRow.style.display = 'grid' === m ? '' : 'none';
 		symCellsRow.style.display = 'symmetry' === m ? '' : 'none';
-		sideRow.style.display = 'symmetry' === m ? '' : 'none';
+		sideRow.style.display =
+			'symmetry' === m && params.symAxis === 'vertical' ? '' : 'none';
 		const show = ( node, on ) => ( node.style.display = on ? '' : 'none' );
 		show( stepsRow, 'steps' === m );
 		show( codeKindRow, 'code' === m );
-		show( codeRangeRow, 'code' === m && 'letters' !== params.codeKind );
+		show(
+			codeRangeRow,
+			'code' === m &&
+				! [ 'letters', 'symbols' ].includes( params.codeKind )
+		);
 		show( codeColorsRow, 'code' === m && ! resolvedFixed() );
 		show(
 			shuffleRow,
@@ -1089,7 +1215,7 @@ function openStudio( ctx ) {
 		show( variantRow, 'finish' === m );
 		show( dirRow, 'finish' === m && 'fade' === params.finishVariant );
 		show( amountRow, 'finish' === m );
-		show( segRow, 'mandala' === m );
+		show( segRow, [ 'mandala', 'rosette' ].includes( m ) );
 		show( mandalaHintsLbl, 'mandala' === m );
 		// Detail drives the region pipeline of the finish sheet too.
 		if ( 'finish' === m ) {
@@ -1154,13 +1280,38 @@ function openStudio( ctx ) {
 		g.textAlign = 'center';
 		g.textBaseline = 'middle';
 		tLines.forEach( ( ln, i ) =>
-			g.fillText( ln, c.width / 2, 8 + tLh / 2 + i * tLh )
+			g.fillText( ln, c.width / 2, 8 + tLh / 2 + i * tLh, c.width - 40 )
 		);
 		g.drawImage( sheet, 0, titleH );
 		return c;
 	}
 
+	let cachedKey = '',
+		cachedSheet = null;
 	function bake() {
+		if ( ! canRender() ) return null;
+		const key = JSON.stringify( params ) + ':' + srcToken;
+		if ( key === cachedKey && cachedSheet ) return cachedSheet;
+		cachedSheet = computeSheet();
+		cachedKey = key;
+		return cachedSheet;
+	}
+	function computeSheet() {
+		if ( PRACTICE_MODES.some( ( m ) => m.id === params.mode ) )
+			return withTitle( renderPractice( canvas, params, srcCanvas, t ) );
+		if (
+			params.source === 'motif' &&
+			[ 'coloring', 'tracing' ].includes( params.mode )
+		) {
+			return withTitle(
+				motifCanvas( canvas, params.motif, 1200, {
+					outline: true,
+					weight: 1.5 + params.detail,
+					color: params.mode === 'tracing' ? '#a5adb5' : '#303943',
+					dashed: params.mode === 'tracing',
+				} )
+			);
+		}
 		if ( ! srcCanvas ) {
 			return null;
 		}
@@ -1212,6 +1363,7 @@ function openStudio( ctx ) {
 				symmetrySheet( srcCanvas, {
 					cells: params.symCells,
 					side: params.symSide,
+					axis: params.symAxis,
 					gridColor: accent || undefined,
 				} )
 			);
@@ -1295,6 +1447,7 @@ function openStudio( ctx ) {
 		return withTitle(
 			gridSheet( srcCanvas, {
 				cells: params.cells,
+				scale: params.gridScale,
 				gridColor: accent || undefined,
 			} )
 		);
@@ -1303,13 +1456,16 @@ function openStudio( ctx ) {
 	let timer = 0;
 	let busy = false;
 	function schedule() {
+		if ( closed ) return;
+		cachedKey = '';
 		// The heavy modes take a few hundred ms - debounce slider drags.
 		window.clearTimeout( timer );
 		timer = window.setTimeout( paintNow, 180 );
 	}
 	function paintNow() {
+		if ( closed ) return;
 		syncUi();
-		if ( ! srcCanvas ) {
+		if ( ! canRender() ) {
 			canvas.width = 10;
 			canvas.height = 10;
 			return;
@@ -1335,6 +1491,11 @@ function openStudio( ctx ) {
 					.getContext( '2d' )
 					.drawImage( baked, 0, 0, canvas.width, canvas.height );
 			}
+		} catch ( error ) {
+			setStatus(
+				error.message || t( 'Could not render the template.' ),
+				true
+			);
 		} finally {
 			busy = false;
 		}
@@ -1342,19 +1503,34 @@ function openStudio( ctx ) {
 
 	/* ------------------------------ lifecycle ----------------------------- */
 
-	const onResize = () => schedule();
+	const onResize = () => paintNow();
 	const viewRO =
 		'function' === typeof window.ResizeObserver
-			? new window.ResizeObserver( () => schedule() )
+			? new window.ResizeObserver( () => paintNow() )
 			: null;
 	const onKey = ( e ) => {
-		if ( 'Escape' === e.key ) {
-			close();
-		}
+		if ( e.key !== 'Escape' || e.defaultPrevented || closed ) return;
+		const dialogs = [
+			...document.querySelectorAll( '#wpie-root .modal-backdrop' ),
+		];
+		if ( dialogs.length && dialogs.at( -1 ) !== backdrop ) return;
+		if (
+			dialog.querySelector(
+				'.wpie-color-swatch button[aria-expanded="true"], .color-popover'
+			)
+		)
+			return;
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		close();
 	};
 	function close() {
+		if ( closed ) return;
+		closed = true;
+		history.dispose();
+		++srcToken;
+		cachedSheet = null;
 		window.clearTimeout( timer );
-		window.clearTimeout( thumbTimer );
 		window.removeEventListener( 'resize', onResize );
 		if ( viewRO ) {
 			viewRO.disconnect();
@@ -1368,6 +1544,7 @@ function openStudio( ctx ) {
 		if ( fontCtl && fontCtl.unmount ) {
 			fontCtl.unmount();
 		}
+		kitCtl?.unmount?.();
 		backdrop.remove();
 	}
 	window.addEventListener( 'resize', onResize );
@@ -1382,11 +1559,18 @@ function openStudio( ctx ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: the same
+	// way back in as a library pick (choose), source included.
+	const history = studioUndo( {
+		backdrop,
+		read: () => params,
+		write: ( data ) => choose( data ),
+	} );
 
 	/* -------------------------------- insert ------------------------------ */
 
 	apply.onclick = async () => {
-		if ( ! srcCanvas ) {
+		if ( ! canRender() ) {
 			return;
 		}
 		apply.disabled = true;
@@ -1449,9 +1633,17 @@ function openStudio( ctx ) {
 	/* --------------------------------- boot ------------------------------- */
 
 	void extras;
+	if ( window.__wpieQA )
+		window.__drawingTemplates = {
+			params,
+			choose,
+			bake,
+			close,
+			ready: () => ! closed && ! loading && canRender(),
+		};
 	requestAnimationFrame( () => {
+		if ( closed ) return;
 		syncUi();
-		paintCardThumbs();
 		loadSource();
 		if ( params.font && bridge.fonts && bridge.fonts.ensureFont ) {
 			bridge.fonts

@@ -221,7 +221,7 @@ export default function App() {
 // 5, a limit of the old always-open strip's width, not of the architecture:
 // parked tabs are serialized snapshots, only the active one runs). ONE
 // number for opening and for restoring - the restore kept the old 5 and
-// brought five of seven documents back (Codex F05).
+// brought five of seven documents back (audit F05).
 const MAX_TABS = 10;
 
 function TabbedEditor( { booted, WPIE } ) {
@@ -335,7 +335,7 @@ function TabbedEditor( { booted, WPIE } ) {
 	// second used to build its boot without pages at all, so "Open Project"
 	// on a multi-page file kept one page whenever it went into a new tab -
 	// the in-place path had been fixed the same day and the report said
-	// F02 was closed (Codex C01).
+	// F02 was closed (audit C01).
 	const armPages = ( boot, after = null ) => {
 		if ( ! boot || ! boot.pages ) {
 			afterMountRef.current = after;
@@ -590,7 +590,7 @@ function TabbedEditor( { booted, WPIE } ) {
 				// a candidate only when the autosave will NOT restore it into
 				// the current tab: the autosave reads one key, the page's
 				// attachment or the window's new-document key, so an active
-				// tab of another identity was lost from every offer (Codex
+				// tab of another identity was lost from every offer (audit
 				// C02). Same identity is still filtered - a freshly created,
 				// never saved document on a page that boots new used to come
 				// back twice (Thomas, 02.09.2026). lib/tab-session.js holds
@@ -627,7 +627,7 @@ function TabbedEditor( { booted, WPIE } ) {
 				// like an error. So the parked documents simply come back, as
 				// the autosave brings back the active one - only the QUESTION
 				// is skipped. It used to skip the restore too, and every
-				// other document was gone (Codex F04).
+				// other document was gone (audit F04).
 				if ( afterLocaleSwitch ) {
 					restore();
 					return;

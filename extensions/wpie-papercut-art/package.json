@@ -1,6 +1,6 @@
 {
 	"name": "wpie-papercut-art",
-	"version": "3.5.9",
+	"version": "3.8.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -11,7 +11,9 @@
 		"qa:thumbnails": "node tools/qa-thumbnails.mjs",
 		"qa:panels": "node tools/qa-panels.mjs",
 		"qa:photo-start": "node tools/qa-photo-start.mjs",
-		"pack": "npm run build && mkdir -p dist && rm -f dist/papercut-art.zip && zip -r dist/papercut-art.zip manifest.json extension.js style.css"
+		"pack": "npm run build && mkdir -p dist && rm -f dist/papercut-art.zip && zip -r dist/papercut-art.zip manifest.json extension.js style.css",
+		"qa:premium": "node tools/qa-premium.mjs",
+		"qa:interactions": "node tools/qa-interactions.mjs"
 	},
 	"devDependencies": {
 		"esbuild": "^0.24.0"

@@ -4,6 +4,7 @@
  * plus shape masks that let the image-driven types run without a
  * photo. Pure module, node-testable.
  */
+import { outSheet } from './textart-engine.js';
 
 const makeCanvas = ( like, w, h ) => {
 	const c =
@@ -16,6 +17,13 @@ const makeCanvas = ( like, w, h ) => {
 };
 
 const BG = { dark: '#0e1013', light: '#ffffff' };
+
+// Shadows are measured in device pixels, and since 3.5 a sheet may be
+// painted larger than its layout: a glow scales with the transform.
+const devicePx = ( g ) => {
+	const m = g.getTransform && g.getTransform();
+	return m ? Math.hypot( m.a, m.b ) : 1;
+};
 const famFor = ( font ) => ( font ? `"${ font }", sans-serif` : 'sans-serif' );
 
 // Deterministic RNG (same contract as the other minis).
@@ -234,8 +242,7 @@ export function renderElementWords( like, opts = {} ) {
 		opts.colors && opts.colors.length ? opts.colors : [ '#3b66ff' ];
 	const style = opts.tileStyle || 'classic';
 	const dark = 'light' !== opts.background;
-	const out = makeCanvas( like, W, H );
-	const g = out.getContext( '2d' );
+	const { c: out, g } = outSheet( like, W, H, opts );
 	g.fillStyle = 'chalk' === style ? '#233329' : BG[ dark ? 'dark' : 'light' ];
 	g.fillRect( 0, 0, W, H );
 
@@ -291,7 +298,7 @@ function drawElementTile( g, x, y, size, cell, color, style, dark, opts ) {
 		g.fillStyle = dark ? '#12151b' : '#f3f4f8';
 		g.fill();
 		g.shadowColor = isFallback ? 'transparent' : color;
-		g.shadowBlur = size * 0.22;
+		g.shadowBlur = size * 0.22 * devicePx( g );
 		g.strokeStyle = isFallback ? ( dark ? '#3a3f48' : '#c6cad2' ) : color;
 		g.lineWidth = Math.max( 2, size * 0.035 );
 		g.stroke();
@@ -320,7 +327,7 @@ function drawElementTile( g, x, y, size, cell, color, style, dark, opts ) {
 	g.fillStyle = 'neon' === style && ! isFallback ? color : ink;
 	if ( 'neon' === style && ! isFallback ) {
 		g.shadowColor = color;
-		g.shadowBlur = size * 0.3;
+		g.shadowBlur = size * 0.3 * devicePx( g );
 	}
 	g.font = `700 ${ Math.round( size * 0.44 ) }px ${ fam }`;
 	g.textAlign = 'center';
@@ -489,8 +496,7 @@ export function renderLetterGrid( like, opts = {} ) {
 			lastHit = hit;
 		}
 	}
-	const out = makeCanvas( like, W, H );
-	const g = out.getContext( '2d' );
+	const { c: out, g } = outSheet( like, W, H, opts );
 	g.fillStyle = BG[ dark ? 'dark' : 'light' ];
 	g.fillRect( 0, 0, W, H );
 	const pad = Math.round( W * 0.07 );
@@ -511,7 +517,7 @@ export function renderLetterGrid( like, opts = {} ) {
 				const col = colorAt.get( key );
 				if ( opts.glow ) {
 					g.shadowColor = col;
-					g.shadowBlur = size * 0.7;
+					g.shadowBlur = size * 0.7 * devicePx( g );
 				}
 				g.fillStyle = col;
 				g.font = `800 ${ Math.round( size ) }px ${ famFor(
@@ -678,8 +684,7 @@ export function renderScrabble( like, opts = {} ) {
 		return null;
 	}
 	const dark = 'light' !== opts.background;
-	const out = makeCanvas( like, W, H );
-	const g = out.getContext( '2d' );
+	const { c: out, g } = outSheet( like, W, H, opts );
 	g.fillStyle = BG[ dark ? 'dark' : 'light' ];
 	g.fillRect( 0, 0, W, H );
 	const cols = built.maxX - built.minX + 1;
@@ -702,8 +707,8 @@ function drawTile( g, x, y, size, ch, style, showPoints ) {
 	g.save();
 	// Drop shadow.
 	g.shadowColor = 'rgba(0,0,0,0.35)';
-	g.shadowBlur = size * 0.12;
-	g.shadowOffsetY = size * 0.05;
+	g.shadowBlur = size * 0.12 * devicePx( g );
+	g.shadowOffsetY = size * 0.05 * devicePx( g );
 	const grad = g.createLinearGradient( x, y, x, y + size );
 	if ( 'ivory' === style ) {
 		grad.addColorStop( 0, '#faf6ea' );
@@ -790,8 +795,7 @@ export function renderRansomNote( like, opts = {} ) {
 	const news = 'news' === opts.paperStyle;
 	const tilt =
 		( Math.max( 0, Math.min( 100, opts.tilt ?? 55 ) ) / 100 ) * 0.2;
-	const out = makeCanvas( like, W, H );
-	const g = out.getContext( '2d' );
+	const { c: out, g } = outSheet( like, W, H, opts );
 	g.fillStyle = BG[ dark ? 'dark' : 'light' ];
 	g.fillRect( 0, 0, W, H );
 	// Letter size from the longest line and the line count.
@@ -851,8 +855,8 @@ export function renderRansomNote( like, opts = {} ) {
 			g.translate( x + pw / 2, y - size * 0.36 );
 			g.rotate( rot );
 			g.shadowColor = 'rgba(0,0,0,0.35)';
-			g.shadowBlur = size * 0.1;
-			g.shadowOffsetY = size * 0.06;
+			g.shadowBlur = size * 0.1 * devicePx( g );
+			g.shadowOffsetY = size * 0.06 * devicePx( g );
 			g.fillStyle = paper;
 			// Slightly irregular snippet quad.
 			const jx = () => ( rng() - 0.5 ) * size * 0.08;
@@ -945,8 +949,7 @@ export function renderWordCloud( like, opts = {} ) {
 	const colors =
 		opts.colors && opts.colors.length ? opts.colors : [ '#3b66ff' ];
 	const rng = mulberry( ( opts.seed || 7 ) * 48271 );
-	const out = makeCanvas( like, W, H );
-	const g = out.getContext( '2d' );
+	const { c: out, g } = outSheet( like, W, H, opts );
 	g.fillStyle = BG[ dark ? 'dark' : 'light' ];
 	g.fillRect( 0, 0, W, H );
 	// Occupancy grid, 6px cells; a mask blocks the outside.

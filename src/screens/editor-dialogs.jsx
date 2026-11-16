@@ -456,7 +456,7 @@ export function AboutDialog( { onClose } ) {
 // First-run font source picker (v1.316). The plugin bundles 10 families and
 // knows a much larger catalog; the admin decides once whether to download the
 // rest locally (default, GDPR-clean), load them from the Google CDN on demand,
-// or stay with the ten. Only shown to admins, after the onboarding tour.
+// or stay with the ten. Only shown to admins; independent of the manual tour.
 export function FontFirstRunDialog( { onClose } ) {
 	const [ phase, setPhase ] = useState( 'ask' ); // ask | working | done
 	const [ progress, setProgress ] = useState( { done: 0, total: 0 } );
@@ -559,13 +559,13 @@ export function FontFirstRunDialog( { onClose } ) {
 						<>
 							<p className="about-lead">
 								{ __(
-									'The editor comes with 10 built-in font families and knows a much larger catalog. Download the full catalog once so every family is available and served straight from your own site, with no external requests while you design. This is the recommended, privacy-friendly option.',
+									'The editor comes with a set of built-in font families and knows a much larger catalog. Download the full catalog once so every family is available and served straight from your own site, with no external requests while you design. This is the recommended, privacy-friendly option.',
 									'wunderpaint'
 								) }
 							</p>
 							<p className="about-para">
 								{ __(
-									'Only your server contacts Google during the download. You can instead load fonts from the Google CDN on demand, which sends visitor IP addresses to Google while they work, or skip for now and stay with the 10 built-in families. You can change this any time under Settings, Fonts.',
+									'Only your server contacts Google during the download. You can instead load fonts from the Google CDN on demand, which sends visitor IP addresses to Google while they work, or skip for now and stay with the built-in families. You can change this any time under Settings, Fonts.',
 									'wunderpaint'
 								) }
 							</p>

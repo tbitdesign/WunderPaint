@@ -1,4 +1,6 @@
 import { Obstacles } from './obstacles.js';
+import { AQUEOUS_MATERIALS } from './aqueous.js';
+import { applyFlowSources, FLOW_SOURCES } from './flow-sources.js';
 import {
 	EXTRA_LIQUIDS,
 	waxMelt,
@@ -32,6 +34,7 @@ import {
 	updateTemperature,
 } from './influences.js';
 export const MATERIALS = [
+	...AQUEOUS_MATERIALS,
 	...EXTRA_LIQUIDS,
 	{
 		id: 'bicarbonate',
@@ -226,6 +229,22 @@ const TRANSPORT = FIELDS.filter(
 			'ferroPattern',
 		].includes( key )
 );
+// Buffers every step fills anew from the bath: not part of its state.
+const SCRATCH = new Set( [
+	'temp',
+	'u0',
+	'v0',
+	'div',
+	'faceFrom',
+	'faceTo',
+	'rowFaceStart',
+	'bulkFlow',
+	'oilFlow',
+	'diffusive',
+	'maxDiffusive',
+	'oilExchange',
+	'waxFlow',
+] );
 const OILS = [ 'oil', 'thick', 'ferro' ];
 const METAL = [ 'metal' ];
 const oilField = ( key ) =>
@@ -254,6 +273,7 @@ export function cleanSettings( raw = {} ) {
 		tool: pick(
 			'tool',
 			[
+				...FLOW_SOURCES,
 				'orbit',
 				'pipette',
 				'pour',
@@ -289,6 +309,11 @@ export function cleanSettings( raw = {} ) {
 			] )
 		),
 		injectionDepth: num( p.injectionDepth, 0, 1, 0 ),
+		inkDensity: num( p.inkDensity, 0.8, 1.8, 1.18 ),
+		glycerinViscosity: num( p.glycerinViscosity, 0.1, 30, 12 ),
+		vorticity: num( p.vorticity, 0, 1, 0 ),
+		sourceAngle: num( p.sourceAngle, -180, 180, 0 ),
+		sourceSpin: num( p.sourceSpin, -1, 1, 1 ),
 		dropHeight: num( p.dropHeight, 0, 0.5, 0.08 ),
 		gravity: num( p.gravity, 0, 4, 1.6 ),
 		tiltX: num( p.tiltX, -35, 35, 0 ),
@@ -404,6 +429,11 @@ export class FluidSimulation {
 		this.oilInverse = new Float32Array( this.n );
 		this.faceFrom = new Uint32Array( this.n * 2 );
 		this.faceTo = new Uint32Array( this.n * 2 );
+		// Where each row's interior faces start (buildFluxes): transport
+		// only visits the rows a field has mass in.
+		this.rowFaceStart = new Int32Array( this.h + 1 );
+		// One scratch field per field moved together (transport batches).
+		this.tempBank = [];
 		for ( const key of [
 			'bulkFlow',
 			'oilFlow',
@@ -473,6 +503,9 @@ export class FluidSimulation {
 			radius: settings.sourceRadius,
 			power: settings.sourcePower,
 			gap: settings.magnetGap,
+			...( FLOW_SOURCES.includes( type )
+				? { angle: settings.sourceAngle, spin: settings.sourceSpin }
+				: {} ),
 		};
 		this.sources = cleanSources( [ ...this.sources, source ] );
 		return this.sources[ this.sources.length - 1 ];
@@ -482,7 +515,9 @@ export class FluidSimulation {
 		this.sources = this.sources.filter( ( source ) => source.id !== id );
 	}
 
-	/** A local addition preserves each material's premultiplied pigment. */
+	/**
+	 * A local addition preserves each material's premultiplied pigment.
+	 */
 	drop(
 		x,
 		y,
@@ -597,7 +632,9 @@ export class FluidSimulation {
 		} );
 	}
 
-	/** Move every conserved amount out of newly occupied cells, never delete paint. */
+	/**
+	 * Move every conserved amount out of newly occupied cells, never delete paint.
+	 */
 	displaceObstacles( next, nearest ) {
 		for ( let i = 0; i < this.n; i++ ) {
 			if ( next[ i ] <= 0.5 || nearest[ i ] < 0 ) {
@@ -762,7 +799,9 @@ export class FluidSimulation {
 		this.boundary();
 	}
 
-	/** Move one phase and its pigments together across an interface. */
+	/**
+	 * Move one phase and its pigments together across an interface.
+	 */
 	separate( i, j, flux, group = OILS ) {
 		if ( ! flux || this.wall[ i ] > 0.5 || this.wall[ j ] > 0.5 ) {
 			return;
@@ -863,7 +902,9 @@ export class FluidSimulation {
 		}
 	}
 
-	/** Build shared face coefficients once, not once for every pigment band. */
+	/**
+	 * Build shared face coefficients once, not once for every pigment band.
+	 */
 	buildFluxes( dt ) {
 		const {
 			w,
@@ -877,7 +918,10 @@ export class FluidSimulation {
 			maxDiffusive,
 		} = this;
 		let f = 0;
+		const rowStart = this.rowFaceStart;
+		rowStart[ 0 ] = 0;
 		for ( let y = 1; y < h - 1; y++ ) {
+			rowStart[ y ] = f;
 			for ( let x = 1; x < w - 1; x++ ) {
 				const i = y * w + x;
 				if ( wall[ i ] > 0.5 ) {
@@ -936,6 +980,7 @@ export class FluidSimulation {
 				}
 			}
 		}
+		rowStart[ h - 1 ] = rowStart[ h ] = f;
 		this.interiorFaceCount = f;
 		if ( this.openBoundary ) {
 			const outlet = ( i, inner, velocity ) => {
@@ -985,7 +1030,94 @@ export class FluidSimulation {
 		this.faceCount = f;
 	}
 
+	/**
+	 * One step. A bath with no liquid, no motion and no apparatus does not
+	 * change from step to step, but cost 15 ms each, 30 times a second, from
+	 * opening the lab to the first drop (measured 21.10.2026). Such a bath is
+	 * stepped once for real and compared with a copy of itself; when nothing
+	 * changed, further steps only advance the clock, as long as the bath and
+	 * the settings stay exactly as they were. Anything that writes into the
+	 * bath, a tool, a source, another setting, ends it by itself.
+	 *
+	 * @param {Object} settings cleanSettings().
+	 * @param {number} dt       Seconds.
+	 */
 	step( settings, dt = 1 / 60 ) {
+		const sig = this.sources.length
+			? null
+			: JSON.stringify( settings ) + '|' + dt;
+		if (
+			sig &&
+			this.quiet &&
+			this.quiet.sig === sig &&
+			this.sameState( this.quiet.copy )
+		) {
+			this.time += dt;
+			return;
+		}
+		// A bath without motion can still change (warming up, ink spreading
+		// in still water): after a step that changed something, ask again
+		// only a second later, so such a bath does not pay for the copy.
+		this.quietWait = Math.max( 0, ( this.quietWait || 0 ) - 1 );
+		const still =
+			sig &&
+			! this.quietWait &&
+			! this.u.some( ( x ) => 0 !== x ) &&
+			! this.v.some( ( x ) => 0 !== x );
+		const before = still ? this.copyState() : null;
+		this.advance( settings, dt );
+		this.quiet =
+			before && this.sameState( before ) ? { sig, copy: before } : null;
+		// Wait only when the bath itself changed; a first step that merely
+		// fills derived buffers (viscosity, tension) is asked again at once.
+		if ( before && ! this.quiet && ! this.sameState( before, FIELDS ) ) {
+			this.quietWait = 30;
+		}
+	}
+
+	/** The buffers that carry the bath from one step to the next. */
+	stateBuffers() {
+		return Object.entries( this ).filter(
+			( [ key, value ] ) =>
+				ArrayBuffer.isView( value ) && ! SCRATCH.has( key )
+		);
+	}
+
+	copyState() {
+		return this.stateBuffers().map( ( [ key, a ] ) => [ key, a.slice() ] );
+	}
+
+	/**
+	 * Whether the bath is exactly as copied.
+	 *
+	 * @param {Array}    copy From copyState().
+	 * @param {string[]} only Compare just these buffers (default: all).
+	 * @return {boolean} The same, bit for bit (+0 and -0 alike).
+	 */
+	sameState( copy, only = null ) {
+		const now = this.stateBuffers();
+		if ( now.length !== copy.length ) {
+			return false;
+		}
+		for ( let k = 0; k < now.length; k++ ) {
+			const [ key, a ] = now[ k ],
+				[ was, b ] = copy[ k ];
+			if ( key !== was || a.length !== b.length ) {
+				return false;
+			}
+			if ( only && ! only.includes( key ) ) {
+				continue;
+			}
+			for ( let i = 0; i < a.length; i++ ) {
+				if ( a[ i ] !== b[ i ] ) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	advance( settings, dt = 1 / 60 ) {
 		// A fixed bounded step makes input, recording and resumed states agree.
 		dt = clamp( dt, 0, 1 / 30 );
 		if ( ! dt ) {
@@ -1135,6 +1267,7 @@ export class FluidSimulation {
 			}
 		}
 		extraSurfaceForces( this, settings, present, dt );
+		applyFlowSources( this, dt );
 		u0.set( u );
 		v0.set( v );
 		// Stable semi-Lagrangian velocity transport, then implicit viscous diffusion.
@@ -1216,58 +1349,55 @@ export class FluidSimulation {
 		}
 		// Pairwise fluxes conserve each material and pigment, including at walls.
 		this.buildFluxes( dt );
-		const { faceCount, faceFrom, faceTo, diffusive, maxDiffusive } = this;
 		// The preview advances at 30 Hz. Split only transport for its CFL
 		// bound; pressure, viscosity, source fields and optics need one pass.
 		const passes = Math.ceil( dt * 60 - 1e-8 );
+		// Fields that share flow, diffusion and the wax weight move together:
+		// the face loop works out speed and exchange once for all of them
+		// (21.10.2026; before, every one of up to 15 fields per group ran
+		// the whole loop, 60 % of a step). The arithmetic per field is the
+		// one it always was, so the result is the same to the bit.
+		const batches = new Map();
+		for ( const key of TRANSPORT ) {
+			const group = key.startsWith( 'silicone' )
+				? 'silicone'
+				: key.startsWith( 'wax' )
+				? 'wax'
+				: key.startsWith( 'paint' )
+				? 'paint'
+				: key.startsWith( 'water' )
+				? 'water'
+				: key.replace( /[RGB]$/, '' );
+			if ( ! present[ group ] ) {
+				continue;
+			}
+			const oily = oilField( key );
+			const diff = key.startsWith( 'water' )
+				? ( settings.diffusion * dt * 1.5 ) / passes
+				: key === 'alcohol'
+				? ( dt * 0.45 ) / passes
+				: key === 'surfactant'
+				? ( dt * 0.12 ) / passes
+				: [ 'acid', 'base', 'indicator', 'salt' ].includes( key )
+				? ( dt * 1.5 ) / passes
+				: 0;
+			const wax = 'wax' === group;
+			const id = ( oily ? 'o' : 'b' ) + ( wax ? 'w' : '' ) + diff;
+			let batch = batches.get( id );
+			if ( ! batch ) {
+				batch = {
+					flow: oily ? this.oilFlow : this.bulkFlow,
+					diff,
+					wax,
+					keys: [],
+				};
+				batches.set( id, batch );
+			}
+			batch.keys.push( key );
+		}
 		for ( let pass = 0; pass < passes; pass++ ) {
-			for ( const key of TRANSPORT ) {
-				const group = key.startsWith( 'silicone' )
-					? 'silicone'
-					: key.startsWith( 'wax' )
-					? 'wax'
-					: key.startsWith( 'paint' )
-					? 'paint'
-					: key.startsWith( 'water' )
-					? 'water'
-					: key.replace( /[RGB]$/, '' );
-				if ( ! present[ group ] ) {
-					continue;
-				}
-				const a = this[ key ],
-					out = this.temp;
-				const flow = oilField( key ) ? this.oilFlow : this.bulkFlow;
-				const diff = key.startsWith( 'water' )
-					? ( settings.diffusion * dt * 1.5 ) / passes
-					: key === 'alcohol'
-					? ( dt * 0.45 ) / passes
-					: key === 'surfactant'
-					? ( dt * 0.12 ) / passes
-					: [ 'acid', 'base', 'indicator', 'salt' ].includes( key )
-					? ( dt * 1.5 ) / passes
-					: 0;
-				out.set( a );
-				for ( let f = 0; f < faceCount; f++ ) {
-					const i = faceFrom[ f ],
-						j = faceTo[ f ],
-						speed =
-							( flow[ f ] / passes ) *
-							( group === 'wax'
-								? this.waxFlow[ flow[ f ] >= 0 ? i : j ]
-								: 1 );
-					const exchange = Math.min(
-						maxDiffusive[ f ],
-						diff * diffusive[ f ]
-					);
-					const flux =
-						speed * ( speed > 0 ? a[ i ] : a[ j ] ) +
-						exchange * ( a[ i ] - a[ j ] );
-					out[ i ] -= flux;
-					if ( f < this.interiorFaceCount ) {
-						out[ j ] += flux;
-					}
-				}
-				a.set( out );
+			for ( const batch of batches.values() ) {
+				this.transportBatch( batch, passes );
 			}
 		}
 
@@ -1364,6 +1494,119 @@ export class FluidSimulation {
 	}
 
 	/** Exact float snapshots keep reopening independent of GPU rounding. */
+	/**
+	 * The rows a field holds anything in, or null when it is empty.
+	 *
+	 * @param {Float32Array} a Field.
+	 * @return {number[]|null} [ first, last ].
+	 */
+	massRows( a ) {
+		const { w, h } = this;
+		let first = -1;
+		for ( let y = 0; y < h && first < 0; y++ ) {
+			for ( let i = y * w, end = i + w; i < end; i++ ) {
+				if ( 0 !== a[ i ] ) {
+					first = y;
+					break;
+				}
+			}
+		}
+		if ( first < 0 ) {
+			return null;
+		}
+		let last = first;
+		for ( let y = h - 1; y > first && last === first; y-- ) {
+			for ( let i = y * w, end = i + w; i < end; i++ ) {
+				if ( 0 !== a[ i ] ) {
+					last = y;
+					break;
+				}
+			}
+		}
+		return [ first, last ];
+	}
+
+	/**
+	 * One transport pass for fields that share flow, diffusion and wax
+	 * weight. Only faces that touch a row with mass are visited: a face
+	 * between two empty cells moves exactly nothing (21.10.2026).
+	 *
+	 * @param {Object} batch  { flow, diff, wax, keys }.
+	 * @param {number} passes Transport passes in this step.
+	 */
+	transportBatch( batch, passes ) {
+		const { faceCount, faceFrom, faceTo, diffusive, maxDiffusive } = this;
+		const interior = this.interiorFaceCount;
+		const { flow, diff, wax } = batch;
+		const waxFlow = this.waxFlow;
+		const fields = [],
+			outs = [];
+		let r0 = Infinity,
+			r1 = -1;
+		for ( const key of batch.keys ) {
+			const span = this.massRows( this[ key ] );
+			if ( ! span ) {
+				continue;
+			}
+			if ( ! this.tempBank[ outs.length ] ) {
+				this.tempBank[ outs.length ] = new Float32Array( this.n );
+			}
+			const out = this.tempBank[ outs.length ];
+			out.set( this[ key ] );
+			fields.push( this[ key ] );
+			outs.push( out );
+			r0 = Math.min( r0, span[ 0 ] );
+			r1 = Math.max( r1, span[ 1 ] );
+		}
+		const count = fields.length;
+		if ( ! count ) {
+			return;
+		}
+		// A face in row y joins rows y and y + 1: rows r0 - 1 to r1.
+		const rowStart = this.rowFaceStart;
+		const fromRow = Math.max( 1, r0 - 1 ),
+			toRow = Math.min( this.h - 2, r1 );
+		// Interior faces of the rows with mass, then the outlets (each
+		// moves only out of its own cell).
+		const ranges =
+			fromRow <= toRow
+				? [
+						rowStart[ fromRow ],
+						rowStart[ toRow + 1 ],
+						interior,
+						faceCount,
+				  ]
+				: [ interior, faceCount ];
+		for ( let r = 0; r < ranges.length; r += 2 ) {
+			for ( let f = ranges[ r ], end = ranges[ r + 1 ]; f < end; f++ ) {
+				const i = faceFrom[ f ],
+					j = faceTo[ f ],
+					speed =
+						( flow[ f ] / passes ) *
+						( wax ? waxFlow[ flow[ f ] >= 0 ? i : j ] : 1 );
+				const exchange = Math.min(
+					maxDiffusive[ f ],
+					diff * diffusive[ f ]
+				);
+				const both = f < interior;
+				for ( let q = 0; q < count; q++ ) {
+					const a = fields[ q ],
+						out = outs[ q ];
+					const flux =
+						speed * ( speed > 0 ? a[ i ] : a[ j ] ) +
+						exchange * ( a[ i ] - a[ j ] );
+					out[ i ] -= flux;
+					if ( both ) {
+						out[ j ] += flux;
+					}
+				}
+			}
+		}
+		for ( let q = 0; q < count; q++ ) {
+			fields[ q ].set( outs[ q ] );
+		}
+	}
+
 	snapshot() {
 		const all = new Float32Array( this.n * FIELDS.length );
 		FIELDS.forEach( ( key, i ) => all.set( this[ key ], i * this.n ) );

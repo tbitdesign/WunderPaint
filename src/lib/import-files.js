@@ -1,12 +1,14 @@
 /**
  * In-browser image placing (spec 05.6): drag-drop, paste, File→Open/Place.
  * Files become `image` layers as data URLs, never uploaded until save.
- * `.psd` files route to the PSD importer (plan task 33).
+ * `.psd` files route to the PSD importer (plan task 33). HEIC photos are
+ * decoded in the browser first and placed as JPEG (lib/heic.js).
  */
 
 import { __, sprintf } from '@wordpress/i18n';
 
 import { makeImage, loadImage } from '../store/document';
+import { HEIC_ACCEPT, isHeicFile, heicToJpegFile } from './heic';
 
 /** Read a File into a data URL. */
 const readAsDataUrl = ( file ) =>
@@ -28,7 +30,24 @@ const readAsDataUrl = ( file ) =>
 export async function importFiles( files, editor, extras, dropPoint = null ) {
 	const { state, dispatch, commit } = editor;
 
-	for ( const file of files ) {
+	for ( let file of files ) {
+		if ( await isHeicFile( file ) ) {
+			// Before the type check: browsers often give .heic no type.
+			const busy = extras.toasts?.toast?.(
+				__( 'Converting the HEIC photo.', 'wunderpaint' ),
+				{ duration: 0 }
+			);
+			try {
+				file = await heicToJpegFile( file );
+			} catch ( err ) {
+				extras.toasts?.error( err.message );
+				continue;
+			} finally {
+				if ( busy ) {
+					extras.toasts?.remove?.( busy );
+				}
+			}
+		}
 		if (
 			/\.psd$/i.test( file.name ) ||
 			'image/vnd.adobe.photoshop' === file.type
@@ -111,7 +130,7 @@ export async function importFiles( files, editor, extras, dropPoint = null ) {
 export function openPlaceDialog( editor, extras ) {
 	const input = document.createElement( 'input' );
 	input.type = 'file';
-	input.accept = 'image/*,.psd';
+	input.accept = 'image/*,.psd,' + HEIC_ACCEPT;
 	input.multiple = true;
 	input.onchange = () =>
 		importFiles( Array.from( input.files || [] ), editor, extras, null );

@@ -214,6 +214,9 @@ export function DepthBlurDialog( { onClose, extras } ) {
 										setFocus( +e.target.value )
 									}
 								/>
+								<output className="wpie-number-output">
+									{ focus }
+								</output>
 							</label>
 							<label
 								style={ {
@@ -237,6 +240,9 @@ export function DepthBlurDialog( { onClose, extras } ) {
 										setStrength( +e.target.value )
 									}
 								/>
+								<output className="wpie-number-output">
+									{ strength }
+								</output>
 							</label>
 							<div
 								style={ {

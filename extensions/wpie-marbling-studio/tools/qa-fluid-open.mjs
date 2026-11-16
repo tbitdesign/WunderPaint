@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildStage, launchQA } from '../../shared/qa-kit/stage.mjs';
+import { bathGap, editPaused, pressAndWait } from './lab-qa.mjs';
 if (
 	execFileSync( 'ps', [ '-eo', 'stat=,comm=' ], { encoding: 'utf8' } )
 		.split( '\n' )
@@ -35,6 +36,8 @@ await build( {
 		sourcefile: 'actual-wheel-entry.js',
 	},
 	bundle: true,
+	// The core's HEIC decoder (Node glue + .wasm) is never used here.
+	external: [ 'libheif-js/*' ],
 	format: 'iife',
 	jsx: 'automatic',
 	outfile: path.join( stage, 'actual-wheel.js' ),
@@ -385,13 +388,11 @@ try {
 	await page.evaluate( () => {
 		window.__wpieFluidLab.settings.output = 'wet';
 	} );
-	const insertedState = await page.evaluate( () =>
-		window.__wpieFluidLab.save()
-	);
-	await page.getByRole( 'button', { name: 'Einfügen', exact: true } ).click();
-	await page.waitForFunction(
-		() => ! document.querySelector( '.wpiemb-lab-dialog' )
-	);
+	const insertedState = await page.evaluate( () => {
+		window.__wpieFluidLab.pause();
+		return window.__wpieFluidLab.save();
+	} );
+	await pressAndWait( page, 'Einfügen' );
 	const inserted = await page.evaluate(
 		() =>
 			window.__dispatched.findLast( ( a ) => a.type === 'ADD_LAYER' )
@@ -413,22 +414,21 @@ try {
 		inserted.generator.params.lab.settings.boundary === 'open',
 		'The inserted generator saves its open edges'
 	);
-	await page.evaluate( ( layer ) => {
-		window.__gen.edit( { editor: window.__editor, layer } );
-		window.__wpieFluidLab.pause();
-	}, inserted );
+	await editPaused( page, inserted );
+	// The bath comes back from the layer packed (21.10.2026): the settings
+	// and framing exactly, the grid within half precision.
+	const reopened = await page.evaluate( () => window.__wpieFluidLab.save() );
+	const gap = bathGap( insertedState.snapshot, reopened.snapshot );
 	check(
-		await page.evaluate(
-			( state ) =>
-				JSON.stringify( window.__wpieFluidLab.save() ) ===
-				JSON.stringify( state ),
-			insertedState
-		),
-		'Editing the inserted layer restores its exact state and framing'
+		JSON.stringify( reopened.settings ) ===
+			JSON.stringify( insertedState.settings ) &&
+			gap.same &&
+			gap.worst <= 1,
+		'Editing the inserted layer restores its state and framing (worst value ' +
+			gap.worst.toFixed( 2 ) +
+			' half steps off)'
 	);
-	await page
-		.getByRole( 'button', { name: 'Aktualisieren', exact: true } )
-		.click();
+	await pressAndWait( page, 'Aktualisieren' );
 	const updated = await page.evaluate( () =>
 		window.__dispatched.findLast( ( a ) => a.type === 'UPDATE_LAYER' )
 	);

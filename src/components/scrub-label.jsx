@@ -1,10 +1,7 @@
-/**
- * Photoshop-style scrubby label (v1.9): drag horizontally on a number
- * field's label to change its value, 1 unit per pixel, Shift = 10×.
- */
-
-import { useRef } from '@wordpress/element';
+/** The same precision and transaction handling as sliders, for numeric labels. */
+import { useRef, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { registerNumericControl } from '../lib/numeric-controls';
 
 export function ScrubLabel( {
 	children,
@@ -14,55 +11,40 @@ export function ScrubLabel( {
 	step = 1,
 	min = -Infinity,
 	max = Infinity,
+	disabled = false,
 	as: Tag = 'span',
 	className,
-	// So a container can name itself with aria-labelledby (v1.348.0).
 	id,
 } ) {
-	const start = useRef( null );
-
+	const label = useRef( null );
+	const latest = useRef( null );
+	latest.current = {
+		getValue: () => value,
+		onInput: onScrub,
+		onCommit,
+		min,
+		max,
+		step,
+		disabled,
+		editable: Tag === 'b',
+	};
+	useEffect(
+		() => registerNumericControl( label.current, () => latest.current ),
+		[]
+	);
 	return (
 		<Tag
+			ref={ label }
 			id={ id }
 			className={ className }
-			style={ { cursor: 'ew-resize', userSelect: 'none' } }
+			data-number-scrub="true"
+			role={ Tag === 'b' ? 'button' : undefined }
+			tabIndex={ Tag === 'b' ? 0 : undefined }
+			aria-disabled={ disabled || undefined }
 			title={ __(
-				'Drag to change the value (Shift = 10×)',
+				'Drag to change the value. Alt: fine. Shift: faster.',
 				'wunderpaint'
 			) }
-			onPointerDown={ ( e ) => {
-				start.current = { x: e.clientX, v: value, moved: false };
-				e.currentTarget.setPointerCapture?.( e.pointerId );
-			} }
-			onPointerMove={ ( e ) => {
-				if ( ! start.current ) {
-					return;
-				}
-				const dx = e.clientX - start.current.x;
-				if ( ! start.current.moved && Math.abs( dx ) < 2 ) {
-					return;
-				}
-				start.current.moved = true;
-				const mult = e.shiftKey ? 10 : 1;
-				onScrub(
-					Math.min(
-						max,
-						Math.max(
-							min,
-							start.current.v + Math.round( dx * step * mult )
-						)
-					)
-				);
-			} }
-			onPointerUp={ () => {
-				if ( start.current?.moved ) {
-					onCommit?.();
-				}
-				start.current = null;
-			} }
-			onPointerCancel={ () => {
-				start.current = null;
-			} }
 		>
 			{ children }
 		</Tag>

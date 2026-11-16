@@ -6,11 +6,19 @@
  * uploaded. Built on the shared editor UI kit so it matches the other studios.
  */
 
+import {
+	captureAround,
+	docParts,
+	frameRect,
+	placeAt,
+	unplace,
+} from '../../shared/doc-preview.js';
 import { renderRing } from './render.js';
 import { parseTime, fmtTime } from './blocks.js';
 import { PALETTE_LIST } from './palette.js';
 import { PRESETS, PRESET_LIST } from './presets.js';
 import { t } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 const GEN_ID = 'wpie-day-ring/ring';
 
@@ -187,13 +195,19 @@ function openStudio( ctx ) {
 		title: t( 'Day Ring' ),
 		subtitle: editing
 			? t( 'Edit this day and update the layer.' )
-			: t( 'Turn a day into a circular, colour-coded schedule.' ),
+			: t( 'Turn a day into a circular, color-coded schedule.' ),
 		width: 1200,
-		closeOnBackdrop: true,
+		// The colour editor of a swatch lives in the backdrop: a click
+		// there must not close the studio (20.10.2026).
+		closeOnBackdrop: false,
 		onClose: () => cleanup(),
 	} );
 	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
 	ui.badge( modal );
+	// A real width: `width` above is only a cap, and with the preview
+	// placed in the document (out of the flow) the dialog would shrink to
+	// its columns.
+	modal.dialog.classList.add( 'wpie-dr-dialog' );
 
 	const body = ui.el( 'div', 'wpie-dr-body', modal.body );
 	const left = ui.el( 'div', 'wpie-dr-left', body );
@@ -415,7 +429,7 @@ function openStudio( ctx ) {
 				blockSwatches.push(
 					bridge.components.mountColorButton( colNode, {
 						color: b.color || '#4dabf7',
-						title: t( 'Block colour' ),
+						title: t( 'Block color' ),
 						onChange: ( c ) => {
 							b.color = c;
 							rebuild();
@@ -449,7 +463,7 @@ function openStudio( ctx ) {
 	}
 
 	// ---------------- MIDDLE: preview ----------------
-	ui.el(
+	const viewHint = ui.el(
 		'div',
 		'dsm-viewhint wpie-dr-hint',
 		view,
@@ -467,48 +481,51 @@ function openStudio( ctx ) {
 		editor.state.doc
 	);
 	let docOn = false,
-		docUrl = null,
+		docAround = null,
 		docBusy = false;
 	if ( ! canDoc ) {
 		docBtn.style.display = 'none';
 	}
-	async function captureDoc() {
-		const d = editor.state.doc;
-		const full = await rasterBridge.renderToCanvas(
-			d,
-			( editor.state.layers || [] ).filter(
-				( l ) => ! ( editing && layer && l.id === layer.id )
-			),
-			{
-				scale: Math.min( 1, 1400 / Math.max( d.w || 1, d.h || 1 ) ),
-				cache: rasterBridge.sharedImageCache,
+	// v0.9.4 (shared doc-preview): the document split at the ring's layer
+	// - below behind the preview, above in front - and the preview where
+	// its layer sits (a new ring over the page, where it lands).
+	const parts = docParts( view, [ docBtn, viewHint ] );
+	function layoutDoc() {
+		const on = docOn && !! docAround;
+		view.classList.toggle( 'is-doc', on );
+		view.style.backgroundImage = '';
+		if ( ! on ) {
+			parts.hide();
+			if ( previewEl ) {
+				unplace( previewEl );
 			}
-		);
-		const out = document.createElement( 'canvas' );
-		out.width = Math.max( 2, full.width );
-		out.height = Math.max( 2, full.height );
-		const gg = out.getContext( '2d' );
-		if ( d.bg ) {
-			gg.fillStyle = d.bg;
-			gg.fillRect( 0, 0, out.width, out.height );
+			return;
 		}
-		gg.drawImage( full, 0, 0 );
-		return out.toDataURL( 'image/png' );
+		const d = docOf( editor );
+		const fit = parts.fit( d.w, d.h );
+		parts.show( docAround, fit );
+		if ( previewEl ) {
+			placeAt(
+				previewEl,
+				frameRect( editing && layer ? layer : { x: 0, y: 0, w: d.w, h: d.h } ),
+				fit,
+				editing && layer ? layer : {}
+			);
+		}
+	}
+	const docRo =
+		'undefined' !== typeof ResizeObserver ? new ResizeObserver( () => layoutDoc() ) : null;
+	if ( docRo ) {
+		docRo.observe( view );
 	}
 	function updateDoc() {
 		docBtn.setAttribute( 'aria-pressed', docOn ? 'true' : 'false' );
-		if ( docOn && docUrl ) {
-			view.classList.add( 'is-doc' );
-			view.style.backgroundImage = 'url(' + docUrl + ')';
-		} else {
-			view.classList.remove( 'is-doc' );
-			view.style.backgroundImage = '';
-		}
-		if ( docOn && ! docUrl && ! docBusy ) {
+		layoutDoc();
+		if ( docOn && ! docAround && ! docBusy ) {
 			docBusy = true;
-			captureDoc()
-				.then( ( u ) => {
-					docUrl = u;
+			captureAround( rasterBridge, editor.state, editing && layer ? layer.id : null )
+				.then( ( around ) => {
+					docAround = around;
 					docBusy = false;
 					updateDoc();
 				} )
@@ -516,6 +533,7 @@ function openStudio( ctx ) {
 					docOn = false;
 					docBusy = false;
 					updateDoc();
+					toast( t( 'Could not render the document.' ), 'error' );
 				} );
 		}
 	}
@@ -527,7 +545,12 @@ function openStudio( ctx ) {
 	let previewEl = null;
 	function rebuild() {
 		const d = docOf( editor );
-		const ar = ( d.w || 1 ) / ( d.h || 1 );
+		// The preview takes the shape the picture will have: the edited
+		// layer's, or the page's for a new ring (v0.9.4).
+		const ar =
+			editing && layer
+				? ( layer.w || 1 ) / ( layer.h || 1 )
+				: ( d.w || 1 ) / ( d.h || 1 );
 		const long = 1000;
 		const w = ar >= 1 ? long : Math.round( long * ar );
 		const h = ar >= 1 ? Math.round( long / ar ) : long;
@@ -539,6 +562,7 @@ function openStudio( ctx ) {
 			view.appendChild( canvas );
 		}
 		previewEl = canvas;
+		layoutDoc();
 		renderStatus();
 	}
 	let timer = 0;
@@ -605,7 +629,7 @@ function openStudio( ctx ) {
 			} )
 		);
 	}
-	const icoRow = ui.row( dialCard, t( 'Centre' ) );
+	const icoRow = ui.row( dialCard, t( 'Center' ) );
 	const icoIn = ui.el( 'input', 'dsm-input', icoRow );
 	icoIn.type = 'text';
 	icoIn.value = params.centerIcon || '';
@@ -758,7 +782,7 @@ function openStudio( ctx ) {
 	} );
 	ui.select( ui.row( bgCard, t( 'Type' ) ), {
 		options: [
-			{ value: 'solid', label: t( 'Solid colour' ) },
+			{ value: 'solid', label: t( 'Solid color' ) },
 			{ value: 'gradient', label: t( 'Gradient' ) },
 			{ value: 'transparent', label: t( 'Transparent' ) },
 		],
@@ -769,32 +793,30 @@ function openStudio( ctx ) {
 			bgColVis();
 		},
 	} );
-	const col1Row = ui.row( bgCard, t( 'Colour' ) );
+	const col1Row = ui.row( bgCard, t( 'Color' ) );
 	const col1Node = document.createElement( 'div' );
 	col1Row.appendChild( col1Node );
-	swatches.push(
-		bridge.components.mountColorButton( col1Node, {
-			color: params.bg.color,
-			title: t( 'Background colour' ),
-			onChange: ( c ) => {
-				params.bg.color = c;
-				rebuild();
-			},
-		} )
-	);
-	const col2Row = ui.row( bgCard, t( 'Colour 2' ) );
+	const col1Btn = bridge.components.mountColorButton( col1Node, {
+		color: params.bg.color,
+		title: t( 'Background color' ),
+		onChange: ( c ) => {
+			params.bg.color = c;
+			rebuild();
+		},
+	} );
+	swatches.push( col1Btn );
+	const col2Row = ui.row( bgCard, t( 'Color 2' ) );
 	const col2Node = document.createElement( 'div' );
 	col2Row.appendChild( col2Node );
-	swatches.push(
-		bridge.components.mountColorButton( col2Node, {
-			color: params.bg.color2,
-			title: t( 'Gradient end colour' ),
-			onChange: ( c ) => {
-				params.bg.color2 = c;
-				rebuild();
-			},
-		} )
-	);
+	const col2Btn = bridge.components.mountColorButton( col2Node, {
+		color: params.bg.color2,
+		title: t( 'Gradient end color' ),
+		onChange: ( c ) => {
+			params.bg.color2 = c;
+			rebuild();
+		},
+	} );
+	swatches.push( col2Btn );
 	const bgColVis = () => {
 		col1Row.parentElement.style.display =
 			params.bg.mode === 'transparent' ? 'none' : '';
@@ -883,6 +905,8 @@ function openStudio( ctx ) {
 	}
 
 	function cleanup() {
+		history.dispose();
+		docRo?.disconnect();
 		closeEmojiPop();
 		swatches.forEach( ( s ) => s && s.unmount && s.unmount() );
 		blockSwatches.forEach( ( s ) => s && s.unmount && s.unmount() );
@@ -890,6 +914,21 @@ function openStudio( ctx ) {
 			clearTimeout( timer );
 		}
 	}
+
+	// Ctrl+Z / Ctrl+Shift+Z (0.10.0, shared/studio-undo.js), no button:
+	// blocks, texts, look and background.
+	const history = studioUndo( {
+		backdrop: modal.backdrop,
+		read: () => params,
+		write: ( data ) => {
+			Object.assign( params, data, { bg: { ...params.bg, ...data.bg } } );
+			col1Btn.set( params.bg.color );
+			col2Btn.set( params.bg.color2 );
+			renderBlockList();
+			bgColVis();
+			rebuild();
+		},
+	} );
 
 	renderBlockList();
 	bgColVis();

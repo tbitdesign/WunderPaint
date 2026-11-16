@@ -46,6 +46,7 @@ export function svgChordDiagram(
 		accent = '#8d1436',
 		font = 'Arial',
 		showFingers = true,
+		leftHanded = false,
 		bg = null,
 	} = {}
 ) {
@@ -57,7 +58,8 @@ export function svgChordDiagram(
 	const right = size * 0.9;
 	const gridW = right - left;
 	const fretH = ( H - top - size * 0.1 ) / 5;
-	const sx = ( i ) => left + ( gridW * i ) / ( n - 1 );
+	const sx = ( i ) =>
+		left + ( gridW * ( leftHanded ? n - 1 - i : i ) ) / ( n - 1 );
 	const fretted = sh.frets.filter( ( f ) => f > 0 );
 	const maxF = fretted.length ? Math.max( ...fretted ) : 0;
 	const minF = fretted.length ? Math.min( ...fretted ) : 1;
@@ -100,10 +102,10 @@ export function svgChordDiagram(
 	if ( sh.barre ) {
 		const fy = top + ( sh.barre.fret - base + 0.5 ) * fretH;
 		out.push(
-			`<rect x="${ r( sx( sh.barre.from ) - size * 0.05 ) }" y="${ r(
-				fy - size * 0.05
-			) }" width="${ r(
-				sx( sh.barre.to ) - sx( sh.barre.from ) + size * 0.1
+			`<rect x="${ r(
+				Math.min( sx( sh.barre.from ), sx( sh.barre.to ) ) - size * 0.05
+			) }" y="${ r( fy - size * 0.05 ) }" width="${ r(
+				Math.abs( sx( sh.barre.to ) - sx( sh.barre.from ) ) + size * 0.1
 			) }" height="${ r( size * 0.1 ) }" rx="${ r(
 				size * 0.05
 			) }" fill="${ accent }"/>`
@@ -179,6 +181,7 @@ export function svgFretboard(
 		prefer = 'sharp',
 		bg = null,
 		scaleOrder = null,
+		leftHanded = false,
 	} = {}
 ) {
 	const n = tuning.length;
@@ -186,6 +189,7 @@ export function svgFretboard(
 	const rowH = Math.round( width / 28 );
 	const left = width * 0.05;
 	const right = width * 0.98;
+	const mx = ( x ) => ( leftHanded ? width - x : x );
 	const top = rowH * 1.2;
 	const nFrets = to - from;
 	const fretW = ( right - left ) / nFrets;
@@ -201,14 +205,14 @@ export function svgFretboard(
 	}
 	// Board and frets.
 	out.push(
-		`<rect x="${ r( left ) }" y="${ r( top - rowH * 0.5 ) }" width="${ r(
-			right - left
-		) }" height="${ r(
+		`<rect x="${ r( Math.min( mx( left ), mx( right ) ) ) }" y="${ r(
+			top - rowH * 0.5
+		) }" width="${ r( right - left ) }" height="${ r(
 			( n - 1 ) * rowH + rowH
 		) }" fill="none" stroke="${ ink }" stroke-width="2"/>`
 	);
 	for ( let f = 0; f <= nFrets; f++ ) {
-		const x = left + f * fretW;
+		const x = mx( left + f * fretW );
 		const isNut = 0 === from && 0 === f;
 		out.push(
 			line(
@@ -223,7 +227,7 @@ export function svgFretboard(
 	}
 	for ( const m of [ 3, 5, 7, 9, 12, 15, 17, 19, 21, 24 ] ) {
 		if ( m > from && m <= to ) {
-			const x = left + ( m - from - 0.5 ) * fretW;
+			const x = mx( left + ( m - from - 0.5 ) * fretW );
 			const yMid = top + ( ( n - 1 ) * rowH ) / 2;
 			if ( 0 === m % 12 ) {
 				out.push(
@@ -254,12 +258,19 @@ export function svgFretboard(
 	const inSet = new Set( notes.map( ( x ) => x.pc ) );
 	for ( let i = 0; i < n; i++ ) {
 		out.push(
-			line( left, sy( i ), right, sy( i ), ink, 1 + ( n - 1 - i ) * 0.5 )
+			line(
+				mx( left ),
+				sy( i ),
+				mx( right ),
+				sy( i ),
+				ink,
+				1 + ( n - 1 - i ) * 0.5
+			)
 		);
 		if ( ! ( 0 === from && inSet.has( open[ i ] % 12 ) ) ) {
 			out.push(
 				text(
-					left - rowH * 0.55,
+					mx( left - rowH * 0.55 ),
 					sy( i ) + rowH * 0.14,
 					spell( open[ i ] % 12, prefer ),
 					rowH * 0.42,
@@ -275,7 +286,7 @@ export function svgFretboard(
 		if ( f > 0 ) {
 			out.push(
 				text(
-					left + ( f - from - 0.5 ) * fretW,
+					mx( left + ( f - from - 0.5 ) * fretW ),
 					top + ( n - 0.5 ) * rowH + rowH * 0.7,
 					String( f ),
 					rowH * 0.38,
@@ -295,10 +306,9 @@ export function svgFretboard(
 			if ( ! hit ) {
 				continue;
 			}
-			const x =
-				0 === f
-					? left - rowH * 0.55
-					: left + ( f - from - 0.5 ) * fretW;
+			const x = mx(
+				0 === f ? left - rowH * 0.55 : left + ( f - from - 0.5 ) * fretW
+			);
 			const y = sy( i );
 			const isRoot = hit.root || ( rootPc !== null && pc === rootPc );
 			const fill = isRoot ? accent : ink;
@@ -364,11 +374,13 @@ export function svgPiano(
 		}
 		const x = wi * kw;
 		whiteX.set( k.midi, x );
-		const fill = k.on
-			? k.root
-				? accent
-				: mix( accent, '#ffffff', 0.55 )
-			: '#ffffff';
+		const fill =
+			k.color ||
+			( k.on
+				? k.root
+					? accent
+					: mix( accent, '#ffffff', 0.55 )
+				: '#ffffff' );
 		out.push(
 			`<rect x="${ r( x ) }" y="0" width="${ r( kw ) }" height="${ r(
 				kh
@@ -398,7 +410,7 @@ export function svgPiano(
 		const prev = keys[ idx - 1 ];
 		const x = ( prev ? whiteX.get( prev.midi ) : 0 ) + kw * 0.65;
 		const bw = kw * 0.62;
-		const fill = k.on ? accent : '#1a1a1a';
+		const fill = k.color || ( k.on ? accent : '#1a1a1a' );
 		out.push(
 			`<rect x="${ r( x ) }" y="0" width="${ r( bw ) }" height="${ r(
 				kh * 0.62

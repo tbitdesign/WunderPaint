@@ -32,6 +32,7 @@ import {
 	DEFAULT_TIERS,
 	DEFAULT_OPTIONS,
 	isSampleText,
+	TYPE_GROUPS,
 } from './samples';
 import { TypeGallery } from './type-gallery';
 import { DataGrid } from './data-grid';
@@ -54,6 +55,64 @@ export function migrateChart( chart = {} ) {
 		colors: chart.colors || CHART_COLORS.slice( 0, 4 ),
 		options: { ...DEFAULT_OPTIONS, ...( chart.options || {} ) },
 		source: chart.source || null,
+	};
+}
+
+/** The name a chart or table group gives itself, in the editor's language. */
+export function chartGroupName( type, isTable ) {
+	const item = TYPE_GROUPS()
+		.flatMap( ( g ) => g.items )
+		.find( ( i ) => i.id === type );
+	const label = item?.label || type;
+	return isTable
+		? sprintf(
+				/* translators: %s: table type, e.g. Pricing. */
+				__( 'Table: %s', 'wunderpaint' ),
+				label
+		  )
+		: sprintf(
+				/* translators: %s: chart type, e.g. Bars. */
+				__( 'Chart: %s', 'wunderpaint' ),
+				label
+		  );
+}
+
+/**
+ * An edited chart keeps its group (19.10.2026): the same id - so a group
+ * it sits in still lists it, and the selection holds - its parent, its
+ * visibility, lock, opacity, blend and effects, and a name the user gave
+ * it. It used to come back as a new group with a new id: out of the group
+ * it was in (which kept a dead entry), renamed, visible and unlocked.
+ *
+ * @param {Object} old    The group being edited.
+ * @param {Object} group  The freshly built group.
+ * @param {Array}  layers Its freshly built children.
+ * @return {{ group: Object, layers: Array }} The group and children to put in.
+ */
+export function keepChartGroup( old, group, layers ) {
+	const prefixes = [
+		chartGroupName( '', false ),
+		chartGroupName( '', true ),
+	];
+	const autoNamed =
+		! old.name ||
+		/^(Chart|Table) \(/.test( old.name ) ||
+		prefixes.some( ( prefix ) => old.name.startsWith( prefix ) );
+	const kept = {
+		...old,
+		children: group.children,
+		chart: group.chart,
+		x: group.x,
+		y: group.y,
+		w: group.w,
+		h: group.h,
+		name: autoNamed ? group.name : old.name,
+	};
+	return {
+		group: kept,
+		layers: layers.map( ( l ) =>
+			l.parent === group.id ? { ...l, parent: old.id } : l
+		),
 	};
 }
 
@@ -331,8 +390,12 @@ export function ChartStudio( { onClose, extras, layerId = null } ) {
 					h: Math.round( cw * 0.75 ),
 				};
 			}
-			const { group, layers } = buildSpec( rect );
-			group.chart = { type, grid, tiers, colors, options, source };
+			const built = buildSpec( rect );
+			built.group.chart = { type, grid, tiers, colors, options, source };
+			built.group.name = chartGroupName( type, isTable );
+			const { group, layers } = editGroup
+				? keepChartGroup( editGroup, built.group, built.layers )
+				: built;
 			if ( editGroup ) {
 				const kids = new Set( editGroup.children || [] );
 				const next = state.layers.flatMap( ( l ) => {

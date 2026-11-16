@@ -1,7 +1,7 @@
 /**
  * Personal Workspaces (v1.184.0): purely cosmetic show/hide of main-UI
  * regions (toolbar tools, panels, panel sections, top menus) plus toolbar
- * icon size, saved as switchable presets.
+ * icon size and column count, saved as switchable presets.
  *
  * IMPORTANT: nothing here disables functionality. Hidden regions are
  * `display:none` only; their React state and values are untouched, so a
@@ -11,7 +11,7 @@
  * Applied by injecting a single <style> that hides the selected
  * `[data-ws="key"]` regions, scoped so it PAUSES while the interactive
  * picker runs (the `wpie-ws-picking` class on #wpie-root), and by writing a
- * `data-ws-tools` size attribute on the root. Persisted per browser in
+ * `data-ws-tools` and `data-ws-columns` attributes on the root. Persisted in
  * localStorage; this is a personal preference, not stored server-side.
  */
 
@@ -64,7 +64,6 @@ export const BUILTIN_WORKSPACES = [
 			'menu.automation',
 			'menu.tools',
 			'panel.effects',
-			'panel.history',
 			'tool.marquee',
 			'tool.lasso',
 			'tool.wand',
@@ -79,7 +78,6 @@ export const BUILTIN_WORKSPACES = [
 			'props.align',
 			'props.smart',
 			'props.dynamic',
-			'props.gradient',
 			'props.character',
 			'effects.warp',
 			'effects.textstyles',
@@ -92,7 +90,10 @@ let state = null;
 const listeners = new Set();
 
 function defaults() {
-	return { active: { base: 'full', hidden: [], tools: 'md' }, saved: [] };
+	return {
+		active: { base: 'full', hidden: [], tools: 'md', columns: 1 },
+		saved: [],
+	};
 }
 
 function load() {
@@ -117,6 +118,8 @@ function load() {
 	if ( ! ICON_SIZES.includes( state.active.tools ) ) {
 		state.active.tools = 'md';
 	}
+	// Workspaces saved before the column option keep the original layout.
+	state.active.columns = state.active.columns === 2 ? 2 : 1;
 	if ( ! Array.isArray( state.saved ) ) {
 		state.saved = [];
 	}
@@ -163,6 +166,7 @@ export function applyWorkspaceDom() {
 	const root = document.getElementById( ROOT_ID );
 	if ( root ) {
 		root.dataset.wsTools = s.active.tools || 'md';
+		root.dataset.wsColumns = s.active.columns;
 	}
 	let el = document.getElementById( STYLE_ID );
 	if ( ! el ) {
@@ -190,6 +194,9 @@ export function getActive() {
 }
 export function getIconSize() {
 	return load().active.tools;
+}
+export function getToolbarColumns() {
+	return load().active.columns;
 }
 export function activeBase() {
 	return load().active.base;
@@ -233,6 +240,17 @@ export function setIconSize( size ) {
 	notify();
 }
 
+export function setToolbarColumns( columns ) {
+	if ( ! [ 1, 2 ].includes( columns ) || getToolbarColumns() === columns ) {
+		return;
+	}
+	load().active.columns = columns;
+	markCustom();
+	persist();
+	applyWorkspaceDom();
+	notify();
+}
+
 export function showAll() {
 	const a = load().active;
 	if ( ! a.hidden.length ) {
@@ -258,6 +276,7 @@ export function applyWorkspace( id ) {
 	const a = load().active;
 	a.hidden = ( w.hidden || [] ).filter( ( k ) => valid.has( k ) );
 	a.tools = ICON_SIZES.includes( w.tools ) ? w.tools : 'md';
+	a.columns = w.columns === 2 ? 2 : 1;
 	a.base = id;
 	persist();
 	applyWorkspaceDom();
@@ -274,6 +293,7 @@ export function saveWorkspaceAs( name ) {
 		name: ( name || '' ).trim() || 'Workspace',
 		hidden: [ ...s.active.hidden ],
 		tools: s.active.tools,
+		columns: s.active.columns,
 	} );
 	s.active.base = id;
 	persist();
@@ -289,6 +309,7 @@ export function updateWorkspace( id ) {
 	}
 	w.hidden = [ ...s.active.hidden ];
 	w.tools = s.active.tools;
+	w.columns = s.active.columns;
 	s.active.base = id;
 	persist();
 	notify();

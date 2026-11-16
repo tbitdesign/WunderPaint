@@ -1,3 +1,4 @@
+import { CREATIVE_DICTS } from './creative-i18n.js';
 /**
  * Translations for this extension.
  *
@@ -90,7 +91,7 @@ const DE = {
 	Ink: 'Tinte',
 	Royal: 'Royal',
 	Citrus: 'Zitrus',
-	'Rosé': 'Rosé',
+	Rosé: 'Rosé',
 	'Custom (brand color)': 'Eigene (Markenfarbe)',
 	'Base color': 'Basisfarbe',
 	'New colorway': 'Neue Farbstellung',
@@ -105,7 +106,8 @@ const DE = {
 	'Save as fill pattern': 'Als Füllmuster speichern',
 	'Saved. The tile is now available as a pattern fill for shapes and text.':
 		'Gespeichert. Die Kachel steht jetzt als Füllmuster für Formen und Texte bereit.',
-	'Could not save the pattern.': 'Das Muster konnte nicht gespeichert werden.',
+	'Could not save the pattern.':
+		'Das Muster konnte nicht gespeichert werden.',
 	'Download PNG tile': 'PNG-Kachel herunterladen',
 	'Download SVG tile': 'SVG-Kachel herunterladen',
 	'The tile repeats seamlessly in every direction.':
@@ -234,7 +236,7 @@ const ES = {
 	Ink: 'Tinta',
 	Royal: 'Real',
 	Citrus: 'Cítrico',
-	'Rosé': 'Rosado',
+	Rosé: 'Rosado',
 	'Custom (brand color)': 'Personalizada (color de marca)',
 	'Base color': 'Color base',
 	'New colorway': 'Nueva combinación de color',
@@ -378,11 +380,11 @@ const FR = {
 	Ink: 'Encre',
 	Royal: 'Royal',
 	Citrus: 'Agrumes',
-	'Rosé': 'Rosé',
+	Rosé: 'Rosé',
 	'Custom (brand color)': 'Personnalisée (couleur de marque)',
 	'Base color': 'Couleur de base',
 	'New colorway': 'Nouvelle combinaison de couleurs',
-	'Reverse order': 'Inverser l\'ordre',
+	'Reverse order': "Inverser l'ordre",
 	Background: 'Arrière-plan',
 	Transparent: 'Transparent',
 	'Light (palette)': 'Claire (palette)',
@@ -393,7 +395,7 @@ const FR = {
 	'Save as fill pattern': 'Enregistrer comme motif de remplissage',
 	'Saved. The tile is now available as a pattern fill for shapes and text.':
 		'Enregistré. La tuile est maintenant disponible comme motif de remplissage pour formes et texte.',
-	'Could not save the pattern.': 'Impossible d\'enregistrer le motif.',
+	'Could not save the pattern.': "Impossible d'enregistrer le motif.",
 	'Download PNG tile': 'Télécharger la tuile PNG',
 	'Download SVG tile': 'Télécharger la tuile SVG',
 	'The tile repeats seamlessly in every direction.':
@@ -412,7 +414,7 @@ const FR = {
 	'Reset edits': 'Réinitialiser les modifications',
 	'Hide tile frame': 'Masquer le cadre de la tuile',
 	Truchet: 'Truchet',
-	Honeycomb: 'Nid d\'abeille',
+	Honeycomb: "Nid d'abeille",
 	Ogee: 'Ogive',
 	Crosshatch: 'Hachures croisées',
 	'Second set': 'Second set',
@@ -420,7 +422,7 @@ const FR = {
 	'Own layer (stamp)': 'Calque à soi (tampon)',
 	'Use active layer': 'Utiliser le calque actif',
 	'Select a layer in the editor first.':
-		'Sélectionne d\'abord un calque dans l\'éditeur.',
+		"Sélectionne d'abord un calque dans l'éditeur.",
 	'Layer captured as stamp.': 'Calque capturé comme tampon.',
 	Effects: 'Effets',
 	'Offset print': 'Impression riso',
@@ -437,7 +439,7 @@ const FR = {
 	Polka: 'Polka',
 	Pinstripes: 'Rayures fines',
 	Diagonals: 'Diagonales',
-	'Ocean waves': 'Vagues de l\'océan',
+	'Ocean waves': "Vagues de l'océan",
 	'Fish scales': 'Écailles de poisson',
 	Vichy: 'Vichy',
 	Herringbone: 'Chevrons de parquet',
@@ -522,7 +524,7 @@ const PT = {
 	Ink: 'Tinta',
 	Royal: 'Real',
 	Citrus: 'Cítrico',
-	'Rosé': 'Rosé',
+	Rosé: 'Rosé',
 	'Custom (brand color)': 'Personalizada (cor da marca)',
 	'Base color': 'Cor base',
 	'New colorway': 'Nova combinação de cores',
@@ -563,7 +565,8 @@ const PT = {
 	Off: 'Desligado',
 	'Own layer (stamp)': 'Camada própria (carimbo)',
 	'Use active layer': 'Usar camada ativa',
-	'Select a layer in the editor first.': 'Selecione antes uma camada no editor.',
+	'Select a layer in the editor first.':
+		'Selecione antes uma camada no editor.',
 	'Layer captured as stamp.': 'Camada capturada como carimbo.',
 	Effects: 'Efeitos',
 	'Offset print': 'Impressão riso',
@@ -665,7 +668,7 @@ const IT = {
 	Ink: 'Inchiostro',
 	Royal: 'Regale',
 	Citrus: 'Agrumi',
-	'Rosé': 'Rosé',
+	Rosé: 'Rosé',
 	'Custom (brand color)': 'Personalizzata (colore del brand)',
 	'Base color': 'Colore di base',
 	'New colorway': 'Nuova combinazione di colori',
@@ -691,7 +694,7 @@ const IT = {
 	'Insert pattern': 'Inserisci motivo',
 	'Update pattern': 'Aggiorna motivo',
 	'Drag: move elements (they wrap) · wheel: zoom · double-click: new colorway · right-click: more.':
-		'Trascina: sposta gli elementi (ricompaiono dall\'altro lato) · rotellina: zoom · doppio clic: nuova combinazione · clic destro: altro.',
+		"Trascina: sposta gli elementi (ricompaiono dall'altro lato) · rotellina: zoom · doppio clic: nuova combinazione · clic destro: altro.",
 	'Drag: shift the pattern · wheel: zoom · double-click: new colorway · right-click: more.':
 		'Trascina: sposta il motivo · rotellina: zoom · doppio clic: nuova combinazione · clic destro: altro.',
 	'Add element': 'Aggiungi elemento',
@@ -699,7 +702,7 @@ const IT = {
 	'Reset edits': 'Reimposta modifiche',
 	'Hide tile frame': 'Nascondi cornice della tessera',
 	Truchet: 'Truchet',
-	Honeycomb: 'Nido d\'ape',
+	Honeycomb: "Nido d'ape",
 	Ogee: 'Ogiva',
 	Crosshatch: 'Tratteggio incrociato',
 	'Second set': 'Secondo set',
@@ -707,7 +710,7 @@ const IT = {
 	'Own layer (stamp)': 'Livello proprio (timbro)',
 	'Use active layer': 'Usa livello attivo',
 	'Select a layer in the editor first.':
-		'Seleziona prima un livello nell\'editor.',
+		"Seleziona prima un livello nell'editor.",
 	'Layer captured as stamp.': 'Livello catturato come timbro.',
 	Effects: 'Effetti',
 	'Offset print': 'Stampa riso',
@@ -724,7 +727,7 @@ const IT = {
 	Polka: 'Polka',
 	Pinstripes: 'Gessato',
 	Diagonals: 'Diagonali',
-	'Ocean waves': 'Onde dell\'oceano',
+	'Ocean waves': "Onde dell'oceano",
 	'Fish scales': 'Squame di pesce',
 	Vichy: 'Vichy',
 	Herringbone: 'Spina di pesce',
@@ -808,7 +811,7 @@ const NL = {
 	Ink: 'Inkt',
 	Royal: 'Royal',
 	Citrus: 'Citrus',
-	'Rosé': 'Rosé',
+	Rosé: 'Rosé',
 	'Custom (brand color)': 'Eigen (merkkleur)',
 	'Base color': 'Basiskleur',
 	'New colorway': 'Nieuwe kleurstelling',
@@ -876,4 +879,5 @@ const NL = {
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };
 const DICT = DICTS[ LOCALE.slice( 0, 2 ) ] || null;
-export const t = ( s ) => ( DICT && DICT[ s ] ) || s;
+export const t = ( s ) =>
+	CREATIVE_DICTS[ LOCALE.slice( 0, 2 ) ]?.[ s ] || ( DICT && DICT[ s ] ) || s;

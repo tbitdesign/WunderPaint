@@ -22,5 +22,14 @@
 @import './editor/modals.css';
 @import './editor/tabs.css';
 @import './editor/workspaces.css';
+@import './editor/ai-buttons-dialog.css';
 @import './editor/studios.css';
+@import './editor/pen-panel.css';
+@import './editor/gradient-panel.css';
+@import './editor/fxbrush-panel.css';
+@import './editor/crop-panel.css';
+@import './editor/stamp-panel.css';
+@import './editor/selection-panel.css';
+@import './editor/repeat-panel.css';
 @import './editor/ext-kit.css';
+@import './editor/ui-controls.css';

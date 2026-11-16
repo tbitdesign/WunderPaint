@@ -1,0 +1,371 @@
+#wpie-root .text-tool-panel {
+	display: grid;
+	grid-template-columns: 94px minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
+	line-height: 1.35;
+	height: 100%;
+	min-height: 0;
+	color: var(--text-primary);
+}
+
+#wpie-root .text-panel-nav {
+	padding: 10px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	border-right: 1px solid var(--ed-border);
+	overflow-y: auto;
+}
+
+#wpie-root .text-panel-nav .ai-tile {
+	flex: none;
+	width: 100%;
+}
+
+#wpie-root .text-panel-main {
+	min-width: 0;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 10px;
+}
+
+#wpie-root .text-character > .panel-section > .panel-head {
+	display: none;
+}
+
+/* A label sits above its control, leaving the full narrow column to the value. */
+#wpie-root .text-tool-panel .field {
+	grid-template-columns: minmax(0, 1fr) !important;
+	gap: 4px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .text-tool-panel .field > * {
+	min-width: 0;
+}
+
+#wpie-root .text-tool-panel .text-character .row2 {
+	grid-template-columns: minmax(0, 1fr);
+	gap: 0;
+	margin-bottom: 0;
+}
+
+#wpie-root .text-tool-panel .text-font-style-controls {
+	grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+#wpie-root .text-tool-panel .text-alignment-field > .field-label {
+	display: none;
+}
+
+#wpie-root .text-tool-panel .text-alignment-controls {
+	flex-direction: column;
+	gap: 10px !important;
+}
+
+#wpie-root .text-tool-panel .text-alignment-label {
+	grid-column: 1 / -1;
+	margin-bottom: 2px;
+	font-size: 11px;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .text-tool-panel .text-list-controls {
+	width: 100% !important;
+}
+
+#wpie-root
+	.text-tool-panel
+	:is(
+		.field-label,
+		.slider-row label,
+		.painting-hint,
+		.text-alignment-label,
+		.blend-check
+	) {
+	line-height: 1.35;
+}
+
+#wpie-root .text-tool-panel .slider-row {
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 4px 8px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .text-tool-panel .slider-row > label {
+	grid-column: 1 / -1;
+}
+
+#wpie-root .text-tool-panel .paint-stroke-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	align-items: end;
+	gap: 8px;
+	margin: 0 0 10px;
+}
+
+#wpie-root .text-tool-panel .paint-stroke-field,
+#wpie-root .text-tool-panel .paint-stroke-row label {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	min-width: 0;
+	gap: 4px;
+	font-size: 11px;
+	line-height: 1.35;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .text-tool-panel .paint-stroke-field:has(select) {
+	grid-column: 1 / -1;
+}
+
+#wpie-root .text-tool-panel .paint-stroke-row :is(input, select) {
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .text-tool-panel .paint-stroke-row select {
+	flex: none;
+}
+
+#wpie-root .text-tool-panel .paint-stroke-opacity {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	font-size: 11px;
+	line-height: 1.35;
+}
+
+#wpie-root .text-tool-panel .panel-head-static {
+	padding: 8px 0;
+	cursor: default;
+}
+
+#wpie-root .text-tool-panel .panel-head-static:hover {
+	background: none;
+}
+
+#wpie-root .text-tool-panel .props-distribute-actions {
+	flex-wrap: wrap;
+}
+
+#wpie-root .text-tool-panel .panel-content {
+	padding: 8px 0;
+}
+
+#wpie-root .text-tool-panel .panel-group:first-child {
+	margin-top: 0;
+}
+
+#wpie-root .text-tool-panel .effect-grid {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#wpie-root .text-tool-panel .layout-tiles {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#wpie-root .text-tool-panel .layout-popover-embedded {
+	position: static;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: auto;
+}
+
+#wpie-root .text-tool-panel .textfx-embedded {
+	position: static;
+	width: auto;
+	max-width: none;
+	box-shadow: none;
+	margin: 0 0 12px;
+}
+
+#wpie-root .text-tool-panel button[style*="var(--accent)"] {
+	background: var(--ed-panel-alt) !important;
+	border: 1px solid var(--accent) !important;
+	color: var(--text-primary) !important;
+}
+
+#wpie-root .text-tool-panel .effect-thumb {
+	width: 100%;
+	height: 64px;
+	aspect-ratio: auto;
+	box-sizing: border-box;
+	border-width: 1px;
+}
+
+#wpie-root .text-tool-panel .effect-thumb img {
+	object-fit: contain;
+}
+
+#wpie-root .text-tool-panel .effect-chip.active {
+	border: 0;
+	background: none;
+}
+
+#wpie-root .text-tool-panel .effect-chip.active .effect-thumb {
+	box-shadow: none;
+}
+
+#wpie-root .text-tool-panel .effect-chip.active .effect-label {
+	color: var(--text-primary);
+}
+
+#wpie-root .text-tool-panel .effect-label {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+#wpie-root .text-panel-transform .panel-content > div:last-child {
+	flex-wrap: wrap;
+}
+
+#wpie-root .text-tool-panel .layout-pop-section {
+	flex-wrap: wrap;
+}
+
+#wpie-root .text-tool-panel .layout-pop-ai-row {
+	flex-direction: column;
+	min-width: 0;
+}
+
+#wpie-root .text-tool-panel .layout-pop-ai-row input {
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .text-tool-panel .paint-stroke-opacity > span {
+	grid-column: 1 / -1;
+}
+
+#wpie-root .text-tool-panel .paint-stroke-opacity input {
+	width: 100%;
+}
+
+#wpie-root .text-tool-panel .smart-refine-field {
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 4px 8px;
+	line-height: 1.35;
+}
+
+#wpie-root .text-tool-panel .smart-refine-field > span:first-child {
+	grid-column: 1 / -1;
+}
+
+#wpie-root .text-tool-panel .smart-refine-field input {
+	min-width: 0;
+}
+
+/* Shared active-effect pills remain compact within the narrow text column. */
+#wpie-root .text-tool-panel [data-ws="text.active"] {
+	margin-bottom: 10px;
+}
+
+#wpie-root .text-tool-panel [data-ws="text.active"] .panel-head {
+	padding-top: 0;
+}
+
+#wpie-root .text-tool-panel .active-fx-pill {
+	max-width: 100%;
+	box-sizing: border-box;
+	background: transparent;
+}
+
+#wpie-root .text-tool-panel .active-fx-pill .name {
+	min-width: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	text-align: left;
+	line-height: 1.35;
+}
+
+#wpie-root .text-tool-panel .active-fx-pill .act {
+	flex: 0 0 18px;
+}
+
+/* Larger built-in text catalogs: existing cards, compact search and categories. */
+#wpie-root .text-catalog-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+#wpie-root .text-catalog-tools .dsm-search {
+	flex: 1 1 120px;
+	min-width: 0;
+}
+
+#wpie-root .text-catalog-tools .dsm-input,
+#wpie-root .text-catalog-tools .dsm-select {
+	height: 26px;
+	min-height: 26px;
+	min-width: 0;
+	font-size: 11px;
+}
+
+#wpie-root .text-catalog-tools .dsm-select {
+	flex: 1 1 110px;
+	width: 110px;
+}
+
+#wpie-root .text-catalog .effect-thumb img {
+	object-fit: contain;
+}
+
+#wpie-root .text-catalog-empty {
+	margin: 8px 0;
+	color: var(--ed-text-dim);
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+#wpie-root .text-catalog .effect-chip {
+	min-width: 0;
+}
+
+#wpie-root .text-catalog .effect-thumb {
+	border-width: 1px;
+}
+
+#wpie-root .text-catalog .effect-label {
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	line-height: 1.25;
+	text-align: center;
+}
+
+/* Keep both layer catalogs reachable without scrolling past dozens of looks. */
+#wpie-root .layer-catalog .effect-grid {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	max-height: 328px;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scrollbar-gutter: stable;
+	padding: 1px 3px 1px 1px;
+}
+
+#wpie-root .layer-catalog .effect-thumb {
+	width: 100%;
+	height: 82px;
+	aspect-ratio: auto;
+}
+
+#wpie-root .layer-catalog .effect-label {
+	white-space: normal;
+	text-overflow: clip;
+	min-height: 2.5em;
+}
+
+#wpie-root .layer-catalog .effect-chip.active .effect-thumb {
+	box-shadow: none;
+}
+
+#wpie-root .layer-catalog .effect-chip.active .effect-thumb::after {
+	display: none;
+}
+
+#wpie-root .layer-catalog .effect-chip.active .effect-label {
+	color: var(--ed-text);
+}

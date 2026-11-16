@@ -4,7 +4,7 @@
  * the guaranteed LOCAL implementations when the proxy says so.
  */
 
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 
 import { ai } from './api';
 import { resolveBindings } from './dynamic-content';
@@ -24,6 +24,7 @@ import {
 import { activeLayerOf, withDescendants } from '../store/editor-context';
 import { resizeCanvasDoc, cropDoc } from '../store/doc-ops';
 import { nearestAspect } from './aspect';
+import { AI_PROMPTS } from './ai-prompts';
 import { posterizeFlat } from './posterize';
 
 export { nearestAspect };
@@ -38,7 +39,17 @@ import {
 	upscaleLocal,
 	enhanceLocal,
 	computeSubjectAlpha,
+	computeCutoutAlpha,
+	subjectMask,
+	canCutWithModel,
 } from './local-image-ops';
+import { findDescribed, maskBounds, missingModelsMessage } from './text-select';
+import {
+	canRemoveWithModel,
+	dilateMask,
+	removalRadius,
+	removeWithModel,
+} from './object-removal';
 import { activeKitColors } from './brand-kits';
 import { currentLocale } from './editor-locale';
 
@@ -48,7 +59,7 @@ import { currentLocale } from './editor-locale';
 // flatten the canvas as a reference must match, or the model sees raw
 // `{{post.title}}` text instead of what you see. refLayers() resolves the same
 // way when a preview is active, and is a no-op otherwise (v1.183.0).
-function refLayers( state ) {
+export function refLayers( state ) {
 	return state.previewPost?.ctx
 		? resolveBindings( state.layers, state.previewPost.ctx )
 		: state.layers;
@@ -366,7 +377,7 @@ async function aiPromptEdit( editor, prompt, name, opts = {} ) {
 export function aiColorize( editor, opts ) {
 	return aiPromptEdit(
 		editor,
-		'Colorize this black-and-white image with natural, realistic colors. Keep every detail, the composition and the lighting exactly unchanged.',
+		AI_PROMPTS.colorize,
 		__( 'Colorize', 'wunderpaint' ),
 		opts
 	);
@@ -376,7 +387,7 @@ export function aiColorize( editor, opts ) {
 export function aiCartoon( editor, opts ) {
 	return aiPromptEdit(
 		editor,
-		'Redraw this image in a clean, vibrant cartoon illustration style with bold outlines and flat, cel-shaded colors. Keep the same subject, pose and composition.',
+		AI_PROMPTS.cartoon,
 		__( 'Cartoon', 'wunderpaint' ),
 		opts
 	);
@@ -390,7 +401,7 @@ export function aiCartoon( editor, opts ) {
 export function aiEnhanceLayer( editor, opts ) {
 	return aiPromptEdit(
 		editor,
-		'Recreate this image at a much higher quality: sharper focus, finer detail, cleaner edges, richer color depth and improved, natural lighting for a crisp, high-resolution finish. Preserve the exact subject, composition, colors, proportions and overall style, improving only the fidelity and craftsmanship.',
+		AI_PROMPTS.enhanceLayer,
 		__( 'Enhance Layer', 'wunderpaint' ),
 		opts
 	);
@@ -409,7 +420,7 @@ export async function aiEnhanceDesign( editor, { provider } = {} ) {
 		cache: sharedImageCache,
 	} );
 	const result = await ai.edit( {
-		prompt: 'Redesign the following graphic, photo or composition to a professional, high-end standard. Keep the existing layout, structure, text content and overall composition exactly as they are; do not move, add or remove elements or change the wording. Elevate the visual design instead: refined typographic treatment, polished color and contrast, tasteful depth, lighting and shadow, cohesive spacing and visual hierarchy, and premium finishing details, so the result looks dramatically cooler, more striking and more professionally designed while remaining faithful to the original arrangement.',
+		prompt: AI_PROMPTS.enhanceDesign,
 		provider,
 		image,
 		size: `${ state.doc.w }x${ state.doc.h }`,
@@ -432,7 +443,7 @@ export async function aiEnhanceDesign( editor, { provider } = {} ) {
 export function aiRestore( editor, opts ) {
 	return aiPromptEdit(
 		editor,
-		'Restore this old, damaged photograph: remove scratches, dust, creases, stains and noise, repair torn or faded areas, and improve sharpness and clarity, while keeping the original composition, content and era-accurate look.',
+		AI_PROMPTS.restore,
 		__( 'Restore Photo', 'wunderpaint' ),
 		opts
 	);
@@ -887,12 +898,15 @@ export async function improveTextAlternatives( editor ) {
 	return { layerId: layer.id, original, alternatives };
 }
 
-export async function aiUpscale( editor, factor = 2 ) {
+export async function aiUpscale( editor, factor = 2, opts = {} ) {
 	const layer = requireActive( editor );
 	const image = await layerDataUrl( editor.state, layer, 4096 );
-	// Always local (Lanczos in a worker) since the Imagen Vertex upscaler
-	// retired with Google's Imagen shutdown (v1.72). No key, no roundtrip.
-	const { url, width, height } = await upscaleLocal( image, factor );
+	// Always local since the Imagen Vertex upscaler retired with Google's
+	// Imagen shutdown (v1.72): Real-ESRGAN in a worker up to
+	// AI_UPSCALE_MAX_PIXELS (20.10.2026), Lanczos above. No key, no
+	// roundtrip. opts: { onProgress( done, total ), signal }.
+	const result = await upscaleLocal( image, factor, opts );
+	const { url, width, height } = result;
 	// Keep the display size; only the source resolution grows (spec 11.2).
 	await replaceLayerContent(
 		editor,
@@ -900,38 +914,49 @@ export async function aiUpscale( editor, factor = 2 ) {
 		url,
 		__( 'Upscale', 'wunderpaint' )
 	);
-	return { width, height };
+	return { width, height, ai: result.ai };
 }
 
 /**
- * Blur Faces (v1.241.0): Florence-2 grounds every "human face" box on
- * the active layer locally, the boxes get mosaic-pixelated beyond
- * recognition. No key, nothing leaves the browser.
+ * Blur Faces (v1.241.0, 20.10.2026): finds every face on the active layer
+ * and mosaic-pixelates it beyond recognition. No key, nothing leaves the
+ * browser. The bundled face finder (YuNet) looks at the whole picture and,
+ * on a big one, at overlapping tiles, so a back row stays no smaller than
+ * a few dozen pixels for it; when the Florence-2 model is installed, its
+ * object detection adds the faces it names. Florence-2 used to be the only
+ * detector, asked to ground "human face" - which answers with one box even
+ * on a group photo, and needed a large download first.
  *
  * @param {Object} editor Editor handle.
  * @return {Promise<{count: number}>} How many faces were pixelated.
  */
 export async function aiBlurFaces( editor ) {
 	const layer = requireActive( editor );
-	const { isModelInstalled } = await import( './ml' );
-	if ( ! isModelInstalled( 'caption' ) ) {
-		const err = new Error(
-			__(
-				'Blur Faces needs the local caption model (Florence-2). Install it under Settings → Local AI Models first.',
-				'wunderpaint'
-			)
-		);
-		err.isUnconfigured = true;
-		throw err;
-	}
 	const image = await layerDataUrl( editor.state, layer, 4096 );
-	const [ { groundPhrase }, { padBox, pixelateRegions } ] = await Promise.all(
-		[ import( './caption' ), import( './faces' ) ]
-	);
-	const boxes = await groundPhrase( image, 'human face' );
 	const img = await loadImage( image );
 	const w = img.naturalWidth || img.width;
 	const h = img.naturalHeight || img.height;
+	const [
+		{ findAllFaces, mergeFaceBoxes },
+		{ padBox, pixelateRegions },
+		{ isModelInstalled },
+	] = await Promise.all( [
+		import( './face-detect' ),
+		import( './faces' ),
+		import( './ml' ),
+	] );
+	let boxes = await findAllFaces( img );
+	if ( isModelInstalled( 'caption' ) ) {
+		try {
+			const { detectObjects } = await import( './caption' );
+			const named = ( await detectObjects( image ) ).filter( ( o ) =>
+				/\bfaces?\b/i.test( o.label )
+			);
+			boxes = mergeFaceBoxes( boxes, named );
+		} catch ( e ) {
+			// The face finder's answer stands on its own.
+		}
+	}
 	const regions = boxes.map( ( b ) => padBox( b, w, h ) ).filter( Boolean );
 	if ( ! regions.length ) {
 		throw new Error(
@@ -1237,30 +1262,26 @@ export { insertResultLayer, selectionBounds };
 
 /**
  * Select Subject (v0.2, keyless): segment the visible composite with the
- * local U2-Netp model and set the result as a mask selection.
+ * local subject model (BiRefNet when downloaded, else U2-Netp) and set the
+ * result as a mask selection.
  */
 export async function selectSubject( editor ) {
 	const { state, dispatch, commit } = editor;
 	const composite = await renderToCanvas( state.doc, refLayers( state ), {
 		cache: sharedImageCache,
 	} );
-	const { alpha, size } = await computeSubjectAlpha( composite );
+	const alphaMap = await computeCutoutAlpha( composite );
+	const { alpha, size } = alphaMap;
 
-	// Threshold + upscale the 320×320 alpha map to a doc-sized mask.
-	const small = createCanvas( size, size );
-	const sctx = small.getContext( '2d' );
-	const imageData = sctx.createImageData( size, size );
+	// The bounding box from the model's own map; the selection itself is
+	// the mask at picture size (lib/subject-mask.js), which follows the
+	// real edges instead of a scaled-up model grid.
 	let minX = size;
 	let minY = size;
 	let maxX = -1;
 	let maxY = -1;
 	for ( let i = 0; i < alpha.length; i++ ) {
-		const on = alpha[ i ] > 0.5;
-		imageData.data[ i * 4 + 3 ] = on ? 255 : 0;
-		imageData.data[ i * 4 ] = 255;
-		imageData.data[ i * 4 + 1 ] = 255;
-		imageData.data[ i * 4 + 2 ] = 255;
-		if ( on ) {
+		if ( alpha[ i ] > 0.5 ) {
 			const x = i % size;
 			const y = ( i / size ) | 0;
 			if ( x < minX ) {
@@ -1282,13 +1303,12 @@ export async function selectSubject( editor ) {
 			__( 'No subject detected in the image.', 'wunderpaint' )
 		);
 	}
-	sctx.putImageData( imageData, 0, 0 );
-
-	const mask = createCanvas( state.doc.w, state.doc.h );
-	const mctx = mask.getContext( '2d' );
-	mctx.imageSmoothingEnabled = true;
-	mctx.imageSmoothingQuality = 'high';
-	mctx.drawImage( small, 0, 0, state.doc.w, state.doc.h );
+	const mask = await subjectMask(
+		composite,
+		state.doc.w,
+		state.doc.h,
+		alphaMap
+	);
 
 	const sx = state.doc.w / size;
 	const sy = state.doc.h / size;
@@ -1306,6 +1326,97 @@ export async function selectSubject( editor ) {
 		},
 	} );
 	commit( __( 'Select Subject', 'wunderpaint' ) );
+}
+
+/**
+ * Select by Description (20.10.2026): the object named in the prompt box
+ * becomes the selection, found by Florence-2 and cut out by SlimSAM, both
+ * local (lib/text-select.js); the main subject by BiRefNet when it is
+ * downloaded (21.10.2026).
+ *
+ * @param {Object} editor Editor context.
+ * @param {string} phrase What to select, e.g. "the red car".
+ */
+export async function selectByText( editor, phrase ) {
+	const missing = missingModelsMessage();
+	if ( missing ) {
+		throw new Error( missing );
+	}
+	const text = String( phrase || '' ).trim();
+	if ( ! text ) {
+		throw new Error(
+			__(
+				'Type what to select in the prompt box, for example “the red car”.',
+				'wunderpaint'
+			)
+		);
+	}
+	const { state, dispatch, commit } = editor;
+	const w = state.doc.w,
+		h = state.doc.h;
+	const composite = await renderToCanvas( state.doc, refLayers( state ), {
+		cache: sharedImageCache,
+	} );
+	const [ { groundPhrase }, { createSegmenter } ] = await Promise.all( [
+		import( './caption' ),
+		import( './smart-select' ),
+	] );
+	// The main subject as BiRefNet sees it (Select Subject's mask): when the
+	// described thing IS that subject, its finer mask is taken in the box.
+	const subject = canCutWithModel()
+		? async () => {
+				const c = await subjectMask(
+					composite,
+					w,
+					h,
+					await computeCutoutAlpha( composite )
+				);
+				// The mask canvas can be smaller than the page (refined at
+				// most 2048 px): read it at the page's size.
+				const full = createCanvas( w, h );
+				const g = full.getContext( '2d' );
+				g.drawImage( c, 0, 0, w, h );
+				const d = g.getImageData( 0, 0, w, h ).data;
+				const m = new Uint8Array( w * h );
+				for ( let i = 0; i < m.length; i++ ) {
+					m[ i ] = d[ i * 4 + 3 ] > 127 ? 1 : 0;
+				}
+				return m;
+		  }
+		: null;
+	const mask = await findDescribed(
+		composite.toDataURL( 'image/png' ),
+		w,
+		h,
+		text,
+		{ groundPhrase, createSegmenter, subject }
+	);
+	if ( ! mask ) {
+		throw new Error(
+			sprintf(
+				/* translators: %s: what the user asked to select. */
+				__( 'Nothing matching “%s” was found.', 'wunderpaint' ),
+				text
+			)
+		);
+	}
+	const canvas = createCanvas( w, h );
+	const ctx = canvas.getContext( '2d' );
+	const img = ctx.createImageData( w, h );
+	for ( let i = 0; i < mask.length; i++ ) {
+		if ( mask[ i ] ) {
+			img.data[ i * 4 ] = 255;
+			img.data[ i * 4 + 1 ] = 255;
+			img.data[ i * 4 + 2 ] = 255;
+			img.data[ i * 4 + 3 ] = 255;
+		}
+	}
+	ctx.putImageData( img, 0, 0 );
+	dispatch( {
+		type: 'SET_SELECTION',
+		selection: { kind: 'mask', canvas, bounds: maskBounds( mask, w, h ) },
+	} );
+	commit( __( 'Select by Description', 'wunderpaint' ) );
 }
 
 /**
@@ -1354,13 +1465,37 @@ export async function removeObjectLocal( editor ) {
 		mask[ p ] = maskData[ p * 4 + 3 ] > 64 ? 1 : 0;
 	}
 
+	// MI-GAN when the Object removal model is downloaded (20.10.2026,
+	// lib/object-removal.js): it paints in what should be there, with the
+	// hole grown a little so the object's outline does not stay behind.
+	let filled = null;
+	if ( canRemoveWithModel() ) {
+		try {
+			filled = await removeWithModel(
+				img.data,
+				state.doc.w,
+				state.doc.h,
+				dilateMask(
+					mask,
+					state.doc.w,
+					state.doc.h,
+					removalRadius( state.doc.w, state.doc.h )
+				)
+			);
+		} catch ( e ) {
+			// The model could not run here: the neighbour fill below.
+			filled = null;
+		}
+	}
 	// Off the main thread where a Worker exists: this used to run
 	// synchronously at full document size and froze the editor for the
 	// duration on a big photo.
-	const filled = await inpaintOffThread(
-		{ data: img.data, width: state.doc.w, height: state.doc.h },
-		mask
-	);
+	if ( ! filled ) {
+		filled = await inpaintOffThread(
+			{ data: img.data, width: state.doc.w, height: state.doc.h },
+			mask
+		);
+	}
 	if ( filled !== img.data ) {
 		img.data.set( filled );
 	}

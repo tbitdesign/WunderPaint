@@ -18,17 +18,23 @@
  * collect changes and hand them over at the end.
  */
 
-import { useEffect, useRef } from '@wordpress/element';
+import { memo, useEffect, useRef } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 import { SnapSlider } from '../components/snap-slider';
-import { SwatchButton } from '../components/color-popover';
+import { PaintSwatch } from '../components/paint-controls';
+import {
+	shapePaintFields,
+	strokeSettings,
+	strokeSettingsPatch,
+} from '../lib/layer-paint';
 import { makeShape } from '../store/document';
 import { drawShape } from '../lib/raster/shapes';
 import { shapeToPathD } from '../lib/shape-path';
 import { scalePathD } from '../lib/path';
 import { ROUNDABLE_SHAPES } from '../lib/corner-geometry';
 import { SHAPE_CHOICES } from '../components/shape-picker';
+import { SHAPE_CATEGORIES } from '../lib/shape-categories';
 import {
 	DYNAMIC_SHAPE_MAP,
 	dynamicDefaults,
@@ -45,82 +51,16 @@ export const STUDIO_SHAPES = SHAPE_CHOICES.filter( ( s ) => 'line' !== s.id );
  * dial (pill, note, the fixed badge) live in the picker and the asset
  * library, not here.
  */
-const GROUP_IDS = [
-	[
-		() => __( 'Basics', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'rect', 'ellipse', 'squircle', 'triangle', 'diamond', 'polygon', 'star', 'heart', 'blob' ],
-	],
-	[
-		() => __( 'Arrows', 'wunderpaint' ),
-		[ 'arrow', 'arcarrow', 'chevrons' ],
-	],
-	[
-		() => __( 'Banners', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'ribbon', 'label', 'flag', 'bookmark', 'chevron', 'cornerband', 'stamp', 'ticket', 'wave', 'tag' ],
-	],
-	[
-		() => __( 'Badges', 'wunderpaint' ),
-		[
-			'burst',
-			'seal',
-			'medal',
-			'gear',
-			'gearpair',
-			'ring',
-			'frame',
-			'target',
-		],
-	],
-	[ () => __( 'Speech', 'wunderpaint' ), [ 'speech', 'thought', 'shout' ] ],
-	[
-		() => __( 'Symbols', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'cross', 'check', 'xmark', 'bolt', 'crown', 'shield', 'drop', 'gem' ],
-	],
-	[
-		() => __( 'Nature', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'cloud', 'moon', 'crescent', 'sun', 'leaf', 'pine', 'mountain', 'clover', 'flower', 'shooting' ],
-	],
-	[
-		() => __( 'Curves', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'superform', 'rose', 'lissajous', 'harmonograph', 'guilloche', 'epitrochoid', 'butterfly', 'heartcurve', 'spiral', 'galaxy', 'chladni' ],
-	],
-	[
-		() => __( 'Fractals', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'fractal', 'sierpinski', 'dragon', 'hilbert', 'branch', 'skyline', 'tornstrip' ],
-	],
-	[
-		() => __( 'Patterns', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'truchet', 'maze', 'honeycomb', 'argyle', 'startile', 'herringbone', 'scales', 'moire', 'interference', 'halftone', 'stripes', 'datablocks', 'gridwarp', 'scatter', 'packing', 'filmstrip', 'isoblocks' ],
-	],
-	[
-		() => __( 'Organic & art', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'blobgen', 'metaball', 'voronoi', 'delaunay', 'flowfield', 'hatching', 'treerings', 'stroke', 'splat', 'shard', 'divider', 'mandala', 'phyllotaxis', 'constellation', 'rays', 'starpoly' ],
-	],
-	[
-		() => __( 'Geometry', 'wunderpaint' ),
-		// prettier-ignore
-		[ 'parallelogram', 'trapezoid', 'rhombus', 'kite', 'stairs', 'lshape', 'grid', 'arch', 'layers', 'cube', 'hourglass', 'funnel', 'bars' ],
-	],
-];
-
-export const STUDIO_GROUPS = GROUP_IDS.map( ( [ label, ids ], gi ) => ( {
-	id: 'g' + gi,
-	label,
-	entries: ids
-		.map( ( id ) => STUDIO_SHAPES.find( ( s ) => s.id === id ) )
+export const STUDIO_GROUPS = SHAPE_CATEGORIES.map( ( group ) => ( {
+	id: group.id,
+	label: group.label,
+	entries: group.shapes
+		.map( ( id ) => STUDIO_SHAPES.find( ( shape ) => shape.id === id ) )
 		.filter( Boolean )
-		.map( ( s ) => ( {
-			key: 'core:' + s.id,
-			name: s.name,
-			shape: s.id,
+		.map( ( shape ) => ( {
+			key: 'core:' + shape.id,
+			name: shape.name,
+			shape: shape.id,
 		} ) ),
 } ) );
 
@@ -164,8 +104,14 @@ export function Dial( {
 	);
 }
 
-/** A shape tile: the real geometry at thumb size, like the quick picker. */
-export function Thumb( { entry, size = 30 } ) {
+/**
+ * A shape tile: the real geometry at thumb size, like the quick picker.
+ * Moving a floating panel rerenders its parent without changing these props.
+ * Reuse the tile then: the geometry cache does not cover SVG serialization,
+ * and repeating that for every catalog entry blocks each pointer movement.
+ * A different entry or preview size still renders its current geometry.
+ */
+export const Thumb = memo( function Thumb( { entry, size = 30 } ) {
 	const inner = size - 6;
 	const item = entry.item;
 	const d = item?.pathD
@@ -197,11 +143,11 @@ export function Thumb( { entry, size = 30 } ) {
 			</g>
 		</svg>
 	);
-}
+} );
 
 /**
  * The tile grid. Callers decide WHICH groups to hand over - the modal
- * gives all twelve, the panel gives the one you picked - and a query
+ * and the panel share the same category definitions - and a query
  * always searches across whatever it was given.
  */
 export function ShapeGrid( {
@@ -328,7 +274,15 @@ export function catalogLabel( cfg ) {
  * modal has nothing to commit until you press its button and passes
  * nothing at all.
  */
-export function ShapeDials( { cfg, patch, box, onCommit, heading } ) {
+export function ShapeDials( {
+	cfg,
+	patch,
+	box,
+	onCommit,
+	heading,
+	paintLayer,
+	onPaintChange = patch,
+} ) {
 	const def = cfg.pathD ? null : DYNAMIC_SHAPE_MAP[ cfg.shape ];
 	const params = resolvedParams( cfg.shape, cfg.shapeParams );
 	const rings = cfg.pathD ? pathPolygonRings( cfg.pathD ) : null;
@@ -483,27 +437,23 @@ export function ShapeDials( { cfg, patch, box, onCommit, heading } ) {
 					<span className="dsm-label">
 						{ __( 'Fill', 'wunderpaint' ) }
 					</span>
-					<SwatchButton
-						color={ cfg.fill }
-						size={ 26 }
+					<PaintSwatch
+						layer={ paintLayer || { ...cfg, type: 'shape' } }
 						title={ __( 'Fill', 'wunderpaint' ) }
-						onChange={ ( c ) => atOnce( { fill: c } ) }
+						onChange={ onPaintChange }
+						onCommit={ onCommit }
 					/>
 				</label>
 				<label>
 					<span className="dsm-label">
 						{ __( 'Stroke', 'wunderpaint' ) }
 					</span>
-					<SwatchButton
-						color={ cfg.stroke || 'transparent' }
-						size={ 26 }
+					<PaintSwatch
+						layer={ paintLayer || { ...cfg, type: 'shape' } }
+						target="stroke"
 						title={ __( 'Stroke', 'wunderpaint' ) }
-						onChange={ ( c ) =>
-							atOnce( {
-								stroke: c,
-								strokeW: cfg.strokeW || 2,
-							} )
-						}
+						onChange={ onPaintChange }
+						onCommit={ onCommit }
 					/>
 				</label>
 				{ !! cfg.stroke && (
@@ -515,14 +465,23 @@ export function ShapeDials( { cfg, patch, box, onCommit, heading } ) {
 							type="number"
 							min={ 0 }
 							max={ 80 }
-							value={ cfg.strokeW }
+							value={
+								strokeSettings(
+									paintLayer || { ...cfg, type: 'shape' }
+								).size
+							}
 							onChange={ ( e ) =>
-								patch( {
-									strokeW: Math.max(
-										0,
-										+e.target.value || 0
-									),
-								} )
+								onPaintChange(
+									strokeSettingsPatch(
+										paintLayer || { ...cfg, type: 'shape' },
+										{
+											size: Math.max(
+												0,
+												+e.target.value || 0
+											),
+										}
+									)
+								)
 							}
 							onBlur={ () => onCommit?.() }
 						/>
@@ -552,6 +511,8 @@ export function cfgFromLayer( layer, fallbackFill ) {
 		cornerSmoothing: layer.cornerSmoothing || 0,
 		sides: layer.sides || ( 'star' === layer.shape ? 5 : 6 ),
 		innerRatio: layer.innerRatio ?? 0.45,
+		id: layer.id,
+		...shapePaintFields( layer ),
 		fill: layer.fill || fallbackFill || '#000000',
 		stroke: layer.stroke || null,
 		strokeW: layer.strokeW || 0,
@@ -578,6 +539,7 @@ export function cfgFromToolOpts( toolOpts, fgColor ) {
 		cornerSmoothing: opts.cornerSmoothing || 0,
 		sides: opts.sides || 6,
 		innerRatio: opts.innerRatio ?? 0.45,
+		...shapePaintFields( opts ),
 		fill: fgColor,
 		stroke: opts.stroke || null,
 		strokeW: opts.strokeW || 0,
@@ -650,6 +612,7 @@ export function previewLayer( cfg, w, h ) {
 		cornerSmoothing: cfg.cornerSmoothing,
 		sides: cfg.sides,
 		innerRatio: cfg.innerRatio,
+		...shapePaintFields( cfg ),
 		fill: cfg.fill,
 		stroke: cfg.stroke,
 		strokeW: cfg.strokeW,
@@ -668,6 +631,7 @@ export function layerPatch( cfg, w, h ) {
 		cornerSmoothing: cfg.cornerSmoothing,
 		sides: cfg.sides,
 		innerRatio: cfg.innerRatio,
+		...shapePaintFields( cfg ),
 		fill: cfg.fill,
 		stroke: cfg.stroke,
 		strokeW: cfg.strokeW,
@@ -687,6 +651,7 @@ export function newShapeLayer( cfg, box, doc ) {
 		shapeParams: cfg.shapeParams,
 		radius: cfg.radius,
 		sides: cfg.sides,
+		...shapePaintFields( cfg ),
 		fill: cfg.fill,
 		stroke: cfg.stroke,
 		strokeW: cfg.strokeW,
@@ -707,6 +672,7 @@ export function newShapeLayer( cfg, box, doc ) {
  */
 export function toolOptsPatch( cfg ) {
 	return {
+		...shapePaintFields( cfg ),
 		shape: cfg.shape,
 		shapeParams: cfg.shapeParams,
 		radius: cfg.radius,

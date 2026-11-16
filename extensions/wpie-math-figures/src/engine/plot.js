@@ -494,7 +494,12 @@ export function renderPlot( items, o ) {
 				axX - fs * 0.45,
 				Y( tk.v ) + fs * 0.3,
 				fmtTick( tk.v, yStep ),
-				{ size: fs * 0.85, font, fill: ink, anchor: 'end' }
+				{
+					size: fs * 0.85,
+					font,
+					fill: ink,
+					anchor: 'end',
+				}
 			)
 		);
 	}
@@ -556,6 +561,9 @@ export function renderPlot( items, o ) {
 			}" opacity="0.22"/>`
 		);
 	}
+	// Analysis shading is already clipped to the plot bounds.
+	if ( o.underlay )
+		children.push( o.underlay( { xmin, xmax, ymin, ymax, X, Y, rect } ) );
 	// Curves.
 	const legend = [];
 	for ( const it of items ) {
@@ -699,6 +707,7 @@ export function renderPlot( items, o ) {
 		height,
 		warnings,
 		view: { xmin, xmax, ymin, ymax },
+		projection: { x: padL, y: padT, w: pw, h: ph },
 	};
 }
 

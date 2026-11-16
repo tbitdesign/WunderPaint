@@ -240,7 +240,7 @@ export function createAutosave( {
 	// nothing to write (a clean document), true when the record is stored,
 	// false when the store refused it. The language switch reads the third
 	// one before it reloads; a false for "nothing to save" would make it ask
-	// about a loss that cannot happen (Codex C15).
+	// about a loss that cannot happen (audit C15).
 	const write = async () => {
 		try {
 			// getSnapshot() serializes the document; a throw there used to

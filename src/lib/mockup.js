@@ -1,26 +1,44 @@
 /**
- * Mockup engine (v1.117.0): six studio-style product mockups (ebook,
- * software box, DVD case, CD jewel case, report stack, monitor) built
- * from a tiny software 3D pipeline - cuboids, a perspective camera,
- * painter-sorted faces, Lambert shading and a strip-subdivided
- * perspective warp for the artwork faces. No WebGL, no dependencies,
- * fully deterministic: same params + same artwork = same pixels, which
- * is what makes Edit Mockup reproducible. The proportions adapt to the
- * artwork's aspect ratio within believable per-type clamps.
+ * Mockup engine (v1.117.0, extended in v1.433.0): studio-style product
+ * mockups built from a tiny software 3D pipeline - cuboids and rounded
+ * slabs, a perspective camera, painter-sorted faces, Lambert shading and
+ * a strip-subdivided perspective warp for the artwork faces. No WebGL, no
+ * dependencies, fully deterministic: same params + same artwork = same
+ * pixels, which is what makes Edit Mockup reproducible. The proportions
+ * adapt to the artwork's aspect ratio within believable per-type clamps;
+ * what falls outside is cropped, never stretched (v1.433.0).
+ *
+ * v1.117.0: ebook, software box, DVD case, CD jewel case, report stack,
+ * monitor. v1.433.0: phone and tablet (rounded slab, screen with rounded
+ * corners, turning to landscape for wide artwork), framed print (moulding
+ * and mat), canvas print (the artwork wraps around the edges), and an
+ * optional reflection in the floor.
  */
 
 import { createCanvas } from './raster';
 
-export const MOCKUP_TYPES = [ 'book', 'box', 'dvd', 'cd', 'report', 'monitor' ];
+export const MOCKUP_TYPES = [
+	'phone',
+	'tablet',
+	'monitor',
+	'book',
+	'box',
+	'report',
+	'frame',
+	'canvas',
+	'dvd',
+	'cd',
+];
 
 export const MOCKUP_DEFAULTS = {
 	type: 'book',
 	yaw: 22, // degrees; positive turns the spine (left side) into view
 	pitch: 5, // degrees; positive looks slightly down onto the object
 	light: 42, // 0..100, left..right
-	material: '#2f3d57', // spine / sides / bezel color
+	material: '#2f3d57', // spine / sides / bezel / rim / moulding color
 	shadow: 55, // 0..100 ground shadow strength
 	gloss: 40, // 0..100 sheen on plastic and glass fronts
+	reflection: 0, // 0..100 mirror image in the floor (v1.433.0)
 };
 
 /* ------------------------------- colors ------------------------------- */
@@ -111,7 +129,9 @@ export function faceShade( normal, light ) {
 /* ----------------------------- geometry ------------------------------- */
 
 // Base millimeter-ish proportions; `clamp` bounds the artwork aspect
-// (w/h) the shape is allowed to adopt.
+// (w/h) the shape is allowed to adopt, `turn` lets a device go landscape
+// for wide artwork. Monitor and frame dims are the ARTWORK size, the
+// body grows around it.
 const TYPE_SPEC = {
 	book: { w: 135, h: 200, d: 24, clamp: [ 0.55, 0.85 ] },
 	box: { w: 160, h: 225, d: 42, clamp: [ 0.6, 0.85 ] },
@@ -119,17 +139,43 @@ const TYPE_SPEC = {
 	cd: { w: 142, h: 125, d: 11, clamp: [ 1, 1.25 ] },
 	report: { w: 170, h: 240, d: 6, clamp: [ 0.6, 0.85 ] },
 	monitor: { w: 384, h: 216, d: 14, clamp: [ 1.3, 2 ] },
+	phone: { w: 72, h: 152, d: 8, clamp: [ 0.42, 0.72 ], turn: true },
+	tablet: { w: 180, h: 250, d: 7, clamp: [ 0.64, 0.8 ], turn: true },
+	frame: { w: 240, h: 320, d: 22, clamp: [ 0.4, 2.5 ] },
+	canvas: { w: 300, h: 400, d: 38, clamp: [ 0.4, 2.5 ] },
 };
 
 const fitDims = ( spec, aspect ) => {
+	const s =
+		spec.turn && aspect > 1
+			? {
+					...spec,
+					w: spec.h,
+					h: spec.w,
+					clamp: [ 1 / spec.clamp[ 1 ], 1 / spec.clamp[ 0 ] ],
+			  }
+			: spec;
 	const a = Math.min(
-		spec.clamp[ 1 ],
-		Math.max( spec.clamp[ 0 ], aspect || spec.w / spec.h )
+		s.clamp[ 1 ],
+		Math.max( s.clamp[ 0 ], aspect || s.w / s.h )
 	);
-	return spec.w >= spec.h
-		? { w: spec.h * a, h: spec.h, d: spec.d }
-		: { w: spec.w, h: spec.w / a, d: spec.d };
+	return s.w >= s.h
+		? { w: s.h * a, h: s.h, d: s.d }
+		: { w: s.w, h: s.w / a, d: s.d };
 };
+
+/** Cover-crop: the part of a w x h picture that fills `aspect`. */
+export function coverCrop( iw, ih, aspect ) {
+	if ( ! aspect || ! iw || ! ih ) {
+		return { x: 0, y: 0, w: iw, h: ih };
+	}
+	if ( iw / ih > aspect ) {
+		const w = ih * aspect;
+		return { x: ( iw - w ) / 2, y: 0, w, h: ih };
+	}
+	const h = iw / aspect;
+	return { x: 0, y: ( ih - h ) / 2, w: iw, h };
+}
 
 /**
  * The six faces of a box, each authored TL, TR, BR, BL as seen from
@@ -167,6 +213,52 @@ export function cuboid( w, h, d, at = {} ) {
 		top: [ P( -X, -Y, Z ), P( X, -Y, Z ), P( X, -Y, -Z ), P( -X, -Y, -Z ) ],
 		bottom: [ P( -X, Y, -Z ), P( X, Y, -Z ), P( X, Y, Z ), P( -X, Y, Z ) ],
 	};
+}
+
+/**
+ * A slab with rounded corners (phone, tablet): front and back as plain
+ * rectangles (the renderer rounds the front outline), the rim as a ring of
+ * quads around the rounded outline, each authored as seen from outside.
+ *
+ * @param {number} w    Width.
+ * @param {number} h    Height.
+ * @param {number} d    Depth.
+ * @param {number} r    Corner radius.
+ * @param {number} segs Quads per corner.
+ * @return {Object} { front, back, sides: [ rect ] }.
+ */
+export function roundedSlab( w, h, d, r, segs = 6 ) {
+	const X = w / 2;
+	const Y = h / 2;
+	const Z = d / 2;
+	const rr = Math.max( 0, Math.min( r, X, Y ) );
+	// The outline, clockwise as seen from the front (y grows downward).
+	const ring = [];
+	for ( const [ cx, cy, a0 ] of [
+		[ -X + rr, -Y + rr, Math.PI ],
+		[ X - rr, -Y + rr, 1.5 * Math.PI ],
+		[ X - rr, Y - rr, 0 ],
+		[ -X + rr, Y - rr, 0.5 * Math.PI ],
+	] ) {
+		for ( let i = 0; i <= segs; i++ ) {
+			const a = a0 + ( i / segs ) * ( Math.PI / 2 );
+			ring.push( [ cx + Math.cos( a ) * rr, cy + Math.sin( a ) * rr ] );
+		}
+	}
+	const sides = [];
+	ring.forEach( ( a, i ) => {
+		const b = ring[ ( i + 1 ) % ring.length ];
+		if ( Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ] ) > 1e-6 ) {
+			sides.push( [
+				[ a[ 0 ], a[ 1 ], Z ],
+				[ b[ 0 ], b[ 1 ], Z ],
+				[ b[ 0 ], b[ 1 ], -Z ],
+				[ a[ 0 ], a[ 1 ], -Z ],
+			] );
+		}
+	} );
+	const c = cuboid( w, h, d );
+	return { front: c.front, back: c.back, sides };
 }
 
 /**
@@ -267,7 +359,10 @@ function buildParts( type, dims ) {
 				[ w / 2, sy + h / 2, z ],
 				[ -w / 2, sy + h / 2, z ],
 			],
-			{ id: 'screen', role: 'image', gloss: 0.8 }
+			// The screen lies a hair in front of the bezel, so their centers
+			// sort by chance: seen from below the bezel won and covered it.
+			// The bias keeps it on top at every angle.
+			{ id: 'screen', role: 'image', gloss: 0.8, bias: d }
 		);
 		const neck = cuboid( w * 0.1, neckH, d * 0.7, {
 			y: slabY + oh / 2 + neckH / 2,
@@ -281,6 +376,106 @@ function buildParts( type, dims ) {
 		} );
 		solid( base, { bezel: true } );
 		push( base.front, { id: 'baseFront', role: 'color', bezel: true } );
+	} else if ( 'phone' === type || 'tablet' === type ) {
+		// Rounded slab: black glass front with the artwork as the screen
+		// (rounded to match the body), a rim in the material color, the
+		// dynamic island or the camera on the glass.
+		const phone = 'phone' === type;
+		const short = Math.min( w, h );
+		const r = short * ( phone ? 0.16 : 0.075 );
+		const bezel = short * ( phone ? 0.032 : 0.055 );
+		const slab = roundedSlab( w, h, d, r, 6 );
+		const round = [ r / w, r / h ];
+		const inner = Math.max( 0, r - bezel );
+		const innerUV = [ inner / w, inner / h ];
+		const portrait = h >= w;
+		// Marks on the glass: [ along-the-edge offset, length, thickness ].
+		const mark = ( offset, length, thick, fill ) => {
+			const a = ( short - length ) / 2;
+			const box = portrait
+				? [
+						a / w,
+						offset / h,
+						( a + length ) / w,
+						( offset + thick ) / h,
+				  ]
+				: [
+						offset / w,
+						( h - length ) / 2 / h,
+						( offset + thick ) / w,
+						( h + length ) / 2 / h,
+				  ];
+			const rad = [ thick / 2 / w, thick / 2 / h ];
+			return { box, corners: [ rad, rad, rad, rad ], fill };
+		};
+		const marks = phone
+			? [
+					mark(
+						bezel + short * 0.028,
+						short * 0.28,
+						short * 0.085,
+						'#050506'
+					),
+			  ]
+			: [
+					mark(
+						bezel / 2 - short * 0.006,
+						short * 0.012,
+						short * 0.012,
+						'#1d1f24'
+					),
+			  ];
+		push( slab.front, {
+			id: 'front',
+			role: 'image',
+			gloss: 0.55,
+			cornersUV: [ round, round, round, round ],
+			art: [ bezel / w, bezel / h, 1 - bezel / w, 1 - bezel / h ],
+			artCornersUV: [ innerUV, innerUV, innerUV, innerUV ],
+			marks,
+		} );
+		slab.sides.forEach( ( rect, i ) =>
+			push( rect, { id: 'rim' + i, role: 'color' } )
+		);
+		push( slab.back, { id: 'back', role: 'color' } );
+	} else if ( 'frame' === type ) {
+		// Framed print: dims are the artwork; a mat and the moulding in
+		// the material color grow around it.
+		const short = Math.min( w, h );
+		const mould = short * 0.07;
+		const inset = mould + short * 0.11;
+		const W = w + 2 * inset;
+		const H = h + 2 * inset;
+		const c = cuboid( W, H, d );
+		push( c.front, {
+			id: 'front',
+			role: 'image',
+			gloss: 0.3,
+			detail: 'frame',
+			matUV: [ mould / W, mould / H, 1 - mould / W, 1 - mould / H ],
+			art: [ inset / W, inset / H, 1 - inset / W, 1 - inset / H ],
+		} );
+		solid( c );
+	} else if ( 'canvas' === type ) {
+		// Gallery wrap: the edges show the outer strips of the artwork,
+		// mirrored, so the picture runs on around the corner.
+		const c = cuboid( w, h, d );
+		const eu = Math.min( 0.2, d / w );
+		const ev = Math.min( 0.2, d / h );
+		push( c.front, { id: 'front', role: 'image', gloss: 0.06 } );
+		push( c.left, { id: 'left', role: 'image', src: [ eu, 0, 0, 1 ] } );
+		push( c.right, {
+			id: 'right',
+			role: 'image',
+			src: [ 1, 0, 1 - eu, 1 ],
+		} );
+		push( c.top, { id: 'top', role: 'image', src: [ 0, ev, 1, 0 ] } );
+		push( c.bottom, {
+			id: 'bottom',
+			role: 'image',
+			src: [ 0, 1, 1, 1 - ev ],
+		} );
+		push( c.back, { id: 'back', role: 'color' } );
 	}
 	return faces;
 }
@@ -293,11 +488,16 @@ function buildParts( type, dims ) {
  * coordinates plus the projector, so the renderer can subdivide image
  * faces perspective-correct straight from the 3D rectangles.
  *
+ * With `opts.mirror` the object is flipped about its lowest point first:
+ * its mirror image in the floor, for the reflection. Mirroring turns the
+ * faces inside out, so their normals flip back before culling.
+ *
  * @param {Object} params    MOCKUP_DEFAULTS-shaped params.
  * @param {number} srcAspect Artwork aspect (w/h) or null.
- * @return {Object} { faces, project, bbox, dims }
+ * @param {Object} opts      { mirror }.
+ * @return {Object} { faces, project, bbox, dims, artAspect }
  */
-export function mockupScene( params, srcAspect = null ) {
+export function mockupScene( params, srcAspect = null, opts = {} ) {
 	const p = { ...MOCKUP_DEFAULTS, ...params };
 	const spec = TYPE_SPEC[ p.type ] || TYPE_SPEC.book;
 	const dims = fitDims( spec, srcAspect );
@@ -310,10 +510,36 @@ export function mockupScene( params, srcAspect = null ) {
 		return [ pt[ 0 ] * t, pt[ 1 ] * t ];
 	};
 
+	const parts = buildParts( p.type, dims );
+	// The aspect the artwork is shown at: its box on the first image face.
+	let artAspect = null;
+	const primary = parts.find( ( f ) => 'image' === f.role );
+	if ( primary ) {
+		const r = primary.rect;
+		const len = ( a, b ) =>
+			Math.hypot( b[ 0 ] - a[ 0 ], b[ 1 ] - a[ 1 ], b[ 2 ] - a[ 2 ] );
+		const box = primary.art || [ 0, 0, 1, 1 ];
+		artAspect =
+			( len( r[ 0 ], r[ 1 ] ) * ( box[ 2 ] - box[ 0 ] ) ) /
+			( len( r[ 0 ], r[ 3 ] ) * ( box[ 3 ] - box[ 1 ] ) || 1 );
+	}
+	let floor = -Infinity;
+	for ( const f of parts ) {
+		for ( const pt of f.rect ) {
+			floor = Math.max( floor, pt[ 1 ] );
+		}
+	}
+
 	const faces = [];
-	for ( const f of buildParts( p.type, dims ) ) {
-		const rect3 = f.rect.map( ( pt ) => rot3( pt, yaw, pitch ) );
-		const n = faceNormal( rect3 );
+	for ( const f of parts ) {
+		const rect = opts.mirror
+			? f.rect.map( ( [ x, y, z ] ) => [ x, 2 * floor - y, z ] )
+			: f.rect;
+		const rect3 = rect.map( ( pt ) => rot3( pt, yaw, pitch ) );
+		let n = faceNormal( rect3 );
+		if ( opts.mirror ) {
+			n = [ -n[ 0 ], -n[ 1 ], -n[ 2 ] ];
+		}
 		const center = [
 			( rect3[ 0 ][ 0 ] + rect3[ 2 ][ 0 ] ) / 2,
 			( rect3[ 0 ][ 1 ] + rect3[ 2 ][ 1 ] ) / 2,
@@ -331,7 +557,7 @@ export function mockupScene( params, srcAspect = null ) {
 			rect3,
 			quad: rect3.map( project ),
 			shade: faceShade( n, p.light ),
-			depth: center[ 2 ],
+			depth: center[ 2 ] - ( f.bias || 0 ),
 		} );
 	}
 	faces.sort( ( a, b ) => b.depth - a.depth );
@@ -352,6 +578,7 @@ export function mockupScene( params, srcAspect = null ) {
 		faces,
 		project,
 		dims,
+		artAspect,
 		bbox: { x: minX, y: minY, w: maxX - minX || 1, h: maxY - minY || 1 },
 	};
 }
@@ -463,11 +690,21 @@ export function renderMockup( params, art, outW, outH ) {
 		art && art.width && art.height ? art.width / art.height : null;
 	const scene = mockupScene( p, aspect );
 	const canvas = createCanvas( Math.max( 2, outW ), Math.max( 2, outH ) );
-	const ctx = canvas.getContext( '2d' );
+	const main = canvas.getContext( '2d' );
+	// The floor mirror only shows while the camera looks down onto it.
+	const reflect = ( p.reflection || 0 ) > 0 && p.pitch > 0;
+	const mirrored = reflect
+		? mockupScene( p, aspect, { mirror: true } )
+		: null;
 
-	// Fit the projected bbox plus room for the ground shadow.
+	// Fit the projected bbox plus room for the ground shadow (and for the
+	// reflection below it).
 	const { bbox } = scene;
-	const shadowPad = bbox.w * 0.075 * ( p.shadow / 100 );
+	const fade = bbox.h * 0.42;
+	const shadowPad = Math.max(
+		bbox.w * 0.075 * ( p.shadow / 100 ),
+		reflect ? fade : 0
+	);
 	const s = Math.min(
 		( outW * 0.9 ) / bbox.w,
 		( outH * 0.9 ) / ( bbox.h + shadowPad )
@@ -480,33 +717,13 @@ export function renderMockup( params, art, outW, outH ) {
 	const material = hexRgb( p.material );
 	const bezelRgb = blendRgb( material, [ 16, 18, 22 ], 0.72 );
 	const pagesRgb = hexRgb( PAGES );
+	// What falls outside the shape's proportions is cropped, not stretched.
+	const crop = art
+		? coverCrop( art.width, art.height, scene.artAspect )
+		: null;
 
-	/* Ground shadow: a soft ellipse nudged away from the light. */
-	if ( p.shadow > 0 ) {
-		const bw = bbox.w * s;
-		const cy = ( bbox.y + bbox.h ) * s + oy + bw * 0.015;
-		const lightA = ( ( p.light - 50 ) / 50 ) * 0.6;
-		const cx =
-			ox + ( bbox.x + bbox.w / 2 ) * s - Math.sin( lightA ) * bw * 0.08;
-		const rx = bw * 0.54;
-		const ry = Math.max( 5, bw * 0.05 );
-		const g = ctx.createRadialGradient( cx, cy, 0, cx, cy, rx );
-		const a = 0.42 * ( p.shadow / 100 );
-		g.addColorStop( 0, `rgba(15,18,26,${ a })` );
-		g.addColorStop( 0.65, `rgba(15,18,26,${ a * 0.45 })` );
-		g.addColorStop( 1, 'rgba(15,18,26,0)' );
-		ctx.save();
-		ctx.translate( cx, cy );
-		ctx.scale( 1, ry / rx );
-		ctx.translate( -cx, -cy );
-		ctx.fillStyle = g;
-		ctx.beginPath();
-		ctx.arc( cx, cy, rx, 0, 2 * Math.PI );
-		ctx.fill();
-		ctx.restore();
-	}
-
-	for ( const f of scene.faces ) {
+	/* One face: artwork, material, pages and their details. */
+	const paintFace = ( ctx, f ) => {
 		const q = f.quad.map( tp );
 		const k = ( 0.45 + 0.55 * f.shade ) * ( f.dim || 1 );
 
@@ -515,12 +732,29 @@ export function renderMockup( params, art, outW, outH ) {
 			ctx.save();
 			facePath( ctx, f.rect3, P, [ 0, 0, 1, 1 ], f.cornersUV );
 			ctx.clip();
-			// Case plastic behind an inset artwork sheet (dvd rim, cd tray).
+			// Behind an inset artwork: case plastic (dvd rim, cd tray), black
+			// glass (phone, tablet) or the moulding with its mat (frame).
 			if ( f.art ) {
-				const base =
-					'hinge' === f.detail ? [ 34, 37, 44 ] : [ 20, 22, 26 ];
-				ctx.fillStyle = rgbCss( base, 0.55 + 0.45 * f.shade );
+				if ( 'frame' === f.detail ) {
+					ctx.fillStyle = rgbCss( material, k );
+				} else {
+					const base =
+						'hinge' === f.detail ? [ 34, 37, 44 ] : [ 20, 22, 26 ];
+					ctx.fillStyle = rgbCss( base, 0.55 + 0.45 * f.shade );
+				}
 				ctx.fill();
+			}
+			if ( f.matUV ) {
+				facePath( ctx, f.rect3, P, f.matUV );
+				ctx.fillStyle = rgbCss(
+					[ 244, 242, 236 ],
+					0.82 + 0.18 * f.shade
+				);
+				ctx.fill();
+				// The moulding throws a thin shadow onto the mat.
+				ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+				ctx.lineWidth = Math.max( 1, s * 0.9 );
+				ctx.stroke();
 			}
 			ctx.save();
 			if ( f.art ) {
@@ -536,7 +770,8 @@ export function renderMockup( params, art, outW, outH ) {
 					f.rect3,
 					P,
 					box,
-					f.cornersUV ? f.cornersUV.map( shrink ) : null
+					f.artCornersUV ||
+						( f.cornersUV ? f.cornersUV.map( shrink ) : null )
 				);
 				ctx.clip();
 			}
@@ -562,8 +797,13 @@ export function renderMockup( params, art, outW, outH ) {
 			);
 			const cols = Math.max( 4, Math.min( 26, Math.ceil( qw / 42 ) ) );
 			const rows = Math.max( 4, Math.min( 26, Math.ceil( qh / 42 ) ) );
-			const iw = art.width;
-			const ih = art.height;
+			// Face (u, v) -> artwork pixels: through the face's own strip of
+			// the artwork (canvas edges), inside the cover crop.
+			const src = f.src || [ 0, 0, 1, 1 ];
+			const su = ( t ) =>
+				crop.x + ( src[ 0 ] + t * ( src[ 2 ] - src[ 0 ] ) ) * crop.w;
+			const sv = ( t ) =>
+				crop.y + ( src[ 1 ] + t * ( src[ 3 ] - src[ 1 ] ) ) * crop.h;
 			const bu = ( t ) => box[ 0 ] + t * ( box[ 2 ] - box[ 0 ] );
 			const bv = ( t ) => box[ 1 ] + t * ( box[ 3 ] - box[ 1 ] );
 			for ( let i = 0; i < cols; i++ ) {
@@ -576,15 +816,27 @@ export function renderMockup( params, art, outW, outH ) {
 					const d10 = P( f.rect3, bu( u1 ), bv( v0 ) );
 					const d11 = P( f.rect3, bu( u1 ), bv( v1 ) );
 					const d01 = P( f.rect3, bu( u0 ), bv( v1 ) );
-					const s00 = [ u0 * iw, v0 * ih ];
-					const s10 = [ u1 * iw, v0 * ih ];
-					const s11 = [ u1 * iw, v1 * ih ];
-					const s01 = [ u0 * iw, v1 * ih ];
+					const s00 = [ su( u0 ), sv( v0 ) ];
+					const s10 = [ su( u1 ), sv( v0 ) ];
+					const s11 = [ su( u1 ), sv( v1 ) ];
+					const s01 = [ su( u0 ), sv( v1 ) ];
 					tri( ctx, art, [ s00, s10, s11 ], [ d00, d10, d11 ] );
 					tri( ctx, art, [ s00, s11, s01 ], [ d00, d11, d01 ] );
 				}
 			}
 			ctx.restore();
+			if ( 'frame' === f.detail ) {
+				facePath( ctx, f.rect3, P, box );
+				ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+				ctx.lineWidth = 1;
+				ctx.stroke();
+			}
+			// Island and camera on the glass.
+			for ( const m of f.marks || [] ) {
+				facePath( ctx, f.rect3, P, m.box, m.corners );
+				ctx.fillStyle = m.fill;
+				ctx.fill();
+			}
 			// Lambert as a darkening veil so the artwork keeps its colors.
 			const veil =
 				Math.max( 0, 0.32 * ( 1 - f.shade / 0.85 ) ) +
@@ -740,6 +992,57 @@ export function renderMockup( params, art, outW, outH ) {
 			ctx.fill();
 			ctx.restore();
 		}
+	};
+
+	/* The reflection: the mirrored object, fading out below the floor. */
+	if ( reflect ) {
+		const rc = createCanvas( canvas.width, canvas.height );
+		const rctx = rc.getContext( '2d' );
+		for ( const f of mirrored.faces ) {
+			paintFace( rctx, f );
+		}
+		const top = ( bbox.y + bbox.h ) * s + oy;
+		const g = rctx.createLinearGradient(
+			0,
+			top - fade * s * 0.1,
+			0,
+			top + fade * s
+		);
+		g.addColorStop( 0, `rgba(0,0,0,${ 0.42 * ( p.reflection / 100 ) })` );
+		g.addColorStop( 1, 'rgba(0,0,0,0)' );
+		rctx.globalCompositeOperation = 'destination-in';
+		rctx.fillStyle = g;
+		rctx.fillRect( 0, 0, rc.width, rc.height );
+		main.drawImage( rc, 0, 0 );
+	}
+
+	/* Ground shadow: a soft ellipse nudged away from the light. */
+	if ( p.shadow > 0 ) {
+		const bw = bbox.w * s;
+		const cy = ( bbox.y + bbox.h ) * s + oy + bw * 0.015;
+		const lightA = ( ( p.light - 50 ) / 50 ) * 0.6;
+		const cx =
+			ox + ( bbox.x + bbox.w / 2 ) * s - Math.sin( lightA ) * bw * 0.08;
+		const rx = bw * 0.54;
+		const ry = Math.max( 5, bw * 0.05 );
+		const g = main.createRadialGradient( cx, cy, 0, cx, cy, rx );
+		const a = 0.42 * ( p.shadow / 100 );
+		g.addColorStop( 0, `rgba(15,18,26,${ a })` );
+		g.addColorStop( 0.65, `rgba(15,18,26,${ a * 0.45 })` );
+		g.addColorStop( 1, 'rgba(15,18,26,0)' );
+		main.save();
+		main.translate( cx, cy );
+		main.scale( 1, ry / rx );
+		main.translate( -cx, -cy );
+		main.fillStyle = g;
+		main.beginPath();
+		main.arc( cx, cy, rx, 0, 2 * Math.PI );
+		main.fill();
+		main.restore();
+	}
+
+	for ( const f of scene.faces ) {
+		paintFace( main, f );
 	}
 	return canvas;
 }
@@ -795,5 +1098,25 @@ export function trimTransparent( canvas, pad = 4 ) {
 		out.width,
 		out.height
 	);
+	return out;
+}
+
+/**
+ * The mockup on a background color (20.10.2026). The render itself stays
+ * transparent; with a background it sits on a filled frame with a margin
+ * around it, so its shadow and reflection fall on that color.
+ *
+ * @param {HTMLCanvasElement} render The (trimmed) mockup.
+ * @param {string}            color  Background color.
+ * @param {number}            pad    Margin as a share of the longer side.
+ * @return {HTMLCanvasElement} A new, opaque canvas.
+ */
+export function mockupOnBackdrop( render, color, pad = 0.08 ) {
+	const m = Math.round( Math.max( render.width, render.height ) * pad );
+	const out = createCanvas( render.width + 2 * m, render.height + 2 * m );
+	const ctx = out.getContext( '2d' );
+	ctx.fillStyle = color;
+	ctx.fillRect( 0, 0, out.width, out.height );
+	ctx.drawImage( render, m, m );
 	return out;
 }

@@ -221,7 +221,8 @@ export function evalBezierMesh( mesh, u, v ) {
  * @param {number} samples Grid subdivisions per axis.
  * @return {Array} Points [{ x, y }].
  */
-export function warpedQuadPoints( quad, mesh, samples = 6 ) {
+export function warpedQuadPoints( quad, mesh, samples = 6, region = {} ) {
+	const { u0 = 0, v0 = 0, u1 = 1, v1 = 1 } = region;
 	const m = homographyFromQuad( [
 		quad.tl.x,
 		quad.tl.y,
@@ -235,8 +236,8 @@ export function warpedQuadPoints( quad, mesh, samples = 6 ) {
 	const out = [];
 	for ( let j = 0; j <= samples; j++ ) {
 		for ( let i = 0; i <= samples; i++ ) {
-			let u = i / samples;
-			let v = j / samples;
+			let u = u0 + ( i / samples ) * ( u1 - u0 );
+			let v = v0 + ( j / samples ) * ( v1 - v0 );
 			if ( mesh ) {
 				[ u, v ] = evalBezierMesh( mesh, u, v );
 			}

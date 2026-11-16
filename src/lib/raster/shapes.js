@@ -1,3 +1,5 @@
+import { drawGradientField } from './gradient-field';
+import { expandedGradientStops } from '../gradient-ramp';
 import { ensureNormalizedPathD } from '../path';
 import { cornerRadii } from '../corner-radii';
 import {
@@ -9,6 +11,7 @@ import {
 import { arrowHeadSpec, ARROW_KINDS } from '../line-geometry';
 import {
 	gradientFillFor,
+	strokePaintStyle,
 	patternTile,
 	registerUserTile,
 	scaledTile,
@@ -18,6 +21,7 @@ import { extraShapePath } from '../shape-library';
 import { dynamicShapeCommands, roundedPathCommands } from '../shape-dynamics';
 import { strokeAlignOf, strokeCapOf, strokeJoinOf } from '../stroke-align';
 import { createCanvas } from './env';
+import { hasPenPaint, paintPenGradient } from '../pen-paint';
 
 /**
  * Default dash/gap for a stroke style, derived from the stroke width so the
@@ -79,13 +83,23 @@ function applyStrokeDash( ctx, layer, width = layer.strokeW ) {
  * @param {CanvasRenderingContext2D} ctx Context (beginPath NOT called here).
  * @param {string}                   d   Path data.
  */
-export function tracePathD( ctx, d ) {
-	// Full SVG path support (v1.2.1): relative commands, H/V, arcs and
-	// shorthands are normalized to absolute M/L/C/Q/Z before tracing.
+// Compiled paths (Pen Tool round, 19.10.2026): the editor repaints every
+// path layer on every frame, and tokenizing a long pen outline costs
+// milliseconds each time (2 ms for a long stroke, 12 ms with parallel
+// copies). The tokens never change for the same string, so long paths
+// are compiled once into a flat program and replayed.
+const PATH_OPS = { M: 0, L: 1, Q: 2, C: 3, Z: 4 };
+const compiledPaths = new Map();
+const COMPILE_MIN = 1500;
+const COMPILE_MAX_ENTRIES = 160;
+
+/** Path data -> flat [op, ...args] program (exactly what tracePathD does). */
+export function compilePathD( d ) {
 	const tokens =
 		ensureNormalizedPathD( d ).match(
 			/[a-df-zA-DF-Z]|-?\d*\.?\d+(?:e[+-]?\d+)?/g
 		) || [];
+	const out = [];
 	let i = 0;
 	let cmd = null;
 	let sx = 0;
@@ -99,37 +113,98 @@ export function tracePathD( ctx, d ) {
 			case 'M': {
 				sx = num();
 				sy = num();
-				ctx.moveTo( sx, sy );
+				out.push( PATH_OPS.M, sx, sy );
 				cmd = 'L';
 				break;
 			}
 			case 'L':
-				ctx.lineTo( num(), num() );
+				out.push( PATH_OPS.L, num(), num() );
 				break;
-			case 'Q': {
-				const cx = num();
-				const cy = num();
-				ctx.quadraticCurveTo( cx, cy, num(), num() );
+			case 'Q':
+				out.push( PATH_OPS.Q, num(), num(), num(), num() );
 				break;
-			}
-			case 'C': {
-				const c1x = num();
-				const c1y = num();
-				const c2x = num();
-				const c2y = num();
-				ctx.bezierCurveTo( c1x, c1y, c2x, c2y, num(), num() );
+			case 'C':
+				out.push(
+					PATH_OPS.C,
+					num(),
+					num(),
+					num(),
+					num(),
+					num(),
+					num()
+				);
 				break;
-			}
 			case 'Z':
 			case 'z':
-				ctx.closePath();
-				ctx.moveTo( sx, sy );
+				out.push( PATH_OPS.Z, sx, sy );
 				cmd = null;
 				break;
 			default:
 				i++; // Unknown command, skip defensively.
 		}
 	}
+	return Float64Array.from( out );
+}
+
+function replayPath( ctx, prog ) {
+	for ( let i = 0; i < prog.length;  ) {
+		switch ( prog[ i ] ) {
+			case 0:
+				ctx.moveTo( prog[ i + 1 ], prog[ i + 2 ] );
+				i += 3;
+				break;
+			case 1:
+				ctx.lineTo( prog[ i + 1 ], prog[ i + 2 ] );
+				i += 3;
+				break;
+			case 2:
+				ctx.quadraticCurveTo(
+					prog[ i + 1 ],
+					prog[ i + 2 ],
+					prog[ i + 3 ],
+					prog[ i + 4 ]
+				);
+				i += 5;
+				break;
+			case 3:
+				ctx.bezierCurveTo(
+					prog[ i + 1 ],
+					prog[ i + 2 ],
+					prog[ i + 3 ],
+					prog[ i + 4 ],
+					prog[ i + 5 ],
+					prog[ i + 6 ]
+				);
+				i += 7;
+				break;
+			default:
+				ctx.closePath();
+				ctx.moveTo( prog[ i + 1 ], prog[ i + 2 ] );
+				i += 3;
+		}
+	}
+}
+
+export function tracePathD( ctx, d ) {
+	// Full SVG path support (v1.2.1): relative commands, H/V, arcs and
+	// shorthands are normalized to absolute M/L/C/Q/Z before tracing.
+	const text = String( d || '' );
+	if ( text.length < COMPILE_MIN ) {
+		replayPath( ctx, compilePathD( text ) );
+		return;
+	}
+	let prog = compiledPaths.get( text );
+	if ( prog ) {
+		// Most recently used last, so the oldest is evicted first.
+		compiledPaths.delete( text );
+	} else {
+		prog = compilePathD( text );
+	}
+	compiledPaths.set( text, prog );
+	if ( compiledPaths.size > COMPILE_MAX_ENTRIES ) {
+		compiledPaths.delete( compiledPaths.keys().next().value );
+	}
+	replayPath( ctx, prog );
 }
 
 export function shapeFillStyle( ctx, layer ) {
@@ -181,9 +256,15 @@ export function shapeFillStyle( ctx, layer ) {
  */
 function drawArrowHead( ctx, tip, angle, kind, lw, color ) {
 	const { len, half, r } = arrowHeadSpec( kind, lw );
+	const cos = Math.cos( angle ),
+		sin = Math.sin( angle );
+	// Trace the head in layer coordinates so its gradient stays continuous
+	// with the shaft. Transforming the context would rotate the paint too.
+	const at = ( x, y ) => [
+		tip.x + x * cos - y * sin,
+		tip.y + x * sin + y * cos,
+	];
 	ctx.save();
-	ctx.translate( tip.x, tip.y );
-	ctx.rotate( angle );
 	ctx.strokeStyle = color;
 	ctx.fillStyle = color;
 	ctx.lineWidth = lw;
@@ -192,22 +273,22 @@ function drawArrowHead( ctx, tip, angle, kind, lw, color ) {
 	ctx.setLineDash( [] );
 	ctx.beginPath();
 	if ( 'arrow' === kind ) {
-		ctx.moveTo( -len, -half );
-		ctx.lineTo( 0, 0 );
-		ctx.lineTo( -len, half );
+		ctx.moveTo( ...at( -len, -half ) );
+		ctx.lineTo( tip.x, tip.y );
+		ctx.lineTo( ...at( -len, half ) );
 		ctx.stroke();
 	} else if ( 'triangle' === kind ) {
-		ctx.moveTo( 0, 0 );
-		ctx.lineTo( -len, -half );
-		ctx.lineTo( -len, half );
+		ctx.moveTo( tip.x, tip.y );
+		ctx.lineTo( ...at( -len, -half ) );
+		ctx.lineTo( ...at( -len, half ) );
 		ctx.closePath();
 		ctx.fill();
 	} else if ( 'circle' === kind ) {
-		ctx.arc( 0, 0, r, 0, 2 * Math.PI );
+		ctx.arc( tip.x, tip.y, r, 0, 2 * Math.PI );
 		ctx.fill();
 	} else if ( 'bar' === kind ) {
-		ctx.moveTo( 0, -half );
-		ctx.lineTo( 0, half );
+		ctx.moveTo( ...at( 0, -half ) );
+		ctx.lineTo( ...at( 0, half ) );
 		ctx.stroke();
 	}
 	ctx.restore();
@@ -222,7 +303,7 @@ function drawArrowHead( ctx, tip, angle, kind, lw, color ) {
  * @param {boolean}                  round Round joins and caps.
  */
 function strokeOutline( ctx, layer, width, round ) {
-	ctx.strokeStyle = layer.stroke;
+	ctx.strokeStyle = strokePaintStyle( ctx, layer );
 	ctx.lineWidth = width;
 	// Caps and joins (v1.429): the layer's own when set, else round for
 	// path shapes and mitred/flat for the legacy maths shapes.
@@ -286,11 +367,20 @@ function paintOutsideStroke( ctx, layer, trace, round ) {
  * @param {boolean}                  round Round joins and caps.
  */
 function paintPath( ctx, layer, trace, round ) {
+	// The fill rule (v1.431): imported rings and letters carry 'evenodd'.
+	const rule = 'evenodd' === layer.fillRule ? 'evenodd' : 'nonzero';
 	ctx.beginPath();
 	trace( ctx );
-	if ( layer.fill && 'transparent' !== layer.fill ) {
+	if ( hasPenPaint( layer ) ) {
+		paintPenGradient( ctx, layer, tracePathD );
+		ctx.beginPath();
+		trace( ctx );
+	} else if (
+		layer.fillType === 'gradient' ||
+		( layer.fill && 'transparent' !== layer.fill )
+	) {
 		ctx.fillStyle = shapeFillStyle( ctx, layer );
-		ctx.fill();
+		ctx.fill( rule );
 	}
 	if ( ! layer.stroke || ! layer.strokeW ) {
 		return;
@@ -300,7 +390,7 @@ function paintPath( ctx, layer, trace, round ) {
 		// Half of a double-width stroke lies inside the outline; the
 		// clip keeps that half.
 		ctx.save();
-		ctx.clip();
+		ctx.clip( rule );
 		strokeOutline( ctx, layer, layer.strokeW * 2, round );
 		ctx.restore();
 		return;
@@ -424,7 +514,11 @@ export function drawShape( ctx, layer ) {
 		const a = layer.lineFlip ? { x: 0, y: h } : { x: 0, y: 0 };
 		const b = layer.lineFlip ? { x: w, y: 0 } : { x: w, y: h };
 		const lw = Math.max( 2, layer.strokeW || 0 );
-		const color = layer.fill || layer.stroke || '#000';
+		const color = layer.strokeGradient
+			? strokePaintStyle( ctx, layer )
+			: layer.fillType === 'gradient'
+			? shapeFillStyle( ctx, layer )
+			: layer.fill || layer.stroke || '#000';
 		const dx = b.x - a.x;
 		const dy = b.y - a.y;
 		const len = Math.hypot( dx, dy ) || 1;
@@ -476,7 +570,15 @@ export function drawShape( ctx, layer ) {
 	paintPath( ctx, layer, ( c ) => traceLegacyShape( c, layer ), false );
 }
 
-export function drawGradient( ctx, layer ) {
+export function drawGradient( ctx, layer, env = {} ) {
+	if (
+		layer.kind === 'freeform' ||
+		layer.kind === 'mesh' ||
+		( layer.kind !== 'angle' && layer.spread && layer.spread !== 'pad' )
+	) {
+		drawGradientField( ctx, layer, env );
+		return;
+	}
 	const { w, h } = layer;
 	// from/to are doc coords; convert into layer-local space.
 	const fx = ( layer.from?.x ?? 0 ) - layer.x;
@@ -496,7 +598,7 @@ export function drawGradient( ctx, layer ) {
 	} else {
 		grad = ctx.createLinearGradient( fx, fy, tx, ty );
 	}
-	for ( const stop of layer.stops || [] ) {
+	for ( const stop of expandedGradientStops( layer.stops || [] ) ) {
 		grad.addColorStop( Math.min( 1, Math.max( 0, stop.at ) ), stop.color );
 	}
 	ctx.fillStyle = grad;

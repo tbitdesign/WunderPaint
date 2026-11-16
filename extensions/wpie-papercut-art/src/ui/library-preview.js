@@ -109,7 +109,6 @@ export function createLibraryPreview() {
 				...defaultParams(),
 				...preset.patch(),
 				photo: { source: 'none' },
-				grain: 0,
 				detail: 75,
 			} );
 			return draw( params );

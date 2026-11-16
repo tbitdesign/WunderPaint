@@ -3,19 +3,62 @@
  */
 
 import { __ } from '@wordpress/i18n';
-import { useState } from '@wordpress/element';
+import { beginColorPick } from '../lib/color-pick-session';
+import { useEffect, useState } from '@wordpress/element';
 
 import { I } from '../icons';
 import { TOOLS, TOOLBAR_GROUPS } from '../store/constants';
 import { useEditor } from '../store/editor-context';
-import { ColorPopover } from '../components/color-popover';
+import { PaintTargets } from '../components/paint-controls';
+import { isPaintLayer } from '../lib/layer-paint';
+import { useColorEditor } from '../components/use-color-editor';
 import { listExtensionTools } from '../lib/extensions';
+import { isKeyHidden, subscribeWorkspace } from '../lib/workspace';
 
 const toolById = ( id ) => TOOLS.find( ( t ) => t.id === id );
 
 function FgBgWidget() {
 	const { state, dispatch } = useEditor();
-	const [ editing, setEditing ] = useState( null ); // 'fg' | 'bg' | null
+	const layer =
+		state.selectedIds.length === 1 &&
+		state.layers.find( ( l ) => l.id === state.activeId );
+	const fillEditor = useColorEditor( {
+		layer,
+		side: 'fill',
+		documentTarget: true,
+	} );
+	const strokeEditor = useColorEditor( {
+		layer,
+		side: 'stroke',
+		documentTarget: true,
+	} );
+	const foreground = useColorEditor( {
+		color: state.fgColor,
+		title: __( 'Foreground', 'wunderpaint' ),
+		onChange: ( color ) => dispatch( { type: 'SET_FG', color } ),
+	} );
+	const background = useColorEditor( {
+		color: state.bgColor,
+		title: __( 'Background', 'wunderpaint' ),
+		onChange: ( color ) => dispatch( { type: 'SET_BG', color } ),
+	} );
+	if ( isPaintLayer( layer ) ) {
+		return (
+			<div data-ws="tool.colors">
+				<PaintTargets
+					compact
+					layer={ layer }
+					target={ state.paintTarget }
+					onSelect={ ( target, event ) =>
+						( target === 'stroke'
+							? strokeEditor
+							: fillEditor
+						).show( event.currentTarget )
+					}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div
@@ -35,8 +78,8 @@ function FgBgWidget() {
 						height: 26,
 					} }
 					title={ __( 'Foreground color', 'wunderpaint' ) }
-					onClick={ () =>
-						setEditing( 'fg' === editing ? null : 'fg' )
+					onClick={ ( event ) =>
+						foreground.show( event.currentTarget )
 					}
 				/>
 				<button
@@ -47,8 +90,8 @@ function FgBgWidget() {
 						height: 26,
 					} }
 					title={ __( 'Background color', 'wunderpaint' ) }
-					onClick={ () =>
-						setEditing( 'bg' === editing ? null : 'bg' )
+					onClick={ ( event ) =>
+						background.show( event.currentTarget )
 					}
 				/>
 				<button
@@ -86,31 +129,35 @@ function FgBgWidget() {
 					/>
 				</button>
 			</div>
-			{ editing && (
-				<ColorPopover
-					color={ 'fg' === editing ? state.fgColor : state.bgColor }
-					onChange={ ( c ) =>
-						dispatch( {
-							type: 'fg' === editing ? 'SET_FG' : 'SET_BG',
-							color: c,
-						} )
-					}
-					onClose={ () => setEditing( null ) }
-					style={ { left: 50, bottom: 0 } }
-				/>
-			) }
 		</div>
 	);
 }
 
 export function EditorToolbar() {
-	const { state, dispatch } = useEditor();
+	const editor = useEditor();
+	const { state, dispatch } = editor;
+	const [ , setWorkspaceTick ] = useState( 0 );
+	useEffect(
+		() =>
+			subscribeWorkspace( () =>
+				setWorkspaceTick( ( tick ) => tick + 1 )
+			),
+		[]
+	);
+	const firstVisibleGroup = TOOLBAR_GROUPS.find( ( group ) =>
+		group.some( ( id ) => ! isKeyHidden( 'tool.' + id ) )
+	);
+	const extensionTools = listExtensionTools();
 
 	// Clicking the Text tool drops a ready-to-type, centered text box right
 	// away (handled in the canvas) instead of arming a draw-a-box tool - the
 	// one-click ease beginners expect. Power users still get the draw/click
 	// tool via the T shortcut (v1.179.0).
-	const activate = ( id ) => {
+	const activate = ( id, event ) => {
+		if ( 'eyedropper' === id ) {
+			beginColorPick( editor, { background: !! event?.altKey } );
+			return;
+		}
 		if ( 'text' === id ) {
 			window.dispatchEvent( new CustomEvent( 'wpie-insert-text' ) );
 			return;
@@ -121,17 +168,33 @@ export function EditorToolbar() {
 	const [ tip, setTip ] = useState( null ); // {label, x, y}, fixed pos (v1.0.3)
 	const showTip = ( label ) => ( e ) => {
 		const r = e.currentTarget.getBoundingClientRect();
-		setTip( { label, x: r.right + 8, y: r.top + r.height / 2 } );
+		const rail = e.currentTarget
+			.closest( '.ed-toolbar' )
+			.getBoundingClientRect();
+		setTip( { label, x: rail.right + 8, y: r.top + r.height / 2 } );
 	};
 	const hideTip = () => setTip( null );
 
 	return (
 		<div className="ed-toolbar">
 			{ TOOLBAR_GROUPS.map( ( group, gi ) => (
-				<div key={ gi } style={ { display: 'contents' } }>
-					{ gi > 0 && <div className="ed-tool-sep" /> }
+				<div
+					key={ gi }
+					className="ed-tool-group"
+					data-ws-empty={
+						group.every( ( id ) => isKeyHidden( 'tool.' + id ) ) ||
+						undefined
+					}
+					data-ws-first={ group === firstVisibleGroup || undefined }
+				>
 					{ group.map( ( id ) => {
 						const tool = toolById( id );
+						const label =
+							id === 'eyedropper'
+								? `${ __( 'Color panel', 'wunderpaint' ) } / ${
+										tool.label
+								  } (${ tool.kbd })`
+								: `${ tool.label } (${ tool.kbd })`;
 						return (
 							<div
 								key={ id }
@@ -141,19 +204,31 @@ export function EditorToolbar() {
 								}` }
 								role="button"
 								tabIndex={ 0 }
-								aria-label={ `${ tool.label } (${ tool.kbd })` }
-								onClick={ () => activate( id ) }
-								onKeyDown={ ( e ) =>
-									( 'Enter' === e.key || ' ' === e.key ) &&
-									activate( id )
+								aria-label={ label }
+								aria-expanded={
+									id === 'eyedropper'
+										? !! state.showColorPanel
+										: undefined
 								}
-								onMouseEnter={ showTip(
-									`${ tool.label } (${ tool.kbd })`
-								) }
+								onPointerDown={
+									id === 'eyedropper'
+										? ( e ) => e.preventDefault()
+										: undefined
+								}
+								onClick={ ( e ) => activate( id, e ) }
+								onKeyDown={ ( e ) => {
+									if ( e.key !== 'Enter' && e.key !== ' ' ) {
+										return;
+									}
+									if ( id === 'eyedropper' ) {
+										e.preventDefault();
+										e.stopPropagation();
+									}
+									activate( id, e );
+								} }
+								onMouseEnter={ showTip( label ) }
 								onMouseLeave={ hideTip }
-								onFocus={ showTip(
-									`${ tool.label } (${ tool.kbd })`
-								) }
+								onFocus={ showTip( label ) }
 								onBlur={ hideTip }
 							>
 								{ I[ tool.icon ]( { size: 18 } ) }
@@ -163,36 +238,12 @@ export function EditorToolbar() {
 					} ) }
 				</div>
 			) ) }
-			<div className="ed-tool-sep" />
-			<div
-				className="ed-tool"
-				data-ws="tool.aigen"
-				role="button"
-				tabIndex={ 0 }
-				aria-label={ __( 'AI Generate', 'wunderpaint' ) + ' (A)' }
-				onClick={ () =>
-					dispatch( { type: 'SET_RIGHT_TAB', tab: 'ai' } )
-				}
-				onKeyDown={ ( e ) =>
-					'Enter' === e.key &&
-					dispatch( { type: 'SET_RIGHT_TAB', tab: 'ai' } )
-				}
-				onMouseEnter={ showTip(
-					__( 'AI Generate', 'wunderpaint' ) + ' (A)'
-				) }
-				onMouseLeave={ hideTip }
-				onFocus={ showTip(
-					__( 'AI Generate', 'wunderpaint' ) + ' (A)'
-				) }
-				onBlur={ hideTip }
-			>
-				{ I.sparkAI( { size: 18 } ) }
-				<span className="kbd">A</span>
-			</div>
-			{ listExtensionTools().length > 0 && (
-				<div style={ { display: 'contents' } }>
-					<div className="ed-tool-sep" />
-					{ listExtensionTools().map( ( tool ) => (
+			{ extensionTools.length > 0 && (
+				<div
+					className="ed-tool-group"
+					data-ws-first={ ! firstVisibleGroup || undefined }
+				>
+					{ extensionTools.map( ( tool ) => (
 						<div
 							key={ tool.id }
 							className={ `ed-tool ${
@@ -231,7 +282,7 @@ export function EditorToolbar() {
 					) ) }
 				</div>
 			) }
-			<div style={ { flex: 1 } } />
+			<div className="ed-toolbar-spacer" />
 			<FgBgWidget />
 			{ tip && (
 				<div

@@ -7,12 +7,19 @@
  * (layer.x, layer.y) at 1:1 scale.
  */
 
-import { createCanvas, tracePathD } from './raster';
+import { createCanvas, tracePathD, effectReach } from './raster';
 import { drawImageFitted } from './image-fit';
 import { gaussianBlur, sharpen } from './effects';
+import { FX_BRUSH_DEFAULTS, fxBrushToneWeight } from './fxbrush-settings';
 import { selectionToMaskCanvas } from '../store/selection';
-import { hexToRgb, colorLuminance } from './color';
-import { setDocTransform } from '../screens/canvas/paint-commit';
+import { colorLuminance } from './color';
+import { fillBucketCanvas } from './bucket-fill';
+import {
+	setDocTransform,
+	setLayerToDocTransform,
+} from '../screens/canvas/paint-commit';
+import { drawCloneDab } from './clone-source';
+import { growFxBrushLayer } from './fxbrush-bounds';
 import { getTip, isStampTip, pathIsShaped, stampTipStroke } from './brush-tips';
 import { drawSoftRoundStroke } from './raster/styles';
 
@@ -353,182 +360,42 @@ export function clearSelectedRegion( layer, selection, doc ) {
  * @return {boolean} Whether anything was filled.
  */
 export function floodFill( canvas, startX, startY, fillColor, opts = {} ) {
-	const {
-		tolerance = 32,
-		contiguous = true,
-		opacity = 1,
-		mask = null,
-	} = opts;
-	const w = canvas.width;
-	const h = canvas.height;
-	const x0 = Math.round( startX );
-	const y0 = Math.round( startY );
-	if ( x0 < 0 || y0 < 0 || x0 >= w || y0 >= h ) {
-		return false;
-	}
-
-	const ctx = canvas.getContext( '2d' );
-	const imageData = ctx.getImageData( 0, 0, w, h );
-	const d = imageData.data;
-
-	let maskData = null;
-	if ( mask ) {
-		maskData = mask.getContext( '2d' ).getImageData( 0, 0, w, h ).data;
-	}
-
-	const idx = ( y0 * w + x0 ) * 4;
-	const target = [ d[ idx ], d[ idx + 1 ], d[ idx + 2 ], d[ idx + 3 ] ];
-	const fill = hexToRgb( fillColor );
-	const fillA = Math.round( opacity * 255 );
-
-	const withinTolerance = ( i ) =>
-		Math.abs( d[ i ] - target[ 0 ] ) <= tolerance &&
-		Math.abs( d[ i + 1 ] - target[ 1 ] ) <= tolerance &&
-		Math.abs( d[ i + 2 ] - target[ 2 ] ) <= tolerance &&
-		Math.abs( d[ i + 3 ] - target[ 3 ] ) <= tolerance;
-
-	const maskAllows = ( i ) => ! maskData || maskData[ i + 3 ] > 0;
-
-	const paint = ( i ) => {
-		// Alpha-blend the fill over the original pixel.
-		const a = fillA / 255;
-		d[ i ] = fill.r * a + d[ i ] * ( 1 - a );
-		d[ i + 1 ] = fill.g * a + d[ i + 1 ] * ( 1 - a );
-		d[ i + 2 ] = fill.b * a + d[ i + 2 ] * ( 1 - a );
-		d[ i + 3 ] = Math.max( d[ i + 3 ], fillA );
-	};
-
-	let painted = false;
-
-	if ( ! contiguous ) {
-		for ( let i = 0; i < d.length; i += 4 ) {
-			if ( withinTolerance( i ) && maskAllows( i ) ) {
-				paint( i );
-				painted = true;
-			}
-		}
-	} else {
-		const visited = new Uint8Array( w * h );
-		const stack = [ [ x0, y0 ] ];
-		while ( stack.length ) {
-			const [ x, y ] = stack.pop();
-			let lx = x;
-			// Walk left.
-			while (
-				lx >= 0 &&
-				! visited[ y * w + lx ] &&
-				withinTolerance( ( y * w + lx ) * 4 )
-			) {
-				lx--;
-			}
-			lx++;
-			let spanUp = false;
-			let spanDown = false;
-			let cx = lx;
-			while (
-				cx < w &&
-				! visited[ y * w + cx ] &&
-				withinTolerance( ( y * w + cx ) * 4 )
-			) {
-				visited[ y * w + cx ] = 1;
-				const i = ( y * w + cx ) * 4;
-				if ( maskAllows( i ) ) {
-					paint( i );
-					painted = true;
-				}
-				if ( y > 0 ) {
-					const up = ( ( y - 1 ) * w + cx ) * 4;
-					const upOk =
-						! visited[ ( y - 1 ) * w + cx ] &&
-						withinTolerance( up );
-					if ( upOk && ! spanUp ) {
-						stack.push( [ cx, y - 1 ] );
-						spanUp = true;
-					} else if ( ! upOk ) {
-						spanUp = false;
-					}
-				}
-				if ( y < h - 1 ) {
-					const down = ( ( y + 1 ) * w + cx ) * 4;
-					const downOk =
-						! visited[ ( y + 1 ) * w + cx ] &&
-						withinTolerance( down );
-					if ( downOk && ! spanDown ) {
-						stack.push( [ cx, y + 1 ] );
-						spanDown = true;
-					} else if ( ! downOk ) {
-						spanDown = false;
-					}
-				}
-				cx++;
-			}
-		}
-	}
-
-	if ( painted ) {
-		ctx.putImageData( imageData, 0, 0 );
-	}
-	return painted;
+	return fillBucketCanvas( canvas, startX, startY, fillColor, opts );
 }
 
-/**
- * Clone Stamp (v0.2): copy pixels from a stroke-start snapshot of the layer
- * onto the layer at a fixed source→target offset, as a soft circular stamp.
- *
- * @param {Object} layer    Raster layer with live canvas.
- * @param {Object} snapshot Canvas copy of the layer at stroke start.
- * @param {Object} offset   { dx, dy } source minus target (doc px).
- * @param {Object} at       Target point in DOC coordinates.
- * @param {Object} opts     { size, opacity 0-1, hardness 0-100, mask }.
- */
+/** Paint from a frozen source at a document-space offset, clipped to selection. */
 export function cloneStamp( layer, snapshot, offset, at, opts = {} ) {
 	if ( ! layer.canvas ) {
 		return;
 	}
 	const { size = 40, opacity = 1, hardness = 80, mask = null } = opts;
-	const radius = size / 2;
-	const local = { x: at.x - layer.x, y: at.y - layer.y };
-
-	const stamp = createCanvas( size, size );
-	const sctx = stamp.getContext( '2d' );
-	// Pixels for stamp(x) come from snapshot(local - r + offset + x).
-	sctx.drawImage(
-		snapshot,
-		-( local.x - radius + offset.dx ),
-		-( local.y - radius + offset.dy )
+	// Keep the canvas argument supported for existing callers.
+	const source = snapshot.layer
+		? snapshot
+		: { layer: { ...layer, canvas: snapshot } };
+	const stamp = drawCloneDab(
+		createCanvas( size, size ),
+		source,
+		{ x: at.x + offset.dx, y: at.y + offset.dy },
+		size,
+		hardness
 	);
-	// Circular soft-edge alpha.
-	const inner = Math.min(
-		radius - 0.5,
-		( radius * Math.min( 100, Math.max( 0, hardness ) ) ) / 100
-	);
-	const grad = sctx.createRadialGradient(
-		radius,
-		radius,
-		Math.max( 0, inner ),
-		radius,
-		radius,
-		radius
-	);
-	grad.addColorStop( 0, 'rgba(0,0,0,1)' );
-	grad.addColorStop( 1, 'rgba(0,0,0,0)' );
-	sctx.globalCompositeOperation = 'destination-in';
-	sctx.fillStyle = grad;
-	sctx.fillRect( 0, 0, size, size );
-
+	const radius = stamp.width / 2;
 	const ctx = layer.canvas.getContext( '2d' );
 	ctx.save();
 	ctx.globalAlpha = opacity;
 	if ( mask ) {
-		// Selection clip: composite through a scratch so the mask applies.
 		const scratch = createCanvas( layer.canvas.width, layer.canvas.height );
 		const scx = scratch.getContext( '2d' );
-		scx.drawImage( stamp, local.x - radius, local.y - radius );
+		setDocTransform( scx, layer );
+		scx.drawImage( stamp, at.x - radius, at.y - radius );
+		scx.setTransform( 1, 0, 0, 1, 0, 0 );
 		scx.globalCompositeOperation = 'destination-in';
 		scx.drawImage( mask, 0, 0 );
 		ctx.drawImage( scratch, 0, 0 );
 	} else {
-		ctx.drawImage( stamp, local.x - radius, local.y - radius );
+		setDocTransform( ctx, layer );
+		ctx.drawImage( stamp, at.x - radius, at.y - radius );
 	}
 	ctx.restore();
 }
@@ -541,11 +408,13 @@ export function cloneStamp( layer, snapshot, offset, at, opts = {} ) {
  * @param {Object} layer Raster layer (canvas required).
  * @param {Object} at    Doc-space center point.
  * @param {Object} opts  { mode: blur|sharpen|smudge|dodge|burn|sponge, size,
- *                       strength, hardness, mask, prev (smudge), sponge }.
+ *                       strength, hardness, blurRadius, toneRange, preserveAlpha,
+ *                       mask (legacy layer-local), docMask, prev (smudge), sponge }.
+ * @return {Object} The painted layer, with updated bounds when it grew.
  */
 export function effectStamp( layer, at, opts = {} ) {
 	if ( ! layer.canvas ) {
-		return;
+		return layer;
 	}
 	const {
 		mode = 'blur',
@@ -554,40 +423,53 @@ export function effectStamp( layer, at, opts = {} ) {
 		hardness = 60,
 		mask = null,
 	} = opts;
+	if ( ! opts.preserveAlpha && [ 'blur', 'smudge' ].includes( mode ) ) {
+		layer = growFxBrushLayer( layer, at, size );
+	}
+	const geometry = {
+		...layer,
+		w: layer.w ?? layer.canvas.width,
+		h: layer.h ?? layer.canvas.height,
+	};
 	const radius = size / 2;
-	const local = { x: at.x - layer.x, y: at.y - layer.y };
-
-	// Copy the affected region into a stamp and run the kernel on it.
-	const stamp = createCanvas( size, size );
-	const sctx = stamp.getContext( '2d' );
-	sctx.drawImage(
-		layer.canvas,
-		-( local.x - radius ),
-		-( local.y - radius )
+	const blurRadius = Math.max(
+		1,
+		Math.min( 50, opts.blurRadius ?? FX_BRUSH_DEFAULTS.blurRadius )
 	);
-	if ( 'smudge' === mode ) {
-		// Smudge (v1.429): the pixels under the previous step are dragged
-		// to this one. The stamp holds that patch; the soft edge and the
-		// strength decide how much of it lands.
-		const prev = opts.prev || at;
-		sctx.clearRect( 0, 0, size, size );
-		sctx.drawImage(
-			layer.canvas,
-			-( prev.x - layer.x - radius ),
-			-( prev.y - layer.y - radius )
-		);
-	} else {
-		const img = sctx.getImageData( 0, 0, size, size );
-		const buffer = { data: img.data, width: size, height: size };
+	// Read neighboring pixels beyond the brush circle; the radius must remain
+	// independent of the brush size, and the kernel must not clamp at its edge.
+	const pad = mode === 'blur' ? effectReach( { radius: blurRadius } ) : 0;
+	const center = radius + pad;
+	const extent = size + 2 * pad;
+	const stamp = createCanvas( extent, extent );
+	const sctx = stamp.getContext( '2d' );
+	const sourceAt = mode === 'smudge' ? opts.prev || at : at;
+	setLayerToDocTransform(
+		sctx,
+		geometry,
+		sourceAt.x - center,
+		sourceAt.y - center
+	);
+	sctx.drawImage( layer.canvas, 0, 0 );
+	sctx.setTransform( 1, 0, 0, 1, 0, 0 );
+	if ( mode !== 'smudge' ) {
+		const img = sctx.getImageData( 0, 0, extent, extent );
+		const buffer = { data: img.data, width: extent, height: extent };
 		if ( 'sharpen' === mode ) {
 			sharpen( buffer, { amount: strength * 2 } );
 		} else if ( 'dodge' === mode || 'burn' === mode ) {
 			// Lighten or darken (v1.429): a gentle per-stamp factor, the
 			// stroke's steps add up the way a real dodge would.
 			const k = ( strength / 100 ) * 0.18;
-			const f = 'dodge' === mode ? 1 + k : 1 - k;
 			const d = img.data;
 			for ( let i = 0; i < d.length; i += 4 ) {
+				const luminance =
+					( 0.2126 * d[ i ] +
+						0.7152 * d[ i + 1 ] +
+						0.0722 * d[ i + 2 ] ) /
+					255;
+				const weight = fxBrushToneWeight( luminance, opts.toneRange );
+				const f = 1 + ( 'dodge' === mode ? k : -k ) * weight;
 				d[ i ] = Math.min( 255, d[ i ] * f );
 				d[ i + 1 ] = Math.min( 255, d[ i + 1 ] * f );
 				d[ i + 2 ] = Math.min( 255, d[ i + 2 ] * f );
@@ -616,7 +498,7 @@ export function effectStamp( layer, at, opts = {} ) {
 				);
 			}
 		} else {
-			gaussianBlur( buffer, { radius: Math.max( 1, strength / 8 ) } );
+			gaussianBlur( buffer, { radius: blurRadius } );
 		}
 		sctx.putImageData( img, 0, 0 );
 	}
@@ -627,35 +509,46 @@ export function effectStamp( layer, at, opts = {} ) {
 		( radius * Math.min( 100, Math.max( 0, hardness ) ) ) / 100
 	);
 	const grad = sctx.createRadialGradient(
-		radius,
-		radius,
+		center,
+		center,
 		Math.max( 0, inner ),
-		radius,
-		radius,
+		center,
+		center,
 		radius
 	);
 	grad.addColorStop( 0, 'rgba(0,0,0,1)' );
 	grad.addColorStop( 1, 'rgba(0,0,0,0)' );
 	sctx.globalCompositeOperation = 'destination-in';
 	sctx.fillStyle = grad;
-	sctx.fillRect( 0, 0, size, size );
+	sctx.fillRect( 0, 0, extent, extent );
+	if ( opts.docMask ) {
+		sctx.drawImage( opts.docMask, -( at.x - center ), -( at.y - center ) );
+	}
 
 	const ctx = layer.canvas.getContext( '2d' );
 	ctx.save();
-	if ( 'smudge' === mode ) {
-		ctx.globalAlpha = Math.max( 0.05, Math.min( 1, strength / 100 ) );
+	if ( 'smudge' === mode || 'blur' === mode ) {
+		ctx.globalAlpha = Math.max( 0, Math.min( 1, strength / 100 ) );
+	}
+	if ( opts.preserveAlpha ) {
+		// Source-atop retains every destination alpha, including antialiased edges.
+		ctx.globalCompositeOperation = 'source-atop';
 	}
 	if ( mask ) {
 		const scratch = createCanvas( layer.canvas.width, layer.canvas.height );
 		const scx = scratch.getContext( '2d' );
-		scx.drawImage( stamp, local.x - radius, local.y - radius );
+		setDocTransform( scx, geometry );
+		scx.drawImage( stamp, at.x - center, at.y - center );
+		scx.setTransform( 1, 0, 0, 1, 0, 0 );
 		scx.globalCompositeOperation = 'destination-in';
 		scx.drawImage( mask, 0, 0 );
 		ctx.drawImage( scratch, 0, 0 );
 	} else {
-		ctx.drawImage( stamp, local.x - radius, local.y - radius );
+		setDocTransform( ctx, geometry );
+		ctx.drawImage( stamp, at.x - center, at.y - center );
 	}
 	ctx.restore();
+	return layer;
 }
 
 /**

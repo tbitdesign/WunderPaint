@@ -1,3 +1,5 @@
+import { collectionDecoration } from './collection-shapes.js';
+import { worldDecoration } from './world-shapes.js';
 import { rng } from './geom.js';
 import {
 	ellipse,
@@ -88,11 +90,12 @@ export function landformShape( o ) {
 			break;
 		case 'glacier': {
 			const top = [];
-			for ( let i = 0; i <= 20; i++ )
+			for ( let i = 0; i <= 20; i++ ) {
 				top.push( [
 					-1 + i * 0.1,
 					-0.38 - r() * 0.36 - ( i > 5 && i < 16 ? 0.16 : 0 ),
 				] );
+			}
 			const holes = [];
 			for ( let i = 0; i < 6; i++ ) {
 				const x = -0.7 + i * 0.28;
@@ -121,7 +124,7 @@ export function landformShape( o ) {
 				[ -0.07, -0.9, 0.31 ],
 				[ 0.065, -0.72, 0.24 ],
 				[ -0.045, -0.43, 0.29 ],
-			] )
+			] ) {
 				holes.push(
 					ribbon(
 						[
@@ -133,10 +136,11 @@ export function landformShape( o ) {
 						0.007
 					)
 				);
+			}
 			out.push( [ [ ...left, ...right.reverse() ], ...holes ] );
 			add( ellipse( 0, -0.014, 0.42, 0.067 ) );
-			for ( const side of [ -1, 1 ] )
-				for ( let i = 0; i < 3; i++ )
+			for ( const side of [ -1, 1 ] ) {
+				for ( let i = 0; i < 3; i++ ) {
 					add(
 						ellipse(
 							side * ( 0.24 + i * 0.057 ),
@@ -147,6 +151,8 @@ export function landformShape( o ) {
 							side * 0.5
 						)
 					);
+				}
+			}
 			break;
 		}
 		case 'riverbend': {
@@ -278,6 +284,10 @@ export function landformShape( o ) {
 
 /** Buildings, vessels and sky motifs have their own silhouettes and negative space. */
 export function decorationShape( o ) {
+	const collection = collectionDecoration( o ) || worldDecoration( o );
+	if ( collection ) {
+		return collection;
+	}
 	const r = rng( o.seed ),
 		out = [],
 		add = ( p ) => out.push( [ p ] ),

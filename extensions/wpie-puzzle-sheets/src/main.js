@@ -41,12 +41,25 @@ import {
 	renderMemory,
 	renderLogicGrid,
 	renderMathChains,
+	foldLetters,
+	shapeMask,
+	pickSecretCells,
+	composeSheet,
 } from './puzzle-engine.js';
 import {
 	buildBinary,
 	buildInequality,
 	buildMathChains,
 } from './logic-puzzles.js';
+import {
+	buildArithmetic,
+	renderArithmetic,
+	canWriteInColumns,
+	buildClocks,
+	renderClocks,
+	buildCircleMaze,
+	renderCircleMaze,
+} from './school-sheets.js';
 
 const GEN_ID = 'wpie-puzzle-sheets/sheet';
 
@@ -79,6 +92,11 @@ const DEFAULTS = {
 	nonoShape: 'image',
 	nonoSize: 15,
 	anagHint: true,
+	// v2.8: missing letters and magic squares.
+	missGaps: 40,
+	magicCount: 4,
+	magicRange: 'small',
+	magicClues: 3,
 	memPairs: 8,
 	memMotifs: '🍎 🌟 🎈 🐟 🌸 🚗 🎁 ⚽ 🦋 🍩 🌈 🐢',
 	game: 'slf',
@@ -102,9 +120,179 @@ const DEFAULTS = {
 	textScale: 100,
 	source: 'doc', // for the maze image silhouette
 	image: null,
+	// v2.6: word search in a shape, hidden messages and solution words.
+	wsShape: 'square',
+	wsSecret: '',
+	secretWord: '',
+	// v2.6: the worksheet head and several puzzles per page.
+	sheetHeader: false,
+	instructions: '',
+	perPage: 1,
+	// v2.6: picture sudoku and picture crossword.
+	picMotifs: '🍎 🐟 🌟 🚗 🌸 🎈 🦋 🍩 ⚽',
+	picSize: 4,
+	picDiff: 1,
+	picClues: '',
+	// v2.7: series, school sheets and the circle maze.
+	series: 1,
+	arithOps: 'add',
+	arithMax: 20,
+	arithCount: 24,
+	arithLayout: 'rows',
+	arithGaps: false,
+	clockTask: 'read',
+	clockStep: 'quarter',
+	clockCount: 6,
+	rings: 10,
 };
 
+// The picture crossword's starter set: one picture, the word in each
+// editor language. Accents stay as written - the grid folds them.
+const PIC_WORDS = [
+	[
+		'🐶',
+		{
+			en: 'DOG',
+			de: 'HUND',
+			es: 'PERRO',
+			fr: 'CHIEN',
+			pt: 'CÃO',
+			it: 'CANE',
+			nl: 'HOND',
+		},
+	],
+	[
+		'🐱',
+		{
+			en: 'CAT',
+			de: 'KATZE',
+			es: 'GATO',
+			fr: 'CHAT',
+			pt: 'GATO',
+			it: 'GATTO',
+			nl: 'KAT',
+		},
+	],
+	[
+		'🐟',
+		{
+			en: 'FISH',
+			de: 'FISCH',
+			es: 'PEZ',
+			fr: 'POISSON',
+			pt: 'PEIXE',
+			it: 'PESCE',
+			nl: 'VIS',
+		},
+	],
+	[
+		'🍎',
+		{
+			en: 'APPLE',
+			de: 'APFEL',
+			es: 'MANZANA',
+			fr: 'POMME',
+			pt: 'MAÇÃ',
+			it: 'MELA',
+			nl: 'APPEL',
+		},
+	],
+	[
+		'☀️',
+		{
+			en: 'SUN',
+			de: 'SONNE',
+			es: 'SOL',
+			fr: 'SOLEIL',
+			pt: 'SOL',
+			it: 'SOLE',
+			nl: 'ZON',
+		},
+	],
+	[
+		'🏠',
+		{
+			en: 'HOUSE',
+			de: 'HAUS',
+			es: 'CASA',
+			fr: 'MAISON',
+			pt: 'CASA',
+			it: 'CASA',
+			nl: 'HUIS',
+		},
+	],
+	[
+		'🌳',
+		{
+			en: 'TREE',
+			de: 'BAUM',
+			es: 'ÁRBOL',
+			fr: 'ARBRE',
+			pt: 'ÁRVORE',
+			it: 'ALBERO',
+			nl: 'BOOM',
+		},
+	],
+	[
+		'🌙',
+		{
+			en: 'MOON',
+			de: 'MOND',
+			es: 'LUNA',
+			fr: 'LUNE',
+			pt: 'LUA',
+			it: 'LUNA',
+			nl: 'MAAN',
+		},
+	],
+];
+const defaultPicClues = ( lang ) =>
+	PIC_WORDS.map(
+		( [ pic, words ] ) => `${ words[ lang ] || words.en }: ${ pic }`
+	).join( '\n' );
+// Fallback pictures when the list is shorter than the sudoku is wide.
+const PIC_FALLBACK = [ '🍎', '🐟', '🌟', '🚗', '🌸', '🎈', '🦋', '🍩', '⚽' ];
+// Modes that can put several different puzzles on one page.
+const PER_PAGE = [
+	'sudoku',
+	'picsudoku',
+	'maze',
+	'circlemaze',
+	'binary',
+	'inequality',
+	'pyramid',
+	'mathchains',
+];
+// Modes whose seed gives a genuinely different puzzle - a class set in
+// versions A, B, C. (The crossword family places the same words much the
+// same way whatever the seed, so it stays out.)
+const SERIES = [
+	'wordsearch',
+	'anagram',
+	'cryptogram',
+	'sudoku',
+	'picsudoku',
+	'maze',
+	'circlemaze',
+	'binary',
+	'inequality',
+	'pyramid',
+	'mathchains',
+	'arith',
+	'clock',
+];
+
+import {
+	buildMissingLetters,
+	renderMissingLetters,
+	buildMagicSquares,
+	renderMagicSquares,
+	renderMoreGame,
+	MORE_GAMES,
+	ALPHABETS,
+} from './more-sheets.js';
 import { t, LANG } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 /* --------------------------- word suggestions ----------------------------- */
 
@@ -463,12 +651,1080 @@ const WORD_THEMES = [
 			'WINTER',
 		],
 	},
+	{
+		id: 'wedding',
+		label: 'Wedding',
+		en: [
+			'BRIDE',
+			'GROOM',
+			'RING',
+			'VOWS',
+			'KISS',
+			'DANCE',
+			'CAKE',
+			'FLOWERS',
+			'VEIL',
+			'LOVE',
+		],
+		de: [
+			'BRAUT',
+			'BRÄUTIGAM',
+			'RING',
+			'KUSS',
+			'TANZ',
+			'TORTE',
+			'BLUMEN',
+			'SCHLEIER',
+			'LIEBE',
+			'HOCHZEIT',
+		],
+		es: [
+			'NOVIA',
+			'NOVIO',
+			'ANILLO',
+			'BESO',
+			'BAILE',
+			'PASTEL',
+			'FLORES',
+			'VELO',
+			'AMOR',
+			'BODA',
+		],
+		fr: [
+			'MARIÉE',
+			'MARIÉ',
+			'ALLIANCE',
+			'BAISER',
+			'DANSE',
+			'GÂTEAU',
+			'FLEURS',
+			'VOILE',
+			'AMOUR',
+			'NOCES',
+		],
+		pt: [
+			'NOIVA',
+			'NOIVO',
+			'ANEL',
+			'BEIJO',
+			'DANÇA',
+			'BOLO',
+			'FLORES',
+			'VÉU',
+			'AMOR',
+			'CASAMENTO',
+		],
+		it: [
+			'SPOSA',
+			'SPOSO',
+			'ANELLO',
+			'BACIO',
+			'BALLO',
+			'TORTA',
+			'FIORI',
+			'VELO',
+			'AMORE',
+			'NOZZE',
+		],
+		nl: [
+			'BRUID',
+			'BRUIDEGOM',
+			'RING',
+			'KUS',
+			'DANS',
+			'TAART',
+			'BLOEMEN',
+			'SLUIER',
+			'LIEFDE',
+			'BRUILOFT',
+		],
+	},
+	{
+		id: 'easter',
+		label: 'Easter',
+		en: [
+			'EGG',
+			'BUNNY',
+			'BASKET',
+			'CHICK',
+			'SPRING',
+			'TULIP',
+			'CHOCOLATE',
+			'LAMB',
+			'NEST',
+			'HUNT',
+		],
+		de: [
+			'OSTEREI',
+			'HASE',
+			'KORB',
+			'KÜKEN',
+			'FRÜHLING',
+			'TULPE',
+			'SCHOKOLADE',
+			'LAMM',
+			'NEST',
+			'SUCHE',
+		],
+		es: [
+			'HUEVO',
+			'CONEJO',
+			'CESTA',
+			'POLLITO',
+			'PRIMAVERA',
+			'TULIPÁN',
+			'CHOCOLATE',
+			'CORDERO',
+			'NIDO',
+			'PASCUA',
+		],
+		fr: [
+			'LAPIN',
+			'PANIER',
+			'POUSSIN',
+			'PRINTEMPS',
+			'TULIPE',
+			'CHOCOLAT',
+			'AGNEAU',
+			'NID',
+			'CLOCHES',
+			'PÂQUES',
+		],
+		pt: [
+			'OVO',
+			'COELHO',
+			'CESTA',
+			'PINTINHO',
+			'PRIMAVERA',
+			'TULIPA',
+			'CHOCOLATE',
+			'CORDEIRO',
+			'NINHO',
+			'PÁSCOA',
+		],
+		it: [
+			'UOVO',
+			'CONIGLIO',
+			'CESTINO',
+			'PULCINO',
+			'PRIMAVERA',
+			'TULIPANO',
+			'CIOCCOLATO',
+			'AGNELLO',
+			'NIDO',
+			'PASQUA',
+		],
+		nl: [
+			'PAASEI',
+			'HAAS',
+			'MANDJE',
+			'KUIKEN',
+			'LENTE',
+			'TULP',
+			'CHOCOLADE',
+			'LAM',
+			'NEST',
+			'PASEN',
+		],
+	},
+	{
+		id: 'halloween',
+		label: 'Halloween',
+		en: [
+			'PUMPKIN',
+			'GHOST',
+			'WITCH',
+			'BAT',
+			'SPIDER',
+			'CANDY',
+			'COSTUME',
+			'MOON',
+			'BROOM',
+			'SKELETON',
+		],
+		de: [
+			'KÜRBIS',
+			'GESPENST',
+			'HEXE',
+			'FLEDERMAUS',
+			'SPINNE',
+			'SÜSSES',
+			'KOSTÜM',
+			'MOND',
+			'BESEN',
+			'SKELETT',
+		],
+		es: [
+			'CALABAZA',
+			'FANTASMA',
+			'BRUJA',
+			'MURCIÉLAGO',
+			'ARAÑA',
+			'DULCES',
+			'DISFRAZ',
+			'LUNA',
+			'ESCOBA',
+			'ESQUELETO',
+		],
+		fr: [
+			'CITROUILLE',
+			'FANTÔME',
+			'SORCIÈRE',
+			'VAMPIRE',
+			'ARAIGNÉE',
+			'BONBONS',
+			'COSTUME',
+			'LUNE',
+			'BALAI',
+			'SQUELETTE',
+		],
+		pt: [
+			'ABÓBORA',
+			'FANTASMA',
+			'BRUXA',
+			'MORCEGO',
+			'ARANHA',
+			'DOCES',
+			'FANTASIA',
+			'LUA',
+			'VASSOURA',
+			'ESQUELETO',
+		],
+		it: [
+			'ZUCCA',
+			'FANTASMA',
+			'STREGA',
+			'PIPISTRELLO',
+			'RAGNO',
+			'CARAMELLE',
+			'COSTUME',
+			'LUNA',
+			'SCOPA',
+			'SCHELETRO',
+		],
+		nl: [
+			'POMPOEN',
+			'SPOOK',
+			'HEKS',
+			'VLEERMUIS',
+			'SPIN',
+			'SNOEP',
+			'KOSTUUM',
+			'MAAN',
+			'BEZEM',
+			'SKELET',
+		],
+	},
+	{
+		id: 'autumn',
+		label: 'Autumn',
+		en: [
+			'LEAVES',
+			'ACORN',
+			'CHESTNUT',
+			'RAIN',
+			'WIND',
+			'APPLE',
+			'MUSHROOM',
+			'HARVEST',
+			'KITE',
+			'FOG',
+		],
+		de: [
+			'BLÄTTER',
+			'EICHEL',
+			'KASTANIE',
+			'REGEN',
+			'WIND',
+			'APFEL',
+			'PILZ',
+			'ERNTE',
+			'DRACHEN',
+			'NEBEL',
+		],
+		es: [
+			'HOJAS',
+			'BELLOTA',
+			'CASTAÑA',
+			'LLUVIA',
+			'VIENTO',
+			'MANZANA',
+			'SETA',
+			'COSECHA',
+			'COMETA',
+			'NIEBLA',
+		],
+		fr: [
+			'FEUILLES',
+			'GLAND',
+			'CHÂTAIGNE',
+			'PLUIE',
+			'VENT',
+			'POMME',
+			'CHAMPIGNON',
+			'RÉCOLTE',
+			'CITROUILLE',
+			'BROUILLARD',
+		],
+		pt: [
+			'FOLHAS',
+			'BOLOTA',
+			'CASTANHA',
+			'CHUVA',
+			'VENTO',
+			'MAÇÃ',
+			'COGUMELO',
+			'COLHEITA',
+			'PIPA',
+			'NEBLINA',
+		],
+		it: [
+			'FOGLIE',
+			'GHIANDA',
+			'CASTAGNA',
+			'PIOGGIA',
+			'VENTO',
+			'MELA',
+			'FUNGO',
+			'RACCOLTO',
+			'AQUILONE',
+			'NEBBIA',
+		],
+		nl: [
+			'BLADEREN',
+			'EIKEL',
+			'KASTANJE',
+			'REGEN',
+			'WIND',
+			'APPEL',
+			'PADDENSTOEL',
+			'OOGST',
+			'VLIEGER',
+			'MIST',
+		],
+	},
+	{
+		id: 'winter',
+		label: 'Winter',
+		en: [
+			'SNOW',
+			'SNOWMAN',
+			'SLED',
+			'SCARF',
+			'MITTENS',
+			'ICE',
+			'SKATES',
+			'COCOA',
+			'FROST',
+			'PENGUIN',
+		],
+		de: [
+			'SCHNEE',
+			'SCHNEEMANN',
+			'SCHLITTEN',
+			'SCHAL',
+			'HANDSCHUHE',
+			'EIS',
+			'SCHLITTSCHUH',
+			'KAKAO',
+			'FROST',
+			'PINGUIN',
+		],
+		es: [
+			'NIEVE',
+			'MUÑECO',
+			'TRINEO',
+			'BUFANDA',
+			'GUANTES',
+			'HIELO',
+			'PATINES',
+			'CHOCOLATE',
+			'ESCARCHA',
+			'PINGÜINO',
+		],
+		fr: [
+			'NEIGE',
+			'BONHOMME',
+			'LUGE',
+			'ÉCHARPE',
+			'MOUFLES',
+			'GLACE',
+			'PATINS',
+			'CHOCOLAT',
+			'GIVRE',
+			'PINGOUIN',
+		],
+		pt: [
+			'NEVE',
+			'BONECO',
+			'TRENÓ',
+			'CACHECOL',
+			'LUVAS',
+			'GELO',
+			'PATINS',
+			'CHOCOLATE',
+			'GEADA',
+			'PINGUIM',
+		],
+		it: [
+			'NEVE',
+			'PUPAZZO',
+			'SLITTA',
+			'SCIARPA',
+			'GUANTI',
+			'GHIACCIO',
+			'PATTINI',
+			'CIOCCOLATA',
+			'BRINA',
+			'PINGUINO',
+		],
+		nl: [
+			'SNEEUW',
+			'SNEEUWPOP',
+			'SLEE',
+			'SJAAL',
+			'WANTEN',
+			'IJS',
+			'SCHAATSEN',
+			'MUTS',
+			'VORST',
+			'PINGUÏN',
+		],
+	},
+	{
+		id: 'school',
+		label: 'School',
+		en: [
+			'PENCIL',
+			'BOOK',
+			'TEACHER',
+			'DESK',
+			'RULER',
+			'ERASER',
+			'BACKPACK',
+			'CHALK',
+			'LESSON',
+			'FRIEND',
+		],
+		de: [
+			'BLEISTIFT',
+			'BUCH',
+			'LEHRER',
+			'TISCH',
+			'LINEAL',
+			'RADIERER',
+			'RUCKSACK',
+			'KREIDE',
+			'PAUSE',
+			'FREUNDE',
+		],
+		es: [
+			'LÁPIZ',
+			'LIBRO',
+			'MAESTRA',
+			'PUPITRE',
+			'REGLA',
+			'GOMA',
+			'MOCHILA',
+			'TIZA',
+			'RECREO',
+			'AMIGOS',
+		],
+		fr: [
+			'CRAYON',
+			'LIVRE',
+			'MAÎTRESSE',
+			'PUPITRE',
+			'RÈGLE',
+			'GOMME',
+			'CARTABLE',
+			'CRAIE',
+			'RÉCRÉ',
+			'AMIS',
+		],
+		pt: [
+			'LÁPIS',
+			'LIVRO',
+			'PROFESSORA',
+			'CARTEIRA',
+			'RÉGUA',
+			'BORRACHA',
+			'MOCHILA',
+			'GIZ',
+			'RECREIO',
+			'AMIGOS',
+		],
+		it: [
+			'MATITA',
+			'LIBRO',
+			'MAESTRA',
+			'BANCO',
+			'RIGHELLO',
+			'GOMMA',
+			'ZAINO',
+			'GESSO',
+			'RICREAZIONE',
+			'AMICI',
+		],
+		nl: [
+			'POTLOOD',
+			'BOEK',
+			'JUF',
+			'TAFEL',
+			'LINIAAL',
+			'GUM',
+			'RUGZAK',
+			'KRIJT',
+			'PAUZE',
+			'VRIENDEN',
+		],
+	},
+	{
+		id: 'space',
+		label: 'Space',
+		en: [
+			'PLANET',
+			'ROCKET',
+			'STAR',
+			'MOON',
+			'COMET',
+			'ASTRONAUT',
+			'GALAXY',
+			'ORBIT',
+			'SUN',
+			'TELESCOPE',
+		],
+		de: [
+			'PLANET',
+			'RAKETE',
+			'STERN',
+			'MOND',
+			'KOMET',
+			'ASTRONAUT',
+			'GALAXIE',
+			'UMLAUFBAHN',
+			'SONNE',
+			'TELESKOP',
+		],
+		es: [
+			'PLANETA',
+			'COHETE',
+			'ESTRELLA',
+			'LUNA',
+			'COMETA',
+			'ASTRONAUTA',
+			'GALAXIA',
+			'ÓRBITA',
+			'SOL',
+			'TELESCOPIO',
+		],
+		fr: [
+			'PLANÈTE',
+			'FUSÉE',
+			'ÉTOILE',
+			'LUNE',
+			'COMÈTE',
+			'ASTRONAUTE',
+			'GALAXIE',
+			'ORBITE',
+			'SOLEIL',
+			'TÉLESCOPE',
+		],
+		pt: [
+			'PLANETA',
+			'FOGUETE',
+			'ESTRELA',
+			'LUA',
+			'COMETA',
+			'ASTRONAUTA',
+			'GALÁXIA',
+			'ÓRBITA',
+			'SOL',
+			'TELESCÓPIO',
+		],
+		it: [
+			'PIANETA',
+			'RAZZO',
+			'STELLA',
+			'LUNA',
+			'COMETA',
+			'ASTRONAUTA',
+			'GALASSIA',
+			'ORBITA',
+			'SOLE',
+			'TELESCOPIO',
+		],
+		nl: [
+			'PLANEET',
+			'RAKET',
+			'STER',
+			'MAAN',
+			'KOMEET',
+			'ASTRONAUT',
+			'MELKWEG',
+			'BAAN',
+			'ZON',
+			'TELESCOOP',
+		],
+	},
+	{
+		id: 'ocean',
+		label: 'Ocean',
+		en: [
+			'FISH',
+			'WHALE',
+			'DOLPHIN',
+			'OCTOPUS',
+			'CRAB',
+			'SHELL',
+			'CORAL',
+			'WAVE',
+			'TURTLE',
+			'STARFISH',
+		],
+		de: [
+			'FISCH',
+			'WAL',
+			'DELFIN',
+			'KRAKE',
+			'KRABBE',
+			'MUSCHEL',
+			'KORALLE',
+			'WELLE',
+			'SCHILDKRÖTE',
+			'SEESTERN',
+		],
+		es: [
+			'PEZ',
+			'BALLENA',
+			'DELFÍN',
+			'PULPO',
+			'CANGREJO',
+			'CONCHA',
+			'CORAL',
+			'OLA',
+			'TORTUGA',
+			'MEDUSA',
+		],
+		fr: [
+			'POISSON',
+			'BALEINE',
+			'DAUPHIN',
+			'PIEUVRE',
+			'CRABE',
+			'COQUILLAGE',
+			'CORAIL',
+			'VAGUE',
+			'TORTUE',
+			'MÉDUSE',
+		],
+		pt: [
+			'PEIXE',
+			'BALEIA',
+			'GOLFINHO',
+			'POLVO',
+			'CARANGUEJO',
+			'CONCHA',
+			'CORAL',
+			'ONDA',
+			'TARTARUGA',
+			'MEDUSA',
+		],
+		it: [
+			'PESCE',
+			'BALENA',
+			'DELFINO',
+			'POLPO',
+			'GRANCHIO',
+			'CONCHIGLIA',
+			'CORALLO',
+			'ONDA',
+			'TARTARUGA',
+			'MEDUSA',
+		],
+		nl: [
+			'VIS',
+			'WALVIS',
+			'DOLFIJN',
+			'OCTOPUS',
+			'KRAB',
+			'SCHELP',
+			'KORAAL',
+			'GOLF',
+			'SCHILDPAD',
+			'ZEESTER',
+		],
+	},
+	{
+		id: 'farm',
+		label: 'Farm',
+		en: [
+			'COW',
+			'PIG',
+			'SHEEP',
+			'HORSE',
+			'CHICKEN',
+			'TRACTOR',
+			'BARN',
+			'GOAT',
+			'DUCK',
+			'FARMER',
+		],
+		de: [
+			'KUH',
+			'SCHWEIN',
+			'SCHAF',
+			'PFERD',
+			'HUHN',
+			'TRAKTOR',
+			'SCHEUNE',
+			'ZIEGE',
+			'ENTE',
+			'BAUER',
+		],
+		es: [
+			'VACA',
+			'CERDO',
+			'OVEJA',
+			'CABALLO',
+			'GALLINA',
+			'TRACTOR',
+			'GRANERO',
+			'CABRA',
+			'PATO',
+			'GRANJERO',
+		],
+		fr: [
+			'VACHE',
+			'COCHON',
+			'MOUTON',
+			'CHEVAL',
+			'POULE',
+			'TRACTEUR',
+			'GRANGE',
+			'CHÈVRE',
+			'CANARD',
+			'FERMIER',
+		],
+		pt: [
+			'VACA',
+			'PORCO',
+			'OVELHA',
+			'CAVALO',
+			'GALINHA',
+			'TRATOR',
+			'CELEIRO',
+			'CABRA',
+			'PATO',
+			'FAZENDEIRO',
+		],
+		it: [
+			'MUCCA',
+			'MAIALE',
+			'PECORA',
+			'CAVALLO',
+			'GALLINA',
+			'TRATTORE',
+			'FIENILE',
+			'CAPRA',
+			'ANATRA',
+			'CONTADINO',
+		],
+		nl: [
+			'KOE',
+			'VARKEN',
+			'SCHAAP',
+			'PAARD',
+			'KIP',
+			'TRACTOR',
+			'SCHUUR',
+			'GEIT',
+			'EEND',
+			'BOER',
+		],
+	},
+	{
+		id: 'food',
+		label: 'Fruit and vegetables',
+		en: [
+			'APPLE',
+			'BANANA',
+			'CHERRY',
+			'GRAPE',
+			'LEMON',
+			'CARROT',
+			'TOMATO',
+			'PEAR',
+			'POTATO',
+			'ONION',
+		],
+		de: [
+			'APFEL',
+			'BANANE',
+			'KIRSCHE',
+			'TRAUBE',
+			'ZITRONE',
+			'KAROTTE',
+			'TOMATE',
+			'BIRNE',
+			'KARTOFFEL',
+			'ZWIEBEL',
+		],
+		es: [
+			'MANZANA',
+			'PLÁTANO',
+			'CEREZA',
+			'UVA',
+			'LIMÓN',
+			'ZANAHORIA',
+			'TOMATE',
+			'PERA',
+			'PATATA',
+			'CEBOLLA',
+		],
+		fr: [
+			'POMME',
+			'BANANE',
+			'CERISE',
+			'RAISIN',
+			'CITRON',
+			'CAROTTE',
+			'TOMATE',
+			'POIRE',
+			'NAVET',
+			'OIGNON',
+		],
+		pt: [
+			'MAÇÃ',
+			'BANANA',
+			'CEREJA',
+			'UVA',
+			'LIMÃO',
+			'CENOURA',
+			'TOMATE',
+			'PERA',
+			'BATATA',
+			'CEBOLA',
+		],
+		it: [
+			'MELA',
+			'BANANA',
+			'CILIEGIA',
+			'UVA',
+			'LIMONE',
+			'CAROTA',
+			'POMODORO',
+			'PERA',
+			'PATATA',
+			'CIPOLLA',
+		],
+		nl: [
+			'APPEL',
+			'BANAAN',
+			'KERS',
+			'DRUIF',
+			'CITROEN',
+			'WORTEL',
+			'TOMAAT',
+			'PEER',
+			'AARDAPPEL',
+			'PRUIM',
+		],
+	},
+	{
+		id: 'sports',
+		label: 'Sports',
+		en: [
+			'SOCCER',
+			'TENNIS',
+			'SWIMMING',
+			'RUNNING',
+			'CYCLING',
+			'SKIING',
+			'BASKETBALL',
+			'HOCKEY',
+			'JUDO',
+			'GOLF',
+		],
+		de: [
+			'FUSSBALL',
+			'TENNIS',
+			'SCHWIMMEN',
+			'LAUFEN',
+			'RADFAHREN',
+			'SKIFAHREN',
+			'BASKETBALL',
+			'HOCKEY',
+			'JUDO',
+			'GOLF',
+		],
+		es: [
+			'FÚTBOL',
+			'TENIS',
+			'NATACIÓN',
+			'CARRERA',
+			'CICLISMO',
+			'ESQUÍ',
+			'BALONCESTO',
+			'HOCKEY',
+			'JUDO',
+			'GOLF',
+		],
+		fr: [
+			'FOOTBALL',
+			'TENNIS',
+			'NATATION',
+			'COURSE',
+			'CYCLISME',
+			'SKI',
+			'BASKET',
+			'HOCKEY',
+			'JUDO',
+			'GOLF',
+		],
+		pt: [
+			'FUTEBOL',
+			'TÊNIS',
+			'NATAÇÃO',
+			'CORRIDA',
+			'CICLISMO',
+			'ESQUI',
+			'BASQUETE',
+			'HÓQUEI',
+			'JUDÔ',
+			'GOLFE',
+		],
+		it: [
+			'CALCIO',
+			'TENNIS',
+			'NUOTO',
+			'CORSA',
+			'CICLISMO',
+			'SCI',
+			'BASKET',
+			'HOCKEY',
+			'JUDO',
+			'GOLF',
+		],
+		nl: [
+			'VOETBAL',
+			'TENNIS',
+			'ZWEMMEN',
+			'HARDLOPEN',
+			'FIETSEN',
+			'SKIEN',
+			'BASKETBAL',
+			'HOCKEY',
+			'JUDO',
+			'GOLF',
+		],
+	},
+	{
+		id: 'vehicles',
+		label: 'Vehicles',
+		en: [
+			'CAR',
+			'BUS',
+			'TRAIN',
+			'PLANE',
+			'BOAT',
+			'BICYCLE',
+			'TRUCK',
+			'TRACTOR',
+			'ROCKET',
+			'HELICOPTER',
+		],
+		de: [
+			'AUTO',
+			'BUS',
+			'ZUG',
+			'FLUGZEUG',
+			'BOOT',
+			'FAHRRAD',
+			'LASTWAGEN',
+			'TRAKTOR',
+			'RAKETE',
+			'HUBSCHRAUBER',
+		],
+		es: [
+			'COCHE',
+			'AUTOBÚS',
+			'TREN',
+			'AVIÓN',
+			'BARCO',
+			'BICICLETA',
+			'CAMIÓN',
+			'TRACTOR',
+			'COHETE',
+			'HELICÓPTERO',
+		],
+		fr: [
+			'VOITURE',
+			'AUTOBUS',
+			'TRAIN',
+			'AVION',
+			'BATEAU',
+			'VÉLO',
+			'CAMION',
+			'TRACTEUR',
+			'FUSÉE',
+			'HÉLICOPTÈRE',
+		],
+		pt: [
+			'CARRO',
+			'ÔNIBUS',
+			'TREM',
+			'AVIÃO',
+			'BARCO',
+			'BICICLETA',
+			'CAMINHÃO',
+			'TRATOR',
+			'FOGUETE',
+			'HELICÓPTERO',
+		],
+		it: [
+			'AUTO',
+			'AUTOBUS',
+			'TRENO',
+			'AEREO',
+			'BARCA',
+			'BICICLETTA',
+			'CAMION',
+			'TRATTORE',
+			'RAZZO',
+			'ELICOTTERO',
+		],
+		nl: [
+			'AUTO',
+			'BUS',
+			'TREIN',
+			'VLIEGTUIG',
+			'BOOT',
+			'FIETS',
+			'VRACHTWAGEN',
+			'TRACTOR',
+			'RAKET',
+			'HELIKOPTER',
+		],
+	},
 ];
 const THEME_LABELS = {
 	animals: 'Animals',
 	party: 'Party',
 	summer: 'Summer',
 	christmas: 'Christmas',
+	wedding: 'Wedding',
+	easter: 'Easter',
+	halloween: 'Halloween',
+	autumn: 'Autumn',
+	winter: 'Winter',
+	school: 'School',
+	space: 'Space',
+	ocean: 'Ocean',
+	farm: 'Farm',
+	food: 'Fruit and vegetables',
+	sports: 'Sports',
+	vehicles: 'Vehicles',
 };
 
 /* -------------------------------- helpers -------------------------------- */
@@ -507,6 +1763,9 @@ const ICONS = {
 	colors: tabIcon(
 		'M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25 M8.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M12.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M16.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0'
 	),
+	sheet: tabIcon(
+		'M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2 M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2 M9 12h6 M9 16h6'
+	),
 	settings: tabIcon(
 		'M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065 M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0'
 	),
@@ -515,19 +1774,26 @@ const ICONS = {
 const MODES = [
 	{ id: 'wordsearch', label: 'Word search' },
 	{ id: 'crossword', label: 'Crossword' },
+	{ id: 'piccross', label: 'Picture crossword' },
 	{ id: 'maze', label: 'Maze' },
+	{ id: 'circlemaze', label: 'Circle maze' },
 	{ id: 'jigsaw', label: 'Photo jigsaw' },
 	{ id: 'dot2dot', label: 'Dot to dot' },
 	{ id: 'sudoku', label: 'Sudoku' },
+	{ id: 'picsudoku', label: 'Picture sudoku' },
 	{ id: 'binary', label: 'Binary puzzle' },
 	{ id: 'inequality', label: 'Inequality puzzle' },
 	{ id: 'mathchains', label: 'Math chains' },
+	{ id: 'arith', label: 'Arithmetic' },
+	{ id: 'clock', label: 'Telling time' },
 	{ id: 'crisscross', label: 'Criss-cross' },
 	{ id: 'bingo', label: 'Bingo cards' },
 	{ id: 'cryptogram', label: 'Secret code' },
 	{ id: 'pyramid', label: 'Number pyramid' },
+	{ id: 'magic', label: 'Magic squares' },
 	{ id: 'nonogram', label: 'Nonogram' },
 	{ id: 'anagram', label: 'Anagrams' },
+	{ id: 'missing', label: 'Missing letters' },
 	{ id: 'memory', label: 'Memory cards' },
 	{ id: 'games', label: 'Game sheets' },
 	{ id: 'pack', label: 'Puzzle pack' },
@@ -550,6 +1816,15 @@ function openStudio( ctx ) {
 		...( editing ? layer.generator.params : {} ),
 	};
 	params.customColors = ( params.customColors || [] ).slice( 0, 4 );
+	if ( ! String( params.picClues || '' ).trim() ) {
+		params.picClues = defaultPicClues( LANG );
+	}
+	// The word search reads an image only for its silhouette shape.
+	const wantsImage = () =>
+		NEEDS_IMAGE.includes( params.mode ) ||
+		( 'maze' === params.mode && 'image' === params.shape ) ||
+		( 'nonogram' === params.mode && 'image' === params.nonoShape ) ||
+		( 'wordsearch' === params.mode && 'image' === params.wsShape );
 
 	let srcCanvas = null;
 	let srcToken = 0;
@@ -612,10 +1887,7 @@ function openStudio( ctx ) {
 		card.onclick = () => {
 			params.mode = m.id;
 			syncUi();
-			const wantsImg =
-				NEEDS_IMAGE.includes( m.id ) ||
-				( 'nonogram' === m.id && 'image' === params.nonoShape );
-			if ( wantsImg && ! srcCanvas ) {
+			if ( wantsImage() && ! srcCanvas ) {
 				loadSource();
 			} else {
 				paint();
@@ -705,6 +1977,50 @@ function openStudio( ctx ) {
 					buildPyramid( { rows: 4, diff: 1, seed: 2 } ),
 					opts
 				),
+			circlemaze: () =>
+				renderCircleMaze(
+					like(),
+					buildCircleMaze( { rings: 5, seed: 4 } ),
+					opts
+				),
+			arith: () =>
+				renderArithmetic(
+					like(),
+					buildArithmetic( {
+						ops: 'addsub',
+						max: 20,
+						count: 6,
+						seed: 2,
+					} ),
+					opts
+				),
+			clock: () =>
+				renderClocks(
+					like(),
+					buildClocks( { count: 4, step: 'quarter', seed: 2 } ),
+					opts
+				),
+			picsudoku: () =>
+				renderSudoku(
+					like(),
+					buildSudoku( { size: 4, diff: 1, seed: 3 } ),
+					{ ...opts, symbols: [ '🍎', '🐟', '🌟', '🚗' ] }
+				),
+			piccross: () => {
+				const cc = buildCrissCross( [ 'SUN', 'SEA', 'SAND' ], {
+					seed: 2,
+				} );
+				return renderCrossword(
+					like(),
+					cc,
+					buildCrosswordClues( cc, {
+						SUN: '☀️',
+						SEA: '🌊',
+						SAND: '🏖️',
+					} ),
+					{ ...opts, pictures: true }
+				);
+			},
 			crossword: () => {
 				const cc = buildCrissCross( [ 'SUN', 'SEA', 'SAND' ], {
 					seed: 2,
@@ -780,6 +2096,21 @@ function openStudio( ctx ) {
 					} ),
 					opts
 				),
+			missing: () =>
+				renderMissingLetters(
+					like(),
+					buildMissingLetters( [ 'SUN', 'SEA', 'SAND', 'SHELL' ], {
+						seed: 3,
+						gaps: 40,
+					} ),
+					opts
+				),
+			magic: () =>
+				renderMagicSquares(
+					like(),
+					buildMagicSquares( { count: 1, seed: 3, clues: 4 } ),
+					opts
+				),
 		};
 		for ( const m of MODES ) {
 			const { thumb } = modeTiles.get( m.id );
@@ -810,10 +2141,12 @@ function openStudio( ctx ) {
 
 	/* ------------------------------- source ------------------------------- */
 
-	const srcSec = section( library, ICONS.source, t( 'Source' ) );
+	// The picture a sheet is made from sits at the top of the right-hand
+	// panel, with the other settings (Thomas, 26.09.2026) - the left column
+	// is for choosing the puzzle.
+	const srcSec = section( side, ICONS.source, t( 'Source' ) );
 	const srcSel = el( 'select', 'dsm-select wpiepzl-wide', srcSec );
 	const srcNote = el( 'div', 'dsm-note wpiepzl-info', srcSec );
-	library.prepend( srcSec.parentElement );
 
 	function fillSourceOptions() {
 		srcSel.innerHTML = '';
@@ -828,7 +2161,7 @@ function openStudio( ctx ) {
 		// l.type und l.name waren undefined, jedes Kind wurde als
 		// "layer:undefined" mit der Beschriftung "undefined" angeboten - und
 		// danach standen dieselben Ebenen noch einmal flach in der Liste,
-		// weil sie dort ohnehin schon drin sind. (Codex F15.)
+		// weil sie dort ohnehin schon drin sind. (Audit F15.)
 		const walk = ( layers ) => {
 			const list = layers || [];
 			for ( const l of list ) {
@@ -842,7 +2175,7 @@ function openStudio( ctx ) {
 			}
 		};
 		walk( editor.state.layers );
-		add( 'media', t( 'Media library…' ) );
+		add( 'media', t( 'Media library' ) );
 	}
 	fillSourceOptions();
 	srcSel.value =
@@ -957,7 +2290,7 @@ function openStudio( ctx ) {
 				if ( target ) {
 					// The layer may be the child of a group: the renderer
 					// starts at roots without a parent and never reached it,
-					// so a grouped photo arrived as an empty canvas (Codex
+					// so a grouped photo arrived as an empty canvas (audit
 					// F15, 10.09.2026). Render a parent-less copy and hand the
 					// renderer its descendants for a group.
 					const byId = new Map(
@@ -1244,7 +2577,7 @@ function openStudio( ctx ) {
 	};
 	const themeRow = el( 'label', 'wpiepzl-row', setSec );
 	el( 'span', 'dsm-rowline-label', themeRow ).textContent =
-		t( 'Suggestions…' );
+		t( 'Suggestions' );
 	const themeSel = el( 'select', 'dsm-select', themeRow );
 	{
 		const o = el( 'option', null, themeSel );
@@ -1284,6 +2617,58 @@ function openStudio( ctx ) {
 		params.hard = hardCb.checked;
 		paint();
 	};
+
+	// Word search in a shape: the maze and nonogram shapes, or square.
+	const SHAPE_NAMES = {
+		square: 'Square',
+		circle: 'Circle',
+		heart: 'Heart',
+		star: 'Star',
+		hexagon: 'Hexagon',
+		diamond: 'Diamond',
+		flower: 'Flower',
+		letter: 'Letter',
+		image: 'Image silhouette',
+	};
+	const wsShapeRow = el( 'label', 'wpiepzl-row', setSec );
+	el( 'span', 'dsm-rowline-label', wsShapeRow ).textContent = t( 'Shape' );
+	const wsShapeSel = el( 'select', 'dsm-select', wsShapeRow );
+	for ( const v of [ 'square', ...MAZE_SHAPES ] ) {
+		const o = el( 'option', null, wsShapeSel );
+		o.value = v;
+		o.textContent = t( SHAPE_NAMES[ v ] || v );
+	}
+	wsShapeSel.value = params.wsShape;
+	wsShapeSel.onchange = () => {
+		params.wsShape = wsShapeSel.value;
+		syncUi();
+		if ( 'image' === params.wsShape && ! srcCanvas ) {
+			loadSource();
+		} else {
+			paint();
+		}
+	};
+	// The hidden message: the leftover letters spell it.
+	const wsSecretRow = el( 'label', 'wpiepzl-text-row', setSec );
+	el( 'span', 'dsm-fieldlabel', wsSecretRow ).textContent =
+		t( 'Hidden message' );
+	const wsSecretArea = el(
+		'textarea',
+		'dsm-input wpiepzl-words',
+		wsSecretRow
+	);
+	wsSecretArea.rows = 2;
+	wsSecretArea.value = params.wsSecret;
+	wsSecretArea.oninput = () => {
+		params.wsSecret = wsSecretArea.value;
+		paint();
+	};
+	const wsSecretNote = ui.note(
+		setSec,
+		t(
+			'The letters left over, read row by row, spell the message. The grid picks its own size.'
+		)
+	);
 
 	// Maze: shape, letter, difficulty.
 	const shapeRow = el( 'label', 'wpiepzl-row', setSec );
@@ -1452,6 +2837,75 @@ function openStudio( ctx ) {
 		paint();
 	};
 
+	// Picture crossword: word + picture pairs.
+	const picCluesRow = el( 'label', 'wpiepzl-text-row', setSec );
+	el( 'span', 'dsm-fieldlabel', picCluesRow ).textContent = t(
+		'Words and pictures (word: picture)'
+	);
+	const picCluesArea = el(
+		'textarea',
+		'dsm-input wpiepzl-words',
+		picCluesRow
+	);
+	picCluesArea.rows = 7;
+	picCluesArea.value = params.picClues;
+	picCluesArea.oninput = () => {
+		params.picClues = picCluesArea.value;
+		paint();
+	};
+
+	// The solution word of crossword and criss-cross: numbered cells.
+	const secretRow = el( 'label', 'wpiepzl-row', setSec );
+	el( 'span', 'dsm-rowline-label', secretRow ).textContent =
+		t( 'Solution word' );
+	const secretInput = el( 'input', 'dsm-input', secretRow );
+	secretInput.type = 'text';
+	secretInput.maxLength = 16;
+	secretInput.value = params.secretWord;
+	secretInput.oninput = () => {
+		params.secretWord = secretInput.value;
+		paint();
+	};
+	const secretNote = ui.note(
+		setSec,
+		t( 'The numbered cells spell it, for a prize draw or a surprise.' )
+	);
+
+	// Picture sudoku: the pictures, the size, the difficulty.
+	const picMotifsRow = el( 'label', 'wpiepzl-text-row', setSec );
+	el( 'span', 'dsm-fieldlabel', picMotifsRow ).textContent = t(
+		'Pictures (emoji or short words)'
+	);
+	const picMotifsArea = el(
+		'textarea',
+		'dsm-input wpiepzl-words',
+		picMotifsRow
+	);
+	picMotifsArea.rows = 2;
+	picMotifsArea.value = params.picMotifs;
+	picMotifsArea.oninput = () => {
+		params.picMotifs = picMotifsArea.value;
+		paint();
+	};
+	const picSizeRow = el( 'label', 'wpiepzl-row', setSec );
+	el( 'span', 'dsm-rowline-label', picSizeRow ).textContent =
+		t( 'Grid size' );
+	const picSizeSel = el( 'select', 'dsm-select', picSizeRow );
+	for ( const v of [ 4, 6, 9 ] ) {
+		const o = el( 'option', null, picSizeSel );
+		o.value = String( v );
+		o.textContent = `${ v } × ${ v }`;
+	}
+	picSizeSel.value = String( params.picSize );
+	picSizeSel.onchange = () => {
+		params.picSize = parseInt( picSizeSel.value, 10 );
+		paint();
+	};
+	const picDiffRow = diffRow(
+		() => params.picDiff,
+		( v ) => ( params.picDiff = v )
+	);
+
 	// Nonogram: shape (shares the maze vocabulary) + grid size.
 	const nonoShapeRow = el( 'label', 'wpiepzl-row', setSec );
 	el( 'span', 'dsm-rowline-label', nonoShapeRow ).textContent = t( 'Shape' );
@@ -1491,6 +2945,17 @@ function openStudio( ctx ) {
 		paint();
 	};
 
+	// Missing letters (2.8): how much of each word is left out.
+	const missGapsRow = sliderRowIn(
+		setSec,
+		t( 'Letters left out' ),
+		20,
+		70,
+		() => params.missGaps,
+		( v ) => ( params.missGaps = v ),
+		'%'
+	);
+
 	// Memory: motifs + pairs.
 	const memMotifsRow = el( 'label', 'wpiepzl-text-row', setSec );
 	el( 'span', 'dsm-fieldlabel', memMotifsRow ).textContent = t(
@@ -1524,6 +2989,9 @@ function openStudio( ctx ) {
 		[ 'slf', t( 'City-Country-River' ) ],
 		[ 'ships', t( 'Battleships' ) ],
 		[ 'boxes', t( 'Dots & Boxes' ) ],
+		[ 'hangman', t( 'Hangman' ) ],
+		[ 'tictactoe', t( 'Tic-tac-toe' ) ],
+		[ 'codebreaker', t( 'Code breaker' ) ],
 	] ) {
 		const o = el( 'option', null, gameSel );
 		o.value = v;
@@ -1645,6 +3113,115 @@ function openStudio( ctx ) {
 		( v ) => ( params.dotsN = v )
 	);
 
+	// A select row from [ value, label ] pairs, the value kept as `key`.
+	const selectRow = ( label, key, pairs, numeric = false ) => {
+		const row = el( 'label', 'wpiepzl-row', setSec );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const sel = el( 'select', 'dsm-select', row );
+		for ( const [ v, l ] of pairs ) {
+			const o = el( 'option', null, sel );
+			o.value = String( v );
+			o.textContent = l;
+		}
+		sel.value = String( params[ key ] );
+		sel.onchange = () => {
+			params[ key ] = numeric ? parseInt( sel.value, 10 ) : sel.value;
+			syncUi();
+			paint();
+		};
+		return row;
+	};
+
+	// Magic squares (2.8).
+	const magicRangeRow = selectRow( t( 'Numbers' ), 'magicRange', [
+		[ 'small', t( '1 to 9' ) ],
+		[ 'even', t( 'Even numbers 2 to 18' ) ],
+		[ 'teens', t( '11 to 19' ) ],
+		[ 'tens', t( 'Tens 10 to 90' ) ],
+	] );
+	const magicCluesRow = selectRow(
+		t( 'Given numbers' ),
+		'magicClues',
+		[ 2, 3, 4, 5 ].map( ( v ) => [ v, String( v ) ] ),
+		true
+	);
+	const magicCountRow = selectRow(
+		t( 'Squares per sheet' ),
+		'magicCount',
+		[ 1, 2, 4, 6 ].map( ( v ) => [ v, String( v ) ] ),
+		true
+	);
+
+	// Arithmetic drills.
+	const arithOpsRow = selectRow( t( 'Tasks' ), 'arithOps', [
+		[ 'add', t( 'Addition' ) ],
+		[ 'sub', t( 'Subtraction' ) ],
+		[ 'addsub', t( 'Plus and minus' ) ],
+		[ 'mul', t( 'Multiplication' ) ],
+		[ 'div', t( 'Division' ) ],
+		[ 'muldiv', t( 'Times and divided by' ) ],
+		[ 'all', t( 'All four' ) ],
+	] );
+	const arithMaxRow = selectRow(
+		t( 'Numbers up to' ),
+		'arithMax',
+		[ 10, 20, 100, 1000 ].map( ( v ) => [ v, String( v ) ] ),
+		true
+	);
+	const arithCountRow = sliderRowIn(
+		setSec,
+		t( 'Tasks on the sheet' ),
+		8,
+		40,
+		() => params.arithCount,
+		( v ) => ( params.arithCount = v )
+	);
+	const arithLayoutRow = selectRow( t( 'Layout' ), 'arithLayout', [
+		[ 'rows', t( 'In rows' ) ],
+		[ 'columns', t( 'Written, in columns' ) ],
+	] );
+	const arithGapsLbl = el( 'label', 'dsm-checkrow wpiepzl-check', setSec );
+	const arithGapsCb = el( 'input', null, arithGapsLbl );
+	arithGapsCb.type = 'checkbox';
+	arithGapsCb.checked = !! params.arithGaps;
+	el( 'span', null, arithGapsLbl ).textContent = t(
+		'Missing number anywhere'
+	);
+	arithGapsCb.onchange = () => {
+		params.arithGaps = arithGapsCb.checked;
+		paint();
+	};
+
+	// Telling time.
+	const clockTaskRow = selectRow( t( 'Task' ), 'clockTask', [
+		[ 'read', t( 'Read the time' ) ],
+		[ 'draw', t( 'Draw the hands' ) ],
+		[ 'mixed', t( 'Both' ) ],
+	] );
+	const clockStepRow = selectRow( t( 'Times' ), 'clockStep', [
+		[ 'hour', t( 'Full hours' ) ],
+		[ 'half', t( 'Half hours' ) ],
+		[ 'quarter', t( 'Quarter hours' ) ],
+		[ 'five', t( 'Five minutes' ) ],
+		[ 'minute', t( 'Every minute' ) ],
+	] );
+	const clockCountRow = selectRow(
+		t( 'Clocks' ),
+		'clockCount',
+		[ 4, 6, 9, 12 ].map( ( v ) => [ v, String( v ) ] ),
+		true
+	);
+
+	// Circle maze: how many rings.
+	const ringsRow = sliderRowIn(
+		setSec,
+		t( 'Rings' ),
+		5,
+		18,
+		() => params.rings,
+		( v ) => ( params.rings = v )
+	);
+
 	const shuffleBtn = el( 'button', 'ai-btn secondary wpiepzl-wide', setSec );
 	shuffleBtn.type = 'button';
 	shuffleBtn.textContent = t( 'Shuffle' );
@@ -1662,6 +3239,72 @@ function openStudio( ctx ) {
 		params.withSolution = solCb.checked;
 		paint();
 	};
+
+	/* ------------------------------ worksheet ----------------------------- */
+
+	// The head a teacher needs on the page, and several puzzles per page.
+	const sheetSec = section( side, ICONS.sheet, t( 'Worksheet' ) );
+	const headLbl = el( 'label', 'dsm-checkrow wpiepzl-check', sheetSec );
+	const headCb = el( 'input', null, headLbl );
+	headCb.type = 'checkbox';
+	headCb.checked = !! params.sheetHeader;
+	el( 'span', null, headLbl ).textContent = t(
+		'Line for name, class and date'
+	);
+	headCb.onchange = () => {
+		params.sheetHeader = headCb.checked;
+		paint();
+	};
+	const taskRow = el( 'label', 'wpiepzl-text-row', sheetSec );
+	el( 'span', 'dsm-fieldlabel', taskRow ).textContent =
+		t( 'Task (optional)' );
+	const taskArea = el( 'textarea', 'dsm-input wpiepzl-words', taskRow );
+	taskArea.rows = 2;
+	taskArea.value = params.instructions;
+	taskArea.oninput = () => {
+		params.instructions = taskArea.value;
+		paint();
+	};
+	const perPageRow = el( 'label', 'wpiepzl-row', sheetSec );
+	el( 'span', 'dsm-rowline-label', perPageRow ).textContent =
+		t( 'Puzzles per page' );
+	const perPageSel = el( 'select', 'dsm-select', perPageRow );
+	for ( const v of [ 1, 2, 4, 6 ] ) {
+		const o = el( 'option', null, perPageSel );
+		o.value = String( v );
+		o.textContent = String( v );
+	}
+	perPageSel.value = String( params.perPage );
+	perPageSel.onchange = () => {
+		params.perPage = parseInt( perPageSel.value, 10 );
+		paint();
+	};
+	const perPageNote = ui.note(
+		sheetSec,
+		t(
+			'Every puzzle on the page is a different one, each with its number.'
+		)
+	);
+	const seriesRow = el( 'label', 'wpiepzl-row', sheetSec );
+	el( 'span', 'dsm-rowline-label', seriesRow ).textContent = t( 'Versions' );
+	const seriesSel = el( 'select', 'dsm-select', seriesRow );
+	for ( let v = 1; v <= 10; v++ ) {
+		const o = el( 'option', null, seriesSel );
+		o.value = String( v );
+		o.textContent =
+			1 === v ? '1' : `${ v } (A-${ String.fromCharCode( 64 + v ) })`;
+	}
+	seriesSel.value = String( params.series );
+	seriesSel.onchange = () => {
+		params.series = parseInt( seriesSel.value, 10 );
+		paint();
+	};
+	const seriesNote = ui.note(
+		sheetSec,
+		t(
+			'Each version is a different puzzle and its own layer, marked A, B, C. The solutions share one sheet.'
+		)
+	);
 
 	const syncUi = () => {
 		modeTiles.forEach( ( { card }, id ) =>
@@ -1702,8 +3345,43 @@ function openStudio( ctx ) {
 		const words = 'wordsearch' === m || 'crisscross' === m || 'bingo' === m;
 		wordsRow.style.display = words ? '' : 'none';
 		themeRow.style.display = words ? '' : 'none';
-		gridRow.style.display = 'wordsearch' === m ? '' : 'none';
-		hardLbl.style.display = 'wordsearch' === m ? '' : 'none';
+		const ws = 'wordsearch' === m;
+		const hasMessage = ws && !! String( params.wsSecret || '' ).trim();
+		// With a hidden message the grid picks its own size.
+		gridRow.style.display = ws && ! hasMessage ? '' : 'none';
+		hardLbl.style.display = ws ? '' : 'none';
+		wsShapeRow.style.display = ws ? '' : 'none';
+		wsSecretRow.style.display = ws ? '' : 'none';
+		wsSecretNote.style.display = ws ? '' : 'none';
+		const secretModes = [ 'crossword', 'piccross', 'crisscross' ];
+		secretRow.style.display = secretModes.includes( m ) ? '' : 'none';
+		secretNote.style.display = secretModes.includes( m ) ? '' : 'none';
+		picCluesRow.style.display = 'piccross' === m ? '' : 'none';
+		for ( const row of [ picMotifsRow, picSizeRow, picDiffRow ] ) {
+			row.style.display = 'picsudoku' === m ? '' : 'none';
+		}
+		perPageRow.style.display = PER_PAGE.includes( m ) ? '' : 'none';
+		perPageNote.style.display = PER_PAGE.includes( m ) ? '' : 'none';
+		seriesRow.style.display = SERIES.includes( m ) ? '' : 'none';
+		seriesNote.style.display = SERIES.includes( m ) ? '' : 'none';
+		const arith = 'arith' === m;
+		for ( const row of [
+			arithOpsRow,
+			arithMaxRow,
+			arithCountRow,
+			arithGapsLbl,
+		] ) {
+			row.style.display = arith ? '' : 'none';
+		}
+		// Written arithmetic exists for sums and differences only.
+		arithLayoutRow.style.display =
+			arith && [ 'add', 'sub', 'addsub' ].includes( params.arithOps )
+				? ''
+				: 'none';
+		for ( const row of [ clockTaskRow, clockStepRow, clockCountRow ] ) {
+			row.style.display = 'clock' === m ? '' : 'none';
+		}
+		ringsRow.style.display = 'circlemaze' === m ? '' : 'none';
 		shapeRow.style.display = 'maze' === m ? '' : 'none';
 		letterRow.style.display =
 			'maze' === m && 'letter' === params.shape ? '' : 'none';
@@ -1724,6 +3402,10 @@ function openStudio( ctx ) {
 		nonoShapeRow.style.display = 'nonogram' === m ? '' : 'none';
 		nonoSizeRow.style.display = 'nonogram' === m ? '' : 'none';
 		anagHintLbl.style.display = 'anagram' === m ? '' : 'none';
+		missGapsRow.style.display = 'missing' === m ? '' : 'none';
+		for ( const row of [ magicRangeRow, magicCluesRow, magicCountRow ] ) {
+			row.style.display = 'magic' === m ? '' : 'none';
+		}
 		memMotifsRow.style.display = 'memory' === m ? '' : 'none';
 		memPairsRow.style.display = 'memory' === m ? '' : 'none';
 		gameRow.style.display = 'games' === m ? '' : 'none';
@@ -1739,11 +3421,14 @@ function openStudio( ctx ) {
 		);
 		// The words list also feeds anagrams and the pack; the maze letter
 		// row also serves letter-shaped nonograms.
-		if ( 'anagram' === m || 'pack' === m ) {
+		if ( 'anagram' === m || 'missing' === m || 'pack' === m ) {
 			wordsRow.style.display = '';
 			themeRow.style.display = '';
 		}
 		if ( 'nonogram' === m && 'letter' === params.nonoShape ) {
+			letterRow.style.display = '';
+		}
+		if ( ws && 'letter' === params.wsShape ) {
 			letterRow.style.display = '';
 		}
 		// Bingo and the game sheets have no solution; memory repurposes
@@ -1751,12 +3436,7 @@ function openStudio( ctx ) {
 		solLbl.style.display = 'bingo' === m || 'games' === m ? 'none' : '';
 		solLblText.textContent =
 			'memory' === m ? t( 'Back sheet (duplex)' ) : t( 'Solution sheet' );
-		srcSec.parentElement.style.display =
-			( 'maze' === m && 'image' === params.shape ) ||
-			( 'nonogram' === m && 'image' === params.nonoShape ) ||
-			NEEDS_IMAGE.includes( m )
-				? ''
-				: 'none';
+		srcSec.parentElement.style.display = wantsImage() ? '' : 'none';
 	};
 
 	/* ------------------------------- footer ------------------------------- */
@@ -1790,6 +3470,14 @@ function openStudio( ctx ) {
 		if ( mode === 'mathchains' ) {
 			return t(
 				'Start with the given number. Follow the arrows from left to right and write each result in the next box.'
+			);
+		}
+		if ( mode === 'missing' ) {
+			return t( 'Fill in the missing letters to complete each word.' );
+		}
+		if ( mode === 'magic' ) {
+			return t(
+				'Use each number once. Every row, every column and both diagonals must add up to the same sum.'
 			);
 		}
 		return '';
@@ -1832,13 +3520,259 @@ function openStudio( ctx ) {
 		return logicCache.model;
 	};
 
+	// A word search in a shape asks for the mask at every size it tries.
+	const maskCache = new Map();
+	const wsMask = ( n ) => {
+		if ( 'square' === params.wsShape || ! params.wsShape ) {
+			return null;
+		}
+		if ( 'image' === params.wsShape && ! srcCanvas ) {
+			return null;
+		}
+		const key = [ params.wsShape, params.letter, n, srcToken ].join( '|' );
+		if ( ! maskCache.has( key ) ) {
+			maskCache.set(
+				key,
+				shapeMask(
+					like(),
+					params.wsShape,
+					params.letter,
+					n,
+					'image' === params.wsShape ? srcCanvas : null
+				)
+			);
+		}
+		return maskCache.get( key );
+	};
+
+	// The solution word: numbered cells in the grid, or a warning when the
+	// grid lacks a letter it needs.
+	const secretFor = ( cc, avoid ) => {
+		if ( ! String( params.secretWord || '' ).trim() ) {
+			return null;
+		}
+		const sec = pickSecretCells( cc, params.secretWord, {
+			seed: params.seed,
+			avoid,
+		} );
+		if ( sec && sec.missing.length ) {
+			warn.textContent = `${ t(
+				'The solution word needs letters the grid does not have:'
+			) } ${ sec.missing.join( ', ' ) }`;
+		}
+		return sec;
+	};
+
+	// Word + clue lines ("SUN: It shines") for crossword and picture
+	// crossword, the keys folded the way the grid folds its words.
+	const crosswordSheets = ( text, common, pictures ) => {
+		const entries = String( text || '' )
+			.split( /\r?\n/ )
+			.map( ( l ) => l.trim() )
+			.filter( Boolean )
+			.map( ( l ) => {
+				const i = l.indexOf( ':' );
+				return i > 0
+					? { word: l.slice( 0, i ), clue: l.slice( i + 1 ).trim() }
+					: { word: l, clue: '' };
+			} );
+		const cc = buildCrissCross(
+			entries.map( ( e ) => e.word ),
+			{ seed: params.seed }
+		);
+		if ( ! cc.placed.length ) {
+			return null;
+		}
+		if ( cc.skipped.length ) {
+			warn.textContent = `${ t(
+				'Some words did not fit:'
+			) } ${ cc.skipped.join( ', ' ) }`;
+		}
+		const map = {};
+		for ( const e of entries ) {
+			const k = foldLetters( e.word );
+			if ( k && ! map[ k ] ) {
+				map[ k ] = e.clue;
+			}
+		}
+		const cw = buildCrosswordClues( cc, map );
+		const extra = {
+			acrossLabel: t( 'Across →' ),
+			downLabel: t( 'Down ↓' ),
+			secret: secretFor( cc, null ),
+			secretLabel: t( 'Solution word:' ),
+			pictures,
+		};
+		return {
+			sheet: renderCrossword( like(), cc, cw, { ...common, ...extra } ),
+			solution: params.withSolution
+				? renderCrossword( like(), cc, cw, {
+						...common,
+						...extra,
+						solution: true,
+				  } )
+				: null,
+		};
+	};
+
+	/**
+	 * The finished sheets. Without a worksheet head and with one puzzle
+	 * per page this is exactly the sheet the studio always made. With a
+	 * head, a task or several puzzles, the puzzles are rendered untitled
+	 * (seeds apart, so every one is different) and set on one page that
+	 * carries the title, the name line, the task and the rules once.
+	 */
+	const modeName = () =>
+		t(
+			( MODES.find( ( x ) => x.id === params.mode ) || MODES[ 0 ] ).label
+		);
+
 	function bake() {
-		const common = {
+		const perPage = PER_PAGE.includes( params.mode )
+			? Math.max( 1, Math.min( 6, params.perPage | 0 ) )
+			: 1;
+		const series = SERIES.includes( params.mode )
+			? Math.max( 1, Math.min( 10, params.series | 0 ) )
+			: 1;
+		const instructions = String( params.instructions || '' ).trim();
+		const header = !! params.sheetHeader;
+		if ( ! header && ! instructions && perPage < 2 && series < 2 ) {
+			return bakeRaw( {
+				title: params.title,
+				rules: puzzleRules( params.mode ),
+			} );
+		}
+		// Seeds far apart: version v, puzzle i. Version A, puzzle 1 is the
+		// very puzzle the single sheet shows.
+		const seed0 = params.seed;
+		const versions = [];
+		try {
+			for ( let v = 0; v < series; v++ ) {
+				const runs = [];
+				for ( let i = 0; i < perPage; i++ ) {
+					params.seed = seed0 + v * 1009 + i * 101;
+					const r = bakeRaw( { title: '', rules: '' } );
+					if ( ! r ) {
+						return null;
+					}
+					runs.push( r );
+				}
+				versions.push( runs );
+			}
+		} finally {
+			params.seed = seed0;
+		}
+		const page = {
 			title: params.title,
 			colors: resolvedColors(),
 			font: params.font,
 			textScale: params.textScale,
-			rules: puzzleRules( params.mode ),
+			labels: { name: t( 'Name' ), cls: t( 'Class' ), date: t( 'Date' ) },
+		};
+		const letter = ( v ) => String.fromCharCode( 65 + v );
+		const sheetPage = ( tiles, v = 0 ) =>
+			composeSheet( like(), tiles, {
+				...page,
+				header,
+				instructions,
+				rules: puzzleRules( params.mode ),
+				badge: series > 1 ? `${ t( 'Version' ) } ${ letter( v ) }` : '',
+			} );
+		// Memory's "solution" is the duplex back: same head height, empty,
+		// so front and back still line up when printed on both sides.
+		const solPage = ( tiles, v = 0 ) =>
+			'memory' === params.mode
+				? composeSheet( like(), tiles, {
+						...page,
+						header,
+						instructions,
+						ghost: true,
+				  } )
+				: composeSheet( like(), tiles, {
+						...page,
+						caption:
+							series > 1
+								? `${ t( 'Solution' ) } ${ letter( v ) }`
+								: t( 'Solution' ),
+				  } );
+		if ( 1 === series ) {
+			const runs = versions[ 0 ];
+			const first = runs[ 0 ];
+			return {
+				sheet: sheetPage( runs.map( ( r ) => r.sheet ) ),
+				solution: first.solution
+					? solPage( runs.map( ( r ) => r.solution ) )
+					: null,
+				extras: ( first.extras || [] ).map( ( ex, i ) =>
+					first.extraKinds && 'solution' === first.extraKinds[ i ]
+						? solPage( [ ex ] )
+						: sheetPage( [ ex ] )
+				),
+				extraNames: first.extraNames,
+			};
+		}
+		// A series: every version is its own layer. With one puzzle per
+		// version the solutions share a sheet, six to a page, each marked
+		// with its letter; with several they get a page per version.
+		const sheets = versions.map( ( runs, v ) =>
+			sheetPage(
+				runs.map( ( r ) => r.sheet ),
+				v
+			)
+		);
+		const names = versions.map(
+			( _, v ) => `${ modeName() } ${ letter( v ) }`
+		);
+		const sols = [];
+		const solNames = [];
+		if ( versions[ 0 ][ 0 ].solution ) {
+			if ( 1 === perPage ) {
+				const tiles = versions.map( ( runs ) => runs[ 0 ].solution );
+				for ( let k = 0; k < tiles.length; k += 6 ) {
+					const part = tiles.slice( k, k + 6 );
+					const labels = part.map( ( _, i ) => letter( k + i ) );
+					sols.push(
+						composeSheet( like(), part, {
+							...page,
+							caption: t( 'Solutions' ),
+							tileLabels: labels,
+						} )
+					);
+					solNames.push(
+						`${ t( 'Solutions' ) } ${ labels[ 0 ] }-${
+							labels[ labels.length - 1 ]
+						}`
+					);
+				}
+			} else {
+				versions.forEach( ( runs, v ) => {
+					sols.push(
+						solPage(
+							runs.map( ( r ) => r.solution ),
+							v
+						)
+					);
+					solNames.push( `${ t( 'Solution' ) } ${ letter( v ) }` );
+				} );
+			}
+		}
+		return {
+			sheet: sheets[ 0 ],
+			name: names[ 0 ],
+			solution: sols[ 0 ] || null,
+			solutionName: solNames[ 0 ],
+			extras: [ ...sheets.slice( 1 ), ...sols.slice( 1 ) ],
+			extraNames: [ ...names.slice( 1 ), ...solNames.slice( 1 ) ],
+		};
+	}
+
+	function bakeRaw( base ) {
+		const common = {
+			title: base.title,
+			colors: resolvedColors(),
+			font: params.font,
+			textScale: params.textScale,
+			rules: base.rules,
 		};
 		warn.textContent = '';
 		const two = ( build, render ) => ( {
@@ -1861,17 +3795,40 @@ function openStudio( ctx ) {
 				: null;
 		}
 		if ( 'wordsearch' === params.mode ) {
+			if ( 'image' === params.wsShape && ! srcCanvas ) {
+				return null;
+			}
 			const ws = buildWordSearch( params.words.split( /\n+/ ), {
 				size: params.size,
 				hard: params.hard,
 				seed: params.seed,
+				mask: wsMask,
+				secret: params.wsSecret,
 			} );
 			if ( ws.skipped.length ) {
 				warn.textContent = `${ t(
 					'Some words did not fit:'
 				) } ${ ws.skipped.join( ', ' ) }`;
 			}
-			return two( ws, renderWordSearch );
+			if ( ws.secretTooLong ) {
+				warn.textContent = t(
+					'The hidden message is too long for these words. Shorten it or add words.'
+				);
+			} else if (
+				ws.secret &&
+				ws.blocked.size > ws.secret.cells.length
+			) {
+				// More empty cells than message letters: say how to fill it.
+				warn.textContent = t(
+					'Tip: a longer message leaves fewer empty cells.'
+				);
+			}
+			return two( ws, ( lk, model, o ) =>
+				renderWordSearch( lk, model, {
+					...o,
+					secretLabel: t( 'Hidden message:' ),
+				} )
+			);
 		}
 		if ( 'maze' === params.mode ) {
 			const maze = buildMaze( like(), {
@@ -1886,6 +3843,37 @@ function openStudio( ctx ) {
 			}
 			return two( maze, renderMaze );
 		}
+		if ( 'arith' === params.mode ) {
+			const model = buildArithmetic( {
+				ops: params.arithOps,
+				max: params.arithMax,
+				count: params.arithCount,
+				gaps: params.arithGaps,
+				seed: params.seed,
+			} );
+			const columns =
+				'columns' === params.arithLayout && canWriteInColumns( model );
+			return two( model, ( lk, mdl, o ) =>
+				renderArithmetic( lk, mdl, { ...o, columns } )
+			);
+		}
+		if ( 'clock' === params.mode ) {
+			return two(
+				buildClocks( {
+					count: params.clockCount,
+					step: params.clockStep,
+					task: params.clockTask,
+					seed: params.seed,
+				} ),
+				renderClocks
+			);
+		}
+		if ( 'circlemaze' === params.mode ) {
+			return two(
+				buildCircleMaze( { rings: params.rings, seed: params.seed } ),
+				renderCircleMaze
+			);
+		}
 		if ( 'sudoku' === params.mode ) {
 			const sud = buildSudoku( {
 				size: params.sudokuSize,
@@ -1893,6 +3881,34 @@ function openStudio( ctx ) {
 				seed: params.seed,
 			} );
 			return two( sud, renderSudoku );
+		}
+		if ( 'picsudoku' === params.mode ) {
+			const size = [ 4, 6, 9 ].includes( params.picSize )
+				? params.picSize
+				: 4;
+			const own = Array.from(
+				new Set(
+					String( params.picMotifs || '' )
+						.split( /\s+/ )
+						.filter( Boolean )
+				)
+			);
+			if ( own.length < size ) {
+				warn.textContent = t(
+					'Fewer pictures than the grid is wide - some come from the starter set.'
+				);
+			}
+			const symbols = own
+				.concat( PIC_FALLBACK.filter( ( p ) => ! own.includes( p ) ) )
+				.slice( 0, size );
+			const sud = buildSudoku( {
+				size,
+				diff: params.picDiff,
+				seed: params.seed,
+			} );
+			return two( sud, ( lk, model, o ) =>
+				renderSudoku( lk, model, { ...o, symbols } )
+			);
 		}
 		if ( 'crisscross' === params.mode ) {
 			const cc = buildCrissCross( params.words.split( /\n+/ ), {
@@ -1906,66 +3922,21 @@ function openStudio( ctx ) {
 					'Some words did not fit:'
 				) } ${ cc.skipped.join( ', ' ) }`;
 			}
-			return two( cc, renderCrissCross );
+			// The given word must not hand out the solution word's letters.
+			const secret = secretFor( cc, cc.prefill );
+			return two( cc, ( lk, model, o ) =>
+				renderCrissCross( lk, model, {
+					...o,
+					secret,
+					secretLabel: t( 'Solution word:' ),
+				} )
+			);
 		}
 		if ( 'crossword' === params.mode ) {
-			const cleanWord = ( w ) =>
-				String( w )
-					.toUpperCase()
-					.replace( /Ä/g, 'AE' )
-					.replace( /Ö/g, 'OE' )
-					.replace( /Ü/g, 'UE' )
-					.replace( /[^A-Z]/g, '' );
-			const entries = params.clues
-				.split( /\r?\n/ )
-				.map( ( l ) => l.trim() )
-				.filter( Boolean )
-				.map( ( l ) => {
-					const i = l.indexOf( ':' );
-					return i > 0
-						? {
-								word: l.slice( 0, i ),
-								clue: l.slice( i + 1 ).trim(),
-						  }
-						: { word: l, clue: '' };
-				} );
-			const cc = buildCrissCross(
-				entries.map( ( e ) => e.word ),
-				{ seed: params.seed }
-			);
-			if ( ! cc.placed.length ) {
-				return null;
-			}
-			if ( cc.skipped.length ) {
-				warn.textContent = `${ t(
-					'Some words did not fit:'
-				) } ${ cc.skipped.join( ', ' ) }`;
-			}
-			const map = {};
-			for ( const e of entries ) {
-				const k = cleanWord( e.word );
-				if ( k && ! map[ k ] ) {
-					map[ k ] = e.clue;
-				}
-			}
-			const cw = buildCrosswordClues( cc, map );
-			const labels = {
-				acrossLabel: t( 'Across →' ),
-				downLabel: t( 'Down ↓' ),
-			};
-			return {
-				sheet: renderCrossword( like(), cc, cw, {
-					...common,
-					...labels,
-				} ),
-				solution: params.withSolution
-					? renderCrossword( like(), cc, cw, {
-							...common,
-							...labels,
-							solution: true,
-					  } )
-					: null,
-			};
+			return crosswordSheets( params.clues, common, false );
+		}
+		if ( 'piccross' === params.mode ) {
+			return crosswordSheets( params.picClues, common, true );
 		}
 		if ( 'bingo' === params.mode ) {
 			const b = buildBingo( params.words.split( /\n+/ ), {
@@ -2059,6 +4030,35 @@ function openStudio( ctx ) {
 					: null,
 			};
 		}
+		if ( 'missing' === params.mode ) {
+			const miss = buildMissingLetters( params.words.split( /\n+/ ), {
+				seed: params.seed,
+				gaps: params.missGaps,
+			} );
+			if ( ! miss ) {
+				warn.textContent = t(
+					'Add a few words of three letters or more.'
+				);
+				return null;
+			}
+			return two( miss, renderMissingLetters );
+		}
+		if ( 'magic' === params.mode ) {
+			const labels = {
+				sum: t( 'Every line adds up to' ),
+				use: t( 'Use each number once' ),
+			};
+			return two(
+				buildMagicSquares( {
+					seed: params.seed,
+					count: params.magicCount,
+					range: params.magicRange,
+					clues: params.magicClues,
+				} ),
+				( cv, model, opts ) =>
+					renderMagicSquares( cv, model, { ...opts, labels } )
+			);
+		}
 		if ( 'memory' === params.mode ) {
 			const mem = buildMemory( params.memMotifs.split( /\s+/ ), {
 				pairs: params.memPairs,
@@ -2069,6 +4069,24 @@ function openStudio( ctx ) {
 				return null;
 			}
 			return two( mem, renderMemory );
+		}
+		if ( 'games' === params.mode && MORE_GAMES.includes( params.game ) ) {
+			return {
+				sheet: renderMoreGame( like(), {
+					...common,
+					game: params.game,
+					alphabet: ALPHABETS[ LANG ],
+					labels: {
+						round: t( 'Round' ),
+						wins: t( 'Wins' ),
+						secret: t( 'The code (cover it)' ),
+						exact: t( 'Right color, right place' ),
+						near: t( 'Right color, wrong place' ),
+						colors: t( 'Colors' ),
+					},
+				} ),
+				solution: null,
+			};
 		}
 		if ( 'games' === params.mode ) {
 			return {
@@ -2095,11 +4113,12 @@ function openStudio( ctx ) {
 		if ( 'pack' === params.mode ) {
 			const out = [];
 			const push = ( sheet, name, solution ) => {
-				out.push( { c: sheet, name } );
+				out.push( { c: sheet, name, kind: 'sheet' } );
 				if ( solution && params.withSolution ) {
 					out.push( {
 						c: solution,
-						name: `${ name } – ${ t( 'Solution' ) }`,
+						name: `${ name }: ${ t( 'Solution' ) }`,
+						kind: 'solution',
 					} );
 				}
 			};
@@ -2215,6 +4234,7 @@ function openStudio( ctx ) {
 				solution: null,
 				extras: out.slice( 1 ).map( ( o ) => o.c ),
 				extraNames: out.slice( 1 ).map( ( o ) => o.name ),
+				extraKinds: out.slice( 1 ).map( ( o ) => o.kind ),
 			};
 		}
 		if ( 'cryptogram' === params.mode ) {
@@ -2296,6 +4316,7 @@ function openStudio( ctx ) {
 	};
 	function close() {
 		window.clearTimeout( thumbTimer );
+		history.dispose();
 		window.removeEventListener( 'resize', onResize );
 		if ( viewRO ) {
 			viewRO.disconnect();
@@ -2323,6 +4344,26 @@ function openStudio( ctx ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: puzzle
+	// type, its settings, words and colours; the fields and choices follow
+	// through their own handlers.
+	const history = studioUndo( {
+		backdrop,
+		read: () => params,
+		write: ( data ) => {
+			Object.assign( params, data );
+			customCtls.forEach( ( ctl, i ) =>
+				ctl?.set?.( params.customColors[ i ] || '#cccccc' )
+			);
+			syncUi();
+			refreshThumbs();
+			if ( wantsImage() && ! srcCanvas ) {
+				loadSource();
+			} else {
+				paint();
+			}
+		},
+	} );
 
 	/* -------------------------------- insert ------------------------------ */
 
@@ -2371,7 +4412,7 @@ function openStudio( ctx ) {
 				} );
 				editor.commit( t( 'Update sheets' ) );
 			} else {
-				const main = place( baked.sheet, modeLabel, 0 );
+				const main = place( baked.sheet, baked.name || modeLabel, 0 );
 				main.generator = { id: GEN_ID, params: stored };
 				editor.dispatch( { type: 'ADD_LAYER', layer: main } );
 				// Bingo sets: every further card is its own layer.
@@ -2383,7 +4424,11 @@ function openStudio( ctx ) {
 					editor.dispatch( { type: 'ADD_LAYER', layer: exLayer } );
 				} );
 				if ( baked.solution ) {
-					const sol = place( baked.solution, t( 'Solution' ), 40 );
+					const sol = place(
+						baked.solution,
+						baked.solutionName || t( 'Solution' ),
+						40
+					);
 					editor.dispatch( { type: 'ADD_LAYER', layer: sol } );
 				}
 				editor.dispatch( { type: 'SET_ACTIVE', id: main.id } );
@@ -2409,11 +4454,7 @@ function openStudio( ctx ) {
 		syncUi();
 		paintCardThumbs();
 		paint();
-		if (
-			( 'maze' === params.mode && 'image' === params.shape ) ||
-			( 'nonogram' === params.mode && 'image' === params.nonoShape ) ||
-			NEEDS_IMAGE.includes( params.mode )
-		) {
+		if ( wantsImage() ) {
 			loadSource();
 		}
 		if ( params.font && bridge.fonts && bridge.fonts.ensureFont ) {

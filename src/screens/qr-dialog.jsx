@@ -15,6 +15,7 @@ import { HelpLink } from './help-dialog';
 import { SwatchButton } from '../components/color-popover';
 import { VarButton } from '../components/var-picker';
 import { makeImage } from '../store/document';
+import { encodeCanvas } from '../lib/canvas-encode';
 import { assignBrandKitOp } from '../store/ops';
 import { parseColor } from '../lib/color';
 import { hasTokens } from '../lib/dynamic-content';
@@ -37,6 +38,7 @@ const KINDS = [
 	[ 'vcard', __( 'Contact (vCard)', 'wunderpaint' ) ],
 	[ 'payment', __( 'Payment (Girocode)', 'wunderpaint' ) ],
 	[ 'event', __( 'Calendar event', 'wunderpaint' ) ],
+	[ 'geo', __( 'Location (map)', 'wunderpaint' ) ],
 ];
 
 const DEFAULT_CONTENT = { kind: 'url', url: 'https://wp-image-editor.com' };
@@ -359,14 +361,29 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ contentKey, styleKey, ready ] );
 
+	// Sharp at the size it is used (19.10.2026): always 1024 px, so a code
+	// pulled up to poster size and edited again stayed soft. Now twice the
+	// layer's own size, 1024 to 4096 px.
+	const renderSize = editLayer
+		? Math.max(
+				1024,
+				Math.min(
+					4096,
+					Math.round(
+						2 * Math.max( editLayer.w || 0, editLayer.h || 0 )
+					)
+				)
+		  )
+		: 1024;
+
 	const submit = async () => {
 		setBusy( true );
 		try {
 			const { canvas } = await renderQr( qrPayload( content ), {
 				...style,
-				size: 1024,
+				size: renderSize,
 			} );
-			const dataUrl = canvas.toDataURL( 'image/png' );
+			const dataUrl = await encodeCanvas( canvas, 'image/png' );
 			const qrMeta = { content: { ...content }, style: { ...style } };
 			// A frame makes the render taller than wide; the layer box has
 			// to follow or the code inside would squash and stop scanning.
@@ -875,6 +892,56 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 								</div>
 							</div>
 						) }
+						{ 'geo' === kind && (
+							<div>
+								<TextInput
+									kit={ varKit }
+									onKitChange={ changeKit }
+									label={ __(
+										'Address or coordinates',
+										'wunderpaint'
+									) }
+									value={ content.place }
+									placeholder="52.5163, 13.3777"
+									onChange={ ( v ) =>
+										patchContent( { place: v } )
+									}
+								/>
+								<Field
+									label={ __( 'Opens in', 'wunderpaint' ) }
+								>
+									<select
+										className="dsm-select"
+										style={ { width: '100%' } }
+										value={ content.maps || 'google' }
+										onChange={ ( e ) =>
+											patchContent( {
+												maps: e.target.value,
+											} )
+										}
+									>
+										<option value="google">
+											{ __(
+												'Google Maps',
+												'wunderpaint'
+											) }
+										</option>
+										<option value="apple">
+											{ __(
+												'Apple Maps',
+												'wunderpaint'
+											) }
+										</option>
+										<option value="geo">
+											{ __(
+												'Any maps app (geo link)',
+												'wunderpaint'
+											) }
+										</option>
+									</select>
+								</Field>
+							</div>
+						) }
 						{ 'event' === kind && (
 							<div>
 								<TextInput
@@ -934,8 +1001,11 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 												'Variables resolve per post wherever this design runs as a dynamic template (Featured Images, dynamic image block or shortcode). The preview here keeps the placeholder text.',
 												'wunderpaint'
 										  )
-										: __(
-												'Variables resolve against a real post on export and under View, Preview with Post. The preview here keeps the placeholder text. Running the design over many posts, or embedding it as a block or shortcode, comes with Pro.',
+										: // No word about Pro here (19.10.2026):
+										  // nothing in the free editor
+										  // advertises it.
+										  __(
+												'Variables resolve against a real post on export and under View, Preview with Post. The preview here keeps the placeholder text.',
 												'wunderpaint'
 										  ) }
 								</span>
@@ -1341,11 +1411,13 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 													'Artwork size',
 													'wunderpaint'
 												) }{ ' ' }
-												{ Math.round(
-													( style.artScale || 0.65 ) *
-														100
-												) }
-												%
+												<span data-number-value>
+													{ Math.round(
+														( style.artScale ||
+															0.65 ) * 100
+													) }
+													%
+												</span>
 											</span>
 											<input
 												type="range"
@@ -1377,11 +1449,13 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 													'Logo size',
 													'wunderpaint'
 												) }{ ' ' }
-												{ Math.round(
-													( style.logoScale || 0.2 ) *
-														100
-												) }
-												%
+												<span data-number-value>
+													{ Math.round(
+														( style.logoScale ||
+															0.2 ) * 100
+													) }
+													%
+												</span>
 											</span>
 											<input
 												type="range"
@@ -1792,9 +1866,11 @@ export function QrDialog( { onClose, extras, layerId = null } ) {
 							disabled={ ! ready || busy || !! renderError }
 							onClick={ submit }
 						>
-							{ editLayer
-								? __( 'Update QR code', 'wunderpaint' )
-								: __( 'Insert QR code', 'wunderpaint' ) }
+							{ busy && __( 'Rendering…', 'wunderpaint' ) }
+							{ ! busy &&
+								( editLayer
+									? __( 'Update QR code', 'wunderpaint' )
+									: __( 'Insert QR code', 'wunderpaint' ) ) }
 						</button>
 					</div>
 				</div>

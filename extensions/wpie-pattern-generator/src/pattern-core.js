@@ -1,7 +1,11 @@
+import { EXTRA_MOTIFS } from './motif-builders.js';
+import { EXTRA_GLYPH_SETS } from './motif-glyphs.js';
+import { distribute, weightedIndex } from './distribution.js';
+
 /**
  * Seamless Patterns - seeded seamless-tile engine.
  *
- * A pattern is a square design cell filled by one of ten motif
+ * A pattern is a design cell filled by one of the motif
  * builders (scatter doodles, grids, diamonds, polka dots, stripes,
  * waves, fish scales, gingham, chevron, terrazzo), repeated by a
  * rapport (straight, half-drop, brick, mirror). Everything derives
@@ -35,18 +39,66 @@ export const pick = ( r, list ) => list[ Math.floor( r() * list.length ) ];
 /* -------------------------------- palettes ------------------------------- */
 
 export const PALETTES = [
-	{ id: 'nordlicht', label: 'Northern Lights', colors: [ '#1b3a5b', '#2e6f95', '#54a0bf', '#9fd0dc', '#f4ebd9' ] },
-	{ id: 'sunset', label: 'Sunset', colors: [ '#2d1b4e', '#93329e', '#e4508f', '#ff7b54', '#ffd56b' ] },
-	{ id: 'bauhaus', label: 'Bauhaus', colors: [ '#e63946', '#f1a208', '#2a9d8f', '#1d3557', '#f4f1de' ] },
-	{ id: 'ozean', label: 'Ocean', colors: [ '#0b2545', '#13497b', '#1d70a2', '#5ea8c4', '#bfe0e2' ] },
-	{ id: 'terracotta', label: 'Terracotta', colors: [ '#5c3a2e', '#a4573e', '#d98156', '#ecb98a', '#f6e7cb' ] },
-	{ id: 'pastell', label: 'Pastel', colors: [ '#b5c7eb', '#f2b8c6', '#f7e3af', '#bfe3c0', '#e8d9f0' ] },
-	{ id: 'neonNoir', label: 'Neon Noir', colors: [ '#0d0221', '#5f0f9f', '#c81d77', '#ff5f6d', '#22e4ac' ] },
-	{ id: 'salbei', label: 'Sage', colors: [ '#3a4f41', '#6b8f71', '#a3c4a8', '#d9e5d6', '#f2efe9' ] },
-	{ id: 'mono', label: 'Ink', colors: [ '#14161a', '#3c4048', '#71767f', '#aab0b8', '#e8eaee' ] },
-	{ id: 'royal', label: 'Royal', colors: [ '#1a1a40', '#270082', '#7a0bc0', '#fa58b6', '#ffe5ae' ] },
-	{ id: 'zitrus', label: 'Citrus', colors: [ '#144d3a', '#2c8c5b', '#8fc93a', '#e4e34b', '#f7f6d5' ] },
-	{ id: 'rose', label: 'Rosé', colors: [ '#4a1d33', '#8c2f5a', '#c9527e', '#eb95ab', '#f9dcd9' ] },
+	{
+		id: 'nordlicht',
+		label: 'Northern Lights',
+		colors: [ '#1b3a5b', '#2e6f95', '#54a0bf', '#9fd0dc', '#f4ebd9' ],
+	},
+	{
+		id: 'sunset',
+		label: 'Sunset',
+		colors: [ '#2d1b4e', '#93329e', '#e4508f', '#ff7b54', '#ffd56b' ],
+	},
+	{
+		id: 'bauhaus',
+		label: 'Bauhaus',
+		colors: [ '#e63946', '#f1a208', '#2a9d8f', '#1d3557', '#f4f1de' ],
+	},
+	{
+		id: 'ozean',
+		label: 'Ocean',
+		colors: [ '#0b2545', '#13497b', '#1d70a2', '#5ea8c4', '#bfe0e2' ],
+	},
+	{
+		id: 'terracotta',
+		label: 'Terracotta',
+		colors: [ '#5c3a2e', '#a4573e', '#d98156', '#ecb98a', '#f6e7cb' ],
+	},
+	{
+		id: 'pastell',
+		label: 'Pastel',
+		colors: [ '#b5c7eb', '#f2b8c6', '#f7e3af', '#bfe3c0', '#e8d9f0' ],
+	},
+	{
+		id: 'neonNoir',
+		label: 'Neon Noir',
+		colors: [ '#0d0221', '#5f0f9f', '#c81d77', '#ff5f6d', '#22e4ac' ],
+	},
+	{
+		id: 'salbei',
+		label: 'Sage',
+		colors: [ '#3a4f41', '#6b8f71', '#a3c4a8', '#d9e5d6', '#f2efe9' ],
+	},
+	{
+		id: 'mono',
+		label: 'Ink',
+		colors: [ '#14161a', '#3c4048', '#71767f', '#aab0b8', '#e8eaee' ],
+	},
+	{
+		id: 'royal',
+		label: 'Royal',
+		colors: [ '#1a1a40', '#270082', '#7a0bc0', '#fa58b6', '#ffe5ae' ],
+	},
+	{
+		id: 'zitrus',
+		label: 'Citrus',
+		colors: [ '#144d3a', '#2c8c5b', '#8fc93a', '#e4e34b', '#f7f6d5' ],
+	},
+	{
+		id: 'rose',
+		label: 'Rosé',
+		colors: [ '#4a1d33', '#8c2f5a', '#c9527e', '#eb95ab', '#f9dcd9' ],
+	},
 ];
 
 export const paletteById = ( id ) =>
@@ -89,7 +141,7 @@ const hexRgb = ( hex ) => [
 /** Brand-color palette: five harmonic stops dark -> light around hex. */
 export function customPalette( hex ) {
 	const [ r, g, b ] = hexRgb(
-		/^#[0-9a-f]{6}$/i.test( hex || '' ) ? hex : '#3b66ff'
+		/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test( hex || '' ) ? hex : '#3b66ff'
 	).map( ( v ) => v / 255 );
 	const max = Math.max( r, g, b );
 	const min = Math.min( r, g, b );
@@ -115,14 +167,20 @@ export function customPalette( hex ) {
 			hslHex( h, s, l ),
 			hslHex( h + 16, s * 0.85, Math.min( 0.8, l * 1.25 + 0.08 ) ),
 			hslHex( h + 4, s * 0.45, 0.93 ),
-		],
+		].map(
+			( c ) =>
+				c +
+				( typeof hex === 'string' && /^#[0-9a-f]{8}$/i.test( hex )
+					? hex.slice( 7 )
+					: '' )
+		),
 	};
 }
 
 /** Validated brand-kit palette from P.kitColors, or null. */
 export function kitPalette( P ) {
 	const colors = ( P.kitColors || [] )
-		.filter( ( c ) => /^#[0-9a-f]{6}$/i.test( c ) )
+		.filter( ( c ) => /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test( c ) )
 		.slice( 0, 8 );
 	return colors.length >= 2
 		? { id: 'kit', label: P.kitName || 'Brand Kit', colors }
@@ -130,6 +188,13 @@ export function kitPalette( P ) {
 }
 
 const basePalette = ( P ) =>
+	( P.paletteColors?.length >= 2 && {
+		id: 'edited',
+		label: 'Edited palette',
+		colors: P.paletteColors
+			.filter( ( c ) => /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test( c ) )
+			.slice( 0, 8 ),
+	} ) ||
 	( 'kit' === P.palette && kitPalette( P ) ) ||
 	( 'custom' === P.palette
 		? customPalette( P.customBase )
@@ -151,7 +216,7 @@ export function bgColor( P ) {
 		return '';
 	}
 	if ( 'custom' === P.bg ) {
-		return /^#[0-9a-f]{6}$/i.test( P.bgCustom || '' )
+		return /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test( P.bgCustom || '' )
 			? P.bgCustom
 			: '#ffffff';
 	}
@@ -169,11 +234,26 @@ function drawColors( P ) {
 	const colors = palOf( P ).colors.slice();
 	const bg = bgColor( P );
 	const filtered = colors.filter( ( c ) => c !== bg );
-	return filtered.length >= 2 ? filtered : colors;
+	const ink = filtered.length >= 1 ? filtered : colors;
+	if ( ! P.colorWeights?.length ) return ink;
+	ink.weights = ink.map(
+		( color ) => P.colorWeights[ palOf( P ).colors.indexOf( color ) ] ?? 50
+	);
+	return ink;
 }
 
 const colFor = ( colors, i, P ) => {
 	const n = colors.length;
+	if ( colors.weights )
+		return colors[
+			weightedIndex(
+				colors.weights,
+				n,
+				( ( ( ( i + ( P.colorway || 0 ) ) * 0.61803398875 ) % 1 ) +
+					1 ) %
+					1
+			)
+		];
 	const idx = ( ( ( i + ( P.colorway || 0 ) ) % n ) + n ) % n;
 	return colors[ idx ];
 };
@@ -303,10 +383,18 @@ export const GLYPH_SETS = [
 			[ P_STROKE( regularPts( 4, 0.4, 0 ), 0.13, true ) ],
 			[
 				P_FILL( [
-					[ -0.11, -0.4 ], [ 0.11, -0.4 ], [ 0.11, -0.11 ],
-					[ 0.4, -0.11 ], [ 0.4, 0.11 ], [ 0.11, 0.11 ],
-					[ 0.11, 0.4 ], [ -0.11, 0.4 ], [ -0.11, 0.11 ],
-					[ -0.4, 0.11 ], [ -0.4, -0.11 ], [ -0.11, -0.11 ],
+					[ -0.11, -0.4 ],
+					[ 0.11, -0.4 ],
+					[ 0.11, -0.11 ],
+					[ 0.4, -0.11 ],
+					[ 0.4, 0.11 ],
+					[ 0.11, 0.11 ],
+					[ 0.11, 0.4 ],
+					[ -0.11, 0.4 ],
+					[ -0.11, 0.11 ],
+					[ -0.4, 0.11 ],
+					[ -0.4, -0.11 ],
+					[ -0.11, -0.11 ],
 				] ),
 			],
 			[ P_FILL( arcPts( 0, 0.1, 0.38, Math.PI, TAU ) ) ],
@@ -320,16 +408,36 @@ export const GLYPH_SETS = [
 			[
 				P_STROKE(
 					[
-						[ -0.42, 0.12 ], [ -0.21, -0.12 ], [ 0, 0.12 ],
-						[ 0.21, -0.12 ], [ 0.42, 0.12 ],
+						[ -0.42, 0.12 ],
+						[ -0.21, -0.12 ],
+						[ 0, 0.12 ],
+						[ 0.21, -0.12 ],
+						[ 0.42, 0.12 ],
 					],
 					0.13
 				),
 			],
-			[ P_STROKE( arcPts( 0, 0.08, 0.36, Math.PI * 1.05, TAU * 0.98 ), 0.15 ) ],
 			[
-				P_STROKE( [ [ -0.3, -0.3 ], [ 0.3, 0.3 ] ], 0.14 ),
-				P_STROKE( [ [ 0.3, -0.3 ], [ -0.3, 0.3 ] ], 0.14 ),
+				P_STROKE(
+					arcPts( 0, 0.08, 0.36, Math.PI * 1.05, TAU * 0.98 ),
+					0.15
+				),
+			],
+			[
+				P_STROKE(
+					[
+						[ -0.3, -0.3 ],
+						[ 0.3, 0.3 ],
+					],
+					0.14
+				),
+				P_STROKE(
+					[
+						[ 0.3, -0.3 ],
+						[ -0.3, 0.3 ],
+					],
+					0.14
+				),
 			],
 			[
 				P_FILL(
@@ -347,10 +455,22 @@ export const GLYPH_SETS = [
 		glyphs: [
 			[
 				leafPrim( 0.85, 0.2 ),
-				P_STROKE( [ [ -0.4, 0 ], [ 0.33, 0 ] ], 0.045 ),
+				P_STROKE(
+					[
+						[ -0.4, 0 ],
+						[ 0.33, 0 ],
+					],
+					0.045
+				),
 			],
 			[
-				P_STROKE( [ [ 0, 0.45 ], [ 0, -0.3 ] ], 0.055 ),
+				P_STROKE(
+					[
+						[ 0, 0.45 ],
+						[ 0, -0.3 ],
+					],
+					0.055
+				),
 				leafPrim( 0.34, 0.09, -0.14, -0.02, -0.85 ),
 				leafPrim( 0.34, 0.09, 0.14, -0.08, 0.85 ),
 				leafPrim( 0.3, 0.08, 0, -0.36, Math.PI / 2 ),
@@ -365,13 +485,24 @@ export const GLYPH_SETS = [
 			],
 			[
 				P_FILL(
-					arcPts( 0, 0.1, 0.3, Math.PI * 0.75, Math.PI * 2.25, 30 ).concat( [
-						[ 0, -0.44 ],
-					] )
+					arcPts(
+						0,
+						0.1,
+						0.3,
+						Math.PI * 0.75,
+						Math.PI * 2.25,
+						30
+					).concat( [ [ 0, -0.44 ] ] )
 				),
 			],
 			[
-				P_STROKE( [ [ -0.4, 0.34 ], [ 0.4, -0.34 ] ], 0.05 ),
+				P_STROKE(
+					[
+						[ -0.4, 0.34 ],
+						[ 0.4, -0.34 ],
+					],
+					0.05
+				),
 				P_FILL( circlePts( -0.18, 0.05, 0.07 ) ),
 				P_FILL( circlePts( 0.02, -0.1, 0.07 ) ),
 				P_FILL( circlePts( 0.22, -0.26, 0.07 ) ),
@@ -386,21 +517,58 @@ export const GLYPH_SETS = [
 			[ P_FILL( starPts( 4, 0.42, 0.1 ) ) ],
 			[
 				P_FILL(
-					arcPts( 0, 0, 0.4, Math.PI * 0.62, Math.PI * 2.38, 30 ).concat(
-						arcPts( 0.17, 0, 0.3, Math.PI * 2.25, Math.PI * 0.72, 26 )
+					arcPts(
+						0,
+						0,
+						0.4,
+						Math.PI * 0.62,
+						Math.PI * 2.38,
+						30
+					).concat(
+						arcPts(
+							0.17,
+							0,
+							0.3,
+							Math.PI * 2.25,
+							Math.PI * 0.72,
+							26
+						)
 					)
 				),
 			],
 			[
 				P_FILL( circlePts( -0.18, -0.18, 0.16 ) ),
-				P_STROKE( [ [ 0, 0 ], [ 0.38, 0.38 ] ], 0.055 ),
-				P_STROKE( [ [ 0.08, -0.14 ], [ 0.42, 0.16 ] ], 0.045 ),
-				P_STROKE( [ [ -0.14, 0.08 ], [ 0.16, 0.42 ] ], 0.045 ),
+				P_STROKE(
+					[
+						[ 0, 0 ],
+						[ 0.38, 0.38 ],
+					],
+					0.055
+				),
+				P_STROKE(
+					[
+						[ 0.08, -0.14 ],
+						[ 0.42, 0.16 ],
+					],
+					0.045
+				),
+				P_STROKE(
+					[
+						[ -0.14, 0.08 ],
+						[ 0.16, 0.42 ],
+					],
+					0.045
+				),
 			],
 			[
 				P_FILL( circlePts( 0, 0, 0.26 ) ),
 				P_STROKE(
-					[ [ -0.46, 0.14 ], [ -0.2, 0.23 ], [ 0.2, 0.23 ], [ 0.46, 0.1 ] ],
+					[
+						[ -0.46, 0.14 ],
+						[ -0.2, 0.23 ],
+						[ 0.2, 0.23 ],
+						[ 0.46, 0.1 ],
+					],
 					0.07
 				),
 			],
@@ -415,11 +583,48 @@ export const GLYPH_SETS = [
 		id: 'blobs',
 		label: 'Blobs',
 		glyphs: [
-			[ P_FILL( blobPts( [ [ 2, 0.09, 0 ], [ 3, 0.05, 1.3 ] ] ) ) ],
-			[ P_FILL( blobPts( [ [ 3, 0.07, 0.6 ], [ 5, 0.045, 2.4 ] ] ) ) ],
-			[ P_FILL( blobPts( [ [ 2, 0.11, 2.2 ], [ 4, 0.04, 0.9 ] ] ) ) ],
-			[ P_FILL( blobPts( [ [ 5, 0.08, 0 ], [ 7, 0.04, 1 ] ] ) ) ],
-			[ P_STROKE( blobPts( [ [ 2, 0.08, 1 ], [ 3, 0.05, 0.2 ] ] ), 0.12, true ) ],
+			[
+				P_FILL(
+					blobPts( [
+						[ 2, 0.09, 0 ],
+						[ 3, 0.05, 1.3 ],
+					] )
+				),
+			],
+			[
+				P_FILL(
+					blobPts( [
+						[ 3, 0.07, 0.6 ],
+						[ 5, 0.045, 2.4 ],
+					] )
+				),
+			],
+			[
+				P_FILL(
+					blobPts( [
+						[ 2, 0.11, 2.2 ],
+						[ 4, 0.04, 0.9 ],
+					] )
+				),
+			],
+			[
+				P_FILL(
+					blobPts( [
+						[ 5, 0.08, 0 ],
+						[ 7, 0.04, 1 ],
+					] )
+				),
+			],
+			[
+				P_STROKE(
+					blobPts( [
+						[ 2, 0.08, 1 ],
+						[ 3, 0.05, 0.2 ],
+					] ),
+					0.12,
+					true
+				),
+			],
 			[ P_FILL( blobPts( [ [ 2, 0.05, 0.4 ] ] ) ) ],
 		],
 	},
@@ -429,7 +634,9 @@ export const GLYPH_SETS = [
 		glyphs: [
 			[
 				P_FILL( [
-					[ -0.08, -0.42 ], [ 0.08, -0.42 ], [ 0.08, 0.42 ],
+					[ -0.08, -0.42 ],
+					[ 0.08, -0.42 ],
+					[ 0.08, 0.42 ],
 					[ -0.08, 0.42 ],
 				] ),
 			],
@@ -453,6 +660,8 @@ export const GLYPH_SETS = [
 	},
 ];
 
+GLYPH_SETS.push( ...EXTRA_GLYPH_SETS );
+
 export const glyphSetById = ( id ) =>
 	GLYPH_SETS.find( ( s ) => s.id === id ) || GLYPH_SETS[ 0 ];
 
@@ -473,11 +682,15 @@ function glyphShapes( glyph, e, color, P, out ) {
 	const wMul = 0.5 + ( P.weight / 100 ) * 1.3;
 	const op = Math.max( 0.05, Math.min( 1, ( P.alpha ?? 100 ) / 100 ) );
 	for ( const prim of glyph ) {
+		const ink =
+			prim.tone && ! e.color
+				? colFor( drawColors( P ), e.c + prim.tone, P )
+				: color;
 		out.push( {
 			points: XF( prim.pts, e.x, e.y, e.s, e.rot || 0 ),
 			closed: !! ( prim.closed || prim.fill ),
-			color,
-			fill: prim.fill ? color : null,
+			color: ink,
+			fill: prim.fill ? ink : null,
 			width: prim.fill
 				? 0
 				: Math.max( 0.0016, ( prim.w || 0.14 ) * e.s * wMul ),
@@ -505,7 +718,7 @@ function baseElements( P, R, glyphCount, opts = {} ) {
 		const j = Math.floor( R() * ( i + 1 ) );
 		[ cells[ i ], cells[ j ] ] = [ cells[ j ], cells[ i ] ];
 	}
-	const base = ( opts.size ?? ( 0.34 + ( P.size / 100 ) * 0.62 ) ) / g;
+	const base = ( opts.size ?? 0.34 + ( P.size / 100 ) * 0.62 ) / g;
 	const els = [];
 	for ( let k = 0; k < n; k++ ) {
 		const cell = cells[ k % cells.length ];
@@ -522,7 +735,7 @@ function baseElements( P, R, glyphCount, opts = {} ) {
 			c: k,
 		} );
 	}
-	return els;
+	return distribute( P, els, R, glyphCount );
 }
 
 /** Apply the playground edits (moved/removed/added) to base elements. */
@@ -533,21 +746,25 @@ function editedElements( P, els, glyphCount ) {
 		.filter( ( e ) => ! removed.has( e.i ) );
 	( P.added || [] ).forEach( ( a, k ) => {
 		out.push( {
-			x: ( ( a.x % 1 ) + 1 ) % 1,
-			y: ( ( a.y % 1 ) + 1 ) % 1,
-			g: ( ( a.g || 0 ) % glyphCount + glyphCount ) % glyphCount,
+			x: a.x,
+			y: a.y,
+			g: ( ( ( a.g || 0 ) % glyphCount ) + glyphCount ) % glyphCount,
 			s: a.s,
 			rot: a.rot || 0,
 			c: a.c || 0,
-			i: 100000 + k,
+			i: 100000 + ( a.id ?? k ),
+			color: a.color,
+			locked: !! a.locked,
 		} );
 	} );
 	// Moves last, so dragged hand-added elements stick too.
 	for ( const m of P.moved || [] ) {
 		const hit = out.find( ( e ) => e.i === m.i );
 		if ( hit ) {
-			hit.x = ( ( m.x % 1 ) + 1 ) % 1;
-			hit.y = ( ( m.y % 1 ) + 1 ) % 1;
+			if ( Number.isFinite( m.x ) ) hit.x = m.x;
+			if ( Number.isFinite( m.y ) ) hit.y = m.y;
+			for ( const key of [ 's', 'rot', 'color', 'locked', 'g' ] )
+				if ( m[ key ] !== undefined ) hit[ key ] = m[ key ];
 		}
 	}
 	return out;
@@ -571,7 +788,8 @@ export function cellElements( P ) {
 		return [];
 	}
 	const R = rng( P.seed );
-	const n = ( glyphPool( P ) || [ 0 ] ).length;
+	const n = ( glyphPool( P ) || ( P.stamps?.length && P.stamps ) || [ 0 ] )
+		.length;
 	return editedElements( P, baseElements( P, R, n ), n );
 }
 
@@ -581,6 +799,7 @@ export function cellElements( P ) {
  * then emit img shapes instead of vector primitives.
  */
 export function glyphPool( P ) {
+	if ( P.motif === 'terrazzo' ) return TERRAZZO_GLYPHS;
 	if ( 'stamp' === P.set ) {
 		return null;
 	}
@@ -592,6 +811,9 @@ export function glyphPool( P ) {
 
 const stampShape = ( e, P ) => ( {
 	kind: 'img',
+	href: P.stamps?.[ e.g % P.stamps.length ]?.data,
+	legacyHref: P.stampData,
+	aspect: P.stamps?.[ e.g % P.stamps.length ]?.aspect || 1,
 	x: e.x,
 	y: e.y,
 	s: e.s,
@@ -610,9 +832,9 @@ function scatterShapes( P, colors ) {
 			continue;
 		}
 		glyphShapes(
-			glyphs[ e.g % glyphs.length ],
+			glyphs[ e.g % glyphs.length ] || glyphs[ 0 ],
 			e,
-			colFor( colors, e.c, P ),
+			e.color || colFor( colors, e.c, P ),
 			P,
 			out
 		);
@@ -622,11 +844,45 @@ function scatterShapes( P, colors ) {
 
 // Terrazzo chips: blobs and angular shards, always filled.
 const TERRAZZO_GLYPHS = [
-	[ P_FILL( blobPts( [ [ 2, 0.09, 0 ], [ 3, 0.05, 1.3 ] ] ) ) ],
-	[ P_FILL( blobPts( [ [ 3, 0.07, 0.6 ], [ 5, 0.045, 2.4 ] ] ) ) ],
-	[ P_FILL( blobPts( [ [ 2, 0.11, 2.2 ], [ 4, 0.04, 0.9 ] ] ) ) ],
-	[ P_FILL( [ [ -0.4, -0.25 ], [ 0.42, -0.38 ], [ 0.18, 0.4 ] ] ) ],
-	[ P_FILL( [ [ -0.38, -0.1 ], [ 0.05, -0.42 ], [ 0.4, 0.05 ], [ -0.05, 0.38 ] ] ) ],
+	[
+		P_FILL(
+			blobPts( [
+				[ 2, 0.09, 0 ],
+				[ 3, 0.05, 1.3 ],
+			] )
+		),
+	],
+	[
+		P_FILL(
+			blobPts( [
+				[ 3, 0.07, 0.6 ],
+				[ 5, 0.045, 2.4 ],
+			] )
+		),
+	],
+	[
+		P_FILL(
+			blobPts( [
+				[ 2, 0.11, 2.2 ],
+				[ 4, 0.04, 0.9 ],
+			] )
+		),
+	],
+	[
+		P_FILL( [
+			[ -0.4, -0.25 ],
+			[ 0.42, -0.38 ],
+			[ 0.18, 0.4 ],
+		] ),
+	],
+	[
+		P_FILL( [
+			[ -0.38, -0.1 ],
+			[ 0.05, -0.42 ],
+			[ 0.4, 0.05 ],
+			[ -0.05, 0.38 ],
+		] ),
+	],
 	[ P_FILL( circlePts( 0, 0, 0.3 ) ) ],
 ];
 
@@ -636,7 +892,7 @@ function terrazzoShapes( P, colors ) {
 		glyphShapes(
 			TERRAZZO_GLYPHS[ e.g % TERRAZZO_GLYPHS.length ],
 			e,
-			colFor( colors, e.c, P ),
+			e.color || colFor( colors, e.c, P ),
 			P,
 			out
 		);
@@ -671,18 +927,22 @@ function gridShapes( P, colors, stagger ) {
 	const k = Math.max( 2, Math.min( 10, Math.round( P.count ) ) );
 	const R = rng( P.seed );
 	const nG = glyphs
-		? Math.min( glyphs.length, 1 + Math.floor( P.variety / 26 ) )
-		: 1;
+		? P.glyphWeights?.length
+			? glyphs.length
+			: Math.min( glyphs.length, 1 + Math.floor( P.variety / 26 ) )
+		: Math.max( 1, P.stamps?.length || 1 );
 	const size = ( 0.42 + ( P.size / 100 ) * 0.5 ) / k;
 	const jit = ( ( P.jitter / 100 ) * 0.3 ) / k;
 	const out = [];
 	for ( let j = 0; j < k; j++ ) {
 		for ( let i = 0; i < k; i++ ) {
 			const rSteps = Math.floor( R() * 4 );
-			const gPick = Math.floor( R() * nG );
+			const gPick = weightedIndex( P.glyphWeights, nG, R() );
 			const jx = ( R() - 0.5 ) * 2 * jit;
 			const jy = ( R() - 0.5 ) * 2 * jit;
 			const e = {
+				g: gPick,
+				c: i + j * 2,
 				x: ( i + 0.5 + ( stagger && j % 2 ? 0.5 : 0 ) ) / k + jx,
 				y: ( j + 0.5 ) / k + jy,
 				s: size,
@@ -759,8 +1019,14 @@ function stripeShapes( P, colors ) {
 			out.push( {
 				points:
 					0 === dir
-						? [ { x: -0.3, y: c }, { x: 1.3, y: c } ]
-						: [ { x: c, y: -0.3 }, { x: c, y: 1.3 } ],
+						? [
+								{ x: -0.3, y: c },
+								{ x: 1.3, y: c },
+						  ]
+						: [
+								{ x: c, y: -0.3 },
+								{ x: c, y: 1.3 },
+						  ],
 				closed: false,
 				color: colFor( colors, i, P ),
 				fill: null,
@@ -775,7 +1041,8 @@ function stripeShapes( P, colors ) {
 	// count over the c-range of length 2.
 	const n2 = Math.max( 2, 2 * Math.round( P.count / 2 ) );
 	const spacing = 2 / n2;
-	const base = ( spacing / Math.SQRT2 ) * ( 0.26 + ( P.weight / 100 ) * 0.66 );
+	const base =
+		( spacing / Math.SQRT2 ) * ( 0.26 + ( P.weight / 100 ) * 0.66 );
 	for ( let i = 0; i < n2; i++ ) {
 		const c = ( i + 0.5 ) * spacing + ( 3 === dir ? -1 : 0 );
 		const mid =
@@ -870,10 +1137,12 @@ function scaleShapes( P, colors ) {
 		for ( let i = 0; i < c; i++ ) {
 			const x = ( i + 0.5 + ( j % 2 ? 0.5 : 0 ) ) / c;
 			const y = ( j + 0.5 ) * rowH - rad * 0.4;
-			const pts = arcPts( x, y, rad, 0, Math.PI, 26 ).map( ( [ px, py ] ) => ( {
-				x: px,
-				y: py,
-			} ) );
+			const pts = arcPts( x, y, rad, 0, Math.PI, 26 ).map(
+				( [ px, py ] ) => ( {
+					x: px,
+					y: py,
+				} )
+			);
 			pts.unshift( { x: x + rad, y } );
 			pts.push( { x: x - rad, y } );
 			const color = colFor( colors, i + j * 2, P );
@@ -901,19 +1170,22 @@ function scaleShapes( P, colors ) {
 function ginghamShapes( P, colors ) {
 	const k = Math.max( 2, Math.min( 8, Math.round( P.count / 2 ) ) );
 	const w = 1 / ( 2 * k );
-	const op =
-		Math.max( 0.05, Math.min( 1, ( P.alpha ?? 100 ) / 100 ) ) * 0.5;
+	const op = Math.max( 0.05, Math.min( 1, ( P.alpha ?? 100 ) / 100 ) ) * 0.5;
 	const two = P.variety >= 50;
 	const out = [];
 	const bar = ( x, y, horiz, color ) => ( {
 		points: horiz
 			? [
-					{ x: -0.1, y }, { x: 1.1, y },
-					{ x: 1.1, y: y + w }, { x: -0.1, y: y + w },
+					{ x: -0.1, y },
+					{ x: 1.1, y },
+					{ x: 1.1, y: y + w },
+					{ x: -0.1, y: y + w },
 			  ]
 			: [
-					{ x, y: -0.1 }, { x: x + w, y: -0.1 },
-					{ x: x + w, y: 1.1 }, { x, y: 1.1 },
+					{ x, y: -0.1 },
+					{ x: x + w, y: -0.1 },
+					{ x: x + w, y: 1.1 },
+					{ x, y: 1.1 },
 			  ],
 		closed: true,
 		color,
@@ -925,9 +1197,7 @@ function ginghamShapes( P, colors ) {
 		out.push( bar( 2 * i * w, 0, false, colFor( colors, 0, P ) ) );
 	}
 	for ( let i = 0; i < k; i++ ) {
-		out.push(
-			bar( 0, 2 * i * w, true, colFor( colors, two ? 1 : 0, P ) )
-		);
+		out.push( bar( 0, 2 * i * w, true, colFor( colors, two ? 1 : 0, P ) ) );
 	}
 	return out;
 }
@@ -991,12 +1261,8 @@ function truchetShapes( P, colors ) {
 					arcShape( x0 + w, y0 + w, Math.PI, Math.PI * 1.5, color )
 				);
 			} else {
-				out.push(
-					arcShape( x0 + w, y0, Math.PI / 2, Math.PI, color )
-				);
-				out.push(
-					arcShape( x0, y0 + w, Math.PI * 1.5, TAU, color )
-				);
+				out.push( arcShape( x0 + w, y0, Math.PI / 2, Math.PI, color ) );
+				out.push( arcShape( x0, y0 + w, Math.PI * 1.5, TAU, color ) );
 			}
 		}
 	}
@@ -1061,9 +1327,7 @@ function ogeeShapes( P, colors ) {
 				const x = -0.25 + k * 0.025;
 				pts.push( {
 					x,
-					y:
-						base +
-						sign * amp * Math.cos( TAU * ( f * x + ph ) ),
+					y: base + sign * amp * Math.cos( TAU * ( f * x + ph ) ),
 				} );
 			}
 			out.push( {
@@ -1099,8 +1363,18 @@ function hatchShapes( P, colors ) {
 /* ------------------------- v2.3 motif additions ------------------------- */
 
 const plusGlyph = ( a = 0.16, b = 0.5 ) => [
-	[ -a, -b ], [ a, -b ], [ a, -a ], [ b, -a ], [ b, a ], [ a, a ],
-	[ a, b ], [ -a, b ], [ -a, a ], [ -b, a ], [ -b, -a ], [ -a, -a ],
+	[ -a, -b ],
+	[ a, -b ],
+	[ a, -a ],
+	[ b, -a ],
+	[ b, a ],
+	[ a, a ],
+	[ a, b ],
+	[ -a, b ],
+	[ -a, a ],
+	[ -b, a ],
+	[ -b, -a ],
+	[ -a, -a ],
 ];
 
 const starGlyph = ( points = 5, r1 = 0.5, r2 = 0.21 ) => {
@@ -1121,8 +1395,7 @@ function plusShapes( P, colors ) {
 	const out = [];
 	for ( let j = 0; j < k; j++ ) {
 		for ( let i = 0; i < k; i++ ) {
-			const rot =
-				P.variety >= 50 && ( i + j ) % 2 ? Math.PI / 4 : 0;
+			const rot = P.variety >= 50 && ( i + j ) % 2 ? Math.PI / 4 : 0;
 			const color = colFor( colors, i + j, P );
 			out.push( {
 				points: XF( glyph, ( i + 0.5 ) / k, ( j + 0.5 ) / k, s, rot ),
@@ -1192,8 +1465,22 @@ function triangleShapes( P, colors ) {
 			const colorA = colFor( colors, i + j, P );
 			const colorB = colFor( colors, i + j + 1, P );
 			out.push(
-				{ points: up, closed: true, color: colorA, fill: colorA, width: 0, opacity: op },
-				{ points: down, closed: true, color: colorB, fill: colorB, width: 0, opacity: op * 0.92 }
+				{
+					points: up,
+					closed: true,
+					color: colorA,
+					fill: colorA,
+					width: 0,
+					opacity: op,
+				},
+				{
+					points: down,
+					closed: true,
+					color: colorB,
+					fill: colorB,
+					width: 0,
+					opacity: op * 0.92,
+				}
 			);
 		}
 	}
@@ -1246,7 +1533,8 @@ function leafShapes( P, colors ) {
 		for ( let i = 0; i < k; i++ ) {
 			const rot =
 				( ( i + j ) % 2 ? -1 : 1 ) *
-				( Math.PI / 4 + ( P.variety >= 66 ? ( ( i * 5 + j ) % 3 ) * 0.2 : 0 ) );
+				( Math.PI / 4 +
+					( P.variety >= 66 ? ( ( i * 5 + j ) % 3 ) * 0.2 : 0 ) );
 			const color = colFor( colors, i + 2 * j, P );
 			out.push( {
 				points: XF( lens, ( i + 0.5 ) / k, ( j + 0.5 ) / k, s, rot ),
@@ -1274,8 +1562,28 @@ function ringShapes( P, colors ) {
 			const color = colFor( colors, j, P );
 			const color2 = colFor( colors, j + 1, P );
 			out.push(
-				{ points: XF( circlePts( 0, 0, 0.5 ), cx, cy, rBase * 2, 0 ), closed: true, color, fill: null, width, opacity: op },
-				{ points: XF( circlePts( 0, 0, 0.5 ), cx, cy, rBase * 1.1, 0 ), closed: true, color: color2, fill: null, width: width * 0.85, opacity: op * 0.9 }
+				{
+					points: XF( circlePts( 0, 0, 0.5 ), cx, cy, rBase * 2, 0 ),
+					closed: true,
+					color,
+					fill: null,
+					width,
+					opacity: op,
+				},
+				{
+					points: XF(
+						circlePts( 0, 0, 0.5 ),
+						cx,
+						cy,
+						rBase * 1.1,
+						0
+					),
+					closed: true,
+					color: color2,
+					fill: null,
+					width: width * 0.85,
+					opacity: op * 0.9,
+				}
 			);
 		}
 	}
@@ -1309,9 +1617,21 @@ function weaveShapes( P, colors ) {
 			const c = 1 / k;
 			const pad = inset / k;
 			if ( ( i + j ) % 2 ) {
-				slat( x0 + pad, y0 + pad * 2.4, x0 + c - pad, y0 + c - pad * 2.4, colFor( colors, 0, P ) );
+				slat(
+					x0 + pad,
+					y0 + pad * 2.4,
+					x0 + c - pad,
+					y0 + c - pad * 2.4,
+					colFor( colors, 0, P )
+				);
 			} else {
-				slat( x0 + pad * 2.4, y0 + pad, x0 + c - pad * 2.4, y0 + c - pad, colFor( colors, 1, P ) );
+				slat(
+					x0 + pad * 2.4,
+					y0 + pad,
+					x0 + c - pad * 2.4,
+					y0 + c - pad,
+					colFor( colors, 1, P )
+				);
 			}
 		}
 	}
@@ -1336,8 +1656,16 @@ function sprinkleShapes( P, colors ) {
 		const dy = ( Math.sin( a ) * len ) / 2;
 		const color = colFor( colors, Math.floor( R() * colors.length ), P );
 		// Wrap copies near the tile edges keep the rapport seamless.
-		for ( const ox of cx < len ? [ 0, 1 ] : cx > 1 - len ? [ 0, -1 ] : [ 0 ] ) {
-			for ( const oy of cy < len ? [ 0, 1 ] : cy > 1 - len ? [ 0, -1 ] : [ 0 ] ) {
+		for ( const ox of cx < len
+			? [ 0, 1 ]
+			: cx > 1 - len
+			? [ 0, -1 ]
+			: [ 0 ] ) {
+			for ( const oy of cy < len
+				? [ 0, 1 ]
+				: cy > 1 - len
+				? [ 0, -1 ]
+				: [ 0 ] ) {
 				out.push( {
 					points: [
 						{ x: cx + ox - dx, y: cy + oy - dy },
@@ -1365,7 +1693,11 @@ export const MOTIFS = [
 	{ id: 'chevron', label: 'Chevron', fn: chevronShapes },
 	{ id: 'schuppen', label: 'Scales', fn: scaleShapes },
 	{ id: 'karo', label: 'Gingham', fn: ginghamShapes },
-	{ id: 'terrazzo', label: 'Terrazzo', fn: ( P, c ) => terrazzoShapes( P, c ) },
+	{
+		id: 'terrazzo',
+		label: 'Terrazzo',
+		fn: ( P, c ) => terrazzoShapes( P, c ),
+	},
 	{ id: 'truchet', label: 'Truchet', fn: truchetShapes },
 	{ id: 'hex', label: 'Honeycomb', fn: hexShapes },
 	{ id: 'ogee', label: 'Ogee', fn: ogeeShapes },
@@ -1379,6 +1711,8 @@ export const MOTIFS = [
 	{ id: 'flechtwerk', label: 'Basketweave', fn: weaveShapes },
 	{ id: 'streusel', label: 'Sprinkles', fn: sprinkleShapes },
 ];
+
+MOTIFS.push( ...EXTRA_MOTIFS );
 
 export const motifById = ( id ) =>
 	MOTIFS.find( ( m ) => m.id === id ) || MOTIFS[ 0 ];
@@ -1395,6 +1729,48 @@ export const ELEMENT_MOTIFS = [ 'scatter', 'terrazzo' ];
  */
 export function expandPlaces( repeat ) {
 	switch ( repeat ) {
+		case 'third':
+			return {
+				cols: 3,
+				rows: 1,
+				places: Array.from( { length: 3 }, ( _, i ) => ( {
+					ox: i,
+					oy: i / 3,
+					fx: false,
+					fy: false,
+				} ) ),
+			};
+		case 'quarter':
+			return {
+				cols: 4,
+				rows: 1,
+				places: Array.from( { length: 4 }, ( _, i ) => ( {
+					ox: i,
+					oy: i / 4,
+					fx: false,
+					fy: false,
+				} ) ),
+			};
+		case 'rotate':
+			return {
+				cols: 2,
+				rows: 2,
+				places: [
+					{ ox: 0, oy: 0, angle: 0 },
+					{ ox: 1, oy: 0, angle: Math.PI / 2 },
+					{ ox: 0, oy: 1, angle: Math.PI * 1.5 },
+					{ ox: 1, oy: 1, angle: Math.PI },
+				].map( ( p ) => ( { ...p, fx: false, fy: false } ) ),
+			};
+		case 'halfturn':
+			return {
+				cols: 2,
+				rows: 1,
+				places: [
+					{ ox: 0, oy: 0, fx: false, fy: false },
+					{ ox: 1, oy: 0, fx: true, fy: true },
+				],
+			};
 		case 'halfdrop':
 			return {
 				cols: 2,
@@ -1489,31 +1865,44 @@ export function buildCell( P ) {
  * (mirrored where the place says so), in TILE space (0..cols/0..rows).
  * The painter/SVG still add the nine wrap offsets.
  */
+export function placePoint( p, pl ) {
+	const a = pl.angle || 0,
+		x = ( pl.fx ? 1 - p.x : p.x ) - 0.5,
+		y = ( pl.fy ? 1 - p.y : p.y ) - 0.5;
+	return {
+		x: pl.ox + 0.5 + x * Math.cos( a ) - y * Math.sin( a ),
+		y: pl.oy + 0.5 + x * Math.sin( a ) + y * Math.cos( a ),
+	};
+}
+
 export function tileShapes( P ) {
-	const cell = buildCell( P );
-	const { cols, rows, places } = expandPlaces( P.repeat );
-	const out = [];
-	for ( const pl of places ) {
-		for ( const s of cell ) {
-			if ( 'img' === s.kind ) {
-				out.push( {
-					...s,
-					x: pl.ox + ( pl.fx ? 1 - s.x : s.x ),
-					y: pl.oy + ( pl.fy ? 1 - s.y : s.y ),
-					rot: s.rot * ( pl.fx ? -1 : 1 ) * ( pl.fy ? -1 : 1 ),
-					fx: pl.fx,
-					fy: pl.fy,
-				} );
-				continue;
+	const { cols, rows, places } = expandPlaces( P.repeat ),
+		out = [];
+	const layers = Array.isArray( P.layers )
+		? P.layers.slice( 0, 4 ).filter( ( l ) => l.visible !== false )
+		: [ P ];
+	for ( const layer of layers ) {
+		const cell = buildCell( { ...layer, bg: P.bg, bgCustom: P.bgCustom } );
+		for ( const pl of places )
+			for ( const s of cell ) {
+				if ( s.kind === 'img' )
+					out.push( {
+						...s,
+						...placePoint( s, pl ),
+						rot:
+							( s.rot || 0 ) *
+								( pl.fx ? -1 : 1 ) *
+								( pl.fy ? -1 : 1 ) +
+							( pl.angle || 0 ),
+						fx: pl.fx,
+						fy: pl.fy,
+					} );
+				else
+					out.push( {
+						...s,
+						points: s.points.map( ( p ) => placePoint( p, pl ) ),
+					} );
 			}
-			out.push( {
-				...s,
-				points: s.points.map( ( p ) => ( {
-					x: pl.ox + ( pl.fx ? 1 - p.x : p.x ),
-					y: pl.oy + ( pl.fy ? 1 - p.y : p.y ),
-				} ) ),
-			} );
-		}
 	}
 	return { shapes: out, cols, rows };
 }
@@ -1530,10 +1919,9 @@ export function elementsInTile( P ) {
 	const out = [];
 	for ( const pl of places ) {
 		for ( const e of els ) {
-			const lx = ( ( ( e.x + sx ) % 1 ) + 1 ) % 1;
-			const ly = ( ( ( e.y + sy ) % 1 ) + 1 ) % 1;
-			const gx = pl.ox + ( pl.fx ? 1 - lx : lx );
-			const gy = pl.oy + ( pl.fy ? 1 - ly : ly );
+			const lx = e.x + sx;
+			const ly = e.y + sy;
+			const { x: gx, y: gy } = placePoint( { x: lx, y: ly }, pl );
 			out.push( {
 				i: e.i,
 				x: ( ( gx % cols ) + cols ) % cols,
@@ -1541,161 +1929,44 @@ export function elementsInTile( P ) {
 				s: e.s,
 				fx: pl.fx,
 				fy: pl.fy,
+				angle: pl.angle || 0,
+				locked: !! e.locked,
 			} );
 		}
 	}
 	return out;
 }
 
-/* ---------------------------------- svg ----------------------------------- */
+export { toSvgTile } from './svg.js';
 
-const fmt = ( v ) => ( Math.round( v * 100 ) / 100 ).toFixed( 2 );
+/** Cell coordinates repeat over the full tile, including drops and rotations. */
+export function wrapCellPoint( P, point ) {
+	const { cols, rows } = expandPlaces( P.repeat );
+	return {
+		x: ( ( point.x % cols ) + cols ) % cols,
+		y: ( ( point.y % rows ) + rows ) % rows,
+	};
+}
 
-/**
- * Serialize the tile as standalone SVG (cellPx per cell edge). Shapes
- * are drawn with all wrap copies that touch the tile and clipped to
- * it, so the file tiles seamlessly in any layout tool.
- */
-export function toSvgTile( P, cellPx = 256, stamp = null ) {
-	const { shapes, cols, rows } = tileShapes( P );
-	const W = cols * cellPx;
-	const H = rows * cellPx;
-	const parts = [
-		'<svg xmlns="http://www.w3.org/2000/svg" width="' +
-			W +
-			'" height="' +
-			H +
-			'" viewBox="0 0 ' +
-			W +
-			' ' +
-			H +
-			'">',
-		'<defs><clipPath id="tile"><rect width="' +
-			W +
-			'" height="' +
-			H +
-			'"/></clipPath>' +
-			( stamp
-				? '<g id="pgstamp"><image href="' +
-				  stamp.href +
-				  '" x="-0.5" y="' +
-				  fmt( -stamp.aspect / 2 ) +
-				  '" width="1" height="' +
-				  fmt( stamp.aspect ) +
-				  '" preserveAspectRatio="none"/></g>'
-				: '' ) +
-			'</defs>',
-	];
-	const bg = bgColor( P );
-	if ( bg ) {
-		parts.push(
-			'<rect width="' + W + '" height="' + H + '" fill="' + bg + '"/>'
-		);
-	}
-	parts.push( '<g clip-path="url(#tile)">' );
-	for ( const s of shapes ) {
-		if ( 'img' === s.kind ) {
-			if ( ! stamp ) {
-				continue;
-			}
-			const pad = s.s;
-			for ( let ox = -cols; ox <= cols; ox += cols ) {
-				for ( let oy = -rows; oy <= rows; oy += rows ) {
-					const x = s.x + ox;
-					const y = s.y + oy;
-					if (
-						x + pad < 0 ||
-						x - pad > cols ||
-						y + pad < 0 ||
-						y - pad > rows
-					) {
-						continue;
-					}
-					parts.push(
-						'<use href="#pgstamp" transform="translate(' +
-							fmt( x * cellPx ) +
-							' ' +
-							fmt( y * cellPx ) +
-							') rotate(' +
-							fmt( ( s.rot * 180 ) / Math.PI ) +
-							') scale(' +
-							fmt( s.s * cellPx * ( s.fx ? -1 : 1 ) ) +
-							' ' +
-							fmt( s.s * cellPx * ( s.fy ? -1 : 1 ) ) +
-							')"' +
-							( s.opacity < 1
-								? ' opacity="' + fmt( s.opacity ) + '"'
-								: '' ) +
-							'/>'
-					);
-				}
-			}
-			continue;
-		}
-		let minX = Infinity;
-		let minY = Infinity;
-		let maxX = -Infinity;
-		let maxY = -Infinity;
-		for ( const p of s.points ) {
-			minX = Math.min( minX, p.x );
-			maxX = Math.max( maxX, p.x );
-			minY = Math.min( minY, p.y );
-			maxY = Math.max( maxY, p.y );
-		}
-		const pad = ( s.width || 0 ) + 0.02;
-		for ( let ox = -cols; ox <= cols; ox += cols ) {
-			for ( let oy = -rows; oy <= rows; oy += rows ) {
-				if (
-					maxX + ox + pad < 0 ||
-					minX + ox - pad > cols ||
-					maxY + oy + pad < 0 ||
-					minY + oy - pad > rows
-				) {
-					continue;
-				}
-				let d = '';
-				s.points.forEach( ( p, i ) => {
-					d +=
-						( i ? 'L' : 'M' ) +
-						fmt( ( p.x + ox ) * cellPx ) +
-						' ' +
-						fmt( ( p.y + oy ) * cellPx );
-				} );
-				if ( s.closed ) {
-					d += 'Z';
-				}
-				const lw = s.width * cellPx;
-				const attrs = s.fill
-					? 'fill="' + s.fill + '"'
-					: 'fill="none" stroke="' +
-					  s.color +
-					  '" stroke-width="' +
-					  fmt( lw ) +
-					  '" stroke-linecap="round" stroke-linejoin="round"' +
-					  ( 'dash' === s.dash
-							? ' stroke-dasharray="' +
-							  fmt( lw * 3.2 ) +
-							  ' ' +
-							  fmt( lw * 2.4 ) +
-							  '"'
-							: 'dot' === s.dash
-							? ' stroke-dasharray="0.5 ' +
-							  fmt( lw * 2.6 ) +
-							  '"'
-							: '' );
-				parts.push(
-					'<path d="' +
-						d +
-						'" ' +
-						attrs +
-						( s.opacity < 1
-							? ' opacity="' + fmt( s.opacity ) + '"'
-							: '' ) +
-						'/>'
-				);
-			}
-		}
-	}
-	parts.push( '</g></svg>' );
-	return parts.join( '' );
+/** Inverse rapport transform for placing a new element at a pointer position. */
+export function cellPointAtTile( P, point ) {
+	const { cols, rows, places } = expandPlaces( P.repeat ),
+		mod = ( v, n ) => ( ( v % n ) + n ) % n;
+	const tx = mod( point.x, cols ),
+		ty = mod( point.y, rows );
+	const pl =
+		places.find(
+			( p ) => mod( tx - p.ox, cols ) < 1 && mod( ty - p.oy, rows ) < 1
+		) || places[ 0 ];
+	const dx = mod( tx - pl.ox, cols ) - 0.5,
+		dy = mod( ty - pl.oy, rows ) - 0.5,
+		a = pl.angle || 0;
+	let x = 0.5 + dx * Math.cos( a ) + dy * Math.sin( a ),
+		y = 0.5 - dx * Math.sin( a ) + dy * Math.cos( a );
+	if ( pl.fx ) x = 1 - x;
+	if ( pl.fy ) y = 1 - y;
+	return wrapCellPoint( P, {
+		x: x - ( P.shift?.x || 0 ),
+		y: y - ( P.shift?.y || 0 ),
+	} );
 }

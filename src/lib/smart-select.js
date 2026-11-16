@@ -54,7 +54,7 @@ export async function createSegmenter( dataUrl ) {
 	const inputs = await processor( image );
 	const embeddings = await model.get_image_embeddings( inputs );
 
-	return {
+	const api = {
 		width: image.width,
 		height: image.height,
 
@@ -67,6 +67,27 @@ export async function createSegmenter( dataUrl ) {
 		 *         A binary mask at the original image resolution.
 		 */
 		async segment( points ) {
+			const all = await api.segmentAll( points );
+			let best = 0;
+			for ( let i = 1; i < all.length; i++ ) {
+				if ( all[ i ].score > all[ best ].score ) {
+					best = i;
+				}
+			}
+			return all[ best ];
+		},
+
+		/**
+		 * Every mask the decoder offers for the points (SAM answers one
+		 * point with three: a part, a larger part, the whole object), each
+		 * with its own score. Select by Description picks the one that
+		 * fills the found box; the highest score is often only the part
+		 * under the point.
+		 *
+		 * @param {Array} points As for segment().
+		 * @return {Promise<Array<{data:Uint8Array,w:number,h:number,score:number}>>}
+		 */
+		async segmentAll( points ) {
 			const reshaped = inputs.reshaped_input_sizes[ 0 ]; // [h, w]
 			const coords = points.flatMap( ( p ) => [
 				p.x * reshaped[ 1 ],
@@ -97,23 +118,21 @@ export async function createSegmenter( dataUrl ) {
 			);
 
 			const scores = out.iou_scores.data;
-			let best = 0;
-			for ( let i = 1; i < scores.length; i++ ) {
-				if ( scores[ i ] > scores[ best ] ) {
-					best = i;
-				}
-			}
-
 			const m = masks[ 0 ];
 			const dims = m.dims;
 			const h = dims[ dims.length - 2 ];
 			const w = dims[ dims.length - 1 ];
-			const off = best * h * w;
-			const data = new Uint8Array( w * h );
-			for ( let i = 0; i < w * h; i++ ) {
-				data[ i ] = m.data[ off + i ] ? 1 : 0;
+			const all = [];
+			for ( let k = 0; k < scores.length; k++ ) {
+				const off = k * h * w;
+				const data = new Uint8Array( w * h );
+				for ( let i = 0; i < w * h; i++ ) {
+					data[ i ] = m.data[ off + i ] ? 1 : 0;
+				}
+				all.push( { data, w, h, score: scores[ k ] } );
 			}
-			return { data, w, h, score: scores[ best ] };
+			return all;
 		},
 	};
+	return api;
 }

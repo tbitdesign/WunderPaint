@@ -804,6 +804,7 @@ export function AltTextDialog( {
 											>
 												<input
 													type="checkbox"
+													data-checkbox="selection"
 													checked={
 														!! fields[ f.key ] &&
 														! disabled
@@ -836,6 +837,7 @@ export function AltTextDialog( {
 									>
 										<input
 											type="checkbox"
+											data-checkbox="selection"
 											checked={ fields.tags && ! isLocal }
 											disabled={ isLocal }
 											onChange={ ( ev ) =>

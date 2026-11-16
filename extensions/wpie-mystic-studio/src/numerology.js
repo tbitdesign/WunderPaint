@@ -164,6 +164,34 @@ export function coupleNumber( dateA, dateB ) {
 	return { value: reduceNumber( a.value + b.value ), a, b };
 }
 
+/** Reduce all the way to 1..9 (no master numbers). */
+export function reduceSimple( n ) {
+	let v = Math.abs( Math.round( n ) );
+	while ( v > 9 ) {
+		v = digitSum( v );
+	}
+	return v;
+}
+
+/**
+ * The personal year: the birth month and day meet a calendar year. Month,
+ * day and year reduce separately, their sum reduces to 1..9 - the nine-
+ * year cycle personal years run in (no masters here, the common method).
+ *
+ * @param {string} dateStr 'YYYY-MM-DD' birth date.
+ * @param {number} year    Calendar year.
+ * @return {{value: number, parts: number[], sum: number, year: number}}
+ */
+export function personalYear( dateStr, year ) {
+	const [ , m, d ] = String( dateStr || '' )
+		.split( '-' )
+		.map( ( v ) => parseInt( v, 10 ) || 0 );
+	const y = parseInt( year, 10 ) || new Date().getFullYear();
+	const parts = [ reduceSimple( m ), reduceSimple( d ), reduceSimple( y ) ];
+	const sum = parts[ 0 ] + parts[ 1 ] + parts[ 2 ];
+	return { value: reduceSimple( sum ) || 9, parts, sum, year: y };
+}
+
 /** Meaning index for a number: 1..9 -> 0..8, 11/22/33 -> 9/10/11. */
 export function meaningIndex( value ) {
 	if ( MASTERS.includes( value ) ) {

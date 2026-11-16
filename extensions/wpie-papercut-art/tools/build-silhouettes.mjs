@@ -53,6 +53,48 @@ const SPECIES = {
 	oak: [ 'Quercus robur', 'Quercus' ],
 	birch: [ 'Betula pendula', 'Betula' ],
 	palm: [ 'Cocos nucifera', 'Arecaceae' ],
+	// v3.8: savanna, desert, ice, farm, water birds, small folk, the sea,
+	// the age of dinosaurs and a bat.
+	elephant: [ 'Loxodonta africana', 'Elephas maximus', 'Loxodonta' ],
+	giraffe: [ 'Giraffa camelopardalis', 'Giraffa' ],
+	lion: [ 'Panthera leo' ],
+	zebra: [ 'Equus quagga', 'Equus zebra', 'Equus grevyi' ],
+	rhino: [ 'Ceratotherium simum', 'Diceros bicornis', 'Rhinoceros unicornis' ],
+	camel: [ 'Camelus dromedarius', 'Camelus bactrianus', 'Camelus' ],
+	penguin: [
+		'Aptenodytes forsteri',
+		'Aptenodytes patagonicus',
+		'Spheniscus demersus',
+		'Pygoscelis adeliae',
+	],
+	polarbear: [ 'Ursus maritimus' ],
+	seal: [ 'Phoca vitulina', 'Halichoerus grypus', 'Phocidae' ],
+	cow: [ 'Bos taurus', 'Bos primigenius', 'Bos indicus', 'Bos' ],
+	sheep: [ 'Ovis aries' ],
+	rooster: [ 'Gallus gallus domesticus', 'Gallus gallus' ],
+	flamingo: [ 'Phoenicopterus roseus', 'Phoenicopterus ruber', 'Phoenicopterus' ],
+	swan: [ 'Cygnus olor', 'Cygnus cygnus', 'Cygnus' ],
+	hedgehog: [ 'Erinaceus europaeus', 'Erinaceus' ],
+	frog: [ 'Rana temporaria', 'Lithobates catesbeianus', 'Rana' ],
+	turtle: [ 'Chelonia mydas', 'Caretta caretta' ],
+	octopus: [ 'Octopus vulgaris', 'Octopus' ],
+	jellyfish: [ 'Aurelia aurita', 'Chrysaora', 'Scyphozoa' ],
+	seahorse: [ 'Hippocampus hippocampus', 'Hippocampus kuda', 'Hippocampus' ],
+	shark: [ 'Carcharodon carcharias', 'Galeocerdo cuvier', 'Rhincodon typus' ],
+	trex: [ 'Tyrannosaurus rex', 'Tyrannosaurus' ],
+	longneck: [
+		'Brachiosaurus altithorax',
+		'Giraffatitan brancai',
+		'Diplodocus',
+		'Apatosaurus',
+	],
+	stegosaurus: [ 'Stegosaurus stenops', 'Stegosaurus' ],
+	bat: [
+		'Pipistrellus pipistrellus',
+		'Myotis myotis',
+		'Desmodus rotundus',
+		'Chiroptera',
+	],
 };
 
 // Phase B: slot -> chosen image UUID (filled after looking at sheets).
@@ -87,11 +129,27 @@ async function cc0Images( build, name, limit = 8 ) {
 	return ( page._links.items || [] ).slice( 0, limit );
 }
 
-async function phaseCandidates() {
+async function phaseCandidates( only = null ) {
 	const b = await build();
 	fs.mkdirSync( SRC, { recursive: true } );
+	// v3.8: `candidates slot,slot` fetches only those slots and adds them
+	// to the index. Refetching everything could drop a picked image from
+	// a slot whose search results moved, and its animal with it.
 	const index = {};
+	if ( only ) {
+		try {
+			Object.assign(
+				index,
+				JSON.parse(
+					fs.readFileSync( path.join( SRC, 'candidates.json' ), 'utf8' )
+				)
+			);
+		} catch ( e ) {}
+	}
 	for ( const [ slot, names ] of Object.entries( SPECIES ) ) {
+		if ( only && ! only.includes( slot ) ) {
+			continue;
+		}
 		const dir = path.join( SRC, 'candidates', slot );
 		fs.mkdirSync( dir, { recursive: true } );
 		index[ slot ] = [];
@@ -145,10 +203,19 @@ async function phaseCandidates() {
 		path.join( SRC, 'candidates.json' ),
 		JSON.stringify( index, null, '\t' )
 	);
-	await contactSheets( index );
+	await contactSheets(
+		only
+			? Object.fromEntries(
+					Object.entries( index ).filter( ( [ k ] ) =>
+						only.includes( k )
+					)
+			  )
+			: index,
+		only ? 'sheet-new-' : 'sheet-'
+	);
 }
 
-async function contactSheets( index ) {
+async function contactSheets( index, prefix = 'sheet-' ) {
 	const GEN = path.resolve( root, '..', '..' );
 	const req = createRequire(
 		path.join( GEN, 'node_modules', 'x.js' )
@@ -194,7 +261,7 @@ async function contactSheets( index ) {
 		` );
 		await page.waitForTimeout( 300 );
 		await page.screenshot( {
-			path: path.join( SRC, `sheet-${ s / CHUNK }.png` ),
+			path: path.join( SRC, `${ prefix }${ s / CHUNK }.png` ),
 			fullPage: true,
 		} );
 		console.log( 'sheet', s / CHUNK, part.join( ',' ) );
@@ -362,5 +429,7 @@ const mode = process.argv[ 2 ] || 'candidates';
 if ( 'bake' === mode ) {
 	await phaseBake();
 } else {
-	await phaseCandidates();
+	await phaseCandidates(
+		process.argv[ 3 ] ? process.argv[ 3 ].split( ',' ) : null
+	);
 }

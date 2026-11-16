@@ -79,7 +79,7 @@ class Media_Replace {
 		// foto-300x200.jpg does not contain the string foto.jpg, and every
 		// one of those files is deleted further down. The rewrite used to
 		// know only the full-size name, so a published image came back as a
-		// broken one after a perfectly ordinary replacement (Codex C06).
+		// broken one after a perfectly ordinary replacement (audit C06).
 		// WordPress' retained original (foto.jpg beside foto-scaled.jpg)
 		// rides along under a key of its own.
 		$old_meta  = wp_get_attachment_metadata( $target );
@@ -303,7 +303,7 @@ class Media_Replace {
 		// turns a failed or cut-off query into whatever was found so far, and
 		// for a list on screen that is the right answer. Here it read as "no
 		// references", and the rename went ahead with the references unknown -
-		// the old URL stayed in every post while its file was deleted (Codex
+		// the old URL stayed in every post while its file was deleted (audit
 		// C08). A rename that cannot know what it would break does not
 		// happen; the message says so, and the replacement image stays.
 		$found = Media_Usage::find_for_many( array( (int) $id ) );
@@ -509,7 +509,7 @@ class Media_Replace {
 		// arrays walks the pairs one after another over the text, and the
 		// later, shorter pair `foto.jpg` then found its own earlier result
 		// `neu-foto.jpg` and made it `neu-neu-foto.jpg`, a file that does
-		// not exist (Codex N01, the same evening the size pairs came in).
+		// not exist (audit N01, the same evening the size pairs came in).
 		// strtr() tries the longest key first and never looks at replaced
 		// text again.
 		$map = array();

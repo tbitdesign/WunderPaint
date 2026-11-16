@@ -1,0 +1,430 @@
+#wpie-root .gp {
+	container-type: inline-size;
+	container-name: gradient-panel;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	padding: 10px;
+	gap: 10px;
+	font-size: 12px;
+}
+
+#wpie-root .gp fieldset {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+}
+
+#wpie-root .gp button {
+	font: inherit;
+	cursor: pointer;
+}
+
+#wpie-root .gp button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+#wpie-root .gp-main {
+	display: grid;
+	grid-template-columns: 108px minmax(0, 1fr);
+	gap: 10px;
+	flex: 1;
+	min-height: 0;
+}
+
+#wpie-root .gp-settings {
+	min-width: 0;
+	min-height: 0;
+	overflow: auto;
+	padding: 0 3px 3px 0;
+}
+
+#wpie-root .gp-tabs,
+#wpie-root .gp-stop-actions,
+#wpie-root .gp-library-head {
+	display: flex;
+	gap: 5px;
+}
+
+#wpie-root .gp-tabs button,
+#wpie-root .gp-stop-actions button,
+#wpie-root .gp-save,
+#wpie-root .gp-remove {
+	border: 1px solid var(--border-hairline);
+	background: var(--surface-panel);
+	color: var(--text-primary);
+	border-radius: 4px;
+	padding: 5px 7px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+}
+
+#wpie-root .gp-stop-actions button,
+#wpie-root .gp-tabs {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .gp-stop-actions button {
+	font-size: 10px;
+	padding: 5px 3px;
+	flex-wrap: wrap;
+	white-space: normal;
+}
+
+#wpie-root .gp button svg {
+	flex-shrink: 0;
+}
+
+#wpie-root .gp-tabs button[aria-pressed="true"] {
+	background: var(--surface-panel);
+	border-color: var(--accent);
+	color: var(--text-primary);
+}
+
+#wpie-root .gp-preview,
+#wpie-root .gp-presets button {
+	background-color: var(--surface-panel);
+	background-image: conic-gradient(
+		var(--border-hairline) 25%,
+		transparent 0 50%,
+		var(--border-hairline) 0 75%,
+		transparent 0
+	);
+	background-size: 12px 12px;
+}
+
+#wpie-root .gp-preview {
+	border-radius: 5px;
+	overflow: hidden;
+	border: 1px solid var(--border-hairline);
+	flex-shrink: 0;
+}
+
+#wpie-root .gp-preview canvas {
+	width: 100%;
+	height: 66px;
+	display: block;
+}
+
+#wpie-root .gp-stop-color {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 5px;
+}
+
+#wpie-root .gp-color-value {
+	font-size: 11px;
+	color: var(--text-muted);
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .gp-dials {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 9px 12px;
+}
+
+#wpie-root .gp-dial {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 3px;
+	font-size: 11px;
+	min-width: 0;
+}
+
+#wpie-root .gp-dial > input {
+	grid-column: 1/-1;
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .gp-number {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	font-variant-numeric: tabular-nums;
+	color: var(--text-muted);
+}
+
+#wpie-root .gp-number input {
+	width: 54px;
+	padding: 2px 3px;
+	font-size: 11px;
+}
+
+#wpie-root .gp-geometry summary {
+	font-size: 11px;
+	color: var(--text-muted);
+	cursor: pointer;
+	margin-bottom: 8px;
+}
+
+#wpie-root .gp-hint {
+	font-size: 11px;
+	line-height: 1.45;
+	color: var(--text-muted);
+	margin: 0;
+}
+
+#wpie-root .gp-library {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	border-right: 1px solid var(--border-hairline);
+	padding-right: 8px;
+	gap: 7px;
+}
+
+#wpie-root .gp-library input[type="search"] {
+	width: 100%;
+	min-width: 0;
+	font-size: 11px;
+	padding: 5px;
+}
+
+#wpie-root .gp-library-scroll {
+	overflow: auto;
+	min-height: 0;
+	flex: 1;
+	padding-right: 3px;
+}
+
+#wpie-root .gp-presets {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+	gap: 5px;
+}
+
+#wpie-root .gp-presets button {
+	border: 1px solid var(--border-hairline);
+	border-radius: 4px;
+	padding: 0;
+	overflow: hidden;
+	min-width: 0;
+	color: var(--text-primary);
+}
+
+#wpie-root .gp-presets button[aria-pressed="true"] {
+	border-color: var(--accent);
+	box-shadow: none;
+}
+
+#wpie-root .gp-tile-paint {
+	width: 100%;
+	display: block;
+	height: 27px;
+}
+
+#wpie-root .gp-tile-name {
+	display: block;
+	font-size: 9px;
+	padding: 3px;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	white-space: nowrap;
+	background: var(--surface-panel);
+}
+
+#wpie-root .gp-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	border-top: 1px solid var(--border-hairline);
+	padding-top: 8px;
+	flex-shrink: 0;
+}
+
+#wpie-root .gp-status {
+	font-size: 10px;
+	color: var(--text-muted);
+	min-width: 0;
+	line-height: 1.4;
+}
+
+#wpie-root .gp-foot button {
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+#wpie-root .gp-overlay {
+	pointer-events: none;
+}
+
+#wpie-root .gp-overlay [role="slider"] {
+	pointer-events: all;
+	cursor: grab;
+	outline: none;
+}
+
+#wpie-root .gp-overlay [role="slider"]:focus-visible {
+	stroke: var(--accent);
+	stroke-width: 3;
+}
+
+#wpie-root .gp-points {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+	gap: 4px;
+}
+
+#wpie-root .gp-points button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 4px;
+	border: 1px solid var(--border-hairline);
+	border-radius: 4px;
+	background: var(--surface-panel);
+	color: var(--text-primary);
+	font-size: 10px;
+}
+
+#wpie-root .gp-points button[aria-pressed="true"] {
+	border-color: var(--accent);
+	box-shadow: none;
+}
+
+#wpie-root .gp-points button span {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	border: 1px solid var(--border-hairline);
+}
+
+#wpie-root .gp-select {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+
+#wpie-root .gp-select select {
+	min-width: 50px;
+}
+
+/* Persistent type cards above the library and settings, like the Pen panel. */
+#wpie-root .gp-kinds {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+#wpie-root .gp-presets button:hover:not(:disabled) {
+	border-color: var(--accent);
+}
+
+#wpie-root .gp button:focus-visible,
+#wpie-root .gp-preset-group summary:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+
+#wpie-root .gp-tabs,
+#wpie-root .gp-library-head {
+	flex-direction: column;
+}
+
+#wpie-root .gp-tabs button,
+#wpie-root .gp-save,
+#wpie-root .gp-remove {
+	font-size: 10px;
+	padding: 5px 3px;
+	min-width: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	flex-shrink: 0;
+}
+
+#wpie-root .gp-preset-group {
+	margin-bottom: 7px;
+}
+
+#wpie-root .gp-preset-group summary {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 5px 0;
+	font-size: 10px;
+	cursor: pointer;
+	list-style: none;
+	color: var(--text-primary);
+}
+
+#wpie-root .gp-preset-group summary::-webkit-details-marker {
+	display: none;
+}
+
+#wpie-root .gp-preset-group summary::before {
+	content: "";
+	width: 0;
+	height: 0;
+	border-top: 3px solid transparent;
+	border-bottom: 3px solid transparent;
+	border-left: 4px solid currentcolor;
+	flex-shrink: 0;
+}
+
+#wpie-root .gp-preset-group[open] summary::before {
+	transform: rotate(90deg);
+}
+
+#wpie-root .gp-preset-group summary > span:first-of-type {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+#wpie-root .gp-group-count {
+	margin-left: auto;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+#wpie-root .gp-stop-actions select {
+	flex: 1;
+	min-width: 0;
+	width: 0;
+	font-size: 10px;
+}
+
+#wpie-root .gp-stop-color select {
+	min-width: 0;
+	max-width: 100%;
+	font-size: 11px;
+}
+
+@container gradient-panel (min-width: 420px) {
+
+	#wpie-root .gp-main {
+		grid-template-columns: minmax(108px, 1fr) minmax(210px, 1.6fr);
+	}
+}
+
+@container gradient-panel (min-width: 550px) {
+
+	#wpie-root .gp-dials {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+/* Text and shape fills use the three kinds supported by their renderer. */
+#wpie-root .gp-fill .gp-kinds {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}

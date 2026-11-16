@@ -47,6 +47,7 @@ export {
 export { textFxReach } from './raster/text-warp';
 export { blurCanvas, drawSoftRoundStroke } from './raster/styles';
 export {
+	contentBounds,
 	drawWarped,
 	renderSync,
 	renderToBlob,

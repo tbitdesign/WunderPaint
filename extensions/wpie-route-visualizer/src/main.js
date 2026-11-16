@@ -39,6 +39,7 @@ const OUT_SIZE = 2048;
 const ATTRIBUTION = '© OpenStreetMap contributors';
 
 import { t, LOCALE } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 
 /* ------------------------------ DOM helpers ------------------------------ */
@@ -1303,6 +1304,29 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 	};
 	window.addEventListener( 'resize', paint );
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: the look
+	// of the route poster. The loaded track itself stays.
+	const history = studioUndo( {
+		backdrop,
+		read: () => {
+			const out = { ...params };
+			delete out.route;
+			return out;
+		},
+		write: ( data ) => {
+			Object.assign( params, data );
+			colorUi?.set( routeColorOf() );
+			syncRouteNote();
+			syncEleState();
+			syncModeOptions();
+			syncMapState();
+			if ( params.mapBg && geo && ! mapData ) {
+				scheduleFetch();
+			}
+			paint();
+		},
+	} );
+	onClose.push( () => history.dispose() );
 
 	/* --------------------------------- boot -------------------------------- */
 

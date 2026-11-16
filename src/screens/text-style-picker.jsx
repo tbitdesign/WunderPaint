@@ -22,6 +22,7 @@ import {
 } from '../lib/raster';
 import { useEditor, activeLayerOf } from '../store/editor-context';
 import { SwatchButton } from '../components/color-popover';
+import { trimTransparent } from '../lib/mockup';
 
 /** Every doodle effect recolored to one ink (the picker's color row). */
 const recolorFx = ( fx, color ) =>
@@ -75,6 +76,8 @@ function previewBase( layer ) {
 		lineStyles: null,
 		bgColor: null,
 		textFX: null,
+		textFit: null,
+		textLook: null,
 		outlineColor: null,
 		outlineW: 0,
 		shadowOn: false,
@@ -121,7 +124,7 @@ export function TextStylePicker() {
 		}
 		let cancelled = false;
 		const { pv, doc } = previewBase( target );
-		const scale = Math.min( 92 / doc.w, 60 / doc.h );
+		const scale = 1;
 		Promise.all(
 			TEXT_STYLE_PRESETS.map( async ( preset ) => {
 				try {
@@ -132,7 +135,9 @@ export function TextStylePicker() {
 					);
 					return [
 						preset.id,
-						canvas?.toDataURL ? canvas.toDataURL() : null,
+						canvas?.toDataURL
+							? trimTransparent( canvas, 4 ).toDataURL()
+							: null,
 					];
 				} catch ( e ) {
 					return [ preset.id, null ];

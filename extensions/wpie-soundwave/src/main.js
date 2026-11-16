@@ -23,7 +23,15 @@ import {
 	maskPathOn,
 	wavePalette,
 	stopColor,
+	SPECTRAL_STYLES,
 } from './wave-engine.js';
+import { computeSpectrum, spectrumWindow, offlineAnalyser } from './spectrum.js';
+import { demoSong } from './demo.js';
+import { monoAt, encodeWav } from './wav.js';
+import { canEncode, encodeVideo } from './encode.js';
+
+/** The example sound is made once per page, not per opening. */
+let demoCache = null;
 
 const GEN_ID = 'wpie-soundwave/wave';
 const OUT_W = 2048;
@@ -62,6 +70,7 @@ const DEFAULTS = {
 };
 
 import { t } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 
 /* ------------------------------ DOM helpers ------------------------------ */
@@ -178,6 +187,9 @@ async function openStudio( { editor, extras, layer } ) {
 	let peaksB = null; // right channel at current density (stereo)
 	let brightsArr = null; // brightness at current density
 	let peaksFull = null; // high-res trim window (ridgeline)
+	let baseSpec = null; // v2.5: frequencies over time (spectral styles)
+	let specStrip = null; // trimmed view for the spectrogram
+	let specRings = null; // trimmed view for the mandala
 	let syncStereoAvail = null; // set by the colors section
 	let titleDirty = editing;
 
@@ -231,13 +243,25 @@ async function openStudio( { editor, extras, layer } ) {
 	const pickBtn = el( 'button', 'ai-btn secondary', audioSec );
 	pickBtn.style.width = '100%';
 	pickBtn.textContent = t( 'Choose audio' );
+	// v2.5: your own voice - a message, a laugh, a heartbeat on the phone.
+	const recordBtn = el( 'button', 'ai-btn secondary wpiesnd-record', audioSec );
+	recordBtn.style.width = '100%';
+	recordBtn.textContent = t( 'Record with the microphone' );
+	const meter = el( 'div', 'wpiesnd-meter', audioSec );
+	const meterBar = el( 'span', null, meter );
+	meter.style.display = 'none';
 	const audioInfo = el( 'div', 'dsm-note wpiesnd-coords', audioSec );
 
 	const syncAudioInfo = () => {
+		const name =
+			params.audio && params.audio.demo
+				? t( 'Example sound' )
+				: ( params.audio && params.audio.title ) || '';
 		audioInfo.textContent = params.audio
-			? `${ params.audio.title || '' } · ${ durationText(
-					params.duration
-			  ) }`.replace( /^ · /, '' )
+			? `${ name } · ${ durationText( params.duration ) }`.replace(
+					/^ · /,
+					''
+			  )
 			: '';
 	};
 
@@ -250,6 +274,10 @@ async function openStudio( { editor, extras, layer } ) {
 		input.max = '100';
 		input.value = String( params[ key ] );
 		const out = el( 'output', 'dsm-sliderrow-val', row );
+		window.WPIE.bridge.ui.numeric?.( input, () => ( {
+			displayScale: params.duration > 0 ? params.duration / 100 : 1,
+			unit: params.duration > 0 ? 's' : '%',
+		} ) );
 		const sync = () => {
 			out.textContent = durationText(
 				( params.duration * params[ key ] ) / 100
@@ -274,6 +302,51 @@ async function openStudio( { editor, extras, layer } ) {
 	const startCtl = trimRow( 'trimStart', t( 'Start' ) );
 	const endCtl = trimRow( 'trimEnd', t( 'End' ) );
 
+	/**
+	 * Everything the studio keeps of a sound, from its samples: compact
+	 * profiles only - the decoded PCM of a full song would hold ~100 MB
+	 * hostage (the video fetches it again when it needs it).
+	 */
+	function useBuffer( buffer ) {
+		params.duration = buffer.duration || buffer.length / buffer.sampleRate;
+		basePeaks = computePeaks( buffer, BASE_BUCKETS );
+		baseBrights = computeBrights( buffer, BASE_BUCKETS );
+		if ( buffer.numberOfChannels >= 2 ) {
+			basePeaksL = computePeaks( buffer, BASE_BUCKETS, 0, 1, 0 );
+			basePeaksR = computePeaks( buffer, BASE_BUCKETS, 0, 1, 1 );
+		} else {
+			basePeaksL = null;
+			basePeaksR = null;
+		}
+		// v2.5: the frequencies, for the spectrogram and the mandala.
+		baseSpec = computeSpectrum( buffer, 1024, 64 );
+		if ( syncStereoAvail ) {
+			syncStereoAvail();
+		}
+		refreshPeaks();
+		syncAudioInfo();
+		startCtl.sync();
+		endCtl.sync();
+		setStatus( '' );
+		apply.disabled = false;
+		exportBtn.disabled = false;
+		previewBtn.disabled = false;
+		paint();
+	}
+
+	/** Decode bytes; a file without a readable sound says so plainly. */
+	async function decodeBytes( bytes ) {
+		const Ctor = window.AudioContext || window.webkitAudioContext;
+		const ac = new Ctor();
+		try {
+			return await ac.decodeAudioData( bytes );
+		} catch ( e ) {
+			throw new Error( t( 'Could not read the sound of this file.' ) );
+		} finally {
+			ac.close();
+		}
+	}
+
 	async function loadAudio( url ) {
 		setStatus( t( 'Analyzing audio' ) );
 		try {
@@ -283,38 +356,7 @@ async function openStudio( { editor, extras, layer } ) {
 			if ( ! response.ok ) {
 				throw new Error( t( 'Could not load the audio file.' ) );
 			}
-			const bytes = await response.arrayBuffer();
-			const Ctor = window.AudioContext || window.webkitAudioContext;
-			const ac = new Ctor();
-			try {
-				const buffer = await ac.decodeAudioData( bytes );
-				params.duration = buffer.duration;
-				// Keep only compact profiles; the decoded PCM of a full
-				// song would hold ~100 MB hostage.
-				basePeaks = computePeaks( buffer, BASE_BUCKETS );
-				baseBrights = computeBrights( buffer, BASE_BUCKETS );
-				if ( buffer.numberOfChannels >= 2 ) {
-					basePeaksL = computePeaks( buffer, BASE_BUCKETS, 0, 1, 0 );
-					basePeaksR = computePeaks( buffer, BASE_BUCKETS, 0, 1, 1 );
-				} else {
-					basePeaksL = null;
-					basePeaksR = null;
-				}
-			} finally {
-				ac.close();
-			}
-			if ( syncStereoAvail ) {
-				syncStereoAvail();
-			}
-			refreshPeaks();
-			syncAudioInfo();
-			startCtl.sync();
-			endCtl.sync();
-			setStatus( '' );
-			apply.disabled = false;
-			exportBtn.disabled = false;
-			previewBtn.disabled = false;
-			paint();
+			useBuffer( await decodeBytes( await response.arrayBuffer() ) );
 		} catch ( e ) {
 			setStatus(
 				e && e.message
@@ -331,7 +373,25 @@ async function openStudio( { editor, extras, layer } ) {
 			peaksB = null;
 			brightsArr = null;
 			peaksFull = null;
+			specStrip = null;
+			specRings = null;
 			return;
+		}
+		if ( baseSpec ) {
+			// The spectrogram's detail follows the Density slider; the
+			// mandala needs a fixed number of rings to stay round.
+			specStrip = spectrumWindow(
+				baseSpec,
+				params.trimStart / 100,
+				params.trimEnd / 100,
+				Math.max( 120, Math.min( 720, params.density * 3 ) )
+			);
+			specRings = spectrumWindow(
+				baseSpec,
+				params.trimStart / 100,
+				params.trimEnd / 100,
+				240
+			);
 		}
 		const view = ( src, buckets ) =>
 			computePeaks(
@@ -403,7 +463,9 @@ async function openStudio( { editor, extras, layer } ) {
 				multiple: false,
 				title: t( 'Choose audio' ),
 				button: t( 'Use audio' ),
-				types: 'audio',
+				// v2.5: a video brings its sound along - the first dance
+				// from the wedding film, a toast from the party clip.
+				types: [ 'audio', 'video' ],
 			} );
 			if ( picked && picked.length ) {
 				useAudio( picked[ 0 ] );
@@ -416,7 +478,7 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 		const frame = window.wp.media( {
 			title: t( 'Choose audio' ),
-			library: { type: 'audio' },
+			library: { type: [ 'audio', 'video' ] },
 			multiple: false,
 			button: { text: t( 'Use audio' ) },
 		} );
@@ -425,6 +487,181 @@ async function openStudio( { editor, extras, layer } ) {
 		} );
 		frame.open();
 	};
+
+	/* ------------------------- microphone (v2.5) ------------------------ */
+
+	// The recording stays in this browser until the picture is inserted;
+	// then it goes into the media library as a WAV, so "Edit Soundwave
+	// Art" can open it again later.
+	let recording = null;
+	let recorded = null; // the decoded recording, until it has a URL
+
+	async function startRecording() {
+		const media = window.navigator && window.navigator.mediaDevices;
+		if ( ! media || ! media.getUserMedia || ! window.MediaRecorder ) {
+			setStatus( t( 'Recording is not supported in this browser.' ), true );
+			return;
+		}
+		let stream;
+		try {
+			stream = await media.getUserMedia( {
+				audio: {
+					echoCancellation: false,
+					noiseSuppression: false,
+					autoGainControl: true,
+				},
+			} );
+		} catch ( e ) {
+			setStatus( t( 'The microphone could not be opened.' ), true );
+			return;
+		}
+		if ( previewStop ) {
+			previewStop();
+		}
+		const mime =
+			[ 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg' ].find(
+				( m ) => window.MediaRecorder.isTypeSupported( m )
+			) || '';
+		const recorder = new window.MediaRecorder(
+			stream,
+			mime ? { mimeType: mime } : undefined
+		);
+		const chunks = [];
+		recorder.ondataavailable = ( e ) => {
+			if ( e.data && e.data.size ) {
+				chunks.push( e.data );
+			}
+		};
+		const Ctor = window.AudioContext || window.webkitAudioContext;
+		const ac = new Ctor();
+		const analyser = ac.createAnalyser();
+		analyser.fftSize = 1024;
+		ac.createMediaStreamSource( stream ).connect( analyser );
+		const level = new Float32Array( analyser.fftSize );
+		const started = window.performance.now();
+		recording = { stream, recorder, ac, raf: 0 };
+		recordBtn.textContent = t( 'Stop recording' );
+		recordBtn.classList.add( 'is-recording' );
+		pickBtn.disabled = true;
+		meter.style.display = '';
+		recorder.onstop = async () => {
+			const blob = new window.Blob( chunks, {
+				type: recorder.mimeType || mime || 'audio/webm',
+			} );
+			try {
+				setStatus( t( 'Analyzing audio' ) );
+				const buffer = await decodeBytes( await blob.arrayBuffer() );
+				recorded = buffer;
+				pcmBuffer = buffer;
+				const when = new Date();
+				params.audio = {
+					recorded: true,
+					title: `${ t( 'Recording' ) } ${ when.toLocaleDateString() } ${ when
+						.toLocaleTimeString()
+						.slice( 0, 5 ) }`,
+				};
+				params.trimStart = 0;
+				params.trimEnd = 100;
+				useBuffer( buffer );
+			} catch ( e ) {
+				setStatus(
+					e && e.message ? e.message : t( 'Could not read the sound of this file.' ),
+					true
+				);
+			}
+		};
+		recorder.start( 250 );
+		const tick = () => {
+			if ( ! recording ) {
+				return;
+			}
+			analyser.getFloatTimeDomainData( level );
+			let peak = 0;
+			for ( let i = 0; i < level.length; i++ ) {
+				peak = Math.max( peak, Math.abs( level[ i ] ) );
+			}
+			meterBar.style.width = `${ Math.round( Math.min( 1, peak * 1.4 ) * 100 ) }%`;
+			const secs = ( window.performance.now() - started ) / 1000;
+			setStatus( `${ t( 'Recording' ) } ${ durationText( secs ) }` );
+			// Five minutes is as long as the video can be, and more than
+			// any message needs.
+			if ( secs >= 300 ) {
+				stopRecording();
+				return;
+			}
+			recording.raf = window.requestAnimationFrame( tick );
+		};
+		tick();
+	}
+
+	function stopRecording() {
+		if ( ! recording ) {
+			return;
+		}
+		const r = recording;
+		recording = null;
+		window.cancelAnimationFrame( r.raf );
+		try {
+			r.recorder.stop();
+		} catch ( e ) {}
+		r.stream.getTracks().forEach( ( track ) => track.stop() );
+		r.ac.close();
+		recordBtn.textContent = t( 'Record with the microphone' );
+		recordBtn.classList.remove( 'is-recording' );
+		pickBtn.disabled = false;
+		meter.style.display = 'none';
+	}
+
+	recordBtn.onclick = ( e ) => {
+		e.preventDefault();
+		if ( recording ) {
+			stopRecording();
+		} else {
+			startRecording();
+		}
+	};
+
+	/** The recording as a WAV in the media library: { id, url, title }. */
+	async function saveRecording() {
+		const rate = 32000;
+		const channels = [];
+		for ( let c = 0; c < Math.min( 2, recorded.numberOfChannels ); c++ ) {
+			channels.push( recorded.getChannelData( c ) );
+		}
+		const wav = encodeWav( monoAt( channels, recorded.sampleRate, rate ), rate );
+		const title = params.audio.title || t( 'Recording' );
+		const slug =
+			title
+				.toLowerCase()
+				.replace( /[^a-z0-9]+/g, '-' )
+				.replace( /^-+|-+$/g, '' ) || 'recording';
+		const saved = await uploadMedia(
+			new window.Blob( [ wav ], { type: 'audio/wav' } ),
+			`${ slug }.wav`,
+			'audio/wav',
+			title
+		);
+		return { id: saved.id, url: saved.source_url, title };
+	}
+
+	/* --------------------------- example (v2.5) -------------------------- */
+
+	// A fresh studio opens on a wave: a short piece of music made in code.
+	// "Choose audio" or the microphone replace it.
+	let demoLoading = false;
+	async function loadDemo() {
+		demoLoading = true;
+		setStatus( t( 'Preparing the example' ) );
+		// Let the dialog paint before the synthesis takes its moment.
+		await new Promise( ( r ) => window.setTimeout( r, 30 ) );
+		if ( ! demoCache ) {
+			demoCache = demoSong( 32000 );
+		}
+		params.audio = { demo: true, title: '' };
+		pcmBuffer = null;
+		demoLoading = false;
+		useBuffer( demoCache );
+	}
 
 	/* -------------------------------- style ------------------------------ */
 
@@ -443,6 +680,8 @@ async function openStudio( { editor, extras, layer } ) {
 		sunburst: '<circle cx="12" cy="12" r="3"/><path d="M12 6.5V4M12 20v-2.5M6.5 12H4M20 12h-2.5M8.2 8.2 6.5 6.5M17.5 17.5l-1.7-1.7M15.8 8.2l1.7-1.7M6.5 17.5l1.7-1.7" stroke-linecap="round"/>',
 		heart: '<path d="M12 19s-6-4.2-6-8.4C6 8.2 7.6 7 9.2 7c1.2 0 2.2.6 2.8 1.7C12.6 7.6 13.6 7 14.8 7 16.4 7 18 8.2 18 10.6c0 4.2-6 8.4-6 8.4z"/><path d="M12 4.5v-2M5 5.5 3.6 4.1M19 5.5l1.4-1.4" stroke-linecap="round"/>',
 		hexagon: '<path d="M12 4l6.5 3.75v7.5L12 19l-6.5-3.75v-7.5z"/><path d="M12 2.5V1M20 7l1.3-.75M20 17l1.3.75" stroke-linecap="round"/>',
+		spectrogram: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M6 16v-3M9 16V9M12 16v-5M15 16V8M18 16v-2" stroke-linecap="round" stroke-width="2.4" opacity=".7"/>',
+		mandala: '<circle cx="12" cy="12" r="2"/><path d="M12 3c2 3 2 6 0 7-2-1-2-4 0-7zM12 21c-2-3-2-6 0-7 2 1 2 4 0 7zM3 12c3-2 6-2 7 0-1 2-4 2-7 0zM21 12c-3 2-6 2-7 0 1-2 4-2 7 0z"/>',
 	};
 	const styleTiles = new Map();
 	for ( const [ value, label ] of [
@@ -458,6 +697,9 @@ async function openStudio( { editor, extras, layer } ) {
 		[ 'sunburst', t( 'Sunburst' ) ],
 		[ 'heart', t( 'Heartbeat' ) ],
 		[ 'hexagon', t( 'Hexagon' ) ],
+		// v2.5: drawn from the frequencies, not the loudness.
+		[ 'spectrogram', t( 'Spectrogram' ) ],
+		[ 'mandala', t( 'Sound mandala' ) ],
 	] ) {
 		const tile = el( 'button', 'dsm-mini wpiesnd-shape', styleGrid );
 		tile.title = label;
@@ -493,6 +735,7 @@ async function openStudio( { editor, extras, layer } ) {
 				: input.value;
 			paint();
 		};
+		window.WPIE.bridge.ui.numeric?.( input, { format: fmt || String } );
 		return input;
 	};
 	sliderRow(
@@ -955,6 +1198,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const resSelect = el( 'select', 'dsm-select', resRow );
 	for ( const [ value, label ] of [
 		[ '1080x1080', '1:1 (1080)' ],
+		[ '1080x1350', '4:5 (1080)' ],
 		[ '1920x1080', '16:9 (1080p)' ],
 		[ '1080x1920', '9:16 (1080)' ],
 	] ) {
@@ -1052,6 +1296,17 @@ async function openStudio( { editor, extras, layer } ) {
 	vidNote.textContent = t(
 		'Keep this tab in the foreground while recording.'
 	);
+	// v2.5: where the browser can encode, the film is made frame by frame
+	// and the note above no longer applies.
+	canEncode( 1080, 1080 )
+		.then( ( ok ) => {
+			if ( ok ) {
+				vidNote.textContent = t(
+					'Made frame by frame as an MP4 with sound - faster than playing it.'
+				);
+			}
+		} )
+		.catch( () => {} );
 
 	/** basePeaks window (already 0..1 globally) WITHOUT re-normalizing. */
 	function resamplePeaks( from01, to01, buckets ) {
@@ -1116,6 +1371,29 @@ async function openStudio( { editor, extras, layer } ) {
 	const RIDGE_COLS = 90;
 	let ridgeHist = [];
 	let ridgeHistAt = 0;
+	// The spectral styles flow the same way: the recent spectrum frames as
+	// the time axis, newest on the right (or the outside of the mandala).
+	const SPEC_FRAMES = 120;
+	let specHist = [];
+	let specHistAt = 0;
+	function specWaterfall( liveWave, nowMs ) {
+		if ( ! specHist.length || nowMs - specHistAt > 30 ) {
+			specHistAt = nowMs;
+			const row = new Float32Array( 64 );
+			for ( let b = 0; b < 64; b++ ) {
+				row[ b ] = liveWave[ Math.floor( ( b / 64 ) * liveWave.length ) ] || 0;
+			}
+			specHist.push( row );
+			if ( specHist.length > SPEC_FRAMES ) {
+				specHist.shift();
+			}
+		}
+		const data = new Float32Array( SPEC_FRAMES * 64 );
+		const off = SPEC_FRAMES - specHist.length;
+		specHist.forEach( ( f, i ) => data.set( f, ( off + i ) * 64 ) );
+		return { data, cols: SPEC_FRAMES, bands: 64 };
+	}
+
 	function ridgeWaterfall( liveWave, nowMs ) {
 		if ( ! ridgeHist.length || nowMs - ridgeHistAt > 66 ) {
 			ridgeHistAt = nowMs;
@@ -1137,7 +1415,11 @@ async function openStudio( { editor, extras, layer } ) {
 		return full;
 	}
 
-	function renderVideoFrame( ctx, W, H, progress, spanSec, liveWave ) {
+	function renderVideoFrame( ctx, W, H, progress, spanSec, liveWave, clockMs ) {
+		// The offline render passes its own clock; the live preview runs on
+		// the page's.
+		const now = undefined === clockMs ? window.performance.now() : clockMs;
+		const spectralStyle = SPECTRAL_STYLES.includes( params.style );
 		const pal = wavePalette( themeOf(), params.overrides );
 		const stage = resolvedVideoBg();
 		const uiText = textOn( stage, pal.text );
@@ -1201,8 +1483,9 @@ async function openStudio( { editor, extras, layer } ) {
 				peaksB: null,
 				peaksFull:
 					'ridgeline' === params.style
-						? ridgeWaterfall( liveWave, window.performance.now() )
+						? ridgeWaterfall( liveWave, now )
 						: null,
+				spectrum: spectralStyle ? specWaterfall( liveWave, now ) : null,
 				mask: 'none',
 				transparentBg: true,
 			} );
@@ -1230,6 +1513,15 @@ async function openStudio( { editor, extras, layer } ) {
 								3200
 						  )
 						: null,
+				spectrum:
+					spectralStyle && baseSpec
+						? spectrumWindow(
+								baseSpec,
+								tS + ( tE - tS ) * ( c - half ),
+								tS + ( tE - tS ) * ( c + half ),
+								'mandala' === params.style ? 120 : 240
+						  )
+						: null,
 				mask: 'none',
 				transparentBg: true,
 			} );
@@ -1241,6 +1533,28 @@ async function openStudio( { editor, extras, layer } ) {
 			ctx.lineTo( waveW / 2, waveH );
 			ctx.stroke();
 			ctx.globalAlpha = 1;
+		} else if (
+			spectralStyle &&
+			( 'progress' === params.videoMode || ! liveWave )
+		) {
+			// The spectral styles show the song so far at full strength and
+			// the rest faint - the mandala grows its rings outwards.
+			drawWave( ctx, waveW, waveH, {
+				...waveOpts(),
+				reveal: progress,
+				mask: 'none',
+				transparentBg: true,
+			} );
+			if ( 'spectrogram' === params.style ) {
+				ctx.strokeStyle = pal.text;
+				ctx.globalAlpha = 0.7;
+				ctx.lineWidth = Math.max( 2, W * 0.002 );
+				ctx.beginPath();
+				ctx.moveTo( waveW * progress, 0 );
+				ctx.lineTo( waveW * progress, waveH );
+				ctx.stroke();
+				ctx.globalAlpha = 1;
+			}
 		} else if ( 'progress' === params.videoMode || ! liveWave ) {
 			const px = waveW * progress;
 			ctx.globalAlpha = 0.3;
@@ -1295,6 +1609,24 @@ async function openStudio( { editor, extras, layer } ) {
 		if ( pcmBuffer ) {
 			return pcmBuffer;
 		}
+		if ( params.audio && params.audio.demo ) {
+			// The example is samples already; it only needs to become a
+			// real AudioBuffer to be played.
+			const song = demoCache || ( demoCache = demoSong( 32000 ) );
+			const buffer = new window.AudioBuffer( {
+				length: song.length,
+				numberOfChannels: song.numberOfChannels,
+				sampleRate: song.sampleRate,
+			} );
+			for ( let c = 0; c < song.numberOfChannels; c++ ) {
+				buffer.copyToChannel( song.getChannelData( c ), c );
+			}
+			pcmBuffer = buffer;
+			return pcmBuffer;
+		}
+		if ( ! params.audio || ! params.audio.url ) {
+			throw new Error( t( 'Pick an audio file first.' ) );
+		}
 		setStatus( t( 'Preparing audio' ) );
 		const response = await window.fetch( params.audio.url, {
 			credentials: 'same-origin',
@@ -1346,6 +1678,7 @@ async function openStudio( { editor, extras, layer } ) {
 			const source = ac.createBufferSource();
 			source.buffer = buffer;
 			ridgeHist = []; // fresh waterfall history per run
+			specHist = [];
 			const analyser = ac.createAnalyser();
 			analyser.fftSize = 2048;
 			analyser.smoothingTimeConstant = 0.82;
@@ -1430,6 +1763,18 @@ async function openStudio( { editor, extras, layer } ) {
 			);
 			return;
 		}
+		const [ OW, OH ] = params.videoRes
+			.split( 'x' )
+			.map( ( v ) => parseInt( v, 10 ) );
+		let offline = false;
+		try {
+			offline = await canEncode( OW, OH );
+		} catch ( e ) {
+			offline = false;
+		}
+		if ( offline ) {
+			return exportOffline( spanSec, OW, OH );
+		}
 		const mime = [
 			'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
 			'video/mp4',
@@ -1472,6 +1817,7 @@ async function openStudio( { editor, extras, layer } ) {
 			const source = ac.createBufferSource();
 			source.buffer = buffer;
 			ridgeHist = []; // fresh waterfall history per run
+			specHist = [];
 			const analyser = ac.createAnalyser();
 			analyser.fftSize = 2048;
 			analyser.smoothingTimeConstant = 0.82;
@@ -1544,45 +1890,7 @@ async function openStudio( { editor, extras, layer } ) {
 				setStatus( '' );
 				return;
 			}
-			const blob = new window.Blob( chunks, { type: mime } );
-			setStatus( t( 'Rendering the wave' ) );
-			// Three minutes of recording must never be lost to a failed
-			// upload: over the site's limit it goes to the computer, and a
-			// refused upload falls back to the same download (EXPORT-1).
-			const maxMb = Number( ( window.WPIE || {} ).maxUploadMb ) || 0;
-			const download = () =>
-				bridge.util.downloadBlob(
-					blob,
-					`${ slugOf() }.${ mime.indexOf( 'mp4' ) > -1 ? 'mp4' : 'webm' }`
-				);
-			if ( maxMb && blob.size > maxMb * 1024 * 1024 ) {
-				download();
-				setStatus(
-					t(
-						'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.'
-					).replace( '%s', String( maxMb ) ),
-					true
-				);
-				return null;
-			}
-			let saved;
-			try {
-				saved = await uploadVideo( blob, mime );
-			} catch ( err ) {
-				download();
-				setStatus(
-					t( 'Could not save the video. It was downloaded instead.' ),
-					true
-				);
-				return null;
-			}
-			setStatus( t( 'Video saved to the media library.' ) );
-			if ( extras && extras.toasts && extras.toasts.success ) {
-				extras.toasts.success(
-					t( 'Video saved to the media library.' )
-				);
-			}
-			return saved;
+			return await deliver( new window.Blob( chunks, { type: mime } ), mime );
 		} catch ( e ) {
 			setStatus(
 				e && e.message ? e.message : t( 'Could not save the video.' ),
@@ -1597,6 +1905,137 @@ async function openStudio( { editor, extras, layer } ) {
 			exportCancelBtn.style.display = 'none';
 		}
 	}
+	/**
+	 * A finished video: into the media library, or onto the computer when
+	 * the site will not take it. Minutes of rendering must never be lost
+	 * to a failed upload (EXPORT-1).
+	 */
+	async function deliver( blob, mime ) {
+		setStatus( t( 'Rendering the wave' ) );
+		const maxMb = Number( ( window.WPIE || {} ).maxUploadMb ) || 0;
+		const download = () =>
+			bridge.util.downloadBlob(
+				blob,
+				`${ slugOf() }.${ mime.indexOf( 'mp4' ) > -1 ? 'mp4' : 'webm' }`
+			);
+		lastVideo = { bytes: blob.size, mime };
+		if ( maxMb && blob.size > maxMb * 1024 * 1024 ) {
+			download();
+			setStatus(
+				t(
+					'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.'
+				).replace( '%s', String( maxMb ) ),
+				true
+			);
+			return null;
+		}
+		let saved;
+		try {
+			saved = await uploadVideo( blob, mime );
+		} catch ( err ) {
+			download();
+			setStatus(
+				t( 'Could not save the video. It was downloaded instead.' ),
+				true
+			);
+			return null;
+		}
+		setStatus( t( 'Video saved to the media library.' ) );
+		if ( extras && extras.toasts && extras.toasts.success ) {
+			extras.toasts.success( t( 'Video saved to the media library.' ) );
+		}
+		return saved;
+	}
+	let lastVideo = null;
+
+	/**
+	 * v2.5: the video made frame by frame. The analyser is worked out from
+	 * the samples (spectrum.js), so the equalizer dances as in the
+	 * preview; nothing has to play, and a slow frame cannot stutter.
+	 */
+	async function exportOffline( spanSec, W, H ) {
+		if ( previewStop ) {
+			previewStop();
+		}
+		exportBtn.disabled = true;
+		exportCancelBtn.style.display = '';
+		let cancelled = false;
+		exportAbort = () => {
+			cancelled = true;
+		};
+		try {
+			const buffer = await ensurePcm();
+			const sr = buffer.sampleRate;
+			const from = Math.round( ( ( params.trimStart / 100 ) * params.duration ) * sr );
+			const to = Math.min( buffer.length, from + Math.round( spanSec * sr ) );
+			const channels = [];
+			for ( let c = 0; c < Math.min( 2, buffer.numberOfChannels ); c++ ) {
+				channels.push( buffer.getChannelData( c ).subarray( from, to ) );
+			}
+			// The live analyser smooths once per screen frame (60 a second),
+			// this one once per video frame (30): squared, it decays alike.
+			const analyser = offlineAnalyser( channels, sr, { smoothing: 0.82 * 0.82 } );
+			const bars = Math.min( params.density, 96 );
+			const vidCanvas = document.createElement( 'canvas' );
+			vidCanvas.width = W;
+			vidCanvas.height = H;
+			const vctx = vidCanvas.getContext( '2d' );
+			ridgeHist = [];
+			specHist = [];
+			const sleep =
+				( bridge.timing && bridge.timing.sleep ) ||
+				( ( ms ) => new Promise( ( r ) => window.setTimeout( r, ms ) ) );
+			const frames = async ( { fps, onFrame } ) => {
+				const n = Math.max( 1, Math.ceil( spanSec * fps ) );
+				for ( let i = 0; i < n; i++ ) {
+					if ( cancelled ) {
+						throw new Error( 'cancelled' );
+					}
+					const at = i / fps;
+					renderVideoFrame(
+						vctx,
+						W,
+						H,
+						Math.min( 1, at / spanSec ),
+						spanSec,
+						'equalizer' === params.videoMode ? analyser.bars( at, bars ) : null,
+						at * 1000
+					);
+					await onFrame( vidCanvas, i );
+					if ( 0 === i % 6 ) {
+						setStatus(
+							`${ t( 'Rendering video' ) } ${ Math.round( ( ( i + 1 ) / n ) * 100 ) }%`
+						);
+						await sleep( 0 );
+					}
+				}
+			};
+			const out = await encodeVideo( {
+				frames,
+				width: W,
+				height: H,
+				fps: 30,
+				audio: { channels, sampleRate: sr },
+				sleep,
+			} );
+			return await deliver( out.blob, 'video/mp4' );
+		} catch ( e ) {
+			if ( cancelled ) {
+				setStatus( '' );
+				return null;
+			}
+			setStatus(
+				e && e.message ? e.message : t( 'Could not save the video.' ),
+				true
+			);
+			return null;
+		} finally {
+			exportAbort = null;
+			exportBtn.disabled = ! basePeaks;
+			exportCancelBtn.style.display = 'none';
+		}
+	}
+
 	exportBtn.onclick = exportVideo;
 	exportCancelBtn.onclick = () => {
 		if ( exportAbort ) {
@@ -1623,16 +2062,16 @@ async function openStudio( { editor, extras, layer } ) {
 			( params.audio && params.audio.title ) ||
 			'audiogram';
 		const ext = mime.indexOf( 'mp4' ) > -1 ? 'mp4' : 'webm';
-		const slug =
-			titleText
-				.toLowerCase()
-				.replace( /[^a-z0-9]+/g, '-' )
-				.replace( /^-+|-+$/g, '' ) || 'audiogram';
+		return uploadMedia( blob, `${ slugOf() }.${ ext }`, mime, titleText );
+	}
+
+	/** Any file into the media library (video, or a recording since v2.5). */
+	async function uploadMedia( blob, filename, mime, titleText ) {
+		if ( ! window.wp || ! window.wp.apiFetch ) {
+			throw new Error( 'no media library' );
+		}
 		const fd = new window.FormData();
-		fd.append(
-			'file',
-			new window.File( [ blob ], `${ slug }.${ ext }`, { type: mime } )
-		);
+		fd.append( 'file', new window.File( [ blob ], filename, { type: mime } ) );
 		fd.append( 'title', titleText );
 		// wp.apiFetch carries and refreshes the nonce; a hand-built fetch
 		// with the boot nonce failed after the first nonce rotation
@@ -1665,7 +2104,7 @@ async function openStudio( { editor, extras, layer } ) {
 
 	// Styles that want a square tile instead of the wide strip - the
 	// radial ones plus ridgeline (the album-cover mountain field).
-	const SQUARE_STYLES = [ 'circle', 'spiral', 'sunburst', 'heart', 'hexagon', 'ridgeline' ];
+	const SQUARE_STYLES = [ 'circle', 'spiral', 'sunburst', 'heart', 'hexagon', 'ridgeline', 'mandala' ];
 
 	function waveRectFor( docW, docH, withText ) {
 		const square =
@@ -1923,6 +2362,9 @@ async function openStudio( { editor, extras, layer } ) {
 		brights: brightsArr,
 		peaksFull,
 		rows: 'ridgeline' === params.style ? ridgeRows() : 0,
+		// v2.5: the spectral styles. Density sets the mandala's petals.
+		spectrum: 'mandala' === params.style ? specRings : specStrip,
+		petals: Math.round( 5 + ( ( params.density - 40 ) / 200 ) * 11 ),
 	} );
 
 	function paintNow() {
@@ -1939,7 +2381,7 @@ async function openStudio( { editor, extras, layer } ) {
 		const ctx = canvas.getContext( '2d' );
 		ctx.clearRect( 0, 0, cw, ch );
 		if ( ! peaks ) {
-			empty.style.display = '';
+			empty.style.display = demoLoading ? 'none' : '';
 			return;
 		}
 		empty.style.display = 'none';
@@ -2025,6 +2467,10 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 	};
 	function close() {
+		history.dispose();
+		if ( recording ) {
+			stopRecording();
+		}
 		if ( previewStop ) {
 			previewStop();
 		}
@@ -2055,6 +2501,27 @@ async function openStudio( { editor, extras, layer } ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: style,
+	// colours, shape and texts. The sound itself stays loaded.
+	const history = studioUndo( {
+		backdrop,
+		read: () => {
+			const out = { ...params };
+			delete out.audio;
+			return out;
+		},
+		write: ( data ) => {
+			Object.assign( params, data );
+			syncStyleSel();
+			syncThemeSel();
+			syncColorUi();
+			syncColorInputs();
+			syncShapeSel();
+			syncVideoBg();
+			refreshPeaks();
+			paint();
+		},
+	} );
 
 	/* -------------------------------- insert ----------------------------- */
 
@@ -2064,6 +2531,25 @@ async function openStudio( { editor, extras, layer } ) {
 			return;
 		}
 		apply.disabled = true;
+		if ( recording ) {
+			stopRecording();
+		}
+		// v2.5: a recording goes into the media library first, so the
+		// picture can be opened again later. If the site will not take
+		// it, the picture is inserted all the same.
+		if ( params.audio && params.audio.recorded && ! params.audio.url && recorded ) {
+			setStatus( t( 'Saving the recording' ) );
+			try {
+				params.audio = await saveRecording();
+				recorded = null;
+			} catch ( e ) {
+				if ( extras && extras.toasts && extras.toasts.error ) {
+					extras.toasts.error(
+						t( 'The recording could not be saved to the media library.' )
+					);
+				}
+			}
+		}
 		setStatus( t( 'Rendering the wave' ) );
 		try {
 			await insertOrUpdate();
@@ -2201,6 +2687,22 @@ async function openStudio( { editor, extras, layer } ) {
 		paint();
 		if ( params.audio && params.audio.url ) {
 			loadAudio( params.audio.url );
+		} else {
+			// v2.5: never an empty frame - the example until a sound is
+			// chosen (and for a picture made from the example).
+			const lost = !! (
+				params.audio &&
+				params.audio.recorded &&
+				! params.audio.url
+			);
+			loadDemo().then( () => {
+				if ( lost ) {
+					setStatus(
+						t( 'The recording of this picture was not saved. Record it again or choose a file.' ),
+						true
+					);
+				}
+			} );
 		}
 	} );
 }

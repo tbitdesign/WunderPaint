@@ -261,7 +261,7 @@ export async function extractColorsOp( editor, extras ) {
 	setExtractedColors( palette );
 	extras.toasts.success(
 		__(
-			'Colors extracted. They are now in the colour picker.',
+			'Colors extracted. They are now in the color picker.',
 			'wunderpaint'
 		)
 	);

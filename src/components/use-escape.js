@@ -26,13 +26,21 @@ const onKey = ( e ) => {
 };
 
 /**
- * @param {Function} onClose Called when Escape is pressed while this dialog
- *                           is the topmost one.
+ * @param {Function} onClose   Called when Escape is pressed while this dialog
+ *                             is the topmost one.
+ * @param {boolean}  [enabled] False keeps the caller off the stack (a color
+ *                             popover in its always-open embedded form, for
+ *                             instance); Escape then falls through to the
+ *                             dialog underneath as if the hook were absent.
+ * @param {*} [activationKey] Re-register a retargeted window above its owner dialog.
  */
-export function useEscape( onClose ) {
+export function useEscape( onClose, enabled = true, activationKey = null ) {
 	const handler = useRef( onClose );
 	handler.current = onClose;
 	useEffect( () => {
+		if ( ! enabled ) {
+			return undefined;
+		}
 		stack.push( handler );
 		if ( ! bound ) {
 			document.addEventListener( 'keydown', onKey, true );
@@ -48,7 +56,7 @@ export function useEscape( onClose ) {
 				bound = false;
 			}
 		};
-	}, [] );
+	}, [ enabled, activationKey ] );
 }
 
 /** How many dialogs are currently listening (tests). */

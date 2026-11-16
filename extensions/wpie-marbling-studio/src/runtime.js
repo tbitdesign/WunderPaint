@@ -26,6 +26,7 @@ import {
 	OP,
 	MAX_OPS,
 	rng,
+	toSeamless,
 } from './marbling.js';
 
 function boot( el ) {
@@ -52,17 +53,30 @@ function boot( el ) {
 	el.appendChild( canvas );
 
 	const engine = new MarblingEngine( canvas );
+	// v1.9: a seamless tile keeps visitors' strokes on the tile too.
+	const shape = ( ops ) =>
+		params.seamless ? toSeamless( ops, params.aspect ) : ops;
 	const push = () =>
 		engine.setState( {
-			ops: params.ops,
+			ops: shape( params.ops ),
 			inks: params.inks,
 			bath: params.bath,
 			bathClear: params.bathClear,
 			aspect: params.aspect,
 			veins: params.veins,
 			paper: params.paper,
+			seamless: params.seamless,
 		} );
 	push();
+	// v1.9: the picture floating on the water travels with the embed.
+	if ( params.picture ) {
+		const img = new Image();
+		img.onload = () => {
+			engine.setPicture( img );
+			engine.render();
+		};
+		img.src = params.picture;
+	}
 	// The QA harness (and curious integrators) can reach the engine.
 	el.__wpieMb = engine;
 

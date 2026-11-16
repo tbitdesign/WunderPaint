@@ -33,7 +33,12 @@ import {
 	templates as templatesApi,
 	designs as designsApi,
 } from '../lib/api';
-import { insertAsset, listRecentAssets } from '../lib/asset-insert';
+import {
+	insertAsset,
+	isImageAsset,
+	listRecentAssets,
+} from '../lib/asset-insert';
+import { ArchiveStrip } from './library/archive-section';
 import { labelTiles } from '../lib/eu-ai-labels';
 import { SearchIndexHint } from '../components/search-index-hint';
 import { searchModelInstalled, searchMediaLibrary } from '../lib/image-search';
@@ -75,7 +80,7 @@ const tileProps = ( asset, onUse ) => ( {
 		// Kind marker (v1.363.1): during dragover only the type NAMES are
 		// readable, never the payload - the canvas needs the kind in a
 		// type name to frame the swap target while an image tile drags.
-		if ( [ 'photo', 'upload' ].includes( asset.kind ) ) {
+		if ( isImageAsset( asset ) ) {
 			e.dataTransfer.setData( ASSET_MIME + '-image', '1' );
 		}
 		e.dataTransfer.effectAllowed = 'copy';
@@ -1646,6 +1651,10 @@ export function LibraryTray( { extras } ) {
 		{ id: 'recent', label: __( 'Recent', 'wunderpaint' ) },
 		{ id: 'assets', label: __( 'My Assets', 'wunderpaint' ) },
 		{ id: 'designs', label: __( 'My Designs', 'wunderpaint' ) },
+		// A folder on the visitor's own computer (v1.431.0): with the
+		// other own material, and always here - the strip itself offers
+		// the connecting, so the feature is learnt where it is used.
+		{ id: 'archive', label: __( 'My Archive', 'wunderpaint' ) },
 		{ id: 'templates', label: __( 'Dynamic Templates', 'wunderpaint' ) },
 		{ id: 'starters', label: __( 'Starter Templates', 'wunderpaint' ) },
 		{ id: 'brand', label: __( 'Brand Kits', 'wunderpaint' ) },
@@ -1876,6 +1885,15 @@ export function LibraryTray( { extras } ) {
 					) }
 					{ 'uploads' === section && (
 						<UploadsStrip query={ q } insert={ insert } />
+					) }
+					{ 'archive' === section && (
+						<ArchiveStrip
+							query={ q }
+							insert={ insert }
+							extras={ extras }
+							tileProps={ tileProps }
+							wheelScroll={ wheelScroll }
+						/>
 					) }
 					{ !! getExtensionLibrarySection( section ) && (
 						<ExtensionStrip

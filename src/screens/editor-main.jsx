@@ -30,7 +30,7 @@ import {
 import { getPsdImporter } from '../lib/psd-registry';
 import { useToasts } from '../components/toasts';
 import { DialogHost } from '../components/input-dialog';
-import { OnboardingTour, SpotlightTour, tourDone } from './onboarding';
+import { OnboardingTour, SpotlightTour } from './onboarding';
 import { HelpAssistant } from './help-assistant';
 import { VignetteDialog } from './vignette-dialog';
 import { registerCoreGenerators } from '../lib/core-generators';
@@ -41,6 +41,9 @@ import {
 } from '../lib/extensions';
 import { registerGrowthPack } from '../content/growth-pack';
 import { installModalDrag } from '../lib/modal-drag';
+import { installNumericControls } from '../lib/numeric-controls';
+import { installEditorControls } from '../lib/editor-controls';
+import '../styles/editor/numeric-controls.css';
 
 // Core generators (Vignette & Film) join the extension registry once at
 // module load - the registry is module-global and boot-order safe.
@@ -51,6 +54,8 @@ registerGrowthPack();
 // Every dialog header becomes a drag handle - one delegated listener
 // covers host and extension modals alike.
 installModalDrag();
+installNumericControls();
+installEditorControls();
 import { HelpDialog } from './help-dialog';
 import { pushRecentFile } from '../lib/recent-files';
 import { confirmDialog } from '../lib/dialogs';
@@ -60,6 +65,7 @@ import { EditorMenuBar } from './editor-menubar';
 import { EditorToolbar } from './editor-toolbar';
 import { EasyBar } from './easy/easy-bar';
 import { EasyToolbar } from './easy/easy-toolbar';
+import { useEasyNavigation } from './easy/easy-actions';
 import { EasyPanel } from './easy/easy-panel';
 import { isEasyMode, setEasyModeFlag } from '../lib/easy-mode';
 import { EditorStatusBar } from './editor-statusbar';
@@ -95,12 +101,14 @@ import { PagesBar } from './pages-bar';
 import { LibraryTray } from './library-tray';
 import { CommandPalette } from './command-palette';
 import { ContrastDialog } from './contrast-dialog';
+import { ReplaceColorsDialog } from './replace-colors-dialog';
 import { QuickInsert } from './quick-insert';
 import { PROOF_MATRICES } from '../lib/proof';
 import { PostPickerDialog } from './post-picker-dialog';
 import { ProTeaserDialog } from './pro-teaser-dialog';
 import { ActionsDialog } from './actions-dialog';
 import { BrandKitsDialog } from './brand-kits-dialog';
+import { AiButtonsDialog } from './ai-buttons-dialog';
 import { BatchWatermarkDialog } from './batch-watermark-dialog';
 import { DepthBlurDialog } from './depth-blur-dialog';
 import { GenerateDialog } from './generate-dialog';
@@ -144,7 +152,7 @@ export function EditorScreen( {
 	// sync effect). The autosave has to write in that case too: it used to
 	// skip, so the record under the shared key still held ANOTHER document
 	// while the tab restore excluded this one as "covered by the autosave"
-	// (Codex F03) - gone after a reload, the other one offered twice.
+	// (audit F03) - gone after a reload, the other one offered twice.
 	const tabDirtyRef = useRef( false );
 	tabDirtyRef.current = !! ( tabs || [] ).find( ( t ) => t.id === activeTab )
 		?.dirty;
@@ -188,7 +196,7 @@ export function EditorScreen( {
 			// actually UPLOADED, a save that finished after more work was
 			// committed leaves the document dirty - and this used to clear
 			// the tab's dot regardless, so the close button asked nothing
-			// and the later work went with the tab (Codex C04). The dot
+			// and the later work went with the tab (audit C04). The dot
 			// follows the real state, which on this render is derived from
 			// the same history the reference just changed in.
 			tabsApi?.syncActive?.( { dirty: !! editor.dirty } );
@@ -329,6 +337,7 @@ export function EditorScreen( {
 	const [ showGuides, setShowGuides ] = useState( false ); // v1.1
 	const [ showActions, setShowActions ] = useState( false ); // v1.25
 	const [ showBrandKits, setShowBrandKits ] = useState( false ); // v1.89
+	const [ showAiButtons, setShowAiButtons ] = useState( false ); // spec 2026-09-16
 	const [ showBatchWatermark, setShowBatchWatermark ] = useState( false ); // v1.134
 	// Preselected targets when a tool (Media Library Manager) hands its
 	// selection over to Batch Watermark (v1.241).
@@ -338,6 +347,7 @@ export function EditorScreen( {
 	const [ chartTarget, setChartTarget ] = useState( null ); // true=new | groupId (v1.114)
 	const [ qrTarget, setQrTarget ] = useState( null ); // true=new | layerId (v1.102)
 	const [ shapeStudioTarget, setShapeStudioTarget ] = useState( null ); // true=new | layerId
+	// false, or { seed } (v1.432: the Color panel hands over what it shows).
 	const [ showColorSchemer, setShowColorSchemer ] = useState( false ); // v1.103
 	const [ bgTarget, setBgTarget ] = useState( null ); // true=new | layerId (v1.105)
 	const [ showBeautify, setShowBeautify ] = useState( false ); // v1.106
@@ -349,25 +359,29 @@ export function EditorScreen( {
 	const [ showMagicResize, setShowMagicResize ] = useState( false ); // v1.11
 	const [ showDesignAssistant, setShowDesignAssistant ] = useState( false ); // v1.12
 	const [ showPalette, setShowPalette ] = useState( false ); // v1.15
+	// The title-bar search (v1.434) registers its focus here; ⌘K lands in
+	// it, and only where there is no field (Easy Mode, nested editors) the
+	// palette opens as a window.
+	const searchFocus = useRef( null );
 	const [ showContrast, setShowContrast ] = useState( false ); // v1.15
+	const [ showReplaceColors, setShowReplaceColors ] = useState( false ); // v1.431
 	const [ showQuickInsert, setShowQuickInsert ] = useState( false ); // v1.11 '/'
 	const [ showPostPicker, setShowPostPicker ] = useState( false ); // dynamic templates E1
 	const [ easyMode, setEasyModeState ] = useState( isEasyMode ); // v1.166 beginner shell
+	const easyNavigation = useEasyNavigation( editor, easyMode );
+	const fullModeTool = useRef( null );
 	const [ proTeaser, setProTeaser ] = useState( null ); // {label} | null (v1.79)
 	const [ showExtensions, setShowExtensions ] = useState( false ); // v1.119
 	const [ showWorkspace, setShowWorkspace ] = useState( false ); // v1.184
 	const [ wsPick, setWsPick ] = useState( false ); // v1.184 interactive picker
-	const [ showTour, setShowTour ] = useState(
-		() => ! nested && ! isNew && ! tourDone()
-	); // v0.5
-	// First-run font source picker (v1.316): admins only, and not while the
-	// onboarding tour is up (isNew has no tour; otherwise wait for tourDone).
+	// The overview is opened explicitly from Help → Show Tour.
+	const [ showTour, setShowTour ] = useState( false );
+	// The admin font setup is independent of the optional editor tour.
 	const [ showFontFirstRun, setShowFontFirstRun ] = useState(
 		() =>
 			! nested &&
 			!! window.WPIE?.canManage &&
-			!! window.WPIE?.fontsFirstRun &&
-			( isNew || tourDone() )
+			!! window.WPIE?.fontsFirstRun
 	);
 	const [ helpArticle, setHelpArticle ] = useState( null ); // v0.8 ('index' | article id)
 	const [ guide, setGuide ] = useState( null ); // v0.8 running how-to
@@ -463,12 +477,50 @@ export function EditorScreen( {
 			// Easy Mode (v1.166): swaps menu bar, tool rail and the right
 			// panel for the beginner shell; the document stays identical.
 			setEasyMode: ( on ) => {
+				const current = editorLiveRef.current;
+				richText.current?.commit?.();
+				if ( on && ! isEasyMode() ) {
+					fullModeTool.current = {
+						tool: current.state.tool,
+						maskEditId: current.state.maskEditId,
+						maskPreview: current.state.maskPreview,
+					};
+					current.dispatch( { type: 'SET_TOOL', tool: 'move' } );
+					if ( current.state.maskEditId ) {
+						current.dispatch( { type: 'SET_MASK_EDIT', id: null } );
+					}
+				} else if ( ! on && fullModeTool.current ) {
+					const saved = fullModeTool.current;
+					current.dispatch( {
+						type: 'SET_TOOL',
+						tool: saved.tool,
+						preserveSelectionMode: true,
+					} );
+					if (
+						saved.maskEditId &&
+						current.state.layers.some(
+							( layer ) =>
+								layer.id === saved.maskEditId && layer.mask
+						)
+					) {
+						current.dispatch( {
+							type: 'SET_MASK_EDIT',
+							id: saved.maskEditId,
+						} );
+						current.dispatch( {
+							type: 'SET_MASK_PREVIEW',
+							value: saved.maskPreview,
+						} );
+					}
+					fullModeTool.current = null;
+				}
 				setEasyModeFlag( on );
 				setEasyModeState( !! on );
 			},
 			openGuides: () => setShowGuides( true ),
 			openActions: () => setShowActions( true ),
 			openBrandKits: () => setShowBrandKits( true ),
+			openAiButtons: () => setShowAiButtons( true ),
 			openBatchWatermark: ( preset ) => {
 				watermarkSeed.current =
 					Array.isArray( preset ) && preset.length ? preset : null;
@@ -510,10 +562,21 @@ export function EditorScreen( {
 			// size, for the generator families a 150px column cannot show.
 			openShapeStudioModal: ( shapeLayerId ) =>
 				setShapeStudioTarget( shapeLayerId || true ),
-			openColorSchemer: () => setShowColorSchemer( true ),
+			openColorSchemer: ( seed ) =>
+				setShowColorSchemer( {
+					seed:
+						seed &&
+						'object' === typeof seed &&
+						( seed.base || seed.colors )
+							? seed
+							: null,
+				} ),
 			openBackgroundStudio: ( layerId ) => setBgTarget( layerId || true ),
-			openBeautify: () => setShowBeautify( true ),
-			openCollage: () => setShowCollage( true ),
+			// A group id reopens a framed screenshot (20.10.2026); menus and
+			// deep links call it without one.
+			openBeautify: ( layerId ) =>
+				setShowBeautify( 'string' === typeof layerId ? layerId : true ),
+			openCollage: ( layerId ) => setShowCollage( layerId || true ),
 			openPanorama: () => setShowPanorama( true ),
 			openMockup: ( layerId ) => setMockupTarget( layerId || true ),
 			// New document tab with ready content (v1.107); falls back to
@@ -538,8 +601,12 @@ export function EditorScreen( {
 			openResize: ( m ) => setResizeMode( m ),
 			openMagicResize: () => setShowMagicResize( true ),
 			openDesignAssistant: () => setShowDesignAssistant( true ),
-			openPalette: () => setShowPalette( true ),
+			openPalette: () =>
+				searchFocus.current
+					? searchFocus.current()
+					: setShowPalette( true ),
 			openContrast: () => setShowContrast( true ),
+			openReplaceColors: () => setShowReplaceColors( true ),
 			openQuickInsert: () => setShowQuickInsert( true ),
 			openBatch: ( opts ) =>
 				window.WPIE?.proOpen?.batch
@@ -657,7 +724,9 @@ export function EditorScreen( {
 			selectSubject: async () => {
 				const id = toasts.toast(
 					__( 'Detecting subject…', 'wunderpaint' ),
-					{ duration: 0 }
+					{
+						duration: 0,
+					}
 				);
 				try {
 					const { selectSubject } = await import(
@@ -672,7 +741,9 @@ export function EditorScreen( {
 			removeObject: async () => {
 				const id = toasts.toast(
 					__( 'Removing object…', 'wunderpaint' ),
-					{ duration: 0 }
+					{
+						duration: 0,
+					}
 				);
 				try {
 					const { removeObject } = await import(
@@ -1118,7 +1189,7 @@ export function EditorScreen( {
 		// mount reads true as well. Applied without the first-mount gate, a
 		// tab switch after the switch loaded the autosave into the freshly
 		// woken tab - and new documents of one window share one autosave
-		// key, so tab B came up as document A (Codex C03). The automatic
+		// key, so tab B came up as document A (audit C03). The automatic
 		// restore belongs to the document that was active at the switch,
 		// which is the one the page boots with: once.
 		const afterLocaleSwitch = takeIntentionalReload() && firstMount;
@@ -1397,14 +1468,23 @@ export function EditorScreen( {
 				onExport={ extras.openExport }
 				nested={ nested }
 				extras={ extras }
+				searchFocusRef={ easyMode || nested ? undefined : searchFocus }
 			/>
 			{ easyMode ? (
 				<EasyBar extras={ extras } />
 			) : (
 				<EditorMenuBar extras={ extras } tabsBar={ tabsBar } />
 			) }
-			{ easyMode ? <EasyToolbar extras={ extras } /> : <EditorToolbar /> }
-			<EditorCanvas viewApi={ viewApi } extras={ extras } />
+			{ easyMode ? (
+				<EasyToolbar extras={ extras } navigation={ easyNavigation } />
+			) : (
+				<EditorToolbar />
+			) }
+			<EditorCanvas
+				viewApi={ viewApi }
+				extras={ extras }
+				easyMode={ easyMode }
+			/>
 			<ErrorBoundary
 				source="panel"
 				label={ __(
@@ -1413,7 +1493,10 @@ export function EditorScreen( {
 				) }
 			>
 				{ easyMode ? (
-					<EasyPanel extras={ extras } />
+					<EasyPanel
+						extras={ extras }
+						navigation={ easyNavigation }
+					/>
 				) : (
 					<RightPanel extras={ extras } />
 				) }
@@ -1425,7 +1508,7 @@ export function EditorScreen( {
 				{ editor.state.pages && ! editor.state.pagesHidden && (
 					<PagesBar extras={ extras } />
 				) }
-				{ ! editor.state.libraryHidden && (
+				{ ( easyMode || ! editor.state.libraryHidden ) && (
 					<ErrorBoundary
 						source="library"
 						label={ __(
@@ -1538,6 +1621,14 @@ export function EditorScreen( {
 					/>
 				</TopLayer>
 			) }
+			{ showAiButtons && (
+				<TopLayer>
+					<AiButtonsDialog
+						extras={ extras }
+						onClose={ () => setShowAiButtons( false ) }
+					/>
+				</TopLayer>
+			) }
 			{ showBatchWatermark && (
 				<TopLayer>
 					<BatchWatermarkDialog
@@ -1585,6 +1676,7 @@ export function EditorScreen( {
 			) }
 			{ showColorSchemer && (
 				<ColorSchemerDialog
+					seed={ showColorSchemer.seed }
 					onClose={ () => setShowColorSchemer( false ) }
 					extras={ extras }
 				/>
@@ -1598,12 +1690,14 @@ export function EditorScreen( {
 			) }
 			{ showBeautify && (
 				<BeautifyDialog
+					layerId={ true === showBeautify ? null : showBeautify }
 					onClose={ () => setShowBeautify( false ) }
 					extras={ extras }
 				/>
 			) }
 			{ showCollage && (
 				<CollageDialog
+					layerId={ true === showCollage ? null : showCollage }
 					onClose={ () => setShowCollage( false ) }
 					extras={ extras }
 				/>
@@ -1658,6 +1752,12 @@ export function EditorScreen( {
 					onClose={ () => setShowContrast( false ) }
 				/>
 			) }
+			{ showReplaceColors && (
+				<ReplaceColorsDialog
+					extras={ extras }
+					onClose={ () => setShowReplaceColors( false ) }
+				/>
+			) }
 			{ showQuickInsert && (
 				<QuickInsert
 					onClose={ () => setShowQuickInsert( false ) }
@@ -1699,7 +1799,10 @@ export function EditorScreen( {
 				/>
 			) }
 			{ showTour && (
-				<OnboardingTour onClose={ () => setShowTour( false ) } />
+				<OnboardingTour
+					easyMode={ easyMode }
+					onClose={ () => setShowTour( false ) }
+				/>
 			) }
 			{ showFontFirstRun && (
 				<FontFirstRunDialog

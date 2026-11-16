@@ -1,0 +1,197 @@
+/* Shared control finish. Existing compact/dialog dimensions remain in charge. */
+#wpie-root input[type="checkbox"][role="switch"] {
+	position: relative;
+	display: inline-block;
+	flex: none;
+	width: 30px;
+	min-width: 30px;
+	height: 17px;
+	min-height: 17px;
+	margin: 0;
+	padding: 0;
+	vertical-align: middle;
+	appearance: none;
+	background: var(--wp-500);
+	border: 0;
+	border-radius: var(--r-pill);
+	box-shadow: none;
+	cursor: pointer;
+	transition: background var(--dur-fast) var(--ease);
+}
+
+#wpie-root input[type="checkbox"][role="switch"]::before {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 13px;
+	height: 13px;
+	margin: 0;
+	background: var(--wp-100);
+	border-radius: 50%;
+	clip-path: none;
+	transform: translateX(0);
+	transition: transform var(--dur-fast) var(--ease);
+}
+
+#wpie-root input[type="checkbox"][role="switch"]:checked {
+	background: var(--accent);
+}
+
+#wpie-root input[type="checkbox"][role="switch"]:checked::before {
+	transform: translateX(13px);
+}
+
+#wpie-root input[type="checkbox"][role="switch"]:focus-visible {
+	outline: none;
+	box-shadow: none;
+}
+
+#wpie-root input[type="checkbox"][role="switch"]:disabled,
+#wpie-root .dsm-toggle:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+/* Actual selections retain their square shape and mixed state. */
+#wpie-root input[type="checkbox"]:not([role="switch"]):indeterminate {
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
+#wpie-root input[type="checkbox"]:not([role="switch"]):indeterminate::before {
+	width: 8px;
+	height: 2px;
+	background: var(--text-on-accent);
+	clip-path: none;
+	transform: none;
+}
+
+/* Thomas: neutral field borders, no additional focus frame or glow. These
+ * overrides also cover CSS loaded later by an extension; validation is kept. */
+#wpie-root
+	:is(
+		input:not([type]),
+		input[type="text"],
+		input[type="number"],
+		input[type="search"],
+		input[type="password"],
+		input[type="email"],
+		input[type="url"],
+		input[type="date"],
+		input[type="time"],
+		input[type="datetime-local"],
+		select,
+		textarea
+	):is(:focus, :focus-visible) {
+	outline: none !important;
+	box-shadow: none !important;
+}
+
+#wpie-root
+	:is(
+		input:not([type]),
+		input[type="text"],
+		input[type="number"],
+		input[type="search"],
+		input[type="password"],
+		input[type="email"],
+		input[type="url"],
+		input[type="date"],
+		input[type="time"],
+		input[type="datetime-local"],
+		select,
+		textarea
+	):is(:focus, :focus-visible):not([aria-invalid="true"]) {
+	border-color: var(--border-strong) !important;
+}
+
+/* One outer field for a swatch and an editable color, using the existing picker. */
+#wpie-root .wpie-color-field {
+	--color-field-height: 26px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	height: var(--color-field-height);
+	padding: 2px 6px 2px 2px;
+	border: 1px solid var(--border-strong);
+	border-radius: var(--r-sm);
+	background: var(--surface-input);
+}
+
+#wpie-root .dsm .wpie-color-field {
+	--color-field-height: 32px;
+}
+
+/* Keep grid/flex parents from stretching the checkerboard past the swatch. */
+#wpie-root .wpie-color-swatch {
+	flex: none;
+	width: fit-content;
+	height: fit-content;
+	border-radius: 3px;
+	background-color: var(--surface-input);
+	background-image: conic-gradient(
+		var(--border-strong) 25%,
+		transparent 0 50%,
+		var(--border-strong) 0 75%,
+		transparent 0
+	);
+	background-size: 8px 8px;
+}
+
+#wpie-root .wpie-color-field > input[type="text"] {
+	flex: 1;
+	width: 100%;
+	min-width: 0;
+	height: 100%;
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: var(--text-primary);
+	font-size: var(--fs-sm);
+}
+
+#wpie-root .wpie-color-field.is-disabled {
+	opacity: 0.45;
+}
+
+/* Base alignment for borderless icons. Context-specific dimensions (layer
+ * rows, headers, the proportions chain) still override this default. */
+#wpie-root .icon-btn {
+	display: inline-grid;
+	flex: none;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	line-height: 1;
+	color: var(--text-secondary);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .icon-btn svg,
+#wpie-root .dsm-mini svg {
+	display: block;
+	flex: none;
+}
+
+#wpie-root .icon-btn:hover:not(:disabled),
+#wpie-root .icon-btn[aria-pressed="true"] {
+	color: var(--text-primary);
+}
+
+#wpie-root .icon-btn:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+	#wpie-root input[type="checkbox"][role="switch"],
+	#wpie-root input[type="checkbox"][role="switch"]::before {
+		transition: none;
+	}
+}

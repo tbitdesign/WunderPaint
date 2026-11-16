@@ -232,61 +232,101 @@ export function rng( seed ) {
 	};
 }
 
+/* ----------------------------- letter folding ----------------------------- */
+
+// Letters no Unicode decomposition turns into A-Z. The German umlauts stay
+// two letters (AE, OE, UE) - that is how German puzzle grids write them.
+const FOLD = {
+	Ä: 'AE',
+	Ö: 'OE',
+	Ü: 'UE',
+	ẞ: 'SS',
+	Æ: 'AE',
+	Œ: 'OE',
+	Ø: 'O',
+	Ł: 'L',
+	Đ: 'D',
+	Þ: 'TH',
+};
+
+/**
+ * Upper-case text with every accented letter folded to its base letter,
+ * everything else untouched: "Café, España!" -> "CAFE, ESPANA!".
+ *
+ * The grids only know A-Z, and the old cleaning DELETED any other letter:
+ * "ESPAÑA" became "ESPAA", "CAFÉ" became "CAF", "ÉTÉ" vanished - every
+ * French, Spanish, Portuguese and Italian word list lost letters on the
+ * way into the puzzle (found 26.09.2026). Puzzle books fold instead.
+ *
+ * @param {string} s Any text.
+ * @return {string} Folded upper case.
+ */
+export function foldText( s ) {
+	// toUpperCase already turns ß into SS.
+	let out = '';
+	for ( const ch of String( s || '' ).toUpperCase() ) {
+		out +=
+			FOLD[ ch ] ||
+			// NFKD also splits ligatures (the Dutch IJ, ﬁ) into letters.
+			ch.normalize( 'NFKD' ).replace( /[\u0300-\u036f]/g, '' );
+	}
+	return out;
+}
+
+/** A word reduced to the grid alphabet A-Z (accents folded, not lost). */
+export const foldLetters = ( s ) => foldText( s ).replace( /[^A-Z]/g, '' );
+
 /* ------------------------------- word search ------------------------------ */
 
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /**
- * Place words into a letter grid.
- *
- * @param {Array}  words Raw word list.
- * @param {Object} opts  { size (10..22), hard (8 directions + reverse),
- *                         seed }.
- * @return {Object} { grid, size, placed: [{word, x, y, dx, dy}], skipped }
+ * Words for the letter grids: folded to A-Z, deduplicated, 3..max long.
  */
-export function buildWordSearch( words, opts = {} ) {
-	const size = Math.max( 8, Math.min( 22, opts.size || 14 ) );
-	const rand = rng( opts.seed || 7 );
-	const clean = Array.from(
+const gridWords = ( words, max, limit ) =>
+	Array.from(
 		new Set(
 			( words || [] )
-				.map( ( w ) =>
-					String( w )
-						.toUpperCase()
-						.replace( /[^A-ZÄÖÜ]/g, '' )
-						.replace( /Ä/g, 'AE' )
-						.replace( /Ö/g, 'OE' )
-						.replace( /Ü/g, 'UE' )
-				)
-				.filter( ( w ) => w.length >= 3 && w.length <= size )
+				.map( foldLetters )
+				.filter( ( w ) => w.length >= 3 && w.length <= max )
 		)
-	).slice( 0, 20 );
-	const dirs = opts.hard
-		? [
-				[ 1, 0 ],
-				[ 0, 1 ],
-				[ 1, 1 ],
-				[ 1, -1 ],
-				[ -1, 0 ],
-				[ 0, -1 ],
-				[ -1, -1 ],
-				[ -1, 1 ],
-		  ]
-		: [
-				[ 1, 0 ],
-				[ 0, 1 ],
-				[ 1, 1 ],
-		  ];
+	).slice( 0, limit );
+
+const WS_EASY = [
+	[ 1, 0 ],
+	[ 0, 1 ],
+	[ 1, 1 ],
+];
+const WS_HARD = [
+	[ 1, 0 ],
+	[ 0, 1 ],
+	[ 1, 1 ],
+	[ 1, -1 ],
+	[ -1, 0 ],
+	[ 0, -1 ],
+	[ -1, -1 ],
+	[ -1, 1 ],
+];
+
+/**
+ * The placing itself. `mask` (size*size, 1 = usable) shapes the grid;
+ * without it every cell counts and the random sequence is exactly the
+ * one the studio always used, so an existing sheet re-renders unchanged.
+ */
+function placeWords( clean, size, mask, hard, seed, fill = true ) {
+	const rand = rng( seed );
+	const dirs = hard ? WS_HARD : WS_EASY;
+	const usable = ( x, y ) => ! mask || !! mask[ y * size + x ];
 	const grid = Array.from( { length: size }, () =>
 		new Array( size ).fill( '' )
 	);
 	const placed = [];
 	const skipped = [];
 	// Longest first: they are the hardest to fit.
-	clean.sort( ( a, b ) => b.length - a.length );
-	for ( const word of clean ) {
+	const order = clean.slice().sort( ( a, b ) => b.length - a.length );
+	for ( const word of order ) {
 		let done = false;
-		for ( let tries = 0; tries < 220 && ! done; tries++ ) {
+		for ( let tries = 0; tries < ( mask ? 600 : 220 ) && ! done; tries++ ) {
 			const [ dx, dy ] = dirs[ Math.floor( rand() * dirs.length ) ];
 			const maxX =
 				dx > 0
@@ -309,8 +349,10 @@ export function buildWordSearch( words, opts = {} ) {
 			const y0 = minY + Math.floor( rand() * ( maxY - minY + 1 ) );
 			let ok = true;
 			for ( let i = 0; i < word.length; i++ ) {
-				const cell = grid[ y0 + dy * i ][ x0 + dx * i ];
-				if ( cell && cell !== word[ i ] ) {
+				const x = x0 + dx * i;
+				const y = y0 + dy * i;
+				const cell = grid[ y ][ x ];
+				if ( ! usable( x, y ) || ( cell && cell !== word[ i ] ) ) {
 					ok = false;
 					break;
 				}
@@ -328,14 +370,205 @@ export function buildWordSearch( words, opts = {} ) {
 			skipped.push( word );
 		}
 	}
-	for ( let y = 0; y < size; y++ ) {
-		for ( let x = 0; x < size; x++ ) {
-			if ( ! grid[ y ][ x ] ) {
-				grid[ y ][ x ] = ALPHA[ Math.floor( rand() * 26 ) ];
+	if ( fill ) {
+		for ( let y = 0; y < size; y++ ) {
+			for ( let x = 0; x < size; x++ ) {
+				if ( ! grid[ y ][ x ] && usable( x, y ) ) {
+					grid[ y ][ x ] = ALPHA[ Math.floor( rand() * 26 ) ];
+				}
 			}
 		}
 	}
-	return { grid, size, placed, skipped };
+	return { grid, size, placed, skipped, rand };
+}
+
+/**
+ * Place words into a letter grid.
+ *
+ * With `secret` the letters left over ARE the message: read row by row,
+ * they spell it, the classic hidden-message word search. For that the
+ * leftovers must match the message exactly, so the grid picks its own
+ * size (the smallest the words fit into with room for the message) and
+ * any cell still left over becomes a shaded blank.
+ *
+ * @param {Array}  words Raw word list.
+ * @param {Object} opts  { size (8..22), hard (8 directions + reverse),
+ *                         seed, mask: size -> Uint8Array|null (a shape),
+ *                         secret: the hidden message }.
+ * @return {Object} { grid, size, placed: [{word, x, y, dx, dy}], skipped,
+ *                    mask, blocked: Set, secret: { words, cells } | null,
+ *                    secretTooLong }
+ */
+export function buildWordSearch( words, opts = {} ) {
+	const size = Math.max( 8, Math.min( 22, opts.size || 14 ) );
+	const maskFor = 'function' === typeof opts.mask ? opts.mask : () => null;
+	const secretWords = foldText( opts.secret || '' )
+		.split( /[^A-Z]+/ )
+		.filter( Boolean );
+	const secret = secretWords.join( '' ).slice( 0, 80 );
+	const finish = ( ws, mask, extra = {} ) => {
+		delete ws.rand;
+		return {
+			...ws,
+			mask,
+			blocked: new Set(),
+			secret: null,
+			secretTooLong: false,
+			...extra,
+		};
+	};
+	if ( ! secret ) {
+		const mask = maskFor( size );
+		return finish(
+			placeWords(
+				gridWords( words, size, 20 ),
+				size,
+				mask,
+				opts.hard,
+				opts.seed || 7
+			),
+			mask
+		);
+	}
+	const clean = gridWords( words, 22, 20 );
+	const letters = clean.reduce( ( n, w ) => n + w.length, 0 );
+	const longest = clean.reduce( ( n, w ) => Math.max( n, w.length ), 0 );
+	let best = null;
+	for (
+		let n = Math.max(
+			8,
+			longest,
+			Math.ceil( Math.sqrt( letters * 0.8 + secret.length ) )
+		);
+		n <= 22 && ! best;
+		n++
+	) {
+		const mask = maskFor( n );
+		for ( let k = 0; k < 24; k++ ) {
+			const ws = placeWords(
+				clean,
+				n,
+				mask,
+				opts.hard,
+				( opts.seed || 7 ) + k * 7919,
+				false
+			);
+			if ( ws.skipped.length ) {
+				continue;
+			}
+			const free = [];
+			for ( let y = 0; y < n; y++ ) {
+				for ( let x = 0; x < n; x++ ) {
+					if (
+						! ws.grid[ y ][ x ] &&
+						( ! mask || mask[ y * n + x ] )
+					) {
+						free.push( y * n + x );
+					}
+				}
+			}
+			if ( free.length < secret.length ) {
+				continue;
+			}
+			if ( ! best || free.length < best.free.length ) {
+				best = { ws, free, mask };
+			}
+		}
+	}
+	if ( ! best ) {
+		// Not even the largest grid leaves room: an ordinary sheet, and the
+		// studio says why the message is missing.
+		const mask = maskFor( size );
+		return finish(
+			placeWords( clean, size, mask, opts.hard, opts.seed || 7 ),
+			mask,
+			{ secretTooLong: true }
+		);
+	}
+	const { ws, free, mask } = best;
+	const n = ws.size;
+	// The cells the message cannot use are spread evenly through the grid,
+	// so no corner turns into a grey block.
+	const extra = free.length - secret.length;
+	const blocked = new Set();
+	for ( let k = 0; k < extra; k++ ) {
+		blocked.add(
+			free[ Math.floor( ( ( k + 0.5 ) * free.length ) / extra ) ]
+		);
+	}
+	const cells = free.filter( ( i ) => ! blocked.has( i ) );
+	cells.forEach( ( i, k ) => {
+		ws.grid[ ( i / n ) | 0 ][ i % n ] = secret[ k ];
+	} );
+	return finish( ws, mask, {
+		blocked,
+		secret: { words: secretWords, cells },
+	} );
+}
+
+/**
+ * The boxes a solution word or message is written into: words kept
+ * together, wrapped to the width.
+ *
+ * @return {Object} { items: [ { x, y, ch, n } ], w, h }
+ */
+function secretLayout( words, maxW, box ) {
+	const gap = Math.round( box * 0.14 );
+	const space = Math.round( box * 0.6 );
+	const items = [];
+	let x = 0;
+	let y = 0;
+	let w = 0;
+	let n = 0;
+	for ( const word of words ) {
+		const ww = word.length * ( box + gap ) - gap;
+		if ( x > 0 && x + ww > maxW ) {
+			x = 0;
+			y += box + gap * 2;
+		}
+		for ( const ch of word ) {
+			items.push( { x, y, ch, n: ++n } );
+			x += box + gap;
+		}
+		w = Math.max( w, x - gap );
+		x += space - gap;
+	}
+	return { items, w, h: items.length ? y + box : 0 };
+}
+
+/** Label plus boxes under a grid; the solution sheet fills them in. */
+function drawSecretRow( g, lay, x0, y0, opts, box, numbered ) {
+	g.save();
+	g.fillStyle = accentOf( opts );
+	g.font = `700 ${ Math.round( 18 * tscale( opts ) ) }px ${ famFor( opts ) }`;
+	g.textAlign = 'left';
+	g.textBaseline = 'alphabetic';
+	g.fillText( opts.secretLabel || 'Solution', x0, y0 );
+	const top = y0 + 14;
+	for ( const it of lay.items ) {
+		const x = x0 + it.x;
+		const y = top + it.y;
+		g.fillStyle = '#ffffff';
+		g.fillRect( x, y, box, box );
+		g.strokeStyle = INK;
+		g.lineWidth = 2;
+		g.strokeRect( x + 1, y + 1, box - 2, box - 2 );
+		if ( numbered ) {
+			g.fillStyle = hintInk( opts );
+			g.font = `700 ${ Math.round( box * 0.26 ) }px ${ famFor( opts ) }`;
+			g.textAlign = 'left';
+			g.textBaseline = 'top';
+			g.fillText( String( it.n ), x + 4, y + 3 );
+		}
+		if ( opts.solution ) {
+			g.fillStyle = SOLVE;
+			g.font = `700 ${ Math.round( box * 0.52 ) }px ${ famFor( opts ) }`;
+			g.textAlign = 'center';
+			g.textBaseline = 'middle';
+			g.fillText( it.ch, x + box / 2, y + box / 2 + 2 );
+		}
+	}
+	g.restore();
 }
 
 /**
@@ -349,6 +582,9 @@ export function buildWordSearch( words, opts = {} ) {
  */
 export function renderWordSearch( like, ws, opts = {} ) {
 	const { grid, size, placed } = ws;
+	const mask = ws.mask || null;
+	const blocked = ws.blocked || new Set();
+	const secret = ws.secret || null;
 	const CELL = 46;
 	const M = 60;
 	const tb = titleBlock( opts );
@@ -357,15 +593,40 @@ export function renderWordSearch( like, ws, opts = {} ) {
 	const listCols = 3;
 	const listRows = Math.ceil( placed.length / listCols );
 	const listLh = Math.round( 34 * tscale( opts ) );
+	const BOX = 38;
+	const lay = secret ? secretLayout( secret.words, gridPx, BOX ) : null;
+	const secretH = lay ? lay.h + 64 : 0;
 	const c = makeCanvas(
 		like,
 		gridPx + M * 2,
-		top + gridPx + M + 70 + listRows * listLh
+		top + gridPx + M + 70 + listRows * listLh + secretH
 	);
 	const g = c.getContext( '2d' );
 	g.fillStyle = '#ffffff';
 	g.fillRect( 0, 0, c.width, c.height );
 	drawTitle( g, tb, opts, c.width / 2, M - 16 );
+	const inside = ( x, y ) =>
+		x >= 0 &&
+		y >= 0 &&
+		x < size &&
+		y < size &&
+		( ! mask || mask[ y * size + x ] );
+	// Cells the hidden message does not need stay empty with a quiet dot,
+	// so the leftover letters spell it exactly. (Grey squares were the
+	// first idea - with a short message on a small grid a third of the
+	// sheet went grey.)
+	g.fillStyle = '#b8bec6';
+	for ( const i of blocked ) {
+		g.beginPath();
+		g.arc(
+			M + ( i % size ) * CELL + CELL / 2,
+			top + ( ( i / size ) | 0 ) * CELL + CELL / 2,
+			3.2,
+			0,
+			Math.PI * 2
+		);
+		g.fill();
+	}
 	// Solution highlights under the letters.
 	if ( opts.solution ) {
 		g.strokeStyle = 'rgba(46, 125, 50, 0.85)';
@@ -384,16 +645,57 @@ export function renderWordSearch( like, ws, opts = {} ) {
 		}
 		g.globalAlpha = 1;
 	}
-	// The letter grid, framed in the accent color.
+	// The letter grid, framed in the accent color - a shaped grid gets its
+	// own stepped outline instead of the square.
 	g.strokeStyle = accentOf( opts );
 	g.lineWidth = 2.4;
-	g.strokeRect( M + 0.5, top + 0.5, gridPx, gridPx );
-	g.fillStyle = INK;
+	if ( ! mask ) {
+		g.strokeRect( M + 0.5, top + 0.5, gridPx, gridPx );
+	} else {
+		g.lineCap = 'round';
+		g.beginPath();
+		for ( let y = 0; y < size; y++ ) {
+			for ( let x = 0; x < size; x++ ) {
+				if ( ! inside( x, y ) ) {
+					continue;
+				}
+				const px = M + x * CELL;
+				const py = top + y * CELL;
+				if ( ! inside( x, y - 1 ) ) {
+					g.moveTo( px, py );
+					g.lineTo( px + CELL, py );
+				}
+				if ( ! inside( x, y + 1 ) ) {
+					g.moveTo( px, py + CELL );
+					g.lineTo( px + CELL, py + CELL );
+				}
+				if ( ! inside( x - 1, y ) ) {
+					g.moveTo( px, py );
+					g.lineTo( px, py + CELL );
+				}
+				if ( ! inside( x + 1, y ) ) {
+					g.moveTo( px + CELL, py );
+					g.lineTo( px + CELL, py + CELL );
+				}
+			}
+		}
+		g.stroke();
+	}
+	const secretCells = new Set( secret ? secret.cells : [] );
 	g.font = `600 ${ Math.round( CELL * 0.52 ) }px monospace`;
 	g.textAlign = 'center';
 	g.textBaseline = 'middle';
 	for ( let y = 0; y < size; y++ ) {
 		for ( let x = 0; x < size; x++ ) {
+			if ( ! grid[ y ][ x ] ) {
+				continue;
+			}
+			// On the solution sheet the message letters stand out.
+			const msg = opts.solution && secretCells.has( y * size + x );
+			g.fillStyle = msg ? SOLVE : INK;
+			g.font = `${ msg ? 800 : 600 } ${ Math.round(
+				CELL * 0.52
+			) }px monospace`;
 			g.fillText(
 				grid[ y ][ x ],
 				M + x * CELL + CELL / 2,
@@ -420,6 +722,17 @@ export function renderWordSearch( like, ws, opts = {} ) {
 			g.fillStyle = '#31353b';
 			g.fillText( w, lx + 18, ly + row * listLh );
 		} );
+	if ( lay ) {
+		drawSecretRow(
+			g,
+			lay,
+			M,
+			ly + listRows * listLh + 30,
+			opts,
+			BOX,
+			false
+		);
+	}
 	return c;
 }
 
@@ -741,6 +1054,22 @@ function buildMask( like, shape, letter, cols, maskImage ) {
 		return buildMask( like, 'circle', letter, cols );
 	}
 	return clean;
+}
+
+/**
+ * The same cell mask for other grids - the word search in a heart, a
+ * star, a letter or the silhouette of a picture.
+ *
+ * @return {Uint8Array} cols*cols, 1 = inside.
+ */
+export function shapeMask( like, shape, letter, cols, maskImage ) {
+	return buildMask(
+		like,
+		MAZE_SHAPES.includes( shape ) ? shape : 'circle',
+		letter,
+		cols,
+		maskImage
+	);
 }
 
 /**
@@ -1071,16 +1400,40 @@ export function buildSudoku( opts = {} ) {
 	return { size, boxW, boxH, puzzle, solution };
 }
 
+/** Emoji draw in the system font; a word or letter in the sheet's font. */
+const isWordMotif = ( m ) => /^[\p{L}\p{N}]/u.test( String( m ) );
+
 /**
- * Render the sudoku sheet (or its solution).
+ * Render the sudoku sheet (or its solution). With `symbols` it is a
+ * picture sudoku: every number stands for a picture (emoji or a short
+ * word), the cells are larger for small hands, and a legend row under the
+ * grid shows the pictures that belong in every row.
  */
 export function renderSudoku( like, sud, opts = {} ) {
 	const { size, boxW, boxH, puzzle, solution } = sud;
-	const CELL = 9 === size ? 64 : 6 === size ? 76 : 92;
+	const symbols =
+		Array.isArray( opts.symbols ) && opts.symbols.length >= size
+			? opts.symbols
+			: null;
+	const CELL = symbols
+		? 9 === size
+			? 74
+			: 6 === size
+			? 96
+			: 118
+		: 9 === size
+		? 64
+		: 6 === size
+		? 76
+		: 92;
 	const M = 56;
 	const tb = titleBlock( opts );
 	const s = size * CELL;
-	const c = makeCanvas( like, s + M * 2, s + M * 2 + tb.h );
+	const LEG = symbols
+		? Math.min( 72, Math.floor( ( s - ( size - 1 ) * 10 ) / size ) )
+		: 0;
+	const legendH = symbols ? LEG + 40 : 0;
+	const c = makeCanvas( like, s + M * 2, s + M * 2 + tb.h + legendH );
 	const g = c.getContext( '2d' );
 	g.fillStyle = '#ffffff';
 	g.fillRect( 0, 0, c.width, c.height );
@@ -1116,6 +1469,62 @@ export function renderSudoku( like, sud, opts = {} ) {
 	g.strokeRect( M, top, s, s );
 	g.textAlign = 'center';
 	g.textBaseline = 'middle';
+	const drawMotif = ( m, x, y, px ) => {
+		g.font = isWordMotif( m )
+			? `700 ${ Math.round( px * 0.5 ) }px ${ famFor( opts ) }`
+			: `${ px }px sans-serif`;
+		g.fillText( String( m ), x, y, px * 1.3 );
+	};
+	if ( symbols ) {
+		for ( let i = 0; i < size * size; i++ ) {
+			const x = M + ( i % size ) * CELL + CELL / 2;
+			const y = top + ( ( i / size ) | 0 ) * CELL + CELL / 2 + 2;
+			if ( puzzle[ i ] ) {
+				g.fillStyle = INK;
+				drawMotif(
+					symbols[ puzzle[ i ] - 1 ],
+					x,
+					y,
+					Math.round( CELL * 0.58 )
+				);
+			} else if ( opts.solution ) {
+				// Emoji carry their own colors: the solved cells are marked
+				// by a green ground instead of green ink.
+				g.fillStyle = 'rgba(47, 158, 68, 0.14)';
+				g.fillRect(
+					x - CELL / 2 + 3,
+					y - CELL / 2 + 1,
+					CELL - 6,
+					CELL - 6
+				);
+				g.fillStyle = SOLVE;
+				drawMotif(
+					symbols[ solution[ i ] - 1 ],
+					x,
+					y,
+					Math.round( CELL * 0.5 )
+				);
+			}
+		}
+		// The legend: every picture once, in a row of small boxes.
+		const ly = top + s + 30;
+		const lw = size * LEG + ( size - 1 ) * 10;
+		let lx = M + ( s - lw ) / 2;
+		for ( let k = 0; k < size; k++ ) {
+			g.strokeStyle = accentOf( opts );
+			g.lineWidth = 2;
+			g.strokeRect( lx + 1, ly + 1, LEG - 2, LEG - 2 );
+			g.fillStyle = INK;
+			drawMotif(
+				symbols[ k ],
+				lx + LEG / 2,
+				ly + LEG / 2 + 2,
+				Math.round( LEG * 0.62 )
+			);
+			lx += LEG + 10;
+		}
+		return c;
+	}
 	for ( let i = 0; i < size * size; i++ ) {
 		const x = M + ( i % size ) * CELL + CELL / 2;
 		const y = top + ( ( i / size ) | 0 ) * CELL + CELL / 2 + 2;
@@ -1144,20 +1553,7 @@ export function renderSudoku( like, sud, opts = {} ) {
  */
 export function buildCrissCross( words, opts = {} ) {
 	const rand = rng( opts.seed || 3 );
-	const clean = Array.from(
-		new Set(
-			( words || [] )
-				.map( ( w ) =>
-					String( w )
-						.toUpperCase()
-						.replace( /Ä/g, 'AE' )
-						.replace( /Ö/g, 'OE' )
-						.replace( /Ü/g, 'UE' )
-						.replace( /[^A-Z]/g, '' )
-				)
-				.filter( ( w ) => w.length >= 3 && w.length <= 14 )
-		)
-	).slice( 0, 16 );
+	const clean = gridWords( words, 14, 16 );
 	clean.sort( ( a, b ) => b.length - a.length );
 	const N = 42;
 	const grid = new Array( N * N ).fill( '' );
@@ -1289,6 +1685,102 @@ export function buildCrissCross( words, opts = {} ) {
 }
 
 /**
+ * The solution word of a crossword or criss-cross: one grid cell per
+ * letter, numbered, spread over the grid. Given letters (the prefilled
+ * word of a criss-cross) are only used when nothing else carries the
+ * letter.
+ *
+ * @param {Object} cc     From buildCrissCross.
+ * @param {string} secret The solution word.
+ * @param {Object} opts   { seed, avoid: Set of cell indexes }.
+ * @return {Object|null} { word, cells, missing } - cells is empty when a
+ *                       letter is missing from the grid.
+ */
+export function pickSecretCells( cc, secret, opts = {} ) {
+	const word = foldLetters( secret ).slice( 0, 16 );
+	if ( ! word || ! cc || ! cc.letters ) {
+		return null;
+	}
+	const { w, letters } = cc;
+	const pick = ( avoid ) => {
+		const rand = rng( ( opts.seed || 3 ) * 29 + word.length );
+		const used = [];
+		const missing = [];
+		for ( const ch of word ) {
+			let best = -1;
+			let bestScore = -1;
+			for ( let i = 0; i < letters.length; i++ ) {
+				if (
+					letters[ i ] !== ch ||
+					avoid.has( i ) ||
+					used.includes( i )
+				) {
+					continue;
+				}
+				const x = i % w;
+				const y = ( i / w ) | 0;
+				let d = 99;
+				for ( const u of used ) {
+					d = Math.min(
+						d,
+						Math.abs( ( u % w ) - x ) +
+							Math.abs( ( ( u / w ) | 0 ) - y )
+					);
+				}
+				// Far from the cells already taken, with a little chance.
+				const score = Math.min( d, 5 ) + rand() * 0.9;
+				if ( score > bestScore ) {
+					bestScore = score;
+					best = i;
+				}
+			}
+			if ( best < 0 ) {
+				missing.push( ch );
+			} else {
+				used.push( best );
+			}
+		}
+		return { used, missing };
+	};
+	let res = pick( opts.avoid || new Set() );
+	if ( res.missing.length && opts.avoid && opts.avoid.size ) {
+		res = pick( new Set() );
+	}
+	return {
+		word,
+		cells: res.missing.length ? [] : res.used,
+		missing: Array.from( new Set( res.missing ) ),
+	};
+}
+
+/** Tint and number the solution-word cells of a grid. */
+function markSecretCells( g, secret, w, ox, oy, CELL, opts ) {
+	if ( ! secret || ! secret.cells.length ) {
+		return;
+	}
+	g.save();
+	secret.cells.forEach( ( i, k ) => {
+		const px = ox + ( i % w ) * CELL;
+		const py = oy + ( ( i / w ) | 0 ) * CELL;
+		g.fillStyle = accentOf( opts );
+		g.globalAlpha = 0.16;
+		g.fillRect( px + 3, py + 3, CELL - 6, CELL - 6 );
+		g.globalAlpha = 1;
+		g.strokeStyle = hintInk( opts );
+		g.lineWidth = 1.6;
+		g.beginPath();
+		g.arc( px + CELL - 13, py + CELL - 13, 7.5, 0, Math.PI * 2 );
+		g.stroke();
+		g.fillStyle = hintInk( opts );
+		g.font = `700 ${ Math.round( CELL * 0.2 ) }px ${ famFor( opts ) }`;
+		g.textAlign = 'center';
+		g.textBaseline = 'middle';
+		g.fillText( String( k + 1 ), px + CELL - 13, py + CELL - 12 );
+	} );
+	g.restore();
+}
+
+/**
  * Render the criss-cross sheet (or its solution).
  */
 export function renderCrissCross( like, cc, opts = {} ) {
@@ -1303,10 +1795,14 @@ export function renderCrissCross( like, cc, opts = {} ) {
 	const listLh = Math.round( 34 * tscale( opts ) );
 	const listRows = Math.ceil( words.length / listCols );
 	const gw = Math.max( w * CELL, 9 * CELL );
+	const secret = opts.secret && opts.secret.cells.length ? opts.secret : null;
+	const BOX = 40;
+	const lay = secret ? secretLayout( [ secret.word ], gw, BOX ) : null;
+	const secretH = lay ? lay.h + 58 : 0;
 	const c = makeCanvas(
 		like,
 		gw + M * 2,
-		tb.h + h * CELL + M * 2 + 66 + listRows * listLh
+		tb.h + h * CELL + M * 2 + 66 + listRows * listLh + secretH
 	);
 	const g = c.getContext( '2d' );
 	g.fillStyle = '#ffffff';
@@ -1341,8 +1837,12 @@ export function renderCrissCross( like, cc, opts = {} ) {
 			}
 		}
 	}
+	markSecretCells( g, secret, w, ox, oy, CELL, opts );
+	if ( lay ) {
+		drawSecretRow( g, lay, M, oy + h * CELL + 40, opts, BOX, true );
+	}
 	// Word bank with accent bullets, shortest first.
-	const ly = oy + h * CELL + 44;
+	const ly = oy + h * CELL + 44 + secretH;
 	g.font = `600 ${ Math.round( 17 * tscale( opts ) ) }px ${ famFor( opts ) }`;
 	g.textAlign = 'left';
 	words.forEach( ( word, i ) => {
@@ -1374,12 +1874,7 @@ export function buildCryptogram( phrase, opts = {} ) {
 	const rand = rng( ( opts.seed || 13 ) * 3 + 1 );
 	const lines = splitLines( phrase || 'HAVE FUN', 4 )
 		.map( ( l ) =>
-			l
-				.toUpperCase()
-				.replace( /Ä/g, 'AE' )
-				.replace( /Ö/g, 'OE' )
-				.replace( /Ü/g, 'UE' )
-				.replace( /ß/g, 'SS' )
+			foldText( l )
 				.replace( /[^A-Z0-9 .,!?'\-]/g, '' )
 				.slice( 0, 26 )
 		)
@@ -2141,13 +2636,21 @@ export function renderCrossword( like, cc, cw, opts = {} ) {
 	const M = 60;
 	const tb = titleBlock( opts );
 	const cluePx = Math.round( 16 * tscale( opts ) );
-	const clueLh = Math.round( cluePx * 1.45 );
+	// A picture crossword shows the clue as a picture: emoji need room.
+	const picPx = Math.round( 40 * tscale( opts ) );
+	const clueLh = opts.pictures
+		? Math.round( picPx * 1.4 )
+		: Math.round( cluePx * 1.45 );
 	const listRows = Math.max( across.length, down.length ) + 2;
 	const gw = Math.max( w * CELL, 11 * CELL );
+	const secret = opts.secret && opts.secret.cells.length ? opts.secret : null;
+	const BOX = 40;
+	const lay = secret ? secretLayout( [ secret.word ], gw, BOX ) : null;
+	const secretH = lay ? lay.h + 58 : 0;
 	const c = makeCanvas(
 		like,
 		gw + M * 2,
-		tb.h + h * CELL + M * 2 + 40 + listRows * clueLh
+		tb.h + h * CELL + M * 2 + 40 + listRows * clueLh + secretH
 	);
 	const g = c.getContext( '2d' );
 	g.fillStyle = '#ffffff';
@@ -2192,9 +2695,13 @@ export function renderCrossword( like, cc, cw, opts = {} ) {
 			}
 		}
 	}
+	markSecretCells( g, secret, w, ox, oy, CELL, opts );
+	if ( lay ) {
+		drawSecretRow( g, lay, M, oy + h * CELL + 40, opts, BOX, true );
+	}
 	// Two clue columns.
 	const colW = ( gw - 40 ) / 2;
-	const ly0 = oy + h * CELL + 40;
+	const ly0 = oy + h * CELL + 40 + secretH;
 	const list = ( entries, header, lx ) => {
 		g.fillStyle = accentOf( opts );
 		g.font = `700 ${ cluePx + 2 }px ${ famFor( opts ) }`;
@@ -2203,6 +2710,30 @@ export function renderCrossword( like, cc, cw, opts = {} ) {
 		g.fillText( header, lx, ly0 );
 		g.fillStyle = '#31353b';
 		g.font = `500 ${ cluePx }px ${ famFor( opts ) }`;
+		if ( opts.pictures ) {
+			entries.forEach( ( e, i ) => {
+				const y = ly0 + ( i + 0.9 ) * clueLh;
+				g.fillStyle = '#31353b';
+				g.font = `700 ${ cluePx + 2 }px ${ famFor( opts ) }`;
+				g.textBaseline = 'middle';
+				g.fillText( `${ e.n }.`, lx, y );
+				const pic = e.clue || '?';
+				// Emoji in the system font; a word stands in smaller.
+				const word = /^[\p{L}\p{N}]/u.test( pic );
+				g.font = word
+					? `600 ${ cluePx + 2 }px ${ famFor( opts ) }`
+					: `${ picPx }px sans-serif`;
+				g.fillText( pic, lx + cluePx * 2.4, y, colW - cluePx * 6 );
+				g.font = `500 ${ cluePx }px ${ famFor( opts ) }`;
+				g.fillStyle = '#6a7078';
+				g.fillText(
+					`(${ e.len })`,
+					lx + cluePx * 2.4 + ( word ? colW * 0.55 : picPx * 1.3 ),
+					y
+				);
+			} );
+			return;
+		}
 		entries.forEach( ( e, i ) => {
 			const text = `${ e.n }. ${ e.clue || '' } (${ e.len })`;
 			// Trim overlong clues to the column.
@@ -2530,10 +3061,13 @@ export function buildAnagram( words, opts = {} ) {
 	const clean = Array.from(
 		new Set(
 			( words || [] )
+				// Tiles and boxes show any letter, so the word keeps its
+				// own spelling: Ä, É and Ñ stay (the old filter deleted
+				// every accented letter except the German umlauts).
 				.map( ( w ) =>
-					String( w )
-						.toUpperCase()
-						.replace( /[^A-ZÄÖÜ]/g, '' )
+					Array.from( String( w ).toUpperCase() )
+						.filter( ( ch ) => /\p{L}/u.test( ch ) )
+						.join( '' )
 				)
 				.filter( ( w ) => w.length >= 3 && w.length <= 14 )
 		)
@@ -3089,7 +3623,9 @@ const ruleLines = ( g, text, width ) => {
 			line = next;
 		}
 	}
-	if ( line ) lines.push( line );
+	if ( line ) {
+		lines.push( line );
+	}
 	return lines;
 };
 
@@ -3225,3 +3761,201 @@ export function renderMathChains( like, model, opts = {} ) {
 	} );
 	return c;
 }
+
+/* ------------------------------- worksheets ------------------------------- */
+
+/**
+ * One printed page from one or more finished puzzle sheets, with the
+ * worksheet head teachers need: the title, a line for name, class and
+ * date, the task in a sentence, and the rules of the puzzle.
+ *
+ * Several tiles share the page in the column count that brings the page
+ * closest to portrait paper, each numbered in the corner. The tiles come
+ * in untitled - the head carries the title once - and at their own size
+ * when there is only one, so a single sheet keeps its sharpness.
+ *
+ * @param {Object} like  Canvas-like.
+ * @param {Array}  tiles Rendered sheets (without title and rules).
+ * @param {Object} opts  { title, colors, font, textScale, header (name
+ *                         line), labels { name, cls, date }, instructions,
+ *                         rules, caption (e.g. "Solution" instead of the
+ *                         name line), ghost (reserve the head, draw
+ *                         nothing - the duplex back of a memory sheet),
+ *                         tileLabels (letters instead of numbers - the
+ *                         versions of a series), badge ("Version B", top
+ *                         right) }.
+ * @return {HTMLCanvasElement}
+ */
+export function composeSheet( like, tiles, opts = {} ) {
+	const list = ( tiles || [] ).filter( Boolean );
+	const n = list.length;
+	if ( ! n ) {
+		return null;
+	}
+	const sc = tscale( opts );
+	const M = 56;
+	const GAP = 14;
+	const tb = titleBlock( opts );
+	const labels = opts.labels || {};
+	// Measure the text blocks on a scratch context first.
+	const probe = makeCanvas( like, 4, 4 ).getContext( '2d' );
+	const textPx = Math.round( 18 * sc );
+	const textLh = Math.round( textPx * 1.45 );
+	let W;
+	let cols = 1;
+	let rows = 1;
+	let tw;
+	let th;
+	if ( 1 === n ) {
+		W = Math.max( list[ 0 ].width, 760 );
+		tw = list[ 0 ].width;
+		th = list[ 0 ].height;
+	} else {
+		W = 1240;
+		const aspect = list[ 0 ].width / list[ 0 ].height;
+		let best = null;
+		for ( let cc = 1; cc <= Math.min( n, 3 ); cc++ ) {
+			const rr = Math.ceil( n / cc );
+			const w0 = ( W - 2 * M - ( cc - 1 ) * GAP ) / cc;
+			const h0 = w0 / aspect;
+			const H = 360 + rr * h0 + ( rr - 1 ) * GAP;
+			const score = Math.abs( H / W - 1.414 );
+			if ( ! best || score < best.score ) {
+				best = { cc, rr, w0, h0, score };
+			}
+		}
+		cols = best.cc;
+		rows = best.rr;
+		tw = best.w0;
+		th = best.h0;
+	}
+	probe.font = `${ textPx }px ${ famFor( opts ) }`;
+	const textW = W - 2 * M;
+	const instr = [];
+	for ( const para of splitLines( opts.instructions, 3 ) ) {
+		instr.push( ...ruleLines( probe, para, textW ) );
+	}
+	const rules = opts.rules ? ruleLines( probe, opts.rules, textW ) : [];
+	const lineH = opts.header && ! opts.caption ? Math.round( 56 * sc ) : 0;
+	const capH = opts.caption ? Math.round( 40 * sc ) : 0;
+	const textH = ( instr.length + rules.length ) * textLh;
+	const headH =
+		40 +
+		tb.h +
+		lineH +
+		capH +
+		textH +
+		( instr.length && rules.length ? 8 : 0 ) +
+		( n > 1 ? 16 : 0 );
+	const c = makeCanvas(
+		like,
+		W,
+		Math.round( headH + rows * th + ( rows - 1 ) * GAP + ( n > 1 ? M : 0 ) )
+	);
+	const g = c.getContext( '2d' );
+	g.fillStyle = '#ffffff';
+	g.fillRect( 0, 0, c.width, c.height );
+	// Tiles first: their own white margins must not cover the head.
+	const x0 = 1 === n ? ( W - tw ) / 2 : M;
+	list.forEach( ( tile, i ) => {
+		const cx = i % cols;
+		const cy = ( i / cols ) | 0;
+		const x = x0 + cx * ( tw + GAP );
+		const y = headH + cy * ( th + GAP );
+		g.drawImage( tile, x, y, tw, th );
+		const tag = opts.tileLabels ? opts.tileLabels[ i ] : n > 1 && i + 1;
+		if ( tag && ! opts.ghost ) {
+			g.fillStyle = accentOf( opts );
+			g.beginPath();
+			g.arc( x + 22, y + 22, 15, 0, Math.PI * 2 );
+			g.fill();
+			g.fillStyle = '#ffffff';
+			g.font = `800 16px ${ famFor( opts ) }`;
+			g.textAlign = 'center';
+			g.textBaseline = 'middle';
+			g.fillText( String( tag ), x + 22, y + 23 );
+		}
+	} );
+	if ( opts.ghost ) {
+		return c;
+	}
+	if ( opts.badge ) {
+		// The version of a series, where a teacher looks for it first.
+		g.fillStyle = accentOf( opts );
+		g.font = `800 ${ Math.round( 18 * sc ) }px ${ famFor( opts ) }`;
+		g.textAlign = 'right';
+		g.textBaseline = 'top';
+		g.fillText( opts.badge, W - M, 16 );
+	}
+	let y = 40;
+	drawTitle( g, tb, opts, W / 2, y - 4 );
+	y += tb.h;
+	g.textAlign = 'left';
+	g.textBaseline = 'alphabetic';
+	if ( lineH ) {
+		// Name, class and date: a label and a line to write on.
+		const parts = [
+			[ labels.name || 'Name', 0.5 ],
+			[ labels.cls || 'Class', 0.2 ],
+			[ labels.date || 'Date', 0.3 ],
+		];
+		g.font = `600 ${ textPx }px ${ famFor( opts ) }`;
+		let x = M;
+		const base = y + Math.round( 30 * sc );
+		for ( const [ label, share ] of parts ) {
+			const span = textW * share;
+			g.fillStyle = '#31353b';
+			const text = label + ':';
+			g.fillText( text, x, base );
+			const lx = x + g.measureText( text ).width + 8;
+			g.strokeStyle = 'rgba(0,0,0,0.55)';
+			g.lineWidth = 1.4;
+			g.beginPath();
+			g.moveTo( lx, base + 3 );
+			g.lineTo( x + span - 18, base + 3 );
+			g.stroke();
+			x += span;
+		}
+		y += lineH;
+	}
+	if ( capH ) {
+		g.fillStyle = SOLVE;
+		g.font = `700 ${ Math.round( 20 * sc ) }px ${ famFor( opts ) }`;
+		g.textAlign = 'center';
+		g.fillText( opts.caption, W / 2, y + Math.round( 26 * sc ) );
+		g.textAlign = 'left';
+		y += capH;
+	}
+	g.fillStyle = INK;
+	g.font = `${ textPx }px ${ famFor( opts ) }`;
+	g.textBaseline = 'top';
+	for ( const ln of instr ) {
+		g.fillText( ln, M, y );
+		y += textLh;
+	}
+	if ( instr.length && rules.length ) {
+		y += 8;
+	}
+	g.fillStyle = '#5a6068';
+	for ( const ln of rules ) {
+		g.fillText( ln, M, y );
+		y += textLh;
+	}
+	return c;
+}
+
+/**
+ * The paper, the type and the colors every sheet shares, for the sheet
+ * modules next to this one (school-sheets.js): one look, one place.
+ */
+export const sheetKit = {
+	makeCanvas,
+	titleBlock,
+	drawTitle,
+	famFor,
+	tscale,
+	accentOf,
+	hintInk,
+	INK,
+	SOLVE,
+};

@@ -7,8 +7,7 @@
  * editor's initial load.
  *
  * Templates and combos stay JS modules (parameterized layer builders);
- * elements stay a JS module (translated set labels); gradients are pure
- * JSON data. Each pack is its own chunk with a memoized loader. React
+ * elements stay a JS module (translated set labels); gradients combine JSON data with translated angle presets. Each pack is its own chunk with a memoized loader. React
  * components should use the hooks in ./use-content rather than call these
  * directly; the non-React insert path (lib/asset-insert) awaits them.
  */
@@ -77,13 +76,20 @@ export const loadGradients = () =>
 			import(
 				/* webpackChunkName: "content-gradients" */ './bundled-backgrounds.json'
 			),
-		] ).then( ( [ presets, bundled ] ) => {
+			import(
+				/* webpackChunkName: "content-gradients" */ './gradient-angle-presets'
+			),
+		] ).then( ( [ presets, bundled, angles ] ) => {
 			// Bundled backgrounds authored via "Export as Background" join the
 			// gradient list (solids are handled separately in the UI).
 			const extra = ( bundled.default || bundled ).filter(
 				( b ) => 'solid' !== b.kind
 			);
-			return [ ...( presets.default || presets ), ...extra ];
+			return [
+				...( presets.default || presets ),
+				...extra,
+				...angles.anglePresets(),
+			];
 		} )
 	);
 

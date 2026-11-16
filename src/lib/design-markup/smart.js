@@ -1,5 +1,6 @@
+import { offsetLayer } from '../../store/doc-ops';
 import { makeSmart, serializeLayers } from '../../store/document';
-import { renderToCanvas, layerOvershoot, sharedImageCache } from '../raster';
+import { renderToCanvas, contentBounds, sharedImageCache } from '../raster';
 
 /**
  * Smart-Hülle nach dem Vertrag von convertToSmartOp (src/store/ops/io-ops.js):
@@ -13,26 +14,8 @@ export async function wrapSmart( {
 	filters = [],
 	render = renderToCanvas,
 } ) {
-	const leaves = layers.filter( ( l ) => 'group' !== l.type );
-	const minX = Math.floor(
-		Math.min( ...leaves.map( ( l ) => l.x - layerOvershoot( l ) ) )
-	);
-	const minY = Math.floor(
-		Math.min( ...leaves.map( ( l ) => l.y - layerOvershoot( l ) ) )
-	);
-	const maxX = Math.ceil(
-		Math.max( ...leaves.map( ( l ) => l.x + l.w + layerOvershoot( l ) ) )
-	);
-	const maxY = Math.ceil(
-		Math.max( ...leaves.map( ( l ) => l.y + l.h + layerOvershoot( l ) ) )
-	);
-	const bounds = {
-		x: minX,
-		y: minY,
-		w: Math.max( 1, maxX - minX ),
-		h: Math.max( 1, maxY - minY ),
-	};
 	const subtree = layers.map( ( l ) => ( { ...l, previewEffect: null } ) );
+	const bounds = contentBounds( subtree, { includeHidden: true } );
 	const preview = await render( { ...doc, bg: 'transparent' }, subtree, {
 		viewport: bounds,
 		cache: sharedImageCache,
@@ -50,11 +33,14 @@ export async function wrapSmart( {
 			kind: 'layers',
 			bytes: null,
 			layers: serializeLayers(
-				subtree.map( ( l ) => ( {
-					...l,
-					x: l.x - bounds.x,
-					y: l.y - bounds.y,
-				} ) )
+				subtree.map( ( l ) => {
+					const moved = offsetLayer( l, -bounds.x, -bounds.y );
+					// Stroke paths are absolute. Preserve their original reference
+					// point so the new x/y translates the ink into the embedded doc.
+					return 'stroke' === l.type
+						? { ...moved, x0: l.x0 ?? l.x, y0: l.y0 ?? l.y }
+						: moved;
+				} )
 			),
 			doc: { w: bounds.w, h: bounds.h, bg: 'transparent' },
 		},

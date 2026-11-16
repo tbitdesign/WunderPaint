@@ -8,6 +8,7 @@ import { __ } from '@wordpress/i18n';
 
 import { renderToCanvas, sharedImageCache } from '../../lib/raster';
 import { ZOOM_MIN, ZOOM_MAX } from '../../store/constants';
+import { registerNumericControl } from '../../lib/numeric-controls';
 
 const THUMB_W = 168;
 
@@ -16,6 +17,20 @@ export function Navigator( { editor, areaSize, viewApi } ) {
 	const { doc, layers, zoom, pan } = state;
 	const [ thumb, setThumb ] = useState( null );
 	const dragging = useRef( false );
+	const zoomInput = useRef( null );
+	useEffect(
+		() =>
+			registerNumericControl( zoomInput.current, {
+				toDisplay: ( value ) => Math.exp( value ) * 100,
+				parse: ( value ) =>
+					Math.log(
+						Math.max( ZOOM_MIN, Math.min( ZOOM_MAX, value / 100 ) )
+					),
+				displayStep: 1,
+				unit: '%',
+			} ),
+		[]
+	);
 
 	const scale = Math.min( THUMB_W / doc.w, 110 / doc.h );
 	const tw = Math.max( 24, Math.round( doc.w * scale ) );
@@ -108,10 +123,11 @@ export function Navigator( { editor, areaSize, viewApi } ) {
 			</div>
 			<div className="ed-navigator-zoom">
 				<input
+					ref={ zoomInput }
 					type="range"
 					min={ Math.log( ZOOM_MIN ) }
 					max={ Math.log( ZOOM_MAX ) }
-					step={ 0.01 }
+					step="any"
 					value={ Math.log( zoom ) }
 					aria-label={ __( 'Zoom', 'wunderpaint' ) }
 					onChange={ ( e ) =>
@@ -122,8 +138,11 @@ export function Navigator( { editor, areaSize, viewApi } ) {
 					title={ __( 'Fit', 'wunderpaint' ) }
 					onClick={ () => viewApi.current?.fit() }
 				>
-					{ Math.round( zoom * 100 ) }%
+					{ __( 'Fit', 'wunderpaint' ) }
 				</button>
+				<output className="wpie-number-output">
+					{ Math.round( zoom * 100 ) }%
+				</output>
 			</div>
 		</div>
 	);

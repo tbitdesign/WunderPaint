@@ -1,4 +1,4 @@
-import { effectById } from '../effects';
+import { applyEffectToCanvas, effectById } from '../effects';
 import { drawImageFitted } from '../image-fit';
 import { cornerRadii } from '../corner-radii';
 import { createCanvas } from './env';
@@ -52,7 +52,22 @@ export function drawContent( ctx, layer, env ) {
 		}
 		case 'raster': {
 			if ( layer.canvas ) {
-				ctx.drawImage( layer.canvas, 0, 0, w, h );
+				// Collection previews run at the same source resolution and before
+				// transforms, masks and grading, just like the eventual raster bake.
+				let source = layer.canvas;
+				if ( effectById( layer.previewEffect?.id )?.collection ) {
+					source = createCanvas(
+						layer.canvas.width,
+						layer.canvas.height
+					);
+					source.getContext( '2d' ).drawImage( layer.canvas, 0, 0 );
+					applyEffectToCanvas(
+						source,
+						layer.previewEffect.id,
+						layer.previewEffect.params
+					);
+				}
+				ctx.drawImage( source, 0, 0, w, h );
 			} else if ( layer.dataUrl ) {
 				const img = env.cache.get( layer.dataUrl );
 				if ( img ) {
@@ -66,10 +81,11 @@ export function drawContent( ctx, layer, env ) {
 			if ( ! source ) {
 				break;
 			}
-			if (
-				layer.smartFilters &&
-				layer.smartFilters.some( ( f ) => f.enabled )
-			) {
+			const filters = [ ...( layer.smartFilters || [] ) ];
+			if ( effectById( layer.previewEffect?.id )?.collection ) {
+				filters.push( { ...layer.previewEffect, enabled: true } );
+			}
+			if ( filters.some( ( f ) => f.enabled ) ) {
 				// Padded working buffer: blurs bleed OUTSIDE the content —
 				// a tight buffer produced hard cut edges (v1.15.2).
 				const padPx = Math.ceil(
@@ -98,7 +114,7 @@ export function drawContent( ctx, layer, env ) {
 					width: tight.width,
 					height: tight.height,
 				};
-				for ( const sf of layer.smartFilters ) {
+				for ( const sf of filters ) {
 					const effect = sf.enabled && effectById( sf.id );
 					if ( effect ) {
 						effect.apply(
@@ -137,7 +153,7 @@ export function drawContent( ctx, layer, env ) {
 			drawTextWithEffects( ctx, layer, env );
 			break;
 		case 'gradient':
-			drawGradient( ctx, layer );
+			drawGradient( ctx, layer, env );
 			break;
 		default:
 			break;

@@ -23,6 +23,15 @@ import { svgChordDiagram, svgFretboard, svgPiano } from './engine/fretboard.js';
 import { songFromText, chordsUsed, transposeSong } from './engine/chordpro.js';
 import { layoutLeadsheet } from './engine/leadsheet.js';
 import {
+	WORKSHOP_DEFAULTS,
+	WORKSHOP_TYPES,
+	selectedGrip,
+	gripChoices,
+} from './engine/workshop.js';
+import { renderWorkshop, renderLearningCards } from './workshop-cards.js';
+import { STUDIO_TYPES, normalizeStudio } from './engine/studio.js';
+import { transformGeometry } from './engine/score-layout.js';
+import {
 	paperAbc,
 	flashNotes,
 	flashAbc,
@@ -33,6 +42,7 @@ import {
 } from './engine/notation.js';
 
 export const DEFAULTS = {
+	...WORKSHOP_DEFAULTS,
 	card: 'score',
 	abc: '',
 	chordpro: '',
@@ -50,7 +60,7 @@ export const DEFAULTS = {
 	fretFrom: 0,
 	fretTo: 12,
 	octaves: 2,
-	layout: { format: 'line', scale: 1.5, margin: 48, columns: 1 },
+	layout: { format: 'line', scale: 1.5, margin: 48, columns: 1, fit: true },
 	style: {
 		paper: 'white',
 		ink: '#1a1a1a',
@@ -58,6 +68,7 @@ export const DEFAULTS = {
 		chordColor: '#8d1436',
 		titleFont: 'Georgia',
 		textFont: 'Arial',
+		decoration: 'none',
 	},
 	text: { title: '', subtitle: '', composer: '' },
 	paper: {
@@ -71,6 +82,7 @@ export const DEFAULTS = {
 		grids: 0,
 	},
 	flash: {
+		topic: 'notes',
 		clef: 'treble',
 		range: 'all',
 		names: 'letters',
@@ -89,6 +101,7 @@ export const FORMATS = [
 ];
 
 export const PAPER_OPTIONS = [
+	{ value: 'transparent', label: 'Transparent' },
 	{ value: 'white', label: 'White' },
 	{ value: 'cream', label: 'Cream' },
 	{ value: 'chalk', label: 'Chalkboard' },
@@ -105,7 +118,7 @@ export const LABEL_OPTIONS = [
 /** Deep-merge stored params over the defaults. */
 export function normalizeParams( p ) {
 	const src = p || {};
-	return {
+	const result = {
 		...DEFAULTS,
 		...src,
 		layout: { ...DEFAULTS.layout, ...( src.layout || {} ) },
@@ -115,6 +128,15 @@ export function normalizeParams( p ) {
 		flash: { ...DEFAULTS.flash, ...( src.flash || {} ) },
 		scales: { ...DEFAULTS.scales, ...( src.scales || {} ) },
 	};
+	for ( const key of Object.keys( WORKSHOP_DEFAULTS ) ) {
+		result[ key ] = JSON.parse(
+			JSON.stringify( {
+				...WORKSHOP_DEFAULTS[ key ],
+				...( src[ key ] || {} ),
+			} )
+		);
+	}
+	return normalizeStudio( result );
 }
 
 export function frameFor( params, docW, docH ) {
@@ -123,13 +145,26 @@ export function frameFor( params, docW, docH ) {
 			return {
 				width: Math.max( 200, docW || 1600 ),
 				height: Math.max( 200, docH || 1000 ),
+				fit: params.layout.fit !== false,
 			};
 		case 'page':
-			return { width: 1600, height: 2263 };
+			return {
+				width: 1600,
+				height: 2263,
+				fit: params.layout.fit !== false,
+			};
 		case 'square':
-			return { width: 1600, height: 1600 };
+			return {
+				width: 1600,
+				height: 1600,
+				fit: params.layout.fit !== false,
+			};
 		case 'wide':
-			return { width: 1920, height: 1080 };
+			return {
+				width: 1920,
+				height: 1080,
+				fit: params.layout.fit !== false,
+			};
 		default:
 			return {
 				width: docW ? Math.max( 600, Math.min( 2400, docW ) ) : 1600,
@@ -161,10 +196,11 @@ export function styleFor( params, kits ) {
 		}
 	} else {
 		const paper = PAPERS[ st.paper ] || PAPERS.white;
-		bg = paper.bg;
+		bg = st.paper === 'transparent' ? null : paper.bg;
 		ink = st.ink && st.ink !== DEFAULTS.style.ink ? st.ink : paper.ink;
 	}
 	return {
+		decoration: st.decoration || 'none',
 		bg,
 		ink,
 		accent,
@@ -227,8 +263,25 @@ export function compose( {
 	t,
 } ) {
 	const children = [];
+	let geometry = null;
 	let y = margin;
 	const width = frame.width;
+	if ( style.decoration === 'rule' && ! title ) {
+		children.push(
+			`<line x1="${ margin }" y1="${ margin }" x2="${
+				width - margin
+			}" y2="${ margin }" stroke="${ style.accent }" stroke-width="2"/>`
+		);
+		y += 16;
+	}
+	if ( style.decoration === 'band' ) {
+		children.push(
+			`<rect x="${ margin }" y="${ margin }" width="${
+				width - 2 * margin
+			}" height="7" fill="${ style.accent }"/>`
+		);
+		y += 25;
+	}
 	if ( title ) {
 		y += 40;
 		children.push(
@@ -241,6 +294,14 @@ export function compose( {
 			} )
 		);
 		y += 24;
+		if ( style.decoration === 'rule' ) {
+			children.push(
+				`<line x1="${ margin }" y1="${ y }" x2="${
+					width - margin
+				}" y2="${ y }" stroke="${ style.accent }" stroke-width="2"/>`
+			);
+			y += 24;
+		}
 	}
 	for ( const b of blocks ) {
 		const { inner, w, h } = stripSvg( b.svg );
@@ -250,24 +311,64 @@ export function compose( {
 				y
 			) })">${ inner }</g>`
 		);
+		if ( b.geometry )
+			geometry = transformGeometry(
+				b.geometry,
+				Math.round( x ),
+				Math.round( y )
+			);
 		y += h + ( b.gap === undefined ? 24 : b.gap );
 	}
-	let height = Math.ceil( y + margin - 24 );
+	const lastGap = blocks.length ? blocks.at( -1 ).gap ?? 24 : 0;
+	let height = Math.max( 1, Math.ceil( y + margin - lastGap ) );
 	if ( frame.height ) {
-		if ( height > frame.height ) {
+		if ( height > frame.height && ! frame.fit ) {
 			warnings.push(
 				( t || ( ( s ) => s ) )(
 					'The content is taller than the page. Lower the scale or the margin.'
 				)
 			);
 		}
+		if ( height > frame.height && frame.fit ) {
+			const factor =
+				( frame.height - 2 * margin ) /
+				Math.max( 1, height - 2 * margin );
+			const old = children.join( '' );
+			if ( geometry )
+				geometry = transformGeometry(
+					geometry,
+					( width - width * factor ) / 2,
+					margin * ( 1 - factor ),
+					factor
+				);
+			children.splice(
+				0,
+				children.length,
+				`<g transform="translate(${ ( width - width * factor ) / 2 } ${
+					margin * ( 1 - factor )
+				}) scale(${ factor })">${ old }</g>`
+			);
+		}
 		height = frame.height;
 	}
+	if ( style.decoration === 'frame' )
+		children.unshift(
+			`<rect x="${ Math.max( 8, margin * 0.4 ) }" y="${ Math.max(
+				8,
+				margin * 0.4
+			) }" width="${
+				width - Math.max( 16, margin * 0.8 )
+			}" height="${ Math.max(
+				1,
+				height - Math.max( 16, margin * 0.8 )
+			) }" fill="none" stroke="${ style.accent }" stroke-width="2"/>`
+		);
 	return {
 		svg: svgDoc( { width, height, bg: style.bg, children } ),
 		width,
 		height,
 		warnings,
+		...( geometry ? { geometry } : {} ),
 	};
 }
 
@@ -344,6 +445,8 @@ async function renderScoreCard( params, env ) {
 		fonts: style.fonts,
 		ink: style.ink,
 		accent: style.chordColor,
+		excerpt: params.excerpt,
+		annotations: params.analysis.items,
 	} );
 	const warnings = [ ...( r.warnings || [] ) ];
 	// The score is drawn in unscaled units with a viewBox; on the paper it
@@ -352,7 +455,7 @@ async function renderScoreCard( params, env ) {
 	const inner = `<g transform="scale(${ s })">${
 		stripSvg( r.svg ).inner
 	}</g>`;
-	if ( ! frame.height ) {
+	if ( ! frame.height && style.decoration === 'none' ) {
 		return {
 			svg: svgDoc( {
 				width: r.width,
@@ -588,24 +691,33 @@ function renderDiagrams( params, env ) {
 			} );
 			continue;
 		}
-		const sh = shapeFor( name, params.instrument, params.tuning );
+		const sh = selectedGrip( name, params );
 		if ( ! sh ) {
 			warnings.push( t( 'No fingering found for' ) + ' ' + name );
 			continue;
 		}
 		const size = 180 * s;
-		tiles.push( {
-			svg: svgChordDiagram( sh, {
-				name,
-				strings: sh.frets.length,
-				size,
-				ink: style.ink,
-				accent: style.accent,
-				font: style.fonts.text,
-			} ),
-			w: size,
-			h: size * 1.3,
-		} );
+		const choices = params.grip.compare
+			? gripChoices( name, params.instrument, params.tuning ).slice(
+					0,
+					3
+			  )
+			: [ sh ];
+		for ( const chosen of choices )
+			tiles.push( {
+				svg: svgChordDiagram( chosen, {
+					name,
+					strings: sh.frets.length,
+					size,
+					ink: style.ink,
+					accent: style.accent,
+					font: style.fonts.text,
+					leftHanded: params.grip.leftHanded,
+					showFingers: params.grip.fingers,
+				} ),
+				w: size,
+				h: size * 1.3,
+			} );
 	}
 	if ( ! tiles.length && ! warnings.length ) {
 		warnings.push( t( 'Type chord names, for example C G Am F.' ) );
@@ -715,6 +827,7 @@ function renderFretboard( params, env ) {
 			Math.min( params.fretTo | 0, inst.frets )
 		);
 		block = svgFretboard( notes, {
+			leftHanded: params.grip.leftHanded,
 			tuning,
 			from,
 			to,
@@ -841,6 +954,13 @@ async function renderPaper( params, env ) {
 /* ------------------------------- note cards ------------------------------- */
 
 async function renderFlash( params, env ) {
+	if ( params.flash.topic && params.flash.topic !== 'notes' )
+		return renderLearningCards( params, env, {
+			compose,
+			frameFor,
+			styleFor,
+			stripSvg,
+		} );
 	const t = tOf( env );
 	const frame = frameFor( params, env.docW, env.docH );
 	const style = styleFor( params, env.kits );
@@ -1055,6 +1175,17 @@ async function renderScales( params, env ) {
 /* --------------------------------- cards ---------------------------------- */
 
 export const CARDS = [
+	...[ ...WORKSHOP_TYPES, ...STUDIO_TYPES ].map( ( type ) => ( {
+		...type,
+		render: ( p, e ) =>
+			renderWorkshop( p, e, {
+				compose,
+				frameFor,
+				styleFor,
+				stripSvg,
+				tabTuning,
+			} ),
+	} ) ),
 	{
 		id: 'score',
 		label: 'Score',
@@ -1100,6 +1231,7 @@ export const CARDS = [
 ];
 
 export const cardById = ( id ) =>
-	CARDS.find( ( c ) => c.id === id ) || CARDS[ 0 ];
+	CARDS.find( ( c ) => c.id === id ) ||
+	CARDS.find( ( c ) => c.id === 'score' );
 
 export { escapeXml };

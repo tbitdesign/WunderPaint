@@ -11,6 +11,7 @@ import { bakeCanvas, ensureFont } from './render.js';
 import { LANGUAGES } from './languages.js';
 import { THEME_LIST } from './themes.js';
 import { t } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 const GEN_ID = 'wpie-code-shot/code';
 
@@ -145,7 +146,9 @@ function openStudio( ctx ) {
 			? t( 'Edit this code image and update the layer.' )
 			: t( 'Turn code into a beautiful, re-editable image.' ),
 		width: 1180,
-		closeOnBackdrop: true,
+		// The colour editor of a swatch lives in the backdrop: a click
+		// there must not close the studio (20.10.2026).
+		closeOnBackdrop: false,
 		onClose: () => cleanup(),
 	} );
 	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
@@ -410,7 +413,7 @@ function openStudio( ctx ) {
 	ui.select( ui.row( bgCard, t( 'Type' ) ), {
 		options: [
 			{ value: 'gradient', label: t( 'Gradient' ) },
-			{ value: 'solid', label: t( 'Solid colour' ) },
+			{ value: 'solid', label: t( 'Solid color' ) },
 			{ value: 'transparent', label: t( 'Transparent' ) },
 		],
 		value: params.bg.mode,
@@ -420,32 +423,30 @@ function openStudio( ctx ) {
 			bgColVis();
 		},
 	} );
-	const col1Row = ui.row( bgCard, t( 'Colour' ) );
+	const col1Row = ui.row( bgCard, t( 'Color' ) );
 	const col1Node = document.createElement( 'div' );
 	col1Row.appendChild( col1Node );
-	swatches.push(
-		bridge.components.mountColorButton( col1Node, {
+	const col1Btn = bridge.components.mountColorButton( col1Node, {
 			color: params.bg.color,
-			title: t( 'Background colour' ),
+			title: t( 'Background color' ),
 			onChange: ( c ) => {
 				params.bg.color = c;
 				rebuild();
 			},
-		} )
-	);
-	const col2Row = ui.row( bgCard, t( 'Colour 2' ) );
+		} );
+	swatches.push( col1Btn );
+	const col2Row = ui.row( bgCard, t( 'Color 2' ) );
 	const col2Node = document.createElement( 'div' );
 	col2Row.appendChild( col2Node );
-	swatches.push(
-		bridge.components.mountColorButton( col2Node, {
+	const col2Btn = bridge.components.mountColorButton( col2Node, {
 			color: params.bg.color2,
-			title: t( 'Gradient end colour' ),
+			title: t( 'Gradient end color' ),
 			onChange: ( c ) => {
 				params.bg.color2 = c;
 				rebuild();
 			},
-		} )
-	);
+		} );
+	swatches.push( col2Btn );
 	ui.slider( bgCard, {
 		label: t( 'Padding' ),
 		min: 0,
@@ -599,11 +600,28 @@ function openStudio( ctx ) {
 	}
 
 	function cleanup() {
+		history.dispose();
 		swatches.forEach( ( s ) => s && s.unmount && s.unmount() );
 		if ( rebuildTimer ) {
 			clearTimeout( rebuildTimer );
 		}
 	}
+
+	// Ctrl+Z / Ctrl+Shift+Z (0.6.0, shared/studio-undo.js), no button.
+	// Typing in the code or title field keeps the field's own undo.
+	const history = studioUndo( {
+		backdrop: modal.backdrop,
+		read: () => params,
+		write: ( data ) => {
+			Object.assign( params, data, { bg: { ...params.bg, ...data.bg } } );
+			codeInput.value = params.code;
+			titleInput.value = params.title;
+			col1Btn.set( params.bg.color );
+			col2Btn.set( params.bg.color2 );
+			bgColVis();
+			rebuild();
+		},
+	} );
 
 	bgColVis();
 	rebuild();

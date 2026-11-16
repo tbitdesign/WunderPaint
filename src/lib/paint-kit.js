@@ -42,6 +42,7 @@ import {
 	tuned,
 	pigmentOf,
 } from './wet-styles';
+import { bandPigment } from './pigment-bands';
 import {
 	createWetSurfaceGL,
 	wetGlAvailable,
@@ -91,6 +92,10 @@ export const paintKit = {
 		WET_STYLE_IDS,
 		tuned,
 		pigmentOf,
+		// The six-band pigment of the brush (pigment-bands.js): pass its
+		// six absorptions as kr, kg, kb, sr, sg, sb (and its scattering as
+		// sc for body paint) to an island set to { bands: 1 }.
+		bandPigment,
 		createLiquid: createWetSurfaceGL,
 		createPaste: createWetPasteGL,
 		createDry: createWetDryGL,

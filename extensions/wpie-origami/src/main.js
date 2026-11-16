@@ -16,6 +16,7 @@ import { sheetPage, instructionPages } from './core/sheet.js';
 const GEN_ID = 'wpie-origami/studio';
 
 import { t } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 const sprintf = ( s, ...args ) =>
 	s.replace( /%(\d)\$s/g, ( _, i ) => String( args[ i - 1 ] ) );
@@ -560,7 +561,7 @@ function openStudio( ctx ) {
 				repaint();
 			},
 		} );
-		colour(
+		swatches[ key + 'Pattern' ] = colour(
 			box,
 			t( 'Pattern color' ),
 			state[ key ].patternColor,
@@ -700,7 +701,7 @@ function openStudio( ctx ) {
 			engine.setGround( v );
 		},
 	} );
-	colour(
+	const backgroundSwatch = colour(
 		sceneBody,
 		t( 'Background' ),
 		state.background || '#20242b',
@@ -709,6 +710,29 @@ function openStudio( ctx ) {
 			engine.setBackground( c );
 		}
 	);
+
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: figure,
+	// paper, pictures and stage. The choices and checkboxes follow through
+	// their own handlers.
+	const history = studioUndo( {
+		backdrop: modal.backdrop,
+		read: () => state,
+		write: ( data ) => {
+			const figure = state.figure;
+			Object.assign( state, data );
+			for ( const key of [ 'front', 'back' ] ) {
+				swatches[ key ].set( state[ key ].color );
+				swatches[ key + 'Pattern' ].set( state[ key ].patternColor );
+			}
+			backgroundSwatch.set( state.background || '#20242b' );
+			engine.setBackground( state.background );
+			if ( state.figure !== figure ) {
+				selectFigure( state.figure );
+			} else {
+				repaint();
+			}
+		},
+	} );
 
 	/* ------------------------------ steps list ----------------------------- */
 
@@ -1002,6 +1026,7 @@ function openStudio( ctx ) {
 			return;
 		}
 		closed = true;
+		history.dispose();
 		cancelAnimationFrame( raf );
 		ro.disconnect();
 		engine.dispose();

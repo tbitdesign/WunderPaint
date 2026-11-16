@@ -35,6 +35,19 @@ jszip — ZIP reading/writing (project files, exports)
   contributors) and setimmediate (MIT, Copyright (c) 2012 Barnesandnoble.com).
   Source: https://github.com/Stuk/jszip  Ships as build/jszip.<hash>.js
 
+libheif-js — HEIC/HEIF photo decoding in the browser
+  GNU Lesser General Public License v3.0. libheif-js 1.23.2 by Kiril Vatev
+  is the Emscripten build of libheif (Copyright (c) struktur AG, Dirk
+  Farin, LGPL-3.0) with the libde265 HEVC decoder (Copyright (c) struktur
+  AG, Dirk Farin, LGPL-3.0). Bundled UNMODIFIED as build/libheif.<hash>.js
+  and build/libheif.<hash>.wasm, loaded only when a HEIC photo is opened
+  or uploaded; it can be replaced by any build of the same interface. Full
+  license text (LGPL-3.0 with the GPL-3.0 it extends) in
+  assets/licenses/libheif-LGPL-3.0.txt.
+  Source: https://github.com/catdad-experiments/libheif-js,
+  https://github.com/strukturag/libheif and
+  https://github.com/strukturag/libde265
+
 onnxruntime-web — local (in-browser) neural-network inference
   MIT License. Copyright (c) Microsoft Corporation. The CPU WebAssembly
   pair ships inside the plugin under assets/ort/ (since v1.316.0). The distributed WebAssembly
@@ -59,7 +72,7 @@ image search)
   Ships as build/transformers.<hash>.js
 
 
-vtracer-wasm — colour image vectorization (the Vectorize command)
+vtracer-wasm — color image vectorization (the Vectorize command)
   MIT License. Copyright (c) 2025 jsscheller. A WebAssembly build of VTracer
   (https://github.com/visioncortex/vtracer, MIT, Copyright (c) 2020 Vision
   Cortex). Ships as build/vtracer.<hash>.wasm.
@@ -115,8 +128,8 @@ EU AI labelling emblems (assets/eu-ai-labels/, twelve SVG files)
   Source: https://digital-strategy.ec.europa.eu/en/policies/eu-icons-labelling-ai-generated-content
 
 
-Bundled machine-learning model
-------------------------------
+Bundled machine-learning models
+-------------------------------
 
 U^2-Netp segmentation model (assets/models/u2netp.onnx)
   Used for local, in-browser background removal and subject selection
@@ -124,6 +137,23 @@ U^2-Netp segmentation model (assets/models/u2netp.onnx)
   Apache License 2.0. See assets/models/NOTICE.txt for attribution and a copy
   of the Apache-2.0 license reference. Compatible with this plugin via the
   "or later" clause of GPL-2.0-or-later (see the note above).
+
+YuNet face detector (assets/models/face_detection_yunet_2023mar.onnx)
+  Finds faces locally, in the browser: for Blur Faces, and so Collage &
+  Photo Grid keeps them in frame when it crops a photo into its cell (no
+  image data leaves the browser). "YuNet: A Tiny Millisecond-level Face Detector" by Wei Wu,
+  Hanyang Peng and Shiqi Yu, as published in the OpenCV Zoo, byte-identical.
+  MIT License, Copyright (c) 2020 Shiqi Yu. The license text and a notice
+  travel with it in assets/models/YUNET-NOTICE.txt.
+  Source: https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
+
+Real-ESRGAN general x4v3 (assets/models/realesr-general-x4v3.onnx)
+  The AI upscaler behind Upscale (2x and 4x), run locally in the browser
+  (no image data leaves it). The official weights of Real-ESRGAN release
+  v0.2.5.0 by Xintao Wang, exported unchanged to ONNX. BSD 3-Clause
+  License, Copyright (c) 2021 Xintao Wang. The license text, the source and
+  both checksums travel with it in assets/models/REALESRGAN-NOTICE.txt.
+  Source: https://github.com/xinntao/Real-ESRGAN
 
 
 Bundled fonts (self-hosted in assets/fonts/)
@@ -139,7 +169,7 @@ project (https://fontsource.org).
   respective font authors (see each family's project). The OFL is directly
   GPL-compatible.
 
-The rest of the catalogue is not bundled. An administrator can download it
+The rest of the catalog is not bundled. An administrator can download it
 once to the site's own uploads folder, after which those families are served
 locally as well, or opt into loading them from the Google Fonts CDN instead
 (Settings, Fonts). Nothing is fetched from a font CDN unless that option is
@@ -153,7 +183,7 @@ The free extensions ship with the plugin, one folder each under
 bundled-extensions/. They are editor add-ons rather than WordPress plugins and
 run entirely in the browser. The ones listed below carry third-party code or
 data of their own, listed here because it travels in the download. Where a
-licence asks for a notice next to the file, that notice sits in the
+license asks for a notice next to the file, that notice sits in the
 extension's own folder as well. The same list, with source links, is in
 readme.txt under "Which third-party libraries are bundled?".
 

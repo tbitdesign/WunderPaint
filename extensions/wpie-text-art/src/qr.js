@@ -11,6 +11,7 @@
  *
  * Pure module, node-testable (the matrix math needs no canvas).
  */
+import { outSheet } from './textart-engine.js';
 
 /* ------------------------------ GF(256) tables ----------------------------- */
 
@@ -519,8 +520,9 @@ export function renderQrPortrait( like, source, opts = {} ) {
 	const quiet = 4;
 	const { size, mod, fun } = q;
 	const W = ( size + 2 * quiet ) * m;
-	const c = makeCanvas( like, W, W );
-	const g = c.getContext( '2d' );
+	// Painted at the output scale; the caller keeps that scale whole, so
+	// the module edges fall on pixel edges and no seams open between them.
+	const { c, g } = outSheet( like, W, W, opts );
 	g.fillStyle = '#ffffff';
 	g.fillRect( 0, 0, W, W );
 	const DARK = '#101318';

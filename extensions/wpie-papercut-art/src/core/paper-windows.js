@@ -1,3 +1,4 @@
+import { collectionWindow } from './collection-shapes.js';
 import { rng } from './geom.js';
 import { EXTRA_WINDOWS } from './library.js';
 import {
@@ -28,11 +29,13 @@ const arch = ( pointed = false ) => {
 };
 /** New apertures, with seed-based edges and separated window panes. */
 export function extraWindow( o, w, h ) {
-	if ( ! ids.has( o.window ) ) return null;
+	if ( ! ids.has( o.window ) ) {
+		return null;
+	}
 	const r = rng( o.seed ),
 		density = Math.round( 6 + ( o.ornament ?? 50 ) * 0.14 ),
 		rough = ( o.irregularity ?? 40 ) / 100;
-	let stamps = [],
+	let stamps = collectionWindow( o ) || [],
 		ring;
 	const add = ( p ) => stamps.push( [ p ] );
 	switch ( o.window ) {
@@ -127,7 +130,7 @@ export function extraWindow( o, w, h ) {
 			break;
 		case 'postage': {
 			ring = [];
-			for ( let e = 0; e < 4; e++ )
+			for ( let e = 0; e < 4; e++ ) {
 				for ( let i = 0; i < density * 12; i++ ) {
 					const t = i / ( density * 12 ),
 						x = -1 + 2 * t,
@@ -146,12 +149,13 @@ export function extraWindow( o, w, h ) {
 							: [ y, -x ]
 					);
 				}
+			}
 			add( ring );
 			break;
 		}
 		case 'deckle': {
 			ring = [];
-			for ( let e = 0; e < 4; e++ )
+			for ( let e = 0; e < 4; e++ ) {
 				for ( let i = 0; i < 60; i++ ) {
 					const x = -1 + ( 2 * i ) / 60,
 						y = -1 + r() * 0.13 * rough;
@@ -165,6 +169,7 @@ export function extraWindow( o, w, h ) {
 							: [ y, -x ]
 					);
 				}
+			}
 			add( ring );
 			break;
 		}
@@ -193,7 +198,7 @@ export function extraWindow( o, w, h ) {
 					: ellipse( 0, 0, 1, 1, 120 );
 			const holes = [];
 			if ( o.window === 'branched' ) {
-				for ( const side of [ -1, 1 ] )
+				for ( const side of [ -1, 1 ] ) {
 					for ( let i = 0; i < Math.round( density / 2 ); i++ ) {
 						const y =
 								0.76 -
@@ -218,6 +223,7 @@ export function extraWindow( o, w, h ) {
 							)
 						);
 					}
+				}
 			}
 
 			for ( let i = 0; o.window !== 'branched' && i < density; i++ ) {
@@ -259,36 +265,39 @@ export function extraWindow( o, w, h ) {
 				[ -1, 1 ],
 				[ -1, -0.08 ],
 			];
-			for ( let i = 0; i <= 12; i++ )
+			for ( let i = 0; i <= 12; i++ ) {
 				ring.push( [
 					-1 + i / 6,
 					-0.35 - r() * ( 0.4 + rough * 0.3 ),
 				] );
+			}
 			ring.push( [ 1, 1 ] );
 			add( ring );
 			break;
 		}
 		case 'doublearch': {
 			const gap = 0.04 + ( ( o.spacing ?? 35 ) / 100 ) * 0.22;
-			for ( const x of [ -1, 1 ] )
+			for ( const x of [ -1, 1 ] ) {
 				add(
 					arch().map( ( [ px, py ] ) => [
 						x * ( 0.5 + gap / 2 ) + px * ( 0.5 - gap / 2 ),
 						py,
 					] )
 				);
+			}
 			break;
 		}
 		case 'triplecircle': {
 			const gap = 0.03 + ( ( o.spacing ?? 35 ) / 100 ) * 0.2;
-			for ( let i = -1; i <= 1; i++ )
+			for ( let i = -1; i <= 1; i++ ) {
 				add( ellipse( i * ( 0.67 + gap ), 0, 0.32 - gap / 2, 0.8 ) );
+			}
 			break;
 		}
 		case 'crossbar': {
 			const gap = 0.03 + ( ( o.spacing ?? 35 ) / 100 ) * 0.17;
-			for ( const x of [ -1, 1 ] )
-				for ( const y of [ -1, 1 ] )
+			for ( const x of [ -1, 1 ] ) {
+				for ( const y of [ -1, 1 ] ) {
 					add(
 						rect(
 							x < 0 ? -1 : gap,
@@ -297,6 +306,8 @@ export function extraWindow( o, w, h ) {
 							1 - gap
 						)
 					);
+				}
+			}
 			break;
 		}
 		case 'panorama':
@@ -306,12 +317,13 @@ export function extraWindow( o, w, h ) {
 	const rx = w * ( 0.5 - o.inset / 100 ),
 		ry = h * ( 0.5 - o.inset / 100 );
 	// Preserve the intentional narrow panorama and round triptych panes.
-	if ( o.window === 'panorama' )
+	if ( o.window === 'panorama' ) {
 		return {
 			apertures: fitWindow( stamps, w / 2, h / 2, rx, ry * 0.46 ),
 			ornaments: [],
 		};
-	if ( o.window === 'triplecircle' )
+	}
+	if ( o.window === 'triplecircle' ) {
 		return {
 			apertures: fitWindow(
 				stamps,
@@ -330,7 +342,10 @@ export function extraWindow( o, w, h ) {
 			),
 			ornaments: [],
 		};
-	const upright = [ 'keyhole', 'acorn', 'egg' ].includes( o.window );
+	}
+	const upright = [ 'keyhole', 'acorn', 'egg', 'raindrop' ].includes(
+		o.window
+	);
 	return {
 		apertures: fitWindow(
 			stamps,

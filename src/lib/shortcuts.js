@@ -1,3 +1,4 @@
+import { beginColorPick } from './color-pick-session';
 /**
  * Keyboard shortcut map (spec 04.5), table-driven, testable in isolation.
  *
@@ -11,6 +12,7 @@ import { __ } from '@wordpress/i18n';
 import { TOOLS } from '../store/constants';
 import { easyAllowsShortcut, isEasyMode } from './easy-mode';
 import { selectionUnits } from './selection-units';
+import { cancelCrop } from './straighten';
 import * as Ops from '../store/ops';
 
 const isEditableTarget = ( target ) =>
@@ -19,6 +21,28 @@ const isEditableTarget = ( target ) =>
 		'TEXTAREA' === target.tagName ||
 		'SELECT' === target.tagName ||
 		target.isContentEditable );
+
+/**
+ * An open dialog owns the keyboard (20.10.2026). With a studio open and the
+ * focus on one of its buttons or its picture, Ctrl+Z undid a step of the
+ * document behind it, Delete removed the selected layer and letters switched
+ * tools. A dialog dragged aside clears its backdrop (modal-drag) and hands
+ * the editor back, so keys pressed in the editor then still work.
+ *
+ * @param {EventTarget} target Event target.
+ * @return {boolean} The key belongs to a dialog, not to the editor.
+ */
+export const dialogOwnsKeys = ( target ) => {
+	const doc = target?.ownerDocument || document;
+	if ( target?.closest?.( '.modal-backdrop' ) ) {
+		return true;
+	}
+	// Focus somewhere in the editor itself: the editor's key.
+	if ( target && target !== doc.body && target !== doc.documentElement ) {
+		return false;
+	}
+	return !! doc.querySelector( '.modal-backdrop:not(.wpie-backdrop-clear)' );
+};
 
 /** Normalize an event into a combo descriptor. */
 export const comboOf = ( e ) => ( {
@@ -369,7 +393,8 @@ export const SHORTCUTS = [
 				return;
 			}
 			if ( editor.state.crop ) {
-				editor.dispatch( { type: 'SET_CROP', crop: null } );
+				// Same as the panel's Cancel: a straightened photo goes back.
+				cancelCrop( editor );
 				return;
 			}
 			// Step out one level when drilled into a group: a selected child
@@ -389,7 +414,11 @@ export const SHORTCUTS = [
 				return;
 			}
 			if ( editor.state.selection ) {
-				editor.dispatch( { type: 'SET_SELECTION', selection: null } );
+				editor.dispatch( {
+					type: 'SET_SELECTION',
+					selection: null,
+					remember: true,
+				} );
 			}
 		},
 	},
@@ -450,8 +479,15 @@ export const SHORTCUTS = [
 	...TOOLS.map( ( tool ) => ( {
 		id: `tool-${ tool.id }`,
 		match: ( c ) => ! c.meta && ! c.alt && c.key === tool.kbd.toLowerCase(),
-		run: ( editor ) =>
-			editor.dispatch( { type: 'SET_TOOL', tool: tool.id } ),
+		run: ( editor, extras, event ) => {
+			if ( tool.id === 'eyedropper' ) {
+				if ( ! event?.repeat ) {
+					beginColorPick( editor );
+				}
+			} else {
+				editor.dispatch( { type: 'SET_TOOL', tool: tool.id } );
+			}
+		},
 	} ) ),
 ];
 
@@ -549,7 +585,7 @@ export const SHORTCUT_META = [
 	{
 		id: 'palette',
 		combo: 'mod+k',
-		label: __( 'Command palette', 'wunderpaint' ),
+		label: __( 'Search', 'wunderpaint' ),
 	},
 	{
 		id: 'ai',
@@ -657,7 +693,7 @@ export function findConflict( combo, exceptId ) {
  * @return {boolean} Whether a shortcut ran.
  */
 export function handleKeyDown( e, editor, extras ) {
-	if ( isEditableTarget( e.target ) ) {
+	if ( isEditableTarget( e.target ) || dialogOwnsKeys( e.target ) ) {
 		return false;
 	}
 	const combo = comboOf( e );
@@ -725,7 +761,11 @@ export function bindShortcuts( getContext ) {
 
 	const onKeyDown = ( e ) => {
 		const { editor, extras } = getContext();
-		if ( ' ' === e.key && ! isEditableTarget( e.target ) ) {
+		if (
+			' ' === e.key &&
+			! isEditableTarget( e.target ) &&
+			! dialogOwnsKeys( e.target )
+		) {
 			if ( ! spaceHeld ) {
 				spaceHeld = true;
 				toolBeforeSpace = editor.state.tool;
@@ -744,7 +784,11 @@ export function bindShortcuts( getContext ) {
 			spaceHeld = false;
 			const { editor } = getContext();
 			if ( toolBeforeSpace && 'hand' !== toolBeforeSpace ) {
-				editor.dispatch( { type: 'SET_TOOL', tool: toolBeforeSpace } );
+				editor.dispatch( {
+					type: 'SET_TOOL',
+					tool: toolBeforeSpace,
+					preserveSelectionMode: true,
+				} );
 			}
 			toolBeforeSpace = null;
 		}

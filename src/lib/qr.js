@@ -35,6 +35,8 @@ const digits = ( s ) => String( s || '' ).replace( /[^\d+]/g, '' );
 export function qrPayload( content = {} ) {
 	const c = content;
 	switch ( c.kind ) {
+		case 'geo':
+			return geoPayload( c );
 		case 'text':
 			return String( c.text || '' ).trim();
 		case 'email': {
@@ -218,6 +220,8 @@ function icsDate( v ) {
 export function qrPayloadReady( content = {} ) {
 	const c = content;
 	switch ( c.kind ) {
+		case 'geo':
+			return '' !== String( c.place || '' ).trim();
 		case 'text':
 			return '' !== String( c.text || '' ).trim();
 		case 'email':
@@ -258,6 +262,40 @@ export function qrPayloadReady( content = {} ) {
 	}
 }
 
+/**
+ * A place (19.10.2026): an address or "lat, lng", opened in Google Maps,
+ * Apple Maps or - with the standard geo: link (RFC 5870) - whatever maps
+ * app the phone prefers. Coordinates go in as coordinates, anything else
+ * as a search.
+ *
+ * @param {Object} c { place, maps: 'google'|'apple'|'geo' }.
+ * @return {string} Payload.
+ */
+function geoPayload( c ) {
+	const place = String( c.place || '' ).trim();
+	const at = place.match(
+		/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/
+	);
+	const coords =
+		at && Math.abs( +at[ 1 ] ) <= 90 && Math.abs( +at[ 2 ] ) <= 180
+			? at[ 1 ] + ',' + at[ 2 ]
+			: null;
+	if ( 'apple' === c.maps ) {
+		return coords
+			? 'https://maps.apple.com/?ll=' + coords + '&q=' + coords
+			: 'https://maps.apple.com/?q=' + encodeURIComponent( place );
+	}
+	if ( 'geo' === c.maps ) {
+		return coords
+			? 'geo:' + coords
+			: 'geo:0,0?q=' + encodeURIComponent( place );
+	}
+	return (
+		'https://www.google.com/maps/search/?api=1&query=' +
+		encodeURIComponent( coords || place )
+	);
+}
+
 /** A field that holds a {{token}} counts as filled at design time. */
 const hasTokenText = ( s ) => /{{[^}]+}}/.test( String( s || '' ) );
 
@@ -271,6 +309,8 @@ export function qrLayerName( content = {} ) {
 	const c = content;
 	const short = ( s ) => String( s || '' ).slice( 0, 40 );
 	switch ( c.kind ) {
+		case 'geo':
+			return 'QR: ' + short( c.place );
 		case 'text':
 			return 'QR: ' + short( c.text );
 		case 'email':

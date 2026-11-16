@@ -11,12 +11,12 @@ import { r } from '../../engine/units.js';
 export const ITEM = {
 	id: 'fortuneteller',
 	label: 'Fortune teller',
-	hint: 'The folded paper game: four colours on the corners, eight numbers, eight fortunes from your lines under the flaps.',
+	hint: 'The folded paper game: four colors on the corners, eight numbers, eight fortunes from your lines under the flaps.',
 	group: 'games',
 	uses: { text: 'lines', names: false, photo: 'none', event: [] },
 	textLabel: 'Eight fortunes, one per line',
 	placeholder:
-		'You will get cake\nA surprise is coming\nSing a song\nDance with the host\nYou win a prize\nTell a secret\nHug your neighbour\nMake a wish',
+		'You will get cake\nA surprise is coming\nSing a song\nDance with the host\nYou win a prize\nTell a secret\nHug your neighbor\nMake a wish',
 	sizes: [
 		{ label: '190 mm square (A4)', s: 190 },
 		{ label: '140 mm square', s: 140 },

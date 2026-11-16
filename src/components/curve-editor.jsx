@@ -10,16 +10,34 @@ import { __ } from '@wordpress/i18n';
 
 import { curvesLut } from '../lib/effects';
 
-const W = 232;
-const H = 160;
+const DEFAULT_W = 232;
+const DEFAULT_H = 160;
 
-const toSvg = ( p ) => ( { x: ( p.x / 255 ) * W, y: H - ( p.y / 255 ) * H } );
-const fromSvg = ( x, y ) => ( {
-	x: Math.round( Math.min( 255, Math.max( 0, ( x / W ) * 255 ) ) ),
-	y: Math.round( Math.min( 255, Math.max( 0, ( ( H - y ) / H ) * 255 ) ) ),
-} );
-
-export function CurveEditor( { points, onChange } ) {
+/**
+ * @param {Object}   props          Component props.
+ * @param {Array}    props.points   Curve points in 0..255 space.
+ * @param {Function} props.onChange Receives the next point list.
+ * @param {number}   [props.width]  Pixel width (v1.431: panels size it).
+ * @param {number}   [props.height] Pixel height.
+ */
+export function CurveEditor( {
+	points,
+	onChange,
+	width = DEFAULT_W,
+	height = DEFAULT_H,
+} ) {
+	const W = width;
+	const H = height;
+	const toSvg = ( p ) => ( {
+		x: ( p.x / 255 ) * W,
+		y: H - ( p.y / 255 ) * H,
+	} );
+	const fromSvg = ( x, y ) => ( {
+		x: Math.round( Math.min( 255, Math.max( 0, ( x / W ) * 255 ) ) ),
+		y: Math.round(
+			Math.min( 255, Math.max( 0, ( ( H - y ) / H ) * 255 ) )
+		),
+	} );
 	const svgRef = useRef( null );
 	const [ dragIdx, setDragIdx ] = useState( null );
 

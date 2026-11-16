@@ -1250,7 +1250,7 @@ export const STARTERS = [
 		'Christmas coloring page',
 		'The tree to colour',
 		'christmas',
-		{ type: 'coloring', text: 'Coloured by' }
+		{ type: 'coloring', text: 'Colored by' }
 	),
 	s(
 		'wedding-placemat',

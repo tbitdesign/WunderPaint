@@ -125,11 +125,11 @@ const DE = {
 		'Lass die Flügel aufgehen - die Taube fliegt.',
 	'Paper plane': 'Papierflieger',
 	Nose: 'Nase',
-	'Fold both edges at the nose corner in to the centre line.':
+	'Fold both edges at the nose corner in to the center line.':
 		'Falte beide Kanten an der Nasenecke zur Mittellinie hinein.',
-	'Fold the slanted edges in to the centre line again - the dart.':
+	'Fold the slanted edges in to the center line again - the dart.':
 		'Falte die schrägen Kanten noch einmal zur Mittellinie - der Pfeil.',
-	'Fold the dart in half along the centre line, away from you.':
+	'Fold the dart in half along the center line, away from you.':
 		'Falte den Pfeil entlang der Mittellinie nach hinten zusammen.',
 	'Fold the near wing down to the keel, the far wing behind.':
 		'Falte den nahen Flügel zum Kiel herunter, den fernen nach hinten.',
@@ -359,11 +359,11 @@ const ES = {
 		'Deja que las alas se abran - la paloma vuela.',
 	'Paper plane': 'Avión de papel',
 	Nose: 'Morro',
-	'Fold both edges at the nose corner in to the centre line.':
+	'Fold both edges at the nose corner in to the center line.':
 		'Dobla ambos bordes de la esquina del morro hacia la línea central.',
-	'Fold the slanted edges in to the centre line again - the dart.':
+	'Fold the slanted edges in to the center line again - the dart.':
 		'Dobla los bordes inclinados otra vez hacia la línea central - el dardo.',
-	'Fold the dart in half along the centre line, away from you.':
+	'Fold the dart in half along the center line, away from you.':
 		'Dobla el dardo por la mitad a lo largo de la línea central, hacia atrás.',
 	'Fold the near wing down to the keel, the far wing behind.':
 		'Dobla el ala cercana hacia abajo hasta la quilla, el ala lejana hacia atrás.',
@@ -593,11 +593,11 @@ const FR = {
 		'Laisse les ailes s’ouvrir - la colombe vole.',
 	'Paper plane': 'Avion en papier',
 	Nose: 'Nez',
-	'Fold both edges at the nose corner in to the centre line.':
+	'Fold both edges at the nose corner in to the center line.':
 		'Plie les deux bords du coin du nez vers la ligne médiane.',
-	'Fold the slanted edges in to the centre line again - the dart.':
+	'Fold the slanted edges in to the center line again - the dart.':
 		'Plie encore les bords inclinés vers la ligne médiane - la flèche.',
-	'Fold the dart in half along the centre line, away from you.':
+	'Fold the dart in half along the center line, away from you.':
 		'Plie la flèche en deux le long de la ligne médiane, vers l’arrière.',
 	'Fold the near wing down to the keel, the far wing behind.':
 		'Plie l’aile proche vers le bas jusqu’à la quille, l’aile lointaine vers l’arrière.',
@@ -828,11 +828,11 @@ const PT = {
 		'Deixe as asas se abrirem - a pomba voa.',
 	'Paper plane': 'Avião de papel',
 	Nose: 'Nariz',
-	'Fold both edges at the nose corner in to the centre line.':
+	'Fold both edges at the nose corner in to the center line.':
 		'Dobre as duas bordas do canto do nariz até a linha do meio.',
-	'Fold the slanted edges in to the centre line again - the dart.':
+	'Fold the slanted edges in to the center line again - the dart.':
 		'Dobre as bordas inclinadas de novo até a linha do meio - o dardo.',
-	'Fold the dart in half along the centre line, away from you.':
+	'Fold the dart in half along the center line, away from you.':
 		'Dobre o dardo ao meio ao longo da linha do meio, para trás.',
 	'Fold the near wing down to the keel, the far wing behind.':
 		'Dobre a asa de cá para baixo até a quilha, a asa de lá para trás.',
@@ -1062,11 +1062,11 @@ const IT = {
 		'Lascia che le ali si aprano - la colomba vola.',
 	'Paper plane': 'Aeroplano di carta',
 	Nose: 'Muso',
-	'Fold both edges at the nose corner in to the centre line.':
+	'Fold both edges at the nose corner in to the center line.':
 		'Piega i due bordi dell’angolo del muso verso la linea di mezzo.',
-	'Fold the slanted edges in to the centre line again - the dart.':
+	'Fold the slanted edges in to the center line again - the dart.':
 		'Piega di nuovo i bordi obliqui verso la linea di mezzo - il dardo.',
-	'Fold the dart in half along the centre line, away from you.':
+	'Fold the dart in half along the center line, away from you.':
 		'Piega il dardo a metà lungo la linea di mezzo, all’indietro.',
 	'Fold the near wing down to the keel, the far wing behind.':
 		'Piega l’ala vicina in giù fino alla chiglia, l’ala lontana all’indietro.',
@@ -1296,11 +1296,11 @@ const NL = {
 		'Laat de vleugels opengaan - de duif vliegt.',
 	'Paper plane': 'Papieren vliegtuigje',
 	Nose: 'Neus',
-	'Fold both edges at the nose corner in to the centre line.':
+	'Fold both edges at the nose corner in to the center line.':
 		'Vouw beide randen bij de neushoek naar de middellijn toe.',
-	'Fold the slanted edges in to the centre line again - the dart.':
+	'Fold the slanted edges in to the center line again - the dart.':
 		'Vouw de schuine randen opnieuw naar de middellijn - de pijl.',
-	'Fold the dart in half along the centre line, away from you.':
+	'Fold the dart in half along the center line, away from you.':
 		'Vouw de pijl dubbel langs de middellijn, van je af.',
 	'Fold the near wing down to the keel, the far wing behind.':
 		'Vouw de nabije vleugel omlaag tot de kiel, de verre naar achteren.',

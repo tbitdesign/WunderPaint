@@ -122,6 +122,28 @@ const DE = {
 	'Video background': 'Video-Hintergrund',
 	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'Das Video ist größer als die Upload-Grenze dieser Site (%s MB). Es wurde stattdessen heruntergeladen.',
 	'Could not save the video. It was downloaded instead.': 'Das Video konnte nicht gespeichert werden. Es wurde stattdessen heruntergeladen.',
+	// v2.5: example, microphone, spectral styles, offline video
+	'Record with the microphone': 'Mit dem Mikrofon aufnehmen',
+	'Stop recording': 'Aufnahme beenden',
+	Recording: 'Aufnahme',
+	'Example sound': 'Beispielklang',
+	'Preparing the example': 'Bereite das Beispiel vor',
+	'Could not read the sound of this file.':
+		'Der Ton dieser Datei ließ sich nicht lesen.',
+	'Recording is not supported in this browser.':
+		'Aufnehmen wird von diesem Browser nicht unterstützt.',
+	'The microphone could not be opened.': 'Das Mikrofon ließ sich nicht öffnen.',
+	'Saving the recording': 'Speichere die Aufnahme',
+	'The recording could not be saved to the media library.':
+		'Die Aufnahme konnte nicht in der Mediathek gespeichert werden.',
+	'The recording of this picture was not saved. Record it again or choose a file.':
+		'Die Aufnahme zu diesem Bild wurde nicht gespeichert. Nimm sie neu auf oder wähle eine Datei.',
+	Spectrogram: 'Spektrogramm',
+	'Sound mandala': 'Klang-Mandala',
+	Strip: 'Streifen',
+	'Made frame by frame as an MP4 with sound - faster than playing it.':
+		'Bild für Bild als MP4 mit Ton erstellt, schneller als das Abspielen.',
+	'Rendering video': 'Video wird erstellt',
 };
 
 const ES = {
@@ -232,6 +254,28 @@ const ES = {
 	'Video background': 'Fondo del vídeo',
 	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'El vídeo supera el límite de subida de este sitio (%s MB). Se ha descargado en su lugar.',
 	'Could not save the video. It was downloaded instead.': 'No se pudo guardar el vídeo. Se ha descargado en su lugar.',
+	// v2.5: example, microphone, spectral styles, offline video
+	'Record with the microphone': 'Grabar con el micrófono',
+	'Stop recording': 'Detener la grabación',
+	Recording: 'Grabación',
+	'Example sound': 'Sonido de ejemplo',
+	'Preparing the example': 'Preparando el ejemplo',
+	'Could not read the sound of this file.':
+		'No se pudo leer el sonido de este archivo.',
+	'Recording is not supported in this browser.':
+		'Este navegador no permite grabar.',
+	'The microphone could not be opened.': 'No se pudo abrir el micrófono.',
+	'Saving the recording': 'Guardando la grabación',
+	'The recording could not be saved to the media library.':
+		'No se pudo guardar la grabación en la biblioteca de medios.',
+	'The recording of this picture was not saved. Record it again or choose a file.':
+		'La grabación de esta imagen no se guardó. Vuelve a grabarla o elige un archivo.',
+	Spectrogram: 'Espectrograma',
+	'Sound mandala': 'Mandala de sonido',
+	Strip: 'Franja',
+	'Made frame by frame as an MP4 with sound - faster than playing it.':
+		'Creado fotograma a fotograma como MP4 con sonido, más rápido que reproducirlo.',
+	'Rendering video': 'Creando el vídeo',
 };
 
 const FR = {
@@ -341,6 +385,28 @@ const FR = {
 	'Video background': 'Arrière-plan de la vidéo',
 	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'La vidéo dépasse la limite de téléversement de ce site (%s Mo). Elle a été téléchargée à la place.',
 	'Could not save the video. It was downloaded instead.': "La vidéo n'a pas pu être enregistrée. Elle a été téléchargée à la place.",
+	// v2.5: example, microphone, spectral styles, offline video
+	'Record with the microphone': 'Enregistrer avec le micro',
+	'Stop recording': 'Arrêter l’enregistrement',
+	Recording: 'Enregistrement',
+	'Example sound': 'Son d’exemple',
+	'Preparing the example': 'Préparation de l’exemple',
+	'Could not read the sound of this file.':
+		'Le son de ce fichier n’a pas pu être lu.',
+	'Recording is not supported in this browser.':
+		'Ce navigateur ne permet pas d’enregistrer.',
+	'The microphone could not be opened.': 'Le micro n’a pas pu être ouvert.',
+	'Saving the recording': 'Enregistrement de la prise',
+	'The recording could not be saved to the media library.':
+		'La prise n’a pas pu être enregistrée dans la médiathèque.',
+	'The recording of this picture was not saved. Record it again or choose a file.':
+		'La prise de cette image n’a pas été enregistrée. Enregistre-la à nouveau ou choisis un fichier.',
+	Spectrogram: 'Spectrogramme',
+	'Sound mandala': 'Mandala sonore',
+	Strip: 'Bande',
+	'Made frame by frame as an MP4 with sound - faster than playing it.':
+		'Créé image par image en MP4 avec le son, plus vite que la lecture.',
+	'Rendering video': 'Création de la vidéo',
 };
 
 const PT = {
@@ -451,6 +517,28 @@ const PT = {
 	'Video background': 'Fundo do vídeo',
 	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'O vídeo é maior que o limite de upload deste site (%s MB). Ele foi baixado em vez disso.',
 	'Could not save the video. It was downloaded instead.': 'Não foi possível salvar o vídeo. Ele foi baixado em vez disso.',
+	// v2.5: example, microphone, spectral styles, offline video
+	'Record with the microphone': 'Gravar com o microfone',
+	'Stop recording': 'Parar a gravação',
+	Recording: 'Gravação',
+	'Example sound': 'Som de exemplo',
+	'Preparing the example': 'Preparando o exemplo',
+	'Could not read the sound of this file.':
+		'Não foi possível ler o som deste arquivo.',
+	'Recording is not supported in this browser.':
+		'Este navegador não permite gravar.',
+	'The microphone could not be opened.': 'Não foi possível abrir o microfone.',
+	'Saving the recording': 'Salvando a gravação',
+	'The recording could not be saved to the media library.':
+		'Não foi possível salvar a gravação na biblioteca de mídia.',
+	'The recording of this picture was not saved. Record it again or choose a file.':
+		'A gravação desta imagem não foi salva. Grave de novo ou escolha um arquivo.',
+	Spectrogram: 'Espectrograma',
+	'Sound mandala': 'Mandala sonora',
+	Strip: 'Faixa',
+	'Made frame by frame as an MP4 with sound - faster than playing it.':
+		'Criado quadro a quadro como MP4 com som, mais rápido que reproduzir.',
+	'Rendering video': 'Criando o vídeo',
 };
 
 const IT = {
@@ -560,6 +648,28 @@ const IT = {
 	'Video background': 'Sfondo del video',
 	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'Il video supera il limite di caricamento di questo sito (%s MB). È stato scaricato invece.',
 	'Could not save the video. It was downloaded instead.': 'Il video non è stato salvato. È stato scaricato invece.',
+	// v2.5: example, microphone, spectral styles, offline video
+	'Record with the microphone': 'Registra con il microfono',
+	'Stop recording': 'Interrompi la registrazione',
+	Recording: 'Registrazione',
+	'Example sound': 'Suono di esempio',
+	'Preparing the example': 'Preparazione dell’esempio',
+	'Could not read the sound of this file.':
+		'Impossibile leggere il suono di questo file.',
+	'Recording is not supported in this browser.':
+		'Questo browser non permette di registrare.',
+	'The microphone could not be opened.': 'Impossibile aprire il microfono.',
+	'Saving the recording': 'Salvataggio della registrazione',
+	'The recording could not be saved to the media library.':
+		'Impossibile salvare la registrazione nella libreria media.',
+	'The recording of this picture was not saved. Record it again or choose a file.':
+		'La registrazione di questa immagine non è stata salvata. Registrala di nuovo o scegli un file.',
+	Spectrogram: 'Spettrogramma',
+	'Sound mandala': 'Mandala sonoro',
+	Strip: 'Striscia',
+	'Made frame by frame as an MP4 with sound - faster than playing it.':
+		'Creato fotogramma per fotogramma come MP4 con audio, più veloce della riproduzione.',
+	'Rendering video': 'Creazione del video',
 };
 
 const NL = {
@@ -672,6 +782,28 @@ const NL = {
 	'Video background': 'Videoachtergrond',
 	'The video is larger than the upload limit of this site (%s MB). It was downloaded instead.': 'De video is groter dan de uploadlimiet van deze site (%s MB). Hij is in plaats daarvan gedownload.',
 	'Could not save the video. It was downloaded instead.': 'De video kon niet worden opgeslagen. Hij is in plaats daarvan gedownload.',
+	// v2.5: example, microphone, spectral styles, offline video
+	'Record with the microphone': 'Opnemen met de microfoon',
+	'Stop recording': 'Opname stoppen',
+	Recording: 'Opname',
+	'Example sound': 'Voorbeeldgeluid',
+	'Preparing the example': 'Voorbeeld wordt voorbereid',
+	'Could not read the sound of this file.':
+		'Het geluid van dit bestand kon niet worden gelezen.',
+	'Recording is not supported in this browser.':
+		'Opnemen wordt in deze browser niet ondersteund.',
+	'The microphone could not be opened.': 'De microfoon kon niet worden geopend.',
+	'Saving the recording': 'Opname wordt opgeslagen',
+	'The recording could not be saved to the media library.':
+		'De opname kon niet in de mediabibliotheek worden opgeslagen.',
+	'The recording of this picture was not saved. Record it again or choose a file.':
+		'De opname van deze afbeelding is niet opgeslagen. Neem opnieuw op of kies een bestand.',
+	Spectrogram: 'Spectrogram',
+	'Sound mandala': 'Klankmandala',
+	Strip: 'Strook',
+	'Made frame by frame as an MP4 with sound - faster than playing it.':
+		'Beeld voor beeld gemaakt als MP4 met geluid, sneller dan afspelen.',
+	'Rendering video': 'Video wordt gemaakt',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

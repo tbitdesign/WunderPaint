@@ -1,17 +1,32 @@
+import {
+	isPaintLayer,
+	layerPaint,
+	layerPaintPatch,
+	strokeSettings,
+	strokeSettingsPatch,
+	hasEffectStroke,
+} from '../../lib/layer-paint';
+import {
+	PaintSwatch,
+	StrokeControls,
+	RampSwatch,
+} from '../../components/paint-controls';
+import { TextContentInput } from './text-content-input';
 /**
  * Properties panel (spec 06.2): context-sensitive sections with live
  * two-way binding to the canvas.
  */
 
 import { siteStorage } from '../../lib/local-storage';
+import {
+	selectedPaintLayers,
+	mixedValue,
+	updatePaintSelection,
+} from '../../lib/selection-paint';
 import { ROUNDABLE_SHAPES } from '../../lib/corner-geometry';
 import { cornerRadii } from '../../lib/corner-radii';
 import { NumExprInput } from '../../components/num-expr-input';
-import {
-	strokeAlignOf,
-	strokeCapOf,
-	strokeJoinOf,
-} from '../../lib/stroke-align';
+import { strokeCapOf, strokeJoinOf } from '../../lib/stroke-align';
 
 /**
  * Which cap/join a shape paints when it has not chosen one: the legacy
@@ -72,7 +87,6 @@ import { ScrubLabel } from '../../components/scrub-label';
 import { SwatchButton } from '../../components/color-popover';
 import { useSelectionStyle } from '../../components/use-selection-style';
 import { PanelGroup, PanelSection } from '../../components/panel-section';
-import { GradientBar } from '../../components/gradient-bar';
 import { PatternSelect } from '../../components/pattern-select';
 import { SnapSlider } from '../../components/snap-slider';
 import * as Ops from '../../store/ops';
@@ -228,51 +242,14 @@ function SegToggle( { value, options, onChange } ) {
 	);
 }
 
-/** Gradient fill controls (type + stops + angle), shared by text and shapes. */
-function GradientFillControls( { layer, up } ) {
-	const kind = layer.gradientKind || 'linear';
-	return (
-		<>
-			<Field label={ __( 'Type', 'wunderpaint' ) }>
-				<SegToggle
-					value={ kind }
-					options={ [
-						[ 'linear', __( 'Linear', 'wunderpaint' ) ],
-						[ 'radial', __( 'Radial', 'wunderpaint' ) ],
-						[ 'angle', __( 'Angle', 'wunderpaint' ) ],
-					] }
-					onChange={ ( gradientKind ) => up( { gradientKind } ) }
-				/>
-			</Field>
-			<div style={ { marginTop: 8 } }>
-				<Field label={ __( 'Gradient', 'wunderpaint' ) }>
-					{ /* The room for the stop handles is the bar's own margin
-					     now, so this no longer needs a spacer of its own. */ }
-					<GradientBar
-						stops={ layer.gradientStops || [] }
-						onChange={ ( gradientStops ) =>
-							up( { gradientStops } )
-						}
-					/>
-				</Field>
-			</div>
-			{ 'radial' !== kind && (
-				<div style={ { marginTop: 6 } }>
-					<SliderRow
-						label={ __( 'Angle', 'wunderpaint' ) }
-						min={ 0 }
-						max={ 360 }
-						value={ layer.gradientAngle || 0 }
-						display={ ( layer.gradientAngle || 0 ) + '°' }
-						onChange={ ( v ) => up( { gradientAngle: v } ) }
-					/>
-				</div>
-			) }
-		</>
-	);
-}
-
-function Field( { label, children, cols = '70px 1fr', scrub, alignTop } ) {
+function Field( {
+	label,
+	children,
+	cols = '70px 1fr',
+	scrub,
+	alignTop,
+	className = '',
+} ) {
 	// `children` is anything from a slider to a four-button group, so there is
 	// no single control an htmlFor could point at. A named group is the honest
 	// markup, and the plain caption is a span - a <label> that labels nothing
@@ -280,7 +257,7 @@ function Field( { label, children, cols = '70px 1fr', scrub, alignTop } ) {
 	const fieldLabelId = useId();
 	return (
 		<div
-			className="field"
+			className={ `field ${ className }` }
 			role="group"
 			aria-labelledby={ fieldLabelId }
 			style={ {
@@ -289,7 +266,12 @@ function Field( { label, children, cols = '70px 1fr', scrub, alignTop } ) {
 			} }
 		>
 			{ scrub ? (
-				<ScrubLabel as="span" id={ fieldLabelId } { ...scrub }>
+				<ScrubLabel
+					as="span"
+					id={ fieldLabelId }
+					className="field-label"
+					{ ...scrub }
+				>
 					{ label }
 				</ScrubLabel>
 			) : (
@@ -596,6 +578,7 @@ function ScaleRow( { layer } ) {
 					fontSize: 11,
 					color: 'var(--ed-text-dim)',
 					marginTop: -2,
+					marginBottom: 8,
 				} }
 			>
 				<input
@@ -614,7 +597,11 @@ function ScaleRow( { layer } ) {
 
 const RATIO_KEY = 'wpie-ratio-lock';
 
-function TransformSection( { layer } ) {
+export function TransformSection( {
+	layer,
+	collapsible = true,
+	showReset = true,
+} ) {
 	const { state, dispatch, commit } = useEditor();
 	// W and H chained (v1.429): typing one keeps the proportion.
 	const [ lockRatio, setLockRatio ] = useState( () => {
@@ -699,11 +686,12 @@ function TransformSection( { layer } ) {
 		<PanelSection
 			wsKey="props.transform"
 			title={ __( 'Transform', 'wunderpaint' ) }
+			collapsible={ collapsible }
 		>
-			<div className="row2">
+			<div className="row2 props-transform-row">
 				<Field
 					label="X"
-					cols="20px 1fr"
+					cols="minmax(0, 1fr)"
 					scrub={ {
 						value: Math.round( box.x ),
 						onScrub: ( v ) => setX( v ),
@@ -721,7 +709,7 @@ function TransformSection( { layer } ) {
 				</Field>
 				<Field
 					label="Y"
-					cols="20px 1fr"
+					cols="minmax(0, 1fr)"
 					scrub={ {
 						value: Math.round( box.y ),
 						onScrub: ( v ) => setY( v ),
@@ -738,10 +726,10 @@ function TransformSection( { layer } ) {
 					/>
 				</Field>
 			</div>
-			<div className="row2">
+			<div className="row2 props-transform-row">
 				<Field
 					label="W"
-					cols="20px 1fr"
+					cols="minmax(0, 1fr)"
 					scrub={
 						isGroup
 							? undefined
@@ -793,9 +781,24 @@ function TransformSection( { layer } ) {
 						}
 					/>
 				</Field>
+				<button
+					type="button"
+					className="icon-btn"
+					aria-pressed={ lockRatio }
+					title={
+						lockRatio
+							? __( 'Keep proportions: on', 'wunderpaint' )
+							: __( 'Keep proportions: off', 'wunderpaint' )
+					}
+					onClick={ toggleRatio }
+				>
+					{ lockRatio
+						? I.link( { size: 12 } )
+						: I.unlink( { size: 12 } ) }
+				</button>
 				<Field
 					label="H"
-					cols="20px 1fr"
+					cols="minmax(0, 1fr)"
 					scrub={
 						isGroup
 							? undefined
@@ -810,74 +813,42 @@ function TransformSection( { layer } ) {
 							  }
 					}
 				>
-					<div
-						style={ {
-							display: 'flex',
-							gap: 4,
-							alignItems: 'center',
+					<NumExprInput
+						value={ Math.round( box.h ) }
+						min={ 1 }
+						disabled={ isGroup }
+						title={
+							isGroup
+								? __(
+										'Use the Scale slider to resize a group',
+										'wunderpaint'
+								  )
+								: undefined
+						}
+						onChange={ ( v ) => {
+							if ( isGroup ) {
+								return;
+							}
+							const h = Math.max( 1, v );
+							up(
+								lockRatio && layer.h
+									? {
+											h,
+											w: Math.max(
+												1,
+												Math.round(
+													( h * layer.w ) / layer.h
+												)
+											),
+									  }
+									: { h }
+							);
 						} }
-					>
-						<NumExprInput
-							value={ Math.round( box.h ) }
-							min={ 1 }
-							disabled={ isGroup }
-							style={ { flex: 1, minWidth: 0 } }
-							title={
-								isGroup
-									? __(
-											'Use the Scale slider to resize a group',
-											'wunderpaint'
-									  )
-									: undefined
-							}
-							onChange={ ( v ) => {
-								if ( isGroup ) {
-									return;
-								}
-								const h = Math.max( 1, v );
-								up(
-									lockRatio && layer.h
-										? {
-												h,
-												w: Math.max(
-													1,
-													Math.round(
-														( h * layer.w ) /
-															layer.h
-													)
-												),
-										  }
-										: { h }
-								);
-							} }
-							onCommit={ () =>
-								! isGroup &&
-								commit( __( 'Resize layer', 'wunderpaint' ) )
-							}
-						/>
-						<button
-							type="button"
-							className="icon-btn"
-							style={ { width: 22, height: 22, flex: 'none' } }
-							aria-pressed={ lockRatio }
-							title={
-								lockRatio
-									? __(
-											'Keep proportions: on',
-											'wunderpaint'
-									  )
-									: __(
-											'Keep proportions: off',
-											'wunderpaint'
-									  )
-							}
-							onClick={ toggleRatio }
-						>
-							{ lockRatio
-								? I.link( { size: 12 } )
-								: I.unlink( { size: 12 } ) }
-						</button>
-					</div>
+						onCommit={ () =>
+							! isGroup &&
+							commit( __( 'Resize layer', 'wunderpaint' ) )
+						}
+					/>
 				</Field>
 			</div>
 			<RotateRow layer={ layer } />
@@ -913,19 +884,28 @@ function TransformSection( { layer } ) {
 					{ I.flipV( { size: 13 } ) }{ ' ' }
 					{ __( 'Flip V', 'wunderpaint' ) }
 				</button>
-				<button
-					className="ai-btn secondary"
-					style={ { flex: 1 } }
-					title={ __( 'Reset rotation and flips', 'wunderpaint' ) }
-					onClick={ () =>
-						up(
-							{ rot: 0, flipX: false, flipY: false, quad: null },
-							__( 'Reset transform', 'wunderpaint' )
-						)
-					}
-				>
-					{ __( 'Reset', 'wunderpaint' ) }
-				</button>
+				{ showReset && (
+					<button
+						type="button"
+						className="dsm-mini"
+						style={ { alignSelf: 'center' } }
+						title={ __( 'Reset transform', 'wunderpaint' ) }
+						aria-label={ __( 'Reset transform', 'wunderpaint' ) }
+						onClick={ () =>
+							up(
+								{
+									rot: 0,
+									flipX: false,
+									flipY: false,
+									quad: null,
+								},
+								__( 'Reset transform', 'wunderpaint' )
+							)
+						}
+					>
+						{ I.rotateCcw( { size: 14 } ) }
+					</button>
+				) }
 			</div>
 		</PanelSection>
 	);
@@ -938,7 +918,7 @@ function TransformSection( { layer } ) {
  * variable or an image layer to the generated background / featured image /
  * brand logo. Bound text gets a min/max font-size range for the auto-fit.
  */
-function DynamicSection( { layer } ) {
+export function DynamicSection( { layer } ) {
 	const { state, dispatch, commit } = useEditor();
 	const isText = 'text' === layer.type;
 	const kind = isText ? 'text' : 'image';
@@ -1352,21 +1332,30 @@ function ImageFitSection( { layer } ) {
 	);
 }
 
-function AppearanceSection( { layer, extras } ) {
+function AppearanceSection( { layer } ) {
 	const editor = useEditor();
 	const { dispatch, commit } = editor;
+	const selection = selectedPaintLayers( editor.state, layer );
+	const mixedWidth = mixedValue(
+		selection,
+		( item ) => strokeSettings( item ).size
+	);
+	const mixedPosition = mixedValue(
+		selection,
+		( item ) => strokeSettings( item ).position
+	);
 	const up = ( patch, label ) => {
-		const ids = sameTypeSelection( editor.state, layer );
-		if ( ids.length > 1 ) {
-			dispatch( { type: 'UPDATE_LAYERS', ids, patch } );
-		} else {
-			dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch } );
+		if (
+			updatePaintSelection(
+				editor,
+				layer,
+				typeof patch === 'function' ? patch : () => patch
+			)
+		) {
+			commit( label || __( 'Edit shape', 'wunderpaint' ) );
 		}
-		commit( label || __( 'Edit shape', 'wunderpaint' ) );
 	};
-	const ft =
-		layer.fillType ||
-		( layer.pattern && 'none' !== layer.pattern ? 'pattern' : 'solid' );
+
 	// The on-canvas grips can pull the four corners apart (v1.367), so a
 	// shape radius is a number OR an [tl,tr,br,bl] array here too. One
 	// field cannot show four values: it shows the largest and writes back
@@ -1380,137 +1369,35 @@ function AppearanceSection( { layer, extras } ) {
 			title={ __( 'Appearance', 'wunderpaint' ) }
 		>
 			<PanelGroup title={ __( 'Fill', 'wunderpaint' ) }>
-				<Field label={ __( 'Type', 'wunderpaint' ) }>
-					<SegToggle
-						value={ ft }
-						options={ [
-							[ 'solid', __( 'Solid', 'wunderpaint' ) ],
-							[ 'gradient', __( 'Gradient', 'wunderpaint' ) ],
-							[ 'pattern', __( 'Pattern', 'wunderpaint' ) ],
-						] }
-						onChange={ ( id ) =>
-							up( {
-								fillType: id,
-								...( 'gradient' === id && ! layer.gradientStops
-									? {
-											gradientStops: [
-												{
-													color:
-														layer.fill || '#3b66ff',
-													at: 0,
-												},
-												{ color: '#ff6a00', at: 1 },
-											],
-									  }
-									: {} ),
-								...( 'pattern' === id &&
-								( ! layer.pattern || 'none' === layer.pattern )
-									? { pattern: 'dots' }
-									: {} ),
-							} )
-						}
+				<Field label={ __( 'Fill', 'wunderpaint' ) }>
+					<PaintSwatch
+						layer={ layer }
+						target="fill"
+						title={ __( 'Fill', 'wunderpaint' ) }
+						onChange={ up }
 					/>
 				</Field>
-				{ 'solid' === ft && (
-					<Field label={ __( 'Color', 'wunderpaint' ) }>
-						<div
-							style={ {
-								display: 'flex',
-								gap: 6,
-								alignItems: 'center',
-							} }
-						>
-							<SwatchButton
-								color={ layer.fill }
-								onChange={ ( c ) => up( { fill: c } ) }
-							/>
-							<input
-								type="text"
-								value={ layer.fill || '' }
-								onChange={ ( e ) =>
-									up( { fill: e.target.value } )
-								}
-							/>
-						</div>
-					</Field>
-				) }
-				{ 'gradient' === ft && (
-					<GradientFillControls layer={ layer } up={ up } />
-				) }
-				{ 'pattern' === ft && (
-					<>
-						<Field label={ __( 'Pattern', 'wunderpaint' ) }>
-							<PatternSelect
-								value={ layer.pattern }
-								patternData={ layer.patternData }
-								extras={ extras }
-								onChange={ ( pattern, patternData ) =>
-									up( {
-										pattern:
-											'none' === pattern
-												? 'dots'
-												: pattern,
-										patternData,
-									} )
-								}
-							/>
-						</Field>
-						<SliderRow
-							label={ __( 'Pattern scale', 'wunderpaint' ) }
-							min={ 10 }
-							max={ 400 }
-							def={ 100 }
-							value={ Math.round(
-								( layer.patternScale || 1 ) * 100
-							) }
-							display={
-								Math.round(
-									( layer.patternScale || 1 ) * 100
-								) + '%'
-							}
-							onChange={ ( v ) =>
-								up( { patternScale: v / 100 } )
-							}
-						/>
-					</>
-				) }
 			</PanelGroup>
 			<PanelGroup title={ __( 'Stroke', 'wunderpaint' ) }>
 				<Field label={ __( 'Color', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'flex',
-							gap: 6,
-							alignItems: 'center',
-						} }
-					>
-						<SwatchButton
-							color={ layer.stroke || 'transparent' }
-							onChange={ ( c ) => up( { stroke: c } ) }
-						/>
-						<input
-							type="text"
-							placeholder="none"
-							value={ layer.stroke || '' }
-							onChange={ ( e ) =>
-								up( { stroke: e.target.value || null } )
-							}
-						/>
-					</div>
+					<PaintSwatch
+						layer={ layer }
+						target="stroke"
+						title={ __( 'Stroke', 'wunderpaint' ) }
+						onChange={ up }
+					/>
 				</Field>
 				<Field
 					label={ __( 'Width', 'wunderpaint' ) }
 					scrub={ {
-						value: layer.strokeW || 0,
+						value: strokeSettings( layer ).size,
 						min: 0,
 						onScrub: ( v ) =>
-							dispatch( {
-								type: 'UPDATE_LAYER',
-								id: layer.id,
-								patch: {
-									strokeW: Math.max( 0, Math.round( v ) ),
-								},
-							} ),
+							updatePaintSelection( editor, layer, ( item ) =>
+								strokeSettingsPatch( item, {
+									size: Math.max( 0, Math.round( v ) ),
+								} )
+							),
 						onCommit: () =>
 							commit( __( 'Edit shape', 'wunderpaint' ) ),
 					} }
@@ -1518,36 +1405,69 @@ function AppearanceSection( { layer, extras } ) {
 					<input
 						type="number"
 						min="0"
-						value={ layer.strokeW || 0 }
-						onChange={ ( e ) =>
-							up( {
-								strokeW: Math.max( 0, num( e.target.value ) ),
-							} )
+						role="spinbutton"
+						value={ mixedWidth ? '' : strokeSettings( layer ).size }
+						placeholder={
+							mixedWidth
+								? __( 'Mixed', 'wunderpaint' )
+								: undefined
 						}
+						aria-valuetext={
+							mixedWidth
+								? __( 'Mixed', 'wunderpaint' )
+								: undefined
+						}
+						onChange={ ( e ) => {
+							if ( e.target.value !== '' ) {
+								const size = Math.max(
+									0,
+									num( e.target.value )
+								);
+								up( ( item ) =>
+									strokeSettingsPatch( item, { size } )
+								);
+							}
+						} }
 					/>
 				</Field>
 				{ 'line' !== layer.shape && (
 					<Field label={ __( 'Position', 'wunderpaint' ) }>
-						<SegToggle
-							value={ strokeAlignOf( layer ) }
-							options={ [
-								[
-									'center',
-									_x(
-										'Center',
-										'stroke position',
-										'wunderpaint'
-									),
-								],
-								[ 'inside', __( 'Inside', 'wunderpaint' ) ],
-								[ 'outside', __( 'Outside', 'wunderpaint' ) ],
-							] }
-							onChange={ ( id ) =>
-								up( {
-									strokeAlign: 'center' === id ? null : id,
-								} )
-							}
-						/>
+						<div>
+							{ mixedPosition && (
+								<span className="paint-mixed-label">
+									{ __( 'Mixed', 'wunderpaint' ) }
+								</span>
+							) }
+							<SegToggle
+								value={
+									mixedPosition
+										? undefined
+										: strokeSettings( layer ).position
+								}
+								options={ [
+									[
+										'center',
+										_x(
+											'Center',
+											'stroke position',
+											'wunderpaint'
+										),
+									],
+									[ 'inside', __( 'Inside', 'wunderpaint' ) ],
+									[
+										'outside',
+										__( 'Outside', 'wunderpaint' ),
+									],
+								] }
+								onChange={ ( id ) =>
+									up( ( item ) =>
+										strokeSettingsPatch( item, {
+											position: id,
+										} )
+									)
+								}
+							/>
+						</div>
 					</Field>
 				) }
 				{ 'line' !== layer.shape && (
@@ -1914,15 +1834,36 @@ const CHAR_SELECTION_KEYS = {
 	mark: 'mark',
 };
 
-function CharacterSection( { layer, extras } ) {
+// The full Properties section keeps its existing grouping; Text has a tab of its own.
+function TextAppearanceGroup( { grouped, title, children } ) {
+	return grouped ? (
+		<PanelGroup title={ title }>{ children }</PanelGroup>
+	) : (
+		<>{ children }</>
+	);
+}
+
+export function CharacterSection( {
+	layer,
+	extras,
+	part = 'all',
+	draft = false,
+} ) {
 	const editor = useEditor();
 	const { dispatch, commit } = editor;
 	const selStyle = useSelectionStyle( extras );
+	const show = ( id ) => part === 'all' || part === id;
+	const appearanceTab = part === 'appearance';
 	const up = ( patch ) => {
+		if ( draft ) {
+			dispatch( { type: 'SET_TOOL_OPTS', tool: 'text', patch } );
+			return;
+		}
 		const rt = extras?.richText?.current;
 		const keys = Object.keys( patch );
 		if (
 			rt &&
+			rt.layerId === layer.id &&
 			keys.length &&
 			keys.every( ( k ) => CHAR_SELECTION_KEYS[ k ] )
 		) {
@@ -1954,262 +1895,311 @@ function CharacterSection( { layer, extras } ) {
 		italic: selStyle ? !! selStyle.italic : !! layer.italic,
 		underline: selStyle ? !! selStyle.underline : !! layer.underline,
 	};
+	const shadowSwatch = (
+		<SwatchButton
+			color={ layer.shadowColor || '#000000' }
+			title={ __( 'Shadow color', 'wunderpaint' ) }
+			onChange={ ( c ) => up( { shadowColor: c, shadowOn: true } ) }
+		/>
+	);
+	const radiusInput = (
+		<input
+			type="number"
+			min="0"
+			max="60"
+			value={ layer.bgRadius ?? 8 }
+			style={ { width: appearanceTab ? '100%' : 52 } }
+			title={ __( 'Corner radius', 'wunderpaint' ) }
+			onChange={ ( e ) =>
+				up( {
+					bgRadius: Math.max( 0, num( e.target.value ) ),
+				} )
+			}
+		/>
+	);
+
 	return (
 		<PanelSection
 			wsKey="props.character"
 			title={ __( 'Character', 'wunderpaint' ) }
 		>
-			<Field label={ __( 'Text', 'wunderpaint' ) } alignTop>
-				<textarea
-					value={ layer.text }
-					rows={ 2 }
-					style={ {
-						width: '100%',
-						padding: 4,
-						border: '1px solid var(--ed-border-strong)',
-						borderRadius: 3,
-						background: 'var(--ed-panel-alt)',
-						color: 'var(--ed-text)',
-						fontSize: 12,
-						fontFamily: 'var(--font-ui)',
-						resize: 'vertical',
-					} }
-					onChange={ ( e ) => up( { text: e.target.value } ) }
-				/>
-			</Field>
-			<PanelGroup title={ __( 'Font', 'wunderpaint' ) }>
-				<Field label={ __( 'Font', 'wunderpaint' ) }>
-					<FontPicker
-						value={ eff.fontFamily }
-						width="100%"
-						onChange={ ( fontFamily ) => up( { fontFamily } ) }
+			{ show( 'font' ) && ! draft && (
+				<Field label={ __( 'Text', 'wunderpaint' ) } alignTop>
+					<TextContentInput
+						layer={ layer }
+						extras={ extras }
+						onChange={ ( text ) => up( { text } ) }
 					/>
 				</Field>
-				<div className="row2">
-					<Field
-						label={ __( 'Size', 'wunderpaint' ) }
-						cols="70px 1fr"
-						scrub={
-							// Fluid Text (v1.429): the box sets the size.
-							layer.textFit
-								? undefined
-								: {
-										value: Math.round( eff.fontSize ),
-										min: 4,
-										max: 800,
-										onScrub: ( v ) => up( { fontSize: v } ),
-								  }
-						}
-					>
-						<NumExprInput
-							disabled={ !! layer.textFit }
-							value={ Math.round( eff.fontSize ) }
-							min={ 4 }
-							max={ 800 }
-							onChange={ ( v ) =>
-								up( { fontSize: Math.max( 4, v ) } )
-							}
+			) }
+			{ show( 'font' ) && (
+				<PanelGroup
+					title={
+						part === 'all' ? __( 'Font', 'wunderpaint' ) : undefined
+					}
+				>
+					<Field label={ __( 'Font', 'wunderpaint' ) }>
+						<FontPicker
+							value={ eff.fontFamily }
+							width="100%"
+							onChange={ ( fontFamily ) => up( { fontFamily } ) }
 						/>
 					</Field>
-					<Field
-						label={ __( 'Weight', 'wunderpaint' ) }
-						cols="52px 1fr"
-					>
-						<select
-							value={ eff.weight }
-							onChange={ ( e ) =>
-								up( { weight: +e.target.value } )
+					<div className="row2">
+						<Field
+							label={ __( 'Size', 'wunderpaint' ) }
+							cols="70px 1fr"
+							scrub={
+								// Fluid Text (v1.429): the box sets the size.
+								layer.textFit
+									? undefined
+									: {
+											value: Math.round( eff.fontSize ),
+											min: 4,
+											max: 800,
+											onScrub: ( v ) =>
+												up( { fontSize: v } ),
+									  }
 							}
 						>
-							{ FONT_WEIGHTS.map( ( w ) => (
-								<option key={ w } value={ w }>
-									{ w }
-								</option>
+							<NumExprInput
+								disabled={ !! layer.textFit }
+								value={ Math.round( eff.fontSize ) }
+								min={ 4 }
+								max={ 800 }
+								onChange={ ( v ) =>
+									up( { fontSize: Math.max( 4, v ) } )
+								}
+							/>
+						</Field>
+						<Field
+							label={ __( 'Weight', 'wunderpaint' ) }
+							cols="52px 1fr"
+						>
+							<select
+								value={ eff.weight }
+								onChange={ ( e ) =>
+									up( { weight: +e.target.value } )
+								}
+							>
+								{ FONT_WEIGHTS.map( ( w ) => (
+									<option key={ w } value={ w }>
+										{ w }
+									</option>
+								) ) }
+							</select>
+						</Field>
+					</div>
+					<Field label={ __( 'Style', 'wunderpaint' ) }>
+						<div
+							className="text-font-style-controls"
+							style={ {
+								display: 'grid',
+								gridTemplateColumns: 'repeat(4,1fr)',
+								gap: 2,
+							} }
+						>
+							{ [
+								[
+									'bold',
+									__( 'Bold', 'wunderpaint' ),
+									I.bold,
+									eff.weight >= 700,
+									() =>
+										up( {
+											weight:
+												eff.weight >= 700 ? 400 : 700,
+										} ),
+								],
+								[
+									'italic',
+									__( 'Italic', 'wunderpaint' ),
+									I.italic,
+									!! eff.italic,
+									() => up( { italic: ! eff.italic } ),
+								],
+								[
+									'underline',
+									__( 'Underline', 'wunderpaint' ),
+									I.underline,
+									!! eff.underline,
+									() => up( { underline: ! eff.underline } ),
+								],
+								[
+									'strike',
+									__( 'Strikethrough', 'wunderpaint' ),
+									I.strikethrough,
+									!! layer.strike,
+									() => up( { strike: ! layer.strike } ),
+								],
+								[
+									'uppercase',
+									__( 'Uppercase', 'wunderpaint' ),
+									I.caseUpper,
+									'uppercase' === layer.textTransform,
+									() =>
+										up( {
+											textTransform:
+												'uppercase' ===
+												layer.textTransform
+													? ''
+													: 'uppercase',
+										} ),
+								],
+							].map( ( [ id, label, icon, active, onClick ] ) => (
+								<button
+									key={ id }
+									title={ label }
+									aria-label={ label }
+									style={ fmtBtn( active ) }
+									onClick={ onClick }
+								>
+									{ icon( { size: 14 } ) }
+								</button>
 							) ) }
+						</div>
+					</Field>
+					<Field label={ __( 'Case', 'wunderpaint' ) }>
+						<select
+							value={ layer.textTransform || '' }
+							onChange={ ( e ) =>
+								up( { textTransform: e.target.value || '' } )
+							}
+						>
+							<option value="">
+								{ __( 'As typed', 'wunderpaint' ) }
+							</option>
+							<option value="uppercase">
+								{ __( 'Uppercase', 'wunderpaint' ) }
+							</option>
+							<option value="lowercase">
+								{ __( 'Lowercase', 'wunderpaint' ) }
+							</option>
+							<option value="capitalize">
+								{ __( 'Capitalize Words', 'wunderpaint' ) }
+							</option>
 						</select>
 					</Field>
-				</div>
-				<Field label={ __( 'Style', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'grid',
-							gridTemplateColumns: 'repeat(4,1fr)',
-							gap: 2,
-						} }
-					>
-						{ [
-							[
-								'bold',
-								__( 'Bold', 'wunderpaint' ),
-								I.bold,
-								layer.weight >= 700,
-								() =>
-									up( {
-										weight: layer.weight >= 700 ? 400 : 700,
-									} ),
-							],
-							[
-								'italic',
-								__( 'Italic', 'wunderpaint' ),
-								I.italic,
-								!! layer.italic,
-								() => up( { italic: ! layer.italic } ),
-							],
-							[
-								'underline',
-								__( 'Underline', 'wunderpaint' ),
-								I.underline,
-								!! layer.underline,
-								() => up( { underline: ! layer.underline } ),
-							],
-							[
-								'strike',
-								__( 'Strikethrough', 'wunderpaint' ),
-								I.strikethrough,
-								!! layer.strike,
-								() => up( { strike: ! layer.strike } ),
-							],
-							[
-								'uppercase',
-								__( 'Uppercase', 'wunderpaint' ),
-								I.caseUpper,
-								'uppercase' === layer.textTransform,
-								() =>
-									up( {
-										textTransform:
-											'uppercase' === layer.textTransform
-												? ''
-												: 'uppercase',
-									} ),
-							],
-						].map( ( [ id, label, icon, active, onClick ] ) => (
-							<button
-								key={ id }
-								title={ label }
-								aria-label={ label }
-								style={ fmtBtn( active ) }
-								onClick={ onClick }
-							>
-								{ icon( { size: 14 } ) }
-							</button>
-						) ) }
-					</div>
-				</Field>
-				<Field label={ __( 'Case', 'wunderpaint' ) }>
-					<select
-						value={ layer.textTransform || '' }
-						onChange={ ( e ) =>
-							up( { textTransform: e.target.value || '' } )
+				</PanelGroup>
+			) }
+			{ show( 'layout' ) && (
+				<PanelGroup title={ __( 'Paragraph', 'wunderpaint' ) }>
+					<Field
+						label={ __( 'Alignment', 'wunderpaint' ) }
+						className={
+							part === 'layout' ? 'text-alignment-field' : ''
 						}
 					>
-						<option value="">
-							{ __( 'As typed', 'wunderpaint' ) }
-						</option>
-						<option value="uppercase">
-							{ __( 'Uppercase', 'wunderpaint' ) }
-						</option>
-						<option value="lowercase">
-							{ __( 'Lowercase', 'wunderpaint' ) }
-						</option>
-						<option value="capitalize">
-							{ __( 'Capitalize Words', 'wunderpaint' ) }
-						</option>
-					</select>
-				</Field>
-				<Field label={ __( 'Alignment', 'wunderpaint' ) }>
-					<div style={ { display: 'flex', gap: 6 } }>
 						<div
-							style={ {
-								display: 'grid',
-								gridTemplateColumns: `repeat(${
-									layer.fixedWidth ? 4 : 3
-								},1fr)`,
-								gap: 2,
-								flex: 1,
-							} }
+							className="text-alignment-controls"
+							style={ { display: 'flex', gap: 6 } }
 						>
-							{ [
-								[
-									'left',
-									__( 'Align left', 'wunderpaint' ),
-									I.alignL,
-								],
-								[
-									'center',
-									__( 'Align center', 'wunderpaint' ),
-									I.alignC,
-								],
-								[
-									'right',
-									__( 'Align right', 'wunderpaint' ),
-									I.alignR,
-								],
-								// Justify only fills a fixed box; point text has nothing to stretch to.
-								...( layer.fixedWidth
-									? [
-											[
-												'justify',
-												__( 'Justify', 'wunderpaint' ),
-												I.alignJustify,
-											],
-									  ]
-									: [] ),
-							].map( ( [ align, label, icon ] ) => (
-								<button
-									key={ align }
-									aria-label={ label }
-									title={ label }
-									style={ fmtBtn( layer.align === align ) }
-									onClick={ () => up( { align } ) }
-								>
-									{ icon( { size: 14 } ) }
-								</button>
-							) ) }
+							<div
+								style={ {
+									display: 'grid',
+									gridTemplateColumns: `repeat(${
+										layer.fixedWidth ? 4 : 3
+									},1fr)`,
+									gap: 2,
+									flex: 1,
+								} }
+							>
+								{ part === 'layout' && (
+									<span className="text-alignment-label">
+										{ __( 'Horizontal', 'wunderpaint' ) }
+									</span>
+								) }
+								{ [
+									[
+										'left',
+										__( 'Align left', 'wunderpaint' ),
+										I.alignL,
+									],
+									[
+										'center',
+										__( 'Align center', 'wunderpaint' ),
+										I.alignC,
+									],
+									[
+										'right',
+										__( 'Align right', 'wunderpaint' ),
+										I.alignR,
+									],
+									// Justify only fills a fixed box; point text has nothing to stretch to.
+									...( layer.fixedWidth
+										? [
+												[
+													'justify',
+													__(
+														'Justify',
+														'wunderpaint'
+													),
+													I.alignJustify,
+												],
+										  ]
+										: [] ),
+								].map( ( [ align, label, icon ] ) => (
+									<button
+										key={ align }
+										aria-label={ label }
+										title={ label }
+										style={ fmtBtn(
+											layer.align === align
+										) }
+										onClick={ () => up( { align } ) }
+									>
+										{ icon( { size: 14 } ) }
+									</button>
+								) ) }
+							</div>
+							<div
+								style={ {
+									display: 'grid',
+									gridTemplateColumns: 'repeat(3,1fr)',
+									gap: 2,
+									flex: 1,
+								} }
+							>
+								{ part === 'layout' && (
+									<span className="text-alignment-label">
+										{ __( 'Vertical', 'wunderpaint' ) }
+									</span>
+								) }
+								{ [
+									[
+										'top',
+										__( 'Align top', 'wunderpaint' ),
+										I.valignT,
+									],
+									[
+										'middle',
+										__( 'Align middle', 'wunderpaint' ),
+										I.valignM,
+									],
+									[
+										'bottom',
+										__( 'Align bottom', 'wunderpaint' ),
+										I.valignB,
+									],
+								].map( ( [ valign, label, icon ] ) => (
+									<button
+										key={ valign }
+										aria-label={ label }
+										title={ label }
+										style={ fmtBtn(
+											( layer.valign ||
+												( layer.fixedWidth
+													? 'top'
+													: 'middle' ) ) === valign
+										) }
+										onClick={ () => up( { valign } ) }
+									>
+										{ icon( { size: 14 } ) }
+									</button>
+								) ) }
+							</div>
 						</div>
-						<div
-							style={ {
-								display: 'grid',
-								gridTemplateColumns: 'repeat(3,1fr)',
-								gap: 2,
-								flex: 1,
-							} }
-						>
-							{ [
-								[
-									'top',
-									__( 'Align top', 'wunderpaint' ),
-									I.valignT,
-								],
-								[
-									'middle',
-									__( 'Align middle', 'wunderpaint' ),
-									I.valignM,
-								],
-								[
-									'bottom',
-									__( 'Align bottom', 'wunderpaint' ),
-									I.valignB,
-								],
-							].map( ( [ valign, label, icon ] ) => (
-								<button
-									key={ valign }
-									aria-label={ label }
-									title={ label }
-									style={ fmtBtn(
-										( layer.valign ||
-											( layer.fixedWidth
-												? 'top'
-												: 'middle' ) ) === valign
-									) }
-									onClick={ () => up( { valign } ) }
-								>
-									{ icon( { size: 14 } ) }
-								</button>
-							) ) }
-						</div>
-					</div>
-				</Field>
-				{ canFluidText( layer ) && (
+					</Field>
 					<Field label={ __( 'Fluid Text', 'wunderpaint' ) }>
 						<label
 							style={ {
@@ -2223,710 +2213,420 @@ function CharacterSection( { layer, extras } ) {
 							<input
 								type="checkbox"
 								checked={ !! layer.textFit }
-								onChange={ () => toggleFluidTextOp( editor ) }
+								disabled={ ! canFluidText( layer ) }
+								aria-label={ __( 'Fluid Text', 'wunderpaint' ) }
+								onChange={ () =>
+									draft
+										? up( {
+												textFit: layer.textFit
+													? null
+													: 'fluid',
+										  } )
+										: toggleFluidTextOp( editor )
+								}
 							/>
-							{ __(
-								'The text fills the box, line by line.',
-								'wunderpaint'
-							) }
+							{ part === 'all' &&
+								__(
+									'The text fills the box, line by line.',
+									'wunderpaint'
+								) }
 						</label>
 					</Field>
-				) }
-				<Field label={ __( 'List', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'grid',
-							gridTemplateColumns: 'repeat(3,1fr)',
-							gap: 2,
-							width: 100,
-						} }
-					>
-						{ [
-							[ '', __( 'No list', 'wunderpaint' ), '\u2013' ],
-							[
-								'bullet',
-								__( 'Bullet list', 'wunderpaint' ),
-								'\u2022',
-							],
-							[
-								'number',
-								__( 'Numbered list', 'wunderpaint' ),
-								'1.',
-							],
-						].map( ( [ val, label, glyph ] ) => (
-							<button
-								key={ label }
-								aria-label={ label }
-								title={ label }
-								style={ {
-									...fmtBtn(
-										( layer.listStyle || '' ) === val
-									),
-									fontSize: 12,
-									fontWeight: 700,
-								} }
-								onClick={ () =>
-									up( { listStyle: val || null } )
-								}
-							>
-								{ glyph }
-							</button>
-						) ) }
-					</div>
-				</Field>
-			</PanelGroup>
-			<PanelGroup title={ __( 'Fill', 'wunderpaint' ) }>
-				<Field label={ __( 'Type', 'wunderpaint' ) }>
-					<SegToggle
-						value={ layer.fillType || 'solid' }
-						options={ [
-							[ 'solid', __( 'Solid', 'wunderpaint' ) ],
-							[ 'gradient', __( 'Gradient', 'wunderpaint' ) ],
-							[ 'pattern', __( 'Pattern', 'wunderpaint' ) ],
-						] }
-						onChange={ ( id ) =>
-							up( {
-								fillType: id,
-								...( 'gradient' === id && ! layer.gradientStops
-									? {
-											gradientStops: [
-												{
-													color:
-														layer.color ||
-														'#3b66ff',
-													at: 0,
-												},
-												{ color: '#ff6a00', at: 1 },
-											],
-									  }
-									: {} ),
-								...( 'pattern' === id &&
-								( ! layer.pattern || 'none' === layer.pattern )
-									? { pattern: 'dots' }
-									: {} ),
-							} )
+					<Field label={ __( 'List', 'wunderpaint' ) }>
+						<div
+							className="text-list-controls"
+							style={ {
+								display: 'grid',
+								gridTemplateColumns: 'repeat(3,1fr)',
+								gap: 2,
+								width: 100,
+							} }
+						>
+							{ [
+								[
+									'',
+									__( 'No list', 'wunderpaint' ),
+									'\u2013',
+								],
+								[
+									'bullet',
+									__( 'Bullet list', 'wunderpaint' ),
+									'\u2022',
+								],
+								[
+									'number',
+									__( 'Numbered list', 'wunderpaint' ),
+									'1.',
+								],
+							].map( ( [ val, label, glyph ] ) => (
+								<button
+									key={ label }
+									aria-label={ label }
+									title={ label }
+									style={ {
+										...fmtBtn(
+											( layer.listStyle || '' ) === val
+										),
+										fontSize: 12,
+										fontWeight: 700,
+									} }
+									onClick={ () =>
+										up( { listStyle: val || null } )
+									}
+								>
+									{ glyph }
+								</button>
+							) ) }
+						</div>
+					</Field>
+				</PanelGroup>
+			) }
+			{ show( 'appearance' ) && (
+				<PanelGroup title={ __( 'Fill', 'wunderpaint' ) }>
+					<Field
+						label={
+							appearanceTab
+								? __( 'Color', 'wunderpaint' )
+								: __( 'Fill', 'wunderpaint' )
 						}
+					>
+						<PaintSwatch
+							layer={ layer }
+							target="fill"
+							title={ __( 'Fill', 'wunderpaint' ) }
+							onChange={ up }
+						/>
+					</Field>
+				</PanelGroup>
+			) }
+			{ show( 'layout' ) && (
+				<PanelGroup title={ __( 'Spacing', 'wunderpaint' ) }>
+					<SliderRow
+						label={ __( 'Tracking', 'wunderpaint' ) }
+						min={ -10 }
+						max={ 40 }
+						value={ eff.letterSpacing }
+						onChange={ ( v ) => up( { letterSpacing: v } ) }
 					/>
-				</Field>
-				{ 'gradient' === ( layer.fillType || 'solid' ) && (
-					<GradientFillControls layer={ layer } up={ up } />
-				) }
-				{ 'pattern' === ( layer.fillType || 'solid' ) && (
-					<>
-						<Field label={ __( 'Pattern', 'wunderpaint' ) }>
-							<PatternSelect
-								value={ layer.pattern }
-								patternData={ layer.patternData }
-								extras={ extras }
-								onChange={ ( pattern, patternData ) =>
+					<SliderRow
+						label={ __( 'Line height', 'wunderpaint' ) }
+						def={ 1.05 }
+						min={ 0.7 }
+						max={ 2.5 }
+						step={ 0.05 }
+						value={ layer.lineHeight || 1.05 }
+						onChange={ ( v ) => up( { lineHeight: v } ) }
+					/>
+					<SliderRow
+						label={ __( 'Paragraph spacing', 'wunderpaint' ) }
+						min={ 0 }
+						max={ 200 }
+						def={ 0 }
+						value={ Math.round( layer.paragraphSpacing || 0 ) }
+						display={ `${ Math.round(
+							layer.paragraphSpacing || 0
+						) } px` }
+						onChange={ ( v ) => up( { paragraphSpacing: v } ) }
+					/>
+				</PanelGroup>
+			) }
+			{ show( 'layout' ) && (
+				<PanelGroup title={ __( 'Curve & Path', 'wunderpaint' ) }>
+					{ ! layer.textPath && (
+						<SliderRow
+							label={ __( 'Curve', 'wunderpaint' ) }
+							min={ -100 }
+							max={ 100 }
+							value={ layer.curve || 0 }
+							onChange={ ( v ) => up( { curve: v } ) }
+						/>
+					) }
+					{ layer.textPath && (
+						<>
+							<SliderRow
+								label={ __( 'Path start', 'wunderpaint' ) }
+								min={ -100 }
+								max={ 100 }
+								value={ layer.textPath.start || 0 }
+								onChange={ ( v ) =>
 									up( {
-										pattern:
-											'none' === pattern
-												? 'dots'
-												: pattern,
-										patternData,
+										textPath: {
+											...layer.textPath,
+											start: v,
+										},
 									} )
 								}
 							/>
-						</Field>
-						<SliderRow
-							label={ __( 'Pattern scale', 'wunderpaint' ) }
-							min={ 10 }
-							max={ 400 }
-							def={ 100 }
-							value={ Math.round(
-								( layer.patternScale || 1 ) * 100
-							) }
-							display={
-								Math.round(
-									( layer.patternScale || 1 ) * 100
-								) + '%'
-							}
-							onChange={ ( v ) =>
-								up( { patternScale: v / 100 } )
-							}
-						/>
-					</>
-				) }
-				<Field label={ __( 'Color', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'flex',
-							gap: 6,
-							alignItems: 'center',
-						} }
+							<Field label={ __( 'Text path', 'wunderpaint' ) }>
+								<div
+									style={ {
+										display: 'flex',
+										gap: 6,
+										flexWrap: 'wrap',
+									} }
+								>
+									<button
+										className="ai-btn secondary"
+										onClick={ () =>
+											up( {
+												textPath: {
+													...layer.textPath,
+													flip: ! layer.textPath.flip,
+												},
+											} )
+										}
+									>
+										{ __(
+											'Reverse direction',
+											'wunderpaint'
+										) }
+									</button>
+									<button
+										className="ai-btn secondary"
+										onClick={ () =>
+											up( { textPath: null } )
+										}
+									>
+										{ __(
+											'Detach from path',
+											'wunderpaint'
+										) }
+									</button>
+								</div>
+							</Field>
+						</>
+					) }
+				</PanelGroup>
+			) }
+			{ show( 'appearance' ) && (
+				<TextAppearanceGroup
+					grouped={ ! appearanceTab }
+					title={ __( 'Decorations', 'wunderpaint' ) }
+				>
+					<TextAppearanceGroup
+						grouped={ appearanceTab }
+						title={ __( 'Stroke', 'wunderpaint' ) }
 					>
-						<SwatchButton
-							color={ eff.color }
-							onChange={ ( c ) => up( { color: c } ) }
+						<StrokeControls
+							layer={ layer }
+							onChange={ up }
+							stacked={ appearanceTab }
 						/>
-						<input
-							type="text"
-							value={ eff.color }
-							onChange={ ( e ) =>
-								up( { color: e.target.value } )
+					</TextAppearanceGroup>
+					<TextAppearanceGroup
+						grouped={ appearanceTab }
+						title={ __( 'Marker', 'wunderpaint' ) }
+					>
+						<Field
+							label={
+								appearanceTab
+									? __( 'Color', 'wunderpaint' )
+									: __( 'Marker', 'wunderpaint' )
 							}
-						/>
-					</div>
-				</Field>
-			</PanelGroup>
-			<PanelGroup title={ __( 'Spacing', 'wunderpaint' ) }>
-				<SliderRow
-					label={ __( 'Tracking', 'wunderpaint' ) }
-					min={ -10 }
-					max={ 40 }
-					value={ eff.letterSpacing }
-					onChange={ ( v ) => up( { letterSpacing: v } ) }
-				/>
-				<SliderRow
-					label={ __( 'Line height', 'wunderpaint' ) }
-					min={ 0.7 }
-					max={ 2.5 }
-					step={ 0.05 }
-					value={ layer.lineHeight || 1.05 }
-					onChange={ ( v ) => up( { lineHeight: v } ) }
-				/>
-				<SliderRow
-					label={ __( 'Paragraph spacing', 'wunderpaint' ) }
-					min={ 0 }
-					max={ 200 }
-					def={ 0 }
-					value={ Math.round( layer.paragraphSpacing || 0 ) }
-					display={ `${ Math.round(
-						layer.paragraphSpacing || 0
-					) } px` }
-					onChange={ ( v ) => up( { paragraphSpacing: v } ) }
-				/>
-			</PanelGroup>
-			<PanelGroup title={ __( 'Curve & Path', 'wunderpaint' ) }>
-				{ ! layer.textPath && (
-					<SliderRow
-						label={ __( 'Curve', 'wunderpaint' ) }
-						min={ -100 }
-						max={ 100 }
-						value={ layer.curve || 0 }
-						onChange={ ( v ) => up( { curve: v } ) }
-					/>
-				) }
-				{ layer.textPath && (
-					<>
-						<SliderRow
-							label={ __( 'Path start', 'wunderpaint' ) }
-							min={ -100 }
-							max={ 100 }
-							value={ layer.textPath.start || 0 }
-							onChange={ ( v ) =>
-								up( {
-									textPath: { ...layer.textPath, start: v },
-								} )
-							}
-						/>
-						<Field label={ __( 'Text path', 'wunderpaint' ) }>
+						>
 							<div
 								style={ {
 									display: 'flex',
 									gap: 6,
-									flexWrap: 'wrap',
+									alignItems: 'center',
 								} }
 							>
-								<button
-									className="ai-btn secondary"
-									onClick={ () =>
-										up( {
-											textPath: {
-												...layer.textPath,
-												flip: ! layer.textPath.flip,
-											},
-										} )
+								<SwatchButton
+									color={
+										selStyle
+											? selStyle.mark || 'transparent'
+											: layer.textFX?.marker?.color ||
+											  'transparent'
 									}
-								>
-									{ __( 'Reverse direction', 'wunderpaint' ) }
-								</button>
-								<button
-									className="ai-btn secondary"
-									onClick={ () => up( { textPath: null } ) }
-								>
-									{ __( 'Detach from path', 'wunderpaint' ) }
-								</button>
+									title={ __(
+										'Marker color',
+										'wunderpaint'
+									) }
+									onChange={ ( c ) => {
+										const rt = extras?.richText?.current;
+										if ( rt && selStyle ) {
+											rt.applyStyle( { mark: c } );
+											return;
+										}
+										up( {
+											textFX: {
+												...( layer.textFX || {} ),
+												marker: {
+													...( layer.textFX
+														?.marker || {
+														rough: 4,
+														seed: 1,
+													} ),
+													color: c,
+												},
+											},
+										} );
+									} }
+								/>
+								{ ( selStyle
+									? !! selStyle.mark
+									: !! layer.textFX?.marker ) && (
+									<button
+										className="ai-btn secondary"
+										style={ {
+											padding: '2px 8px',
+											fontSize: 11,
+										} }
+										onClick={ () => {
+											const rt =
+												extras?.richText?.current;
+											if ( rt && selStyle ) {
+												rt.applyStyle( { mark: null } );
+												return;
+											}
+											up( {
+												textFX: {
+													...( layer.textFX || {} ),
+													marker: null,
+												},
+											} );
+										} }
+									>
+										{ __( 'Remove', 'wunderpaint' ) }
+									</button>
+								) }
+								{ ! appearanceTab && (
+									<span
+										style={ {
+											fontSize: 11,
+											color: 'var(--ed-text-muted)',
+										} }
+									>
+										{ selStyle
+											? __(
+													'Marks the selected words.',
+													'wunderpaint'
+											  )
+											: __(
+													'Marks whole lines. Select words while editing to mark only them.',
+													'wunderpaint'
+											  ) }
+									</span>
+								) }
 							</div>
 						</Field>
-					</>
-				) }
-			</PanelGroup>
-			<PanelGroup title={ __( 'Decorations', 'wunderpaint' ) }>
-				<Field label={ __( 'Outline', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'flex',
-							gap: 6,
-							alignItems: 'center',
-						} }
+					</TextAppearanceGroup>
+
+					<TextAppearanceGroup
+						grouped={ appearanceTab }
+						title={ __( 'Background', 'wunderpaint' ) }
 					>
-						<SwatchButton
-							color={ layer.outlineColor || 'transparent' }
-							title={ __( 'Outline color', 'wunderpaint' ) }
-							onChange={ ( c ) =>
-								up( {
-									outlineColor: c,
-									outlineW:
-										layer.outlineW ||
-										Math.max(
-											2,
-											Math.round( layer.fontSize / 12 )
-										),
-								} )
-							}
-						/>
-						<input
-							type="number"
-							min="0"
-							max="60"
-							value={ layer.outlineW || 0 }
-							style={ { width: 52 } }
-							onChange={ ( e ) =>
-								up( {
-									outlineW: Math.max(
-										0,
-										num( e.target.value )
-									),
-								} )
-							}
-						/>
-						<span
-							style={ {
-								fontSize: 11,
-								color: 'var(--ed-text-muted)',
-							} }
-						>
-							px
-						</span>
-						<select
-							title={ __( 'Stroke style', 'wunderpaint' ) }
-							value={ layer.outlineDash || 'solid' }
-							style={ { width: 0, flex: 1, minWidth: 64 } }
-							onChange={ ( e ) =>
-								up( {
-									outlineDash:
-										'solid' === e.target.value
-											? null
-											: e.target.value,
-								} )
+						<Field
+							label={
+								appearanceTab
+									? __( 'Color', 'wunderpaint' )
+									: __( 'Background', 'wunderpaint' )
 							}
 						>
-							<option value="solid">
-								{ _x( 'Solid', 'stroke style', 'wunderpaint' ) }
-							</option>
-							<option value="dashed">
-								{ __( 'Dashed', 'wunderpaint' ) }
-							</option>
-							<option value="dotted">
-								{ __( 'Dotted', 'wunderpaint' ) }
-							</option>
-						</select>
-					</div>
-				</Field>
-				{ [ 'dashed', 'dotted' ].includes( layer.outlineDash ) && (
-					<Field label={ __( 'Dash', 'wunderpaint' ) }>
-						<div
+							<div
+								style={ {
+									display: 'flex',
+									gap: 6,
+									alignItems: 'center',
+								} }
+							>
+								<SwatchButton
+									color={ layer.bgColor || 'transparent' }
+									title={ __(
+										'Background pill color',
+										'wunderpaint'
+									) }
+									onChange={ ( c ) => up( { bgColor: c } ) }
+								/>
+								<button
+									className="ai-btn secondary"
+									style={ {
+										padding: '2px 8px',
+										fontSize: 11,
+									} }
+									disabled={ ! layer.bgColor }
+									onClick={ () => up( { bgColor: null } ) }
+								>
+									{ __( 'None', 'wunderpaint' ) }
+								</button>
+								{ ! appearanceTab && radiusInput }
+							</div>
+						</Field>
+						{ appearanceTab && (
+							<Field
+								label={ __( 'Corner radius', 'wunderpaint' ) }
+							>
+								{ radiusInput }
+							</Field>
+						) }
+					</TextAppearanceGroup>
+					<TextAppearanceGroup
+						grouped={ appearanceTab }
+						title={ __( 'Text shadow', 'wunderpaint' ) }
+					>
+						<Field
+							label={
+								appearanceTab
+									? __( 'Enabled', 'wunderpaint' )
+									: __( 'Shadow', 'wunderpaint' )
+							}
+						>
+							<div
+								style={ {
+									display: 'flex',
+									gap: 6,
+									alignItems: 'center',
+								} }
+							>
+								<input
+									type="checkbox"
+									checked={ !! layer.shadowOn }
+									data-text-setting="shadow"
+									aria-label={ __(
+										'Text shadow',
+										'wunderpaint'
+									) }
+									onChange={ ( e ) =>
+										up( { shadowOn: e.target.checked } )
+									}
+								/>
+								{ ! appearanceTab && shadowSwatch }
+							</div>
+						</Field>
+						{ appearanceTab && (
+							<Field label={ __( 'Color', 'wunderpaint' ) }>
+								{ shadowSwatch }
+							</Field>
+						) }
+					</TextAppearanceGroup>
+					{ layer.rasterFallback && (
+						<label
 							style={ {
 								display: 'flex',
 								gap: 6,
-								alignItems: 'center',
+								fontSize: 11,
+								color: 'var(--ed-text-dim)',
+								padding: '4px 0',
 							} }
 						>
-							{ 'dashed' === layer.outlineDash && (
-								<input
-									type="number"
-									min="1"
-									title={ __( 'Dash', 'wunderpaint' ) }
-									value={ Math.round(
-										layer.outlineDashLen ??
-											dashDefaults(
-												'dashed',
-												layer.outlineW
-											).len
-									) }
-									style={ { width: 52 } }
-									onChange={ ( e ) =>
-										up( {
-											outlineDashLen: Math.max(
-												1,
-												num( e.target.value )
-											),
-										} )
-									}
-								/>
-							) }
-							<span
-								style={ {
-									fontSize: 11,
-									color: 'var(--ed-text-muted)',
-								} }
-							>
-								{ __( 'Gap', 'wunderpaint' ) }
-							</span>
 							<input
-								type="number"
-								min="1"
-								title={ __( 'Gap', 'wunderpaint' ) }
-								value={ Math.round(
-									layer.outlineDashGap ??
-										dashDefaults(
-											layer.outlineDash,
-											layer.outlineW
-										).gap
-								) }
-								style={ { width: 52 } }
-								onChange={ ( e ) =>
+								type="checkbox"
+								checked={ !! layer.useRasterFallback }
+								onChange={ () =>
 									up( {
-										outlineDashGap: Math.max(
-											1,
-											num( e.target.value )
-										),
+										useRasterFallback:
+											! layer.useRasterFallback,
 									} )
 								}
 							/>
-						</div>
-					</Field>
-				) }
-				<Field label={ __( 'Marker', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'flex',
-							gap: 6,
-							alignItems: 'center',
-						} }
-					>
-						<SwatchButton
-							color={
-								selStyle
-									? selStyle.mark || 'transparent'
-									: layer.textFX?.marker?.color ||
-									  'transparent'
-							}
-							title={ __( 'Marker color', 'wunderpaint' ) }
-							onChange={ ( c ) => {
-								const rt = extras?.richText?.current;
-								if ( rt && selStyle ) {
-									rt.applyStyle( { mark: c } );
-									return;
-								}
-								up( {
-									textFX: {
-										...( layer.textFX || {} ),
-										marker: {
-											...( layer.textFX?.marker || {
-												rough: 4,
-												seed: 1,
-											} ),
-											color: c,
-										},
-									},
-								} );
-							} }
-						/>
-						{ ( selStyle
-							? !! selStyle.mark
-							: !! layer.textFX?.marker ) && (
-							<button
-								className="ai-btn secondary"
-								style={ { padding: '2px 8px', fontSize: 11 } }
-								onClick={ () => {
-									const rt = extras?.richText?.current;
-									if ( rt && selStyle ) {
-										rt.applyStyle( { mark: null } );
-										return;
-									}
-									up( {
-										textFX: {
-											...( layer.textFX || {} ),
-											marker: null,
-										},
-									} );
-								} }
-							>
-								{ __( 'Remove', 'wunderpaint' ) }
-							</button>
-						) }
-						<span
-							style={ {
-								fontSize: 11,
-								color: 'var(--ed-text-muted)',
-							} }
-						>
-							{ selStyle
-								? __(
-										'Marks the selected words.',
-										'wunderpaint'
-								  )
-								: __(
-										'Marks whole lines. Select words while editing to mark only them.',
-										'wunderpaint'
-								  ) }
-						</span>
-					</div>
-				</Field>
-				<Field label={ __( 'Shadow', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'flex',
-							gap: 6,
-							alignItems: 'center',
-						} }
-					>
-						<input
-							type="checkbox"
-							checked={ !! layer.shadowOn }
-							aria-label={ __( 'Text shadow', 'wunderpaint' ) }
-							onChange={ ( e ) =>
-								up( { shadowOn: e.target.checked } )
-							}
-						/>
-						<SwatchButton
-							color={ layer.shadowColor || '#000000' }
-							title={ __( 'Shadow color', 'wunderpaint' ) }
-							onChange={ ( c ) =>
-								up( { shadowColor: c, shadowOn: true } )
-							}
-						/>
-					</div>
-				</Field>
-				<Field label={ __( 'Background', 'wunderpaint' ) }>
-					<div
-						style={ {
-							display: 'flex',
-							gap: 6,
-							alignItems: 'center',
-						} }
-					>
-						<SwatchButton
-							color={ layer.bgColor || 'transparent' }
-							title={ __(
-								'Background pill color',
+							{ __(
+								'Show original rasterized look (PSD import)',
 								'wunderpaint'
 							) }
-							onChange={ ( c ) => up( { bgColor: c } ) }
-						/>
-						<button
-							className="ai-btn secondary"
-							style={ { padding: '2px 8px', fontSize: 11 } }
-							disabled={ ! layer.bgColor }
-							onClick={ () => up( { bgColor: null } ) }
-						>
-							{ __( 'None', 'wunderpaint' ) }
-						</button>
-						<input
-							type="number"
-							min="0"
-							max="60"
-							value={ layer.bgRadius ?? 8 }
-							style={ { width: 52 } }
-							title={ __( 'Corner radius', 'wunderpaint' ) }
-							onChange={ ( e ) =>
-								up( {
-									bgRadius: Math.max(
-										0,
-										num( e.target.value )
-									),
-								} )
-							}
-						/>
-					</div>
-				</Field>
-				{ layer.rasterFallback && (
-					<label
-						style={ {
-							display: 'flex',
-							gap: 6,
-							fontSize: 11,
-							color: 'var(--ed-text-dim)',
-							padding: '4px 0',
-						} }
-					>
-						<input
-							type="checkbox"
-							checked={ !! layer.useRasterFallback }
-							onChange={ () =>
-								up( {
-									useRasterFallback:
-										! layer.useRasterFallback,
-								} )
-							}
-						/>
-						{ __(
-							'Show original rasterized look (PSD import)',
-							'wunderpaint'
-						) }
-					</label>
-				) }
-			</PanelGroup>
-		</PanelSection>
-	);
-}
-
-function GradientSection( { layer } ) {
-	const { dispatch, commit } = useEditor();
-	const up = ( patch ) => {
-		dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch } );
-		commit( __( 'Edit gradient', 'wunderpaint' ) );
-	};
-	// The gradient direction is stored as from/to points; expose it as an angle
-	// (like text/shape gradient fills) for linear gradients.
-	const gradAngle = () => {
-		const fx = layer.from?.x ?? layer.x;
-		const fy = layer.from?.y ?? layer.y;
-		const tx = layer.to?.x ?? layer.x + layer.w;
-		const ty = layer.to?.y ?? layer.y + layer.h;
-		const a = Math.round(
-			( Math.atan2( ty - fy, tx - fx ) * 180 ) / Math.PI
-		);
-		return a < 0 ? a + 360 : a;
-	};
-	const setGradAngle = ( deg ) => {
-		const rad = ( deg * Math.PI ) / 180;
-		const cx = layer.x + layer.w / 2;
-		const cy = layer.y + layer.h / 2;
-		const half =
-			( Math.abs( layer.w * Math.cos( rad ) ) +
-				Math.abs( layer.h * Math.sin( rad ) ) ) /
-			2;
-		const dx = Math.cos( rad ) * half;
-		const dy = Math.sin( rad ) * half;
-		up( {
-			from: { x: Math.round( cx - dx ), y: Math.round( cy - dy ) },
-			to: { x: Math.round( cx + dx ), y: Math.round( cy + dy ) },
-		} );
-	};
-	// Radial gradients (the template vignettes!) store center + radius as
-	// from/to points; expose them as sliders (v1.256.0) - before, a
-	// radial layer had no way to adjust its reach or center in the UI.
-	const radial = 'radial' === layer.kind;
-	const radialR = () => {
-		const fx = layer.from?.x ?? layer.x + layer.w / 2;
-		const fy = layer.from?.y ?? layer.y + layer.h / 2;
-		const tx = layer.to?.x ?? layer.x + layer.w;
-		const ty = layer.to?.y ?? fy;
-		return Math.max( 1, Math.hypot( tx - fx, ty - fy ) );
-	};
-	const setRadial = ( part ) => {
-		const cx =
-			part.cx ??
-			( ( layer.from?.x ?? layer.x + layer.w / 2 ) - layer.x ) / layer.w;
-		const cy =
-			part.cy ??
-			( ( layer.from?.y ?? layer.y + layer.h / 2 ) - layer.y ) / layer.h;
-		const r = part.r ?? radialR();
-		const fx = layer.x + cx * layer.w;
-		const fy = layer.y + cy * layer.h;
-		up( {
-			from: { x: Math.round( fx ), y: Math.round( fy ) },
-			to: { x: Math.round( fx + r ), y: Math.round( fy ) },
-		} );
-	};
-	const maxR = Math.ceil( Math.hypot( layer.w || 1, layer.h || 1 ) );
-	return (
-		<PanelSection
-			wsKey="props.gradient"
-			title={ __( 'Gradient', 'wunderpaint' ) }
-		>
-			<Field label={ __( 'Kind', 'wunderpaint' ) }>
-				<select
-					value={ layer.kind }
-					onChange={ ( e ) => up( { kind: e.target.value } ) }
-				>
-					<option value="linear">
-						{ __( 'Linear', 'wunderpaint' ) }
-					</option>
-					<option value="radial">
-						{ __( 'Radial', 'wunderpaint' ) }
-					</option>
-					<option value="angle">
-						{ __( 'Angle', 'wunderpaint' ) }
-					</option>
-				</select>
-			</Field>
-			{ radial && (
-				<>
-					<Field label={ __( 'Size', 'wunderpaint' ) }>
-						<input
-							type="range"
-							min="1"
-							max={ maxR }
-							value={ Math.round( radialR() ) }
-							onChange={ ( e ) =>
-								setRadial( { r: +e.target.value } )
-							}
-						/>
-						<span style={ { minWidth: 34, textAlign: 'right' } }>
-							{ Math.round( ( radialR() / maxR ) * 100 ) }%
-						</span>
-					</Field>
-					<Field label={ __( 'Center X', 'wunderpaint' ) }>
-						<input
-							type="range"
-							min="0"
-							max="100"
-							value={ Math.round(
-								( ( ( layer.from?.x ?? layer.x + layer.w / 2 ) -
-									layer.x ) /
-									( layer.w || 1 ) ) *
-									100
-							) }
-							onChange={ ( e ) =>
-								setRadial( { cx: +e.target.value / 100 } )
-							}
-						/>
-					</Field>
-					<Field label={ __( 'Center Y', 'wunderpaint' ) }>
-						<input
-							type="range"
-							min="0"
-							max="100"
-							value={ Math.round(
-								( ( ( layer.from?.y ?? layer.y + layer.h / 2 ) -
-									layer.y ) /
-									( layer.h || 1 ) ) *
-									100
-							) }
-							onChange={ ( e ) =>
-								setRadial( { cy: +e.target.value / 100 } )
-							}
-						/>
-					</Field>
-				</>
+						</label>
+					) }
+				</TextAppearanceGroup>
 			) }
-			{ 'linear' === layer.kind && (
-				<Field label={ __( 'Angle', 'wunderpaint' ) }>
-					<input
-						type="range"
-						min="0"
-						max="360"
-						value={ gradAngle() }
-						onChange={ ( e ) => setGradAngle( +e.target.value ) }
-					/>
-					<span style={ { minWidth: 34, textAlign: 'right' } }>
-						{ gradAngle() }°
-					</span>
-				</Field>
-			) }
-			<div style={ { margin: '8px 0' } }>
-				<GradientBar
-					stops={ layer.stops }
-					onChange={ ( stops ) => up( { stops } ) }
-				/>
-			</div>
-			<button
-				className="ai-btn secondary"
-				onClick={ () =>
-					up( {
-						stops: layer.stops
-							.map( ( s ) => ( { ...s, at: 1 - s.at } ) )
-							.sort( ( a, b ) => a.at - b.at ),
-					} )
-				}
-			>
-				{ I.swap( { size: 13 } ) } { __( 'Reverse', 'wunderpaint' ) }
-			</button>
 		</PanelSection>
 	);
 }
@@ -3010,7 +2710,8 @@ function SmartObjectSection( { layer, extras } ) {
 							{ def?.label || sf.id }
 						</span>
 						<button
-							className="icon-btn"
+							className="dsm-mini"
+							aria-label={ __( 'Move up', 'wunderpaint' ) }
 							title={ __( 'Move up', 'wunderpaint' ) }
 							disabled={ 0 === i }
 							onClick={ () => {
@@ -3028,7 +2729,8 @@ function SmartObjectSection( { layer, extras } ) {
 							{ I.arrUp( { size: 12 } ) }
 						</button>
 						<button
-							className="icon-btn"
+							className="dsm-mini danger"
+							aria-label={ __( 'Remove', 'wunderpaint' ) }
 							title={ __( 'Remove', 'wunderpaint' ) }
 							onClick={ () =>
 								updateFilters(
@@ -3113,7 +2815,7 @@ function SmartObjectSection( { layer, extras } ) {
 
 /* --------------------------- Blending Options --------------------------- */
 
-const STYLE_DEFAULTS = {
+export const STYLE_DEFAULTS = {
 	stroke: { size: 3, color: '#000000', position: 'outside', opacity: 1 },
 	dropShadow: {
 		color: '#000000',
@@ -3152,7 +2854,7 @@ const STYLE_DEFAULTS = {
 	},
 };
 
-const STYLE_LABELS = {
+export const STYLE_LABELS = {
 	stroke: __( 'Stroke', 'wunderpaint' ),
 	dropShadow: __( 'Drop Shadow', 'wunderpaint' ),
 	innerShadow: __( 'Inner Shadow', 'wunderpaint' ),
@@ -3165,10 +2867,26 @@ const STYLE_LABELS = {
 	gradientOverlay: __( 'Gradient Overlay', 'wunderpaint' ),
 };
 
-function StyleParams( { value, onChange, extras } ) {
+function StyleParams( { kind, layer, value, onChange, extras } ) {
+	const editor = useEditor();
+	if ( kind === 'stroke' && isPaintLayer( layer ) ) {
+		return (
+			<StrokeControls
+				layer={ layer }
+				onChange={ ( patch ) => {
+					editor.dispatch( {
+						type: 'UPDATE_LAYER',
+						id: layer.id,
+						patch,
+					} );
+					editor.commit( __( 'Stroke', 'wunderpaint' ) );
+				} }
+			/>
+		);
+	}
 	const set = ( key, v ) => onChange( { ...value, [ key ]: v } );
 	return (
-		<div style={ { padding: '2px 0 6px 20px' } }>
+		<div className="style-params" style={ { padding: '2px 0 6px 20px' } }>
 			{ 'color' in value && (
 				<Field label={ __( 'Color', 'wunderpaint' ) }>
 					<SwatchButton
@@ -3178,10 +2896,10 @@ function StyleParams( { value, onChange, extras } ) {
 				</Field>
 			) }
 			{ 'stops' in value && (
-				<GradientBar
-					stops={ value.stops }
-					onChange={ ( stops ) => set( 'stops', stops ) }
-					width={ 200 }
+				<RampSwatch
+					paint={ value }
+					title={ STYLE_LABELS[ kind ] }
+					onChange={ ( patch ) => onChange( { ...value, ...patch } ) }
 				/>
 			) }
 			{ 'opacity' in value && (
@@ -3314,94 +3032,160 @@ function StyleParams( { value, onChange, extras } ) {
 	);
 }
 
-export function BlendingOptionsSection( { layer, extras } ) {
+/**
+ * The layer patch that switches one layer style on (a value) or off (null).
+ * A paint layer without an effect stroke keeps its native outline as its
+ * Stroke; every other style lands in `styles`. Shared by the Blending
+ * Options and the title-bar search (v1.434), so both switch a style the same
+ * way.
+ *
+ * @param {Object}      layer The layer.
+ * @param {string}      kind  A key of STYLE_DEFAULTS.
+ * @param {Object|null} value The style settings, or null to remove it.
+ * @return {Object} Patch for UPDATE_LAYER.
+ */
+export function layerStylePatch( layer, kind, value ) {
+	if (
+		kind === 'stroke' &&
+		isPaintLayer( layer ) &&
+		! hasEffectStroke( layer )
+	) {
+		return value
+			? {
+					...layerPaintPatch( layer, 'stroke', {
+						color: value.color,
+					} ),
+					...strokeSettingsPatch( layer, {
+						size: value.size,
+						position: value.position,
+					} ),
+			  }
+			: strokeSettingsPatch( layer, { size: 0 } );
+	}
+	return {
+		styles: {
+			stroke: null,
+			dropShadow: null,
+			innerShadow: null,
+			outerGlow: null,
+			colorOverlay: null,
+			gradientOverlay: null,
+			innerGlow: null,
+			bevel: null,
+			satin: null,
+			patternOverlay: null,
+			// The UI also projects a native outline as a checked Stroke.
+			// Persist only actual layer effects, never that display projection.
+			...layer.styles,
+			[ kind ]: value,
+		},
+	};
+}
+
+export function BlendingOptionsSection( {
+	layer,
+	extras,
+	includeStroke = true,
+	defaultOpen = true,
+	embedded = false,
+} ) {
+	const kinds = Object.keys( STYLE_DEFAULTS ).filter(
+		( kind ) => includeStroke || kind !== 'stroke'
+	);
 	const { dispatch, commit } = useEditor();
-	const styles = layer.styles || {};
+	const nativeStroke = isPaintLayer( layer ) && ! hasEffectStroke( layer );
+	const styles = {
+		...layer.styles,
+		...( nativeStroke && strokeSettings( layer ).size > 0
+			? {
+					stroke: {
+						...STYLE_DEFAULTS.stroke,
+						...strokeSettings( layer ),
+						color: layerPaint( layer, 'stroke' ).color,
+					},
+			  }
+			: {} ),
+	};
 
 	const setStyle = ( kind, value, label ) => {
 		dispatch( {
 			type: 'UPDATE_LAYER',
 			id: layer.id,
-			patch: {
-				styles: {
-					stroke: null,
-					dropShadow: null,
-					innerShadow: null,
-					outerGlow: null,
-					colorOverlay: null,
-					gradientOverlay: null,
-					innerGlow: null,
-					bevel: null,
-					satin: null,
-					patternOverlay: null,
-					...styles,
-					[ kind ]: value,
-				},
-			},
+			patch: layerStylePatch( layer, kind, value ),
 		} );
 		commit( label );
 	};
 
+	const parameters = ( kind ) => (
+		<StyleParams
+			layer={ layer }
+			kind={ kind }
+			value={ styles[ kind ] }
+			extras={ extras }
+			onChange={ ( value ) =>
+				setStyle(
+					kind,
+					value,
+					__( 'Edit style:', 'wunderpaint' ) +
+						' ' +
+						STYLE_LABELS[ kind ]
+				)
+			}
+		/>
+	);
+	const controls = kinds.map( ( kind ) => {
+		const toggle = (
+			<label key={ kind } className="blend-check">
+				<input
+					type="checkbox"
+					checked={ !! styles[ kind ] }
+					onChange={ () =>
+						setStyle(
+							kind,
+							styles[ kind ]
+								? null
+								: { ...STYLE_DEFAULTS[ kind ] },
+							( styles[ kind ]
+								? __( 'Remove style:', 'wunderpaint' )
+								: __( 'Add style:', 'wunderpaint' ) ) +
+								' ' +
+								STYLE_LABELS[ kind ]
+						)
+					}
+				/>
+				<span>{ STYLE_LABELS[ kind ] }</span>
+			</label>
+		);
+		return (
+			<div className="blend-item" key={ kind } data-style={ kind }>
+				{ toggle }
+				{ styles[ kind ] && (
+					<div className="blend-inline-settings">
+						{ parameters( kind ) }
+					</div>
+				) }
+			</div>
+		);
+	} );
+
+	if ( embedded ) {
+		return <div className="blend-list">{ controls }</div>;
+	}
 	return (
 		<PanelSection
 			wsKey="props.blending"
 			title={ __( 'Blending Options', 'wunderpaint' ) }
+			defaultOpen={ defaultOpen }
 		>
-			{ /* Pick the styles in a compact grid; each active style then
-			     edits below under its own caption. Before, the parameters
-			     were wedged between the checkboxes and pushed the rest of
-			     the list around while you worked (v1.373). */ }
-			<div className="blend-grid">
-				{ Object.keys( STYLE_DEFAULTS ).map( ( kind ) => (
-					<label key={ kind } className="blend-check">
-						<input
-							type="checkbox"
-							checked={ !! styles[ kind ] }
-							onChange={ () =>
-								setStyle(
-									kind,
-									styles[ kind ]
-										? null
-										: { ...STYLE_DEFAULTS[ kind ] },
-									( styles[ kind ]
-										? __( 'Remove style:', 'wunderpaint' )
-										: __( 'Add style:', 'wunderpaint' ) ) +
-										' ' +
-										STYLE_LABELS[ kind ]
-								)
-							}
-						/>
-						<span>{ STYLE_LABELS[ kind ] }</span>
-					</label>
-				) ) }
-			</div>
-			{ Object.keys( STYLE_DEFAULTS )
-				.filter( ( kind ) => !! styles[ kind ] )
-				.map( ( kind ) => (
-					<PanelGroup key={ kind } title={ STYLE_LABELS[ kind ] }>
-						<StyleParams
-							kind={ kind }
-							value={ styles[ kind ] }
-							extras={ extras }
-							onChange={ ( v ) =>
-								setStyle(
-									kind,
-									v,
-									__( 'Edit style:', 'wunderpaint' ) +
-										' ' +
-										STYLE_LABELS[ kind ]
-								)
-							}
-						/>
-					</PanelGroup>
-				) ) }
+			{ /* Thomas, 21.09.2026: replace the v1.373 overview with settings at each switch. */ }
+			<div className="blend-list">{ controls }</div>
 		</PanelSection>
 	);
 }
 
 /* --------------------------- Align & Distribute -------------------------- */
 
-function AlignSection() {
+export function AlignSection( { collapsible = true } ) {
 	const editor = useEditor();
 	// Shared unit-aware ops (v1.66): this section had its own per-layer
 	// implementation that tore groups apart; every align/distribute goes
@@ -3425,6 +3209,7 @@ function AlignSection() {
 		<PanelSection
 			wsKey="props.align"
 			title={ __( 'Align & Distribute', 'wunderpaint' ) }
+			collapsible={ collapsible }
 		>
 			<div
 				style={ {
@@ -3453,7 +3238,10 @@ function AlignSection() {
 					</button>
 				) ) }
 			</div>
-			<div style={ { display: 'flex', gap: 4, marginTop: 6 } }>
+			<div
+				className="props-distribute-actions"
+				style={ { display: 'flex', gap: 4, marginTop: 6 } }
+			>
 				<button
 					className="ai-btn secondary"
 					style={ {
@@ -3619,7 +3407,8 @@ function LayerStateNotice( { layer } ) {
 }
 
 export function PropertiesPanel( { extras } ) {
-	const { state } = useEditor();
+	const editor = useEditor();
+	const { state } = editor;
 	const layer = activeLayerOf( state );
 	// Extension sections may register after mount (v1.119).
 	const [ , setExtTick ] = useState( 0 );
@@ -3648,10 +3437,6 @@ export function PropertiesPanel( { extras } ) {
 			{ 'shape' === layer.type && (
 				<AppearanceSection layer={ layer } extras={ extras } />
 			) }
-			{ 'text' === layer.type && (
-				<CharacterSection layer={ layer } extras={ extras } />
-			) }
-			{ 'gradient' === layer.type && <GradientSection layer={ layer } /> }
 			{ 'smart' === layer.type && (
 				<SmartObjectSection layer={ layer } extras={ extras } />
 			) }
@@ -3659,9 +3444,7 @@ export function PropertiesPanel( { extras } ) {
 				( 'raster' === layer.type && !! layer.binding ) ) && (
 				<ImageFitSection layer={ layer } />
 			) }
-			{ ( 'text' === layer.type ||
-				'image' === layer.type ||
-				'raster' === layer.type ) && (
+			{ ( 'image' === layer.type || 'raster' === layer.type ) && (
 				<DynamicSection layer={ layer } />
 			) }
 			<AlignSection />

@@ -37,7 +37,7 @@ export function sourceLayerOptions( layers, depth = 0, index = null ) {
 	// selecting it gave no source. The same layers then appeared again, flat,
 	// because the list they came from already contained them.
 	//
-	// Codex named exactly this in F15 and named the reason it stayed green: the
+	// The audit named exactly this in F15 and named the reason it stayed green: the
 	// test fixture is a nested tree of layer objects, which the core never
 	// produces.
 	const list = layers || [];

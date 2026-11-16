@@ -1,1478 +1,1920 @@
-/**
- * Seamless Patterns - WPIE extension entry.
- *
- * Seamless patterns from a seed: ten motif builders fill a design
- * cell, a rapport (straight, half-drop, brick, mirror) turns it into
- * a repeat tile, curated palettes keep every roll harmonic. The
- * preview IS the pattern - drag elements (they wrap around the tile
- * edge live), roll colorways, then insert the pattern as an editable
- * fill layer, register the tile in the editor's pattern library, or
- * download it as PNG/SVG.
- */
-
+/** Seamless Patterns: layered, deterministic pattern recipes using the editor kit. */
 import {
 	MOTIFS,
-	motifById,
-	ELEMENT_MOTIFS,
 	GLYPH_SETS,
-	glyphSetById,
-	glyphPool,
 	PALETTES,
 	palOf,
 	bgColor,
-	expandPlaces,
+	glyphPool,
 	cellElements,
 	elementsInTile,
+	cellPointAtTile,
+	wrapCellPoint,
+	expandPlaces,
 	toSvgTile,
 } from './pattern-core.js';
-import { renderTile, ensureStamp, stampImage } from './render.js';
-
-const GEN_ID = 'wpie-pattern-generator/pattern';
-
+import { renderTile, ensureStamps } from './render.js';
+import { DEFAULTS, MOTIF_PARAMS } from './settings.js';
+import { PRESETS, CATEGORIES } from './presets.js';
+import { makeDesign, cleanLayer } from './design.js';
+import { history, clone } from './distribution.js';
+import { randomizeDesign } from './randomize.js';
+import { ICONS, SECTION_ICONS } from './icons.js';
+import { wrap, clamp } from './geometry.js';
 import { t } from './i18n.js';
-
-
-/* ------------------------------ DOM helpers ------------------------------ */
-
-function el( tag, cls, parent ) {
-	const node = document.createElement( tag );
-	if ( cls ) {
-		node.className = cls;
-	}
-	if ( parent ) {
-		parent.appendChild( node );
-	}
-	return node;
-}
-
-function row( parent, label ) {
+const GEN_ID = 'wpie-pattern-generator/pattern',
+	NS = 'wpie-pattern-generator';
+const el = ( tag, cls, parent, text ) => {
+	const e = document.createElement( tag );
+	if ( cls ) e.className = cls;
+	if ( text !== undefined ) e.textContent = text;
+	if ( parent ) parent.appendChild( e );
+	return e;
+};
+const button = ( parent, label, fn, cls = 'ai-btn secondary' ) => {
+	const b = el( 'button', cls, parent, t( label ) );
+	b.type = 'button';
+	b.onclick = fn;
+	return b;
+};
+const iconButton = ( parent, label, icon, fn, cls ) => {
+	const b = button( parent, label, fn, cls ),
+		mark = el( 'span', 'wpiepg-action-icon' );
+	mark.innerHTML = icon;
+	mark.setAttribute( 'aria-hidden', 'true' );
+	b.prepend( mark );
+	return b;
+};
+const layerIcon = ( parent, label, icon, fn ) => {
+	const b = button( parent, '', fn, 'icon-btn wpiepg-layericon' );
+	b.innerHTML = icon;
+	b.setAttribute( 'aria-label', t( label ) );
+	b.title = t( label );
+	return b;
+};
+const row = ( parent, label ) => {
 	const r = el( 'div', 'wpiepg-row', parent );
-	const s = el( 'span', 'dsm-rowline-label', r );
-	s.textContent = label;
+	el( 'span', 'dsm-rowline-label', r, t( label ) );
 	return r;
-}
-
-function slider( parent, label, min, max, value, oninput, unit = '' ) {
-	const r = row( parent, label );
-	r.classList.add( 'has-val' );
-	const input = el( 'input', 'dsm-range', r );
-	input.type = 'range';
-	input.min = String( min );
-	input.max = String( max );
-	input.value = String( value );
-	const val = el( 'span', 'dsm-sliderrow-val wpiepg-val', r );
-	val.textContent = input.value + unit;
-	input.oninput = () => {
-		val.textContent = input.value + unit;
-		oninput( parseInt( input.value, 10 ) );
-	};
-	return input;
-}
-
-function select( parent, label, options, value, onchange ) {
-	const r = row( parent, label );
-	const sel = el( 'select', 'dsm-select', r );
-	for ( const [ v, lab ] of options ) {
-		const o = el( 'option', null, sel );
+};
+const choose = ( parent, label, options, value, change ) => {
+	const r = row( parent, label ),
+		s = el( 'select', 'dsm-select', r );
+	s.setAttribute( 'aria-label', t( label ) );
+	for ( const [ v, l ] of options ) {
+		const o = el( 'option', '', s, t( l ) );
 		o.value = v;
-		o.textContent = lab;
 	}
-	sel.value = value;
-	sel.onchange = () => onchange( sel.value );
-	return sel;
-}
-
-function section( parent, icon, label ) {
-	const card = el( 'div', 'dsm-card wpiepg-card', parent );
-	const head = el( 'div', 'dsm-card-head wpiepg-card-head', card );
-	head.innerHTML = icon + '<span>' + label + '</span>';
-	return el( 'div', 'dsm-card-body wpiepg-card-body', card );
-}
-
-const tabIcon = ( d, size = 15 ) =>
-	'<svg xmlns="http://www.w3.org/2000/svg" width="' +
-	size +
-	'" height="' +
-	size +
-	'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
-	d +
-	'"/></svg>';
-
-const ICONS = {
-	presets: tabIcon(
-		'M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z M14 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z'
-	),
-	pattern: tabIcon(
-		'M6 21l15 -15l-3 -3l-15 15l3 3 M15 6l3 3 M9 3a2 2 0 0 0 2 2a2 2 0 0 0 -2 2a2 2 0 0 0 -2 -2a2 2 0 0 0 2 -2'
-	),
-	rapport: tabIcon(
-		'M4 4h6v6h-6z M14 4h6v6h-6z M4 14h6v6h-6z M14 14h6v6h-6z'
-	),
-	colors: tabIcon(
-		'M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25 M7.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M11.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M15.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0'
-	),
-	lib: tabIcon(
-		'M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2 M7 11l5 5l5 -5 M12 4l0 12'
-	),
+	s.value = value;
+	s.onchange = () => change( s.value );
+	return s;
 };
-const ICON_DICE = tabIcon(
-	'M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14 M8 8.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 M15 8.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 M15 15.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 M8 15.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 M11.5 12a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0',
-	16
-);
-const ICON_CLOSE =
-	'<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>';
-
-/* -------------------------------- defaults ------------------------------- */
-
-const DEFAULTS = {
-	motif: 'scatter',
-	set: 'geo',
-	seed: 7,
-	count: 14,
-	size: 55,
-	jitter: 60,
-	rot: 35,
-	weight: 50,
-	alpha: 100,
-	freqI: 3,
-	variety: 40,
-	dir: 2,
-	phase: 30,
-	amp: 50,
-	palette: 'nordlicht',
-	customBase: '#3b66ff',
-	colorway: 0,
-	reverse: 0,
-	bg: 'light',
-	bgCustom: '#ffffff',
-	repeat: 'halfdrop',
-	cellPx: 256,
-	shift: { x: 0, y: 0 },
-	moved: [],
-	added: [],
-	removed: [],
-	set2: '',
-	riso: 0,
-	dash: '',
-	stampData: '',
-	kitColors: [],
-	kitName: '',
+const textField = ( parent, label, value, change ) => {
+	const r = row( parent, label ),
+		input = el( 'input', 'dsm-input', r );
+	input.value = value;
+	input.maxLength = 60;
+	input.setAttribute( 'aria-label', t( label ) );
+	input.onchange = () => change( input.value );
+	return input;
 };
-
-/** Which dials each motif exposes (key -> label + range). */
-const MOTIF_PARAMS = {
-	scatter: [
-		[ 'count', 'Count', 4, 30 ],
-		[ 'size', 'Size', 10, 100 ],
-		[ 'jitter', 'Jitter', 0, 100 ],
-		[ 'rot', 'Rotation', 0, 100 ],
-		[ 'weight', 'Weight', 10, 100 ],
-	],
-	gitter: [
-		[ 'count', 'Columns', 2, 10 ],
-		[ 'size', 'Size', 10, 100 ],
-		[ 'variety', 'Variety', 0, 100 ],
-		[ 'rot', 'Rotation', 0, 100 ],
-		[ 'jitter', 'Jitter', 0, 100 ],
-		[ 'weight', 'Weight', 10, 100 ],
-	],
-	raute: [
-		[ 'count', 'Columns', 2, 10 ],
-		[ 'size', 'Size', 10, 100 ],
-		[ 'variety', 'Variety', 0, 100 ],
-		[ 'rot', 'Rotation', 0, 100 ],
-		[ 'weight', 'Weight', 10, 100 ],
-	],
-	punkte: [
-		[ 'count', 'Columns', 3, 14 ],
-		[ 'size', 'Size', 10, 100 ],
-		[ 'variety', 'Variety', 0, 100 ],
-	],
-	streifen: [
-		[ 'count', 'Count', 2, 16 ],
-		[ 'weight', 'Weight', 10, 100 ],
-		[ 'variety', 'Variety', 0, 100 ],
-	],
-	wellen: [
-		[ 'count', 'Count', 3, 24 ],
-		[ 'amp', 'Amplitude', 0, 100 ],
-		[ 'freqI', 'Frequency', 1, 6 ],
-		[ 'phase', 'Phase', 0, 100 ],
-		[ 'weight', 'Weight', 10, 100 ],
-	],
-	chevron: [
-		[ 'count', 'Count', 2, 14 ],
-		[ 'freqI', 'Teeth', 1, 8 ],
-		[ 'amp', 'Amplitude', 0, 100 ],
-		[ 'weight', 'Weight', 10, 100 ],
-	],
-	schuppen: [
-		[ 'count', 'Columns', 3, 14 ],
-		[ 'size', 'Size', 10, 100 ],
-		[ 'weight', 'Weight', 10, 100 ],
-	],
-	karo: [
-		[ 'count', 'Count', 4, 16 ],
-		[ 'variety', 'Variety', 0, 100 ],
-	],
-	terrazzo: [
-		[ 'count', 'Count', 6, 36 ],
-		[ 'size', 'Size', 10, 100 ],
-		[ 'jitter', 'Jitter', 0, 100 ],
-	],
-	truchet: [
-		[ 'count', 'Count', 2, 12 ],
-		[ 'weight', 'Weight', 10, 100 ],
-		[ 'variety', 'Variety', 0, 100 ],
-	],
-	hex: [
-		[ 'count', 'Columns', 3, 12 ],
-		[ 'size', 'Size', 10, 100 ],
-		[ 'weight', 'Weight', 10, 100 ],
-		[ 'variety', 'Variety', 0, 100 ],
-	],
-	ogee: [
-		[ 'count', 'Count', 3, 16 ],
-		[ 'amp', 'Amplitude', 0, 100 ],
-		[ 'freqI', 'Frequency', 1, 4 ],
-		[ 'weight', 'Weight', 10, 100 ],
-	],
-	schraffur: [
-		[ 'count', 'Count', 4, 16 ],
-		[ 'weight', 'Weight', 10, 100 ],
-		[ 'variety', 'Variety', 0, 100 ],
-	],
-};
-
-const SET_MOTIFS = [ 'scatter', 'gitter', 'raute' ];
-
-/* -------------------------------- presets -------------------------------- */
-
-const PRESETS = [
-	{ name: 'Bauhaus grid', p: { motif: 'gitter', set: 'geo', palette: 'bauhaus', count: 5, size: 60, variety: 70, rot: 60, jitter: 0, bg: 'light', repeat: 'straight', seed: 11 } },
-	{ name: 'Memphis party', p: { motif: 'scatter', set: 'memphis', palette: 'bauhaus', count: 16, size: 55, jitter: 70, rot: 70, bg: 'light', repeat: 'halfdrop', seed: 23 } },
-	{ name: 'Botanical garden', p: { motif: 'scatter', set: 'botanik', palette: 'salbei', count: 12, size: 62, jitter: 60, rot: 45, bg: 'light', repeat: 'halfdrop', seed: 5 } },
-	{ name: 'Starry sky', p: { motif: 'scatter', set: 'himmel', palette: 'royal', count: 18, size: 42, jitter: 75, rot: 30, bg: 'dark', repeat: 'halfdrop', seed: 31 } },
-	{ name: 'Terrazzo', p: { motif: 'terrazzo', palette: 'terracotta', count: 16, size: 55, jitter: 90, bg: 'light', repeat: 'straight', seed: 8 } },
-	{ name: 'Polka', p: { motif: 'punkte', palette: 'rose', count: 6, size: 55, variety: 60, bg: 'light', repeat: 'straight', seed: 3 } },
-	{ name: 'Diagonals', p: { motif: 'streifen', dir: 2, palette: 'royal', count: 8, weight: 55, variety: 52, bg: 'dark', repeat: 'straight', seed: 9 } },
-	{ name: 'Ocean waves', p: { motif: 'wellen', palette: 'ozean', count: 12, amp: 62, freqI: 2, phase: 45, weight: 60, bg: 'light', repeat: 'straight', seed: 6 } },
-	{ name: 'Fish scales', p: { motif: 'schuppen', palette: 'nordlicht', count: 7, size: 70, weight: 45, bg: 'light', repeat: 'straight', seed: 12 } },
-	{ name: 'Vichy', p: { motif: 'karo', palette: 'terracotta', count: 8, variety: 30, bg: 'light', repeat: 'straight', seed: 2 } },
-	{ name: 'Herringbone', p: { motif: 'chevron', palette: 'zitrus', count: 8, freqI: 4, amp: 55, weight: 62, bg: 'dark', repeat: 'straight', seed: 14 } },
-	{ name: 'Heart mirror', p: { motif: 'scatter', set: 'herzen', palette: 'rose', count: 10, size: 58, jitter: 65, rot: 55, bg: 'light', repeat: 'mirror', seed: 19 } },
-];
-
-/**
- * Curated random roll: everything from vetted sets and couplings, so
- * even the wildest dice throw looks designed.
- */
-function curatedRoll() {
-	const rand = ( n ) => Math.floor( Math.random() * n );
-	const motif = MOTIFS[ rand( MOTIFS.length ) ].id;
-	const structured = ! ELEMENT_MOTIFS.includes( motif );
-	const palette = PALETTES[ rand( PALETTES.length ) ].id;
-	const bg = [ 'light', 'light', 'dark', '' ][ rand( 4 ) ];
-	return {
-		...DEFAULTS,
-		motif,
-		set: GLYPH_SETS[ rand( GLYPH_SETS.length ) ].id,
-		seed: 1 + rand( 99999 ),
-		count: structured
-			? 3 + rand( 10 )
-			: 8 + rand( 18 ),
-		size: 35 + rand( 55 ),
-		jitter: 30 + rand( 65 ),
-		rot: rand( 95 ),
-		weight: 25 + rand( 60 ),
-		freqI: 1 + rand( 5 ),
-		variety: rand( 101 ),
-		dir: rand( 4 ),
-		phase: rand( 101 ),
-		amp: 30 + rand( 60 ),
-		palette,
-		colorway: rand( 5 ),
-		reverse: Math.random() < 0.3 ? 1 : 0,
-		bg,
-		repeat: structured
-			? [ 'straight', 'straight', 'halfdrop', 'mirror' ][ rand( 4 ) ]
-			: [ 'straight', 'halfdrop', 'halfdrop', 'brick', 'mirror' ][
-					rand( 5 )
-			  ],
-		shift: { x: 0, y: 0 },
-		moved: [],
-		added: [],
-		removed: [],
-		set2:
-			Math.random() < 0.25
-				? GLYPH_SETS[ rand( GLYPH_SETS.length ) ].id
-				: '',
-		riso: Math.random() < 0.22 ? 20 + rand( 60 ) : 0,
-		dash: Math.random() < 0.18 ? ( Math.random() < 0.5 ? 'dash' : 'dot' ) : '',
-		stampData: '',
-	};
-}
-
-/* --------------------------------- dialog -------------------------------- */
 
 async function openStudio( { editor, layer } ) {
-	const bridge = window.WPIE && window.WPIE.bridge;
-	const editing = !! (
-		layer &&
-		layer.generator &&
-		layer.generator.id === GEN_ID
+	const bridge = window.WPIE.bridge,
+		ui = bridge.ui,
+		editing = layer?.generator?.id === GEN_ID;
+	let design = makeDesign(
+			editing
+				? layer.generator.params
+				: PRESETS.find( ( p ) => p.name === 'Indigo Fern' ).p
+		),
+		active = 0,
+		selected = null,
+		closed = false,
+		busy = false;
+	let tab = 'pattern',
+		zoom = 1,
+		frame = false,
+		single = false,
+		raf = 0,
+		dirty = true,
+		tile = null,
+		paintInfo = null;
+	let colorHandles = [],
+		thumbObserver = null,
+		previewEpoch = 0,
+		resize = null,
+		onOutside = null,
+		onKey = null;
+	const locks = { colors: false, motifs: false, layout: false };
+	const stateHistory = history(
+		() => ( { design, active } ),
+		( s ) => {
+			design = s.design;
+			active = Math.min( s.active, design.layers.length - 1 );
+			selected = null;
+			sync();
+		}
 	);
-	const params = editing
-		? {
-				...DEFAULTS,
-				...layer.generator.params,
-				shift: { ...( layer.generator.params.shift || { x: 0, y: 0 } ) },
-				moved: ( layer.generator.params.moved || [] ).map( ( m ) => ( { ...m } ) ),
-				added: ( layer.generator.params.added || [] ).map( ( a ) => ( { ...a } ) ),
-				removed: ( layer.generator.params.removed || [] ).slice(),
-		  }
-		: {
-				...DEFAULTS,
-				seed: 1 + Math.floor( Math.random() * 99999 ),
-				shift: { x: 0, y: 0 },
-				moved: [],
-				added: [],
-				removed: [],
-		  };
-
-	const host = document.getElementById( 'wpie-root' ) || document.body;
-	const backdrop = el( 'div', 'modal-backdrop', host );
-	const dialog = el( 'div', 'dsm wpiepg-dialog', backdrop );
-	dialog.setAttribute( 'role', 'dialog' );
-	dialog.setAttribute( 'aria-label', 'Seamless Patterns' );
-	dialog.onclick = ( e ) => e.stopPropagation();
-	const head = el( 'div', 'dsm-head', dialog );
-	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
-	window.WPIE.bridge.ui.badge( head );
-	const titles = el( 'div', 'dsm-titles', head );
-	const titleRow = el( 'div', 'dsm-title-row', titles );
-	el( 'span', 'dsm-title', titleRow ).textContent = 'Seamless Patterns';
-	const sub = el( 'div', 'dsm-sub', titles );
-	sub.textContent = editing
-		? t( 'Adjust the pattern, the layer updates in place.' )
-		: t( 'Seamless patterns: set the dials, roll the dice.' );
-	const closeBtn = el( 'button', 'dsm-close', head );
-	closeBtn.setAttribute( 'aria-label', 'Close' );
-	closeBtn.innerHTML = ICON_CLOSE;
-	const body = el( 'div', 'wpiepg-body', dialog );
-	// Three columns like the other studios: the gallery of starting
-	// points on the left, the tile in the middle, the dials on the
-	// right. All six sections used to stand in the one right column,
-	// so the twelve preview tiles were a thumbnail strip on top of the
-	// controls instead of a gallery.
-	const left = el( 'div', 'dsm-col start wpiepg-left', body );
-	const view = el( 'div', 'wpiepg-view', body );
-	const canvas = el( 'canvas', null, view );
-	const side = el( 'div', 'dsm-col end wpiepg-side', body );
-	const controls = el( 'div', 'wpiepg-controls', side );
-
-	const doc = editor.state.doc;
-
-	/* ------------------------------- preview ------------------------------ */
-
-	const PRE = 132; // cell edge in preview px at zoom 1
-	let zoom = 1;
-	let showFrame = false;
-	let tileCache = null;
-	let tileDirty = true;
-
-	const markDirty = () => {
-		tileDirty = true;
+	const modal = ui.dialog( {
+		title: 'Seamless Patterns',
+		subtitle: t( 'Build seamless patterns from motifs, layers and color.' ),
+		width: 1520,
+		onClose: dispose,
+	} );
+	modal.dialog.classList.add( 'wpiepg-dialog' );
+	ui.badge( modal.head );
+	modal.body.className = 'wpiepg-body';
+	const left = el( 'div', 'dsm-col start wpiepg-left', modal.body ),
+		view = el( 'div', 'wpiepg-view', modal.body ),
+		side = el( 'div', 'dsm-col end wpiepg-side', modal.body );
+	const canvas = el( 'canvas', 'wpiepg-canvas', view );
+	canvas.setAttribute( 'aria-label', t( 'Pattern preview' ) );
+	canvas.tabIndex = 0;
+	const toolbar = el( 'div', 'dsm-card wpiepg-toolbar', view );
+	const randomPattern = iconButton(
+		toolbar,
+		'Random pattern',
+		ICONS.dice,
+		() => randomize( 'pattern' ),
+		'ai-btn primary'
+	);
+	randomPattern.disabled = true;
+	const undoBtn = button( toolbar, 'Undo', () => {
+			if ( stateHistory.undo() ) updateHistory();
+		} ),
+		redoBtn = button( toolbar, 'Redo', () => {
+			if ( stateHistory.redo() ) updateHistory();
+		} );
+	const singleBtn = button( toolbar, 'Single tile', () => {
+		single = ! single;
+		singleBtn.setAttribute( 'aria-pressed', String( single ) );
+		queue();
+	} );
+	singleBtn.setAttribute( 'aria-pressed', 'false' );
+	const frameBtn = button( toolbar, 'Tile frame', () => {
+		frame = ! frame;
+		frameBtn.setAttribute( 'aria-pressed', String( frame ) );
+		queue();
+	} );
+	frameBtn.setAttribute( 'aria-pressed', 'false' );
+	button( toolbar, '−', () => {
+		zoom = clamp( zoom / 1.2, 0.3, 4 );
+		queue();
+	} ).setAttribute( 'aria-label', t( 'Zoom out' ) );
+	const zoomText = el( 'span', 'wpiepg-zoom', toolbar, '100%' );
+	button( toolbar, '+', () => {
+		zoom = clamp( zoom * 1.2, 0.3, 4 );
+		queue();
+	} ).setAttribute( 'aria-label', t( 'Zoom in' ) );
+	const hint = el(
+		'div',
+		'dsm-note wpiepg-previewhint',
+		view,
+		t( 'Select an element to move, rotate or recolor it.' )
+	);
+	const footHint = el(
+		'div',
+		'dsm-hint',
+		modal.foot,
+		t( 'Inserts the pattern as an editable fill layer in document size.' )
+	);
+	const actions = el( 'div', 'dsm-actions', modal.foot );
+	button( actions, 'Cancel', close );
+	const applyBtn = button(
+		actions,
+		editing ? 'Update pattern' : 'Insert pattern',
+		insert,
+		'ai-btn primary'
+	);
+	const status = ( msg ) => {
+		if ( ! closed ) footHint.textContent = t( msg );
 	};
-
-	function renderPreview() {
-		const w = view.clientWidth;
-		const h = view.clientHeight;
-		if ( ! w || ! h ) {
-			return;
+	const current = () => design.layers[ active ];
+	const checkpoint = ( key ) => {
+		stateHistory.checkpoint( key );
+		updateHistory();
+	};
+	function updateHistory() {
+		undoBtn.disabled = ! stateHistory.canUndo;
+		redoBtn.disabled = ! stateHistory.canRedo;
+	}
+	function change( fn, key = '', rebuild = false ) {
+		checkpoint( key );
+		fn();
+		dirty = true;
+		if ( rebuild ) sync();
+		else queue();
+	}
+	function clearColorHandles() {
+		for ( const h of colorHandles ) h.unmount?.();
+		colorHandles = [];
+	}
+	function color( parent, label, value, onChange ) {
+		const r = row( parent, label ),
+			host = el( 'div', 'wpiepg-colorhost', r );
+		const h = bridge.components.mountColorButton( host, {
+			color: value,
+			title: t( label ),
+			field: true,
+			onChange: ( next ) => {
+				if (
+					/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(
+						next
+					)
+				) {
+					const value =
+						next.length < 6
+							? '#' +
+							  next
+									.slice( 1 )
+									.split( '' )
+									.map( ( c ) => c + c )
+									.join( '' )
+							: next;
+					onChange( value );
+				}
+			},
+		} );
+		colorHandles.push( h );
+		h.row = r;
+		return h;
+	}
+	function range( parent, label, min, max, value, onChange, key, step = 1 ) {
+		const h = ui.slider( parent, {
+			label: t( label ),
+			min,
+			max,
+			value,
+			step,
+			onInput: ( v ) => change( () => onChange( v ), key ),
+		} );
+		h.input.setAttribute( 'aria-label', t( label ) );
+		return h;
+	}
+	function check( parent, label, value, onChange ) {
+		return ui.check( parent, {
+			label: t( label ),
+			checked: value,
+			onChange,
+		} );
+	}
+	const card = ( parent, title ) =>
+		ui.section( parent, {
+			title: t( title ),
+			icon: SECTION_ICONS[ title ] || ICONS.pattern,
+		} );
+	function queue() {
+		if ( closed || raf ) return;
+		raf = requestAnimationFrame( () => {
+			raf = 0;
+			paint();
+		} );
+	}
+	function paint() {
+		if ( closed ) return;
+		const w = view.clientWidth,
+			h = view.clientHeight;
+		if ( ! w || ! h ) return;
+		const dpr = Math.min( 2, window.devicePixelRatio || 1 );
+		if (
+			canvas.width !== Math.round( w * dpr ) ||
+			canvas.height !== Math.round( h * dpr )
+		) {
+			canvas.width = Math.round( w * dpr );
+			canvas.height = Math.round( h * dpr );
 		}
-		if ( canvas.width !== w || canvas.height !== h ) {
-			canvas.width = w;
-			canvas.height = h;
-		}
-		if ( tileDirty || ! tileCache ) {
-			tileCache = renderTile( params, Math.round( PRE * 2 ) );
-			tileDirty = false;
+		if ( dirty || ! tile ) {
+			tile = renderTile( design, 256 );
+			dirty = false;
 		}
 		const ctx = canvas.getContext( '2d' );
+		ctx.setTransform( dpr, 0, 0, dpr, 0, 0 );
 		ctx.clearRect( 0, 0, w, h );
-		const pat = ctx.createPattern( tileCache, 'repeat' );
+		const { cols, rows } = expandPlaces( design.repeat );
+		let unit = 150 * zoom;
+		if ( single )
+			unit =
+				Math.min(
+					( w - 70 ) / ( cols * design.aspect ),
+					( h - 100 ) / rows
+				) * Math.min( zoom, 2 );
+		const x = single ? ( w - cols * unit * design.aspect ) / 2 : 0,
+			y = single ? ( h - rows * unit ) / 2 : 0;
+		paintInfo = { unit, x, y, cols, rows };
 		ctx.save();
-		const s = zoom / 2; // tile rendered at 2x for crispness
-		ctx.scale( s, s );
-		ctx.fillStyle = pat;
-		ctx.fillRect( 0, 0, w / s, h / s );
+		ctx.translate( x, y );
+		if ( single )
+			ctx.drawImage(
+				tile,
+				0,
+				0,
+				cols * unit * design.aspect,
+				rows * unit
+			);
+		else {
+			const sx = ( cols * unit * design.aspect ) / tile.width,
+				sy = ( rows * unit ) / tile.height;
+			ctx.scale( sx, sy );
+			ctx.fillStyle = ctx.createPattern( tile, 'repeat' );
+			ctx.fillRect( 0, 0, w / sx, h / sy );
+		}
 		ctx.restore();
-		if ( showFrame ) {
-			const { cols, rows } = expandPlaces( params.repeat );
-			ctx.strokeStyle = 'rgba(120, 150, 255, 0.9)';
-			ctx.setLineDash( [ 6, 5 ] );
-			ctx.lineWidth = 1.4;
+		if ( frame || single ) {
+			ctx.strokeStyle = '#668aff';
+			ctx.lineWidth = 1.2;
+			ctx.setLineDash( [ 5, 4 ] );
 			ctx.strokeRect(
-				0.5,
-				0.5,
-				cols * PRE * zoom,
-				rows * PRE * zoom
+				x + 0.5,
+				y + 0.5,
+				cols * unit * design.aspect,
+				rows * unit
 			);
 			ctx.setLineDash( [] );
 		}
+		if ( selected !== null ) {
+			const copies = elementsInTile( {
+				...current(),
+				repeat: design.repeat,
+			} ).filter( ( e ) => e.i === selected );
+			ctx.strokeStyle = '#668aff';
+			ctx.lineWidth = 1.5;
+			for ( const e of copies )
+				for (
+					let ox = single ? 0 : -cols;
+					ox <= ( single ? 0 : w / ( unit * design.aspect ) + cols );
+					ox += cols
+				)
+					for (
+						let oy = single ? 0 : -rows;
+						oy <= ( single ? 0 : h / unit + rows );
+						oy += rows
+					) {
+						const cx = x + ( e.x + ox ) * unit * design.aspect,
+							cy = y + ( e.y + oy ) * unit,
+							r = Math.max( 9, e.s * unit * 0.7 );
+						if (
+							cx + r < 0 ||
+							cy + r < 0 ||
+							cx - r > w ||
+							cy - r > h
+						)
+							continue;
+						ctx.setLineDash( e.locked ? [ 3, 3 ] : [] );
+						ctx.strokeRect(
+							cx - r * design.aspect,
+							cy - r,
+							r * 2 * design.aspect,
+							r * 2
+						);
+					}
+			ctx.setLineDash( [] );
+		}
+		zoomText.textContent = Math.round( zoom * 100 ) + '%';
+	}
+	async function applyDesign( next ) {
+		const epoch = ++previewEpoch;
+		checkpoint();
+		design = makeDesign( next );
+		active = 0;
+		selected = null;
+		await ensureStamps( design );
+		if ( closed || epoch !== previewEpoch ) return;
+		sync();
 	}
 
-	let rafPending = false;
-	const queuePreview = () => {
-		if ( rafPending ) {
-			return;
+	// A searchable gallery. Thumbnails are rendered only when they enter the panel.
+	const presetBody = card( left, 'Presets' );
+	const search = el( 'input', 'dsm-input wpiepg-search', presetBody );
+	search.type = 'search';
+	search.placeholder = t( 'Search presets' );
+	search.setAttribute( 'aria-label', t( 'Search presets' ) );
+	let category = 'All',
+		favoritesOnly = false,
+		store = { favs: [] };
+	const categorySelect = choose(
+		presetBody,
+		'Category',
+		CATEGORIES.map( ( c ) => [ c, c ] ),
+		category,
+		( v ) => {
+			category = v;
+			renderGallery();
 		}
-		rafPending = true;
-		window.requestAnimationFrame( () => {
-			rafPending = false;
-			renderPreview();
-		} );
-	};
-
-	/* -------------------------------- presets ------------------------------ */
-
-	const presetBody = section( left, ICONS.presets, t( 'Presets' ) );
-	const presetGrid = el( 'div', 'wpiepg-presets', presetBody );
-
-	// The big, findable randomizer right under the presets - same
-	// pattern as Generative/Effects Studio ("Surprise me!").
-	const rollBtn = el( 'button', 'ai-btn primary wpiepg-rollbtn', presetBody );
-	rollBtn.type = 'button';
-	rollBtn.innerHTML = ICON_DICE + ' ' + t( 'Surprise me!' );
-
-	// Drawn at the size it is shown at. Still two cells across, so the
-	// picture is the same one as before - only sharper, because the
-	// tiles are bigger in the left-hand gallery than they were in the
-	// strip inside the right column.
-	const MINI = 112;
-	const miniTile = ( P ) => {
-		const c = document.createElement( 'canvas' );
-		c.width = MINI;
-		c.height = MINI;
-		const ctx = c.getContext( '2d' );
-		const tile = renderTile( P, MINI / 2 );
-		if ( ! bgColor( P ) ) {
-			ctx.fillStyle = '#20242b';
-			ctx.fillRect( 0, 0, MINI, MINI );
-		}
-		ctx.fillStyle = ctx.createPattern( tile, 'repeat' );
-		ctx.fillRect( 0, 0, MINI, MINI );
-		return c;
-	};
-
-	const applyParams = ( next ) => {
-		Object.assign( params, next );
-		syncUi();
-		markDirty();
-		renderPreview();
-	};
-	rollBtn.onclick = () => applyParams( curatedRoll() );
-
-	function renderPresets() {
-		presetGrid.innerHTML = '';
-		for ( const pre of PRESETS ) {
-			const btn = el( 'button', 'dsm-pick wpiepg-preset', presetGrid );
-			btn.type = 'button';
-			btn.appendChild(
-				miniTile( { ...DEFAULTS, ...pre.p, shift: { x: 0, y: 0 }, moved: [], added: [], removed: [] } )
-			);
-			el( 'span', 'dsm-pick-label', btn ).textContent = t( pre.name );
-			btn.onclick = () =>
-				applyParams( {
-					...DEFAULTS,
-					...pre.p,
-					shift: { x: 0, y: 0 },
-					moved: [],
-					added: [],
-					removed: [],
-				} );
-		}
-		// Four surprises, re-rolled on every open - the gallery of chance.
-		for ( let i = 0; i < 4; i++ ) {
-			const P = curatedRoll();
-			const btn = el( 'button', 'dsm-pick wpiepg-preset', presetGrid );
-			btn.type = 'button';
-			btn.appendChild( miniTile( P ) );
-			el( 'span', 'dsm-pick-label', btn ).textContent = '? ' + ( i + 1 );
-			btn.onclick = () => applyParams( { ...P } );
-		}
-	}
-
-	/* ------------------------------- favorites ------------------------------ */
-
-	// Favorites in the per-user bridge store (v2.2.0, API 2.10); the old
-	// localStorage list migrates once.
-	const NS = 'wpie-pattern-generator';
-	let store = {};
-	try {
-		store = ( await bridge.storage.get( NS ) ) || {};
-	} catch ( e ) {
-		store = {};
-	}
-	if ( undefined === store.favs ) {
-		try {
-			const legacy = JSON.parse(
-				window.localStorage.getItem( 'wpiepg-favs' ) || '[]'
-			);
-			store.favs = Array.isArray( legacy ) ? legacy : [];
-			bridge.storage.set( NS, store ).catch( () => {} );
-		} catch ( e ) {
-			store.favs = [];
-		}
-	}
-	const readFavs = () =>
-		Array.isArray( store.favs ) ? store.favs : [];
-	const writeFavs = ( list ) => {
-		store.favs = list.slice( -12 );
-		// A promise, so try/catch caught nothing (EXTFEHLER-09).
-		bridge.storage.set( NS, store ).catch( () => {
-			libNote.textContent = t( 'Could not save the pattern.' );
-		} );
-	};
-	const favBtn = el( 'button', 'ai-btn secondary wpiepg-favbtn', presetBody );
-	favBtn.type = 'button';
-	favBtn.textContent = '★ ' + t( 'Save as favorite' );
-	const favGrid = el( 'div', 'wpiepg-presets wpiepg-favs', presetBody );
-
-	function renderFavs() {
-		const favs = readFavs();
-		favGrid.innerHTML = '';
-		favGrid.style.display = favs.length ? '' : 'none';
-		favs.forEach( ( fav, idx ) => {
-			const btn = el( 'button', 'dsm-pick wpiepg-preset', favGrid );
-			btn.type = 'button';
-			btn.appendChild( miniTile( { ...DEFAULTS, ...fav } ) );
-			el( 'span', 'dsm-pick-label', btn ).textContent = '★ ' + ( idx + 1 );
-			const x = el( 'span', 'wpiepg-fav-del', btn );
-			x.textContent = '×';
-			x.onclick = ( e ) => {
-				e.stopPropagation();
-				const list = readFavs();
-				list.splice( idx, 1 );
-				writeFavs( list );
-				renderFavs();
+	);
+	check( presetBody, 'Favorites', false, ( v ) => {
+		favoritesOnly = v;
+		renderGallery();
+	} );
+	const galleryCount = el( 'div', 'dsm-note', presetBody ),
+		presetGrid = el( 'div', 'wpiepg-presets', presetBody );
+	const favoritesBody = card( left, 'Save as favorite' );
+	const favoriteName = textField(
+		favoritesBody,
+		'Name',
+		editing ? layer.name : t( 'My pattern' ),
+		() => {}
+	);
+	const saveFavorite = button(
+		favoritesBody,
+		'Save as favorite',
+		async () => {
+			if ( design.layers.some( ( l ) => l.set === 'stamp' ) ) {
+				status(
+					'Save image-stamp patterns in the document or pattern library.'
+				);
+				return;
+			}
+			const entry = {
+				id: 'saved-' + Date.now(),
+				name: favoriteName.value.trim() || t( 'My pattern' ),
+				category: 'Favorites',
+				p: clone( design ),
 			};
-			btn.onclick = () =>
-				applyParams( { ...DEFAULTS, ...fav } );
-		} );
-	}
-	favBtn.onclick = () => {
-		const fav = {
-			...params,
-			shift: { ...params.shift },
-			moved: params.moved.map( ( m ) => ( { ...m } ) ),
-			added: params.added.map( ( a ) => ( { ...a } ) ),
-			removed: params.removed.slice(),
-		};
-		// Stamps are per-document bitmaps - favorites store the recipe,
-		// not the image (localStorage is small).
-		delete fav.stampData;
-		if ( 'stamp' === fav.set ) {
-			fav.set = 'geo';
-		}
-		writeFavs( readFavs().concat( [ fav ] ) );
-		renderFavs();
-	};
-
-	/* -------------------------------- pattern ------------------------------ */
-
-	const patternBody = section( controls, ICONS.pattern, t( 'Pattern' ) );
-	const motSel = select(
-		patternBody,
-		t( 'Motif' ),
-		MOTIFS.map( ( m ) => [ m.id, t( m.label ) ] ),
-		params.motif,
-		( v ) => {
-			params.motif = v;
-			params.shift = { x: 0, y: 0 };
-			params.moved = [];
-			params.added = [];
-			params.removed = [];
-			syncUi();
-			markDirty();
-			renderPreview();
-		}
-	);
-	const setRow = select(
-		patternBody,
-		t( 'Doodle set' ),
-		GLYPH_SETS.map( ( s ) => [ s.id, t( s.label ) ] ).concat( [
-			[ 'stamp', t( 'Own layer (stamp)' ) ],
-		] ),
-		params.set,
-		( v ) => {
-			params.set = v;
-			params.moved = [];
-			params.added = [];
-			params.removed = [];
-			if ( 'stamp' === v && ! params.stampData ) {
-				captureStamp();
+			const next = { ...store, favs: [ ...( store.favs || [] ), entry ] };
+			if (
+				new TextEncoder().encode( JSON.stringify( next ) ).length >
+				31000
+			) {
+				status(
+					'Favorites are full. Remove a favorite before saving another.'
+				);
+				return;
 			}
-			syncUi();
-			markDirty();
-			renderPreview();
+			saveFavorite.disabled = true;
+			try {
+				await bridge.storage.set( NS, next );
+				store = next;
+				renderGallery();
+				status( 'Favorite saved.' );
+			} catch {
+				status( 'Could not save the pattern.' );
+			} finally {
+				saveFavorite.disabled = false;
+			}
 		}
 	);
-	const set2Row = select(
-		patternBody,
-		t( 'Second set' ),
-		[ [ '', t( 'Off' ) ] ].concat(
-			GLYPH_SETS.map( ( s ) => [ s.id, t( s.label ) ] )
-		),
-		params.set2 || '',
-		( v ) => {
-			params.set2 = v;
-			params.moved = [];
-			params.added = [];
-			params.removed = [];
-			markDirty();
-			renderPreview();
-		}
+	try {
+		store = ( await bridge.storage.get( NS ) ) || { favs: [] };
+	} catch {
+		store = { favs: [] };
+	}
+	if ( closed ) return;
+	if ( ! Array.isArray( store.favs ) ) store.favs = [];
+	store.favs = store.favs.map( ( f, i ) =>
+		f.p
+			? f
+			: {
+					id: 'legacy-' + i,
+					name: t( 'Favorite' ) + ' ' + ( i + 1 ),
+					category: 'Favorites',
+					p: f,
+			  }
 	);
-	// Stamp row: thumbnail + capture button (visible for set 'stamp').
-	const stampRow = el( 'div', 'wpiepg-row wpiepg-stamprow', patternBody );
-	const stampThumb = el( 'span', 'wpiepg-stampthumb', stampRow );
-	const stampBtn = el( 'button', 'ai-btn secondary', stampRow );
-	stampBtn.type = 'button';
-	stampBtn.textContent = t( 'Use active layer' );
-	const stampNote = el( 'div', 'dsm-note wpiepg-note', patternBody );
-	stampNote.style.display = 'none';
-
-	async function captureStamp() {
-		const st = editor.state;
-		const active = ( st.layers || [] ).find(
-			( l ) =>
-				l.id === st.activeId &&
-				( ! layer || l.id !== layer.id )
+	search.oninput = renderGallery;
+	function mini( P, size = 112 ) {
+		const d = makeDesign( P ),
+			c = document.createElement( 'canvas' );
+		c.width = c.height = size;
+		const ctx = c.getContext( '2d' ),
+			tiled = renderTile( d, size / 2 );
+		if ( ! bgColor( d ) ) {
+			ctx.fillStyle = '#f0f0f0';
+			ctx.fillRect( 0, 0, size, size );
+		}
+		ctx.fillStyle = ctx.createPattern( tiled, 'repeat' );
+		ctx.fillRect( 0, 0, size, size );
+		return c;
+	}
+	function renderGallery() {
+		thumbObserver?.disconnect();
+		presetGrid.replaceChildren();
+		const query = search.value.toLocaleLowerCase().trim(),
+			list = (
+				favoritesOnly ? store.favs : PRESETS.concat( store.favs )
+			).filter(
+				( p ) =>
+					( category === 'All' || p.category === category ) &&
+					( ! query ||
+						[
+							p.name,
+							p.category,
+							t( p.name ),
+							t( p.category ),
+							...( p.p.layers || [ p.p ] ).flatMap( ( l ) => {
+								const motif =
+										MOTIFS.find( ( m ) => m.id === l.motif )
+											?.label || '',
+									sets = [ l.set, l.set2 ].map(
+										( id ) =>
+											GLYPH_SETS.find(
+												( s ) => s.id === id
+											)?.label || ''
+									);
+								return [
+									l.motif,
+									l.set,
+									l.set2,
+									motif,
+									t( motif ),
+									...sets,
+									...sets.map( ( s ) => t( s ) ),
+								];
+							} ),
+						]
+							.join( ' ' )
+							.toLocaleLowerCase()
+							.includes( query ) )
+			);
+		galleryCount.textContent = list.length + ' ' + t( 'Presets' );
+		thumbObserver = new IntersectionObserver(
+			( entries ) => {
+				for ( const e of entries )
+					if ( e.isIntersecting ) {
+						const b = e.target,
+							p = list[ +b.dataset.index ];
+						b.prepend( mini( p.p ) );
+						thumbObserver.unobserve( b );
+					}
+			},
+			{ root: left, rootMargin: '180px' }
 		);
-		if ( ! active || ! bridge?.raster?.renderToCanvas ) {
-			stampNote.style.display = '';
-			stampNote.textContent = t(
-				'Select a layer in the editor first.'
+		for ( const [ i, p ] of list.entries() ) {
+			const item = el( 'div', 'wpiepg-presetitem', presetGrid ),
+				b = button(
+					item,
+					p.name,
+					() => applyDesign( p.p ),
+					'dsm-pick wpiepg-preset'
+				);
+			b.dataset.index = i;
+			b.dataset.preset = p.id;
+			b.title = t( p.name );
+			thumbObserver.observe( b );
+			if (
+				String( p.id ).startsWith( 'saved-' ) ||
+				String( p.id ).startsWith( 'legacy-' )
+			)
+				button(
+					item,
+					'×',
+					async () => {
+						const next = {
+							...store,
+							favs: store.favs.filter( ( f ) => f.id !== p.id ),
+						};
+						try {
+							await bridge.storage.set( NS, next );
+							store = next;
+							renderGallery();
+						} catch {
+							status( 'Could not save the pattern.' );
+						}
+					},
+					'wpiepg-fav-del'
+				).setAttribute(
+					'aria-label',
+					t( 'Remove favorite' ) + ' ' + p.name
+				);
+		}
+	}
+
+	const layerBody = card( side, 'Pattern layers' ),
+		layerList = el( 'div', 'wpiepg-layers', layerBody ),
+		layerActions = el( 'div', 'wpiepg-layeractions', layerBody );
+	layerList.setAttribute( 'role', 'list' );
+	layerList.setAttribute( 'aria-label', t( 'Pattern layers' ) );
+	const addLayer = iconButton(
+		layerActions,
+		'Add layer',
+		ICONS.plus,
+		() => {
+			if ( design.layers.length >= 4 ) return;
+			change(
+				() => {
+					design.layers.push(
+						cleanLayer( {
+							...DEFAULTS,
+							motif: 'scatter',
+							set: 'wildflowers',
+							count: 12,
+							seed: current().seed + 17,
+							name:
+								t( 'Pattern layer' ) +
+								' ' +
+								( design.layers.length + 1 ),
+						} )
+					);
+					active = design.layers.length - 1;
+					selected = null;
+				},
+				'',
+				true
+			);
+		},
+		'wpiepg-layeradd'
+	);
+	const duplicateLayer = layerIcon(
+		layerActions,
+		'Duplicate',
+		ICONS.duplicate,
+		() => {
+			if ( design.layers.length >= 4 ) return;
+			change(
+				() => {
+					design.layers.splice( active + 1, 0, clone( current() ) );
+					active++;
+					selected = null;
+				},
+				'',
+				true
+			);
+		}
+	);
+	const layerOrder = el( 'div', 'wpiepg-layerorder', layerActions );
+	const moveLayer = ( direction ) => {
+		const next = active + direction;
+		if ( next < 0 || next >= design.layers.length ) return;
+		change(
+			() => {
+				[ design.layers[ active ], design.layers[ next ] ] = [
+					design.layers[ next ],
+					design.layers[ active ],
+				];
+				active = next;
+				selected = null;
+			},
+			'',
+			true
+		);
+	};
+	const layerUp = layerIcon( layerOrder, 'Move layer up', ICONS.up, () =>
+		moveLayer( 1 )
+	);
+	const layerDown = layerIcon(
+		layerOrder,
+		'Move layer down',
+		ICONS.down,
+		() => moveLayer( -1 )
+	);
+	const removeLayer = layerIcon(
+		layerOrder,
+		'Remove layer',
+		ICONS.trash,
+		() => {
+			if ( design.layers.length === 1 ) return;
+			change(
+				() => {
+					design.layers.splice( active, 1 );
+					active = Math.min( active, design.layers.length - 1 );
+					selected = null;
+				},
+				'',
+				true
+			);
+		}
+	);
+	const variationBody = card( side, 'Variations' ),
+		variationActions = el( 'div', 'wpiepg-compact-actions', variationBody );
+	const randomLayer = iconButton(
+			variationActions,
+			'Random layer',
+			ICONS.layers,
+			() => randomize( 'layer' )
+		),
+		randomColors = iconButton(
+			variationActions,
+			'Random colors',
+			ICONS.color,
+			() => randomize( 'colors' )
+		);
+	for ( const [ key, label ] of [
+		[ 'colors', 'Keep colors' ],
+		[ 'motifs', 'Keep motifs' ],
+		[ 'layout', 'Keep arrangement' ],
+	] )
+		check( variationBody, label, locks[ key ], ( value ) => {
+			locks[ key ] = value;
+			updateRandomControls();
+		} );
+	const newSeed = iconButton( variationBody, 'New seed', ICONS.dice, () =>
+		change(
+			() => {
+				const p = current();
+				preserveLocked( p );
+				p.seed =
+					1 +
+					( ( p.seed + Math.floor( Math.random() * 999998 ) ) %
+						999999 );
+			},
+			'',
+			true
+		)
+	);
+	function updateRandomControls() {
+		randomPattern.disabled = randomLayer.disabled =
+			locks.colors && locks.motifs && locks.layout;
+		randomColors.disabled = locks.colors;
+		newSeed.disabled = locks.layout;
+	}
+	const tabbar = el( 'div', 'wpiepg-tabs', side ),
+		tabs = {};
+	for ( const [ id, label ] of [
+		[ 'pattern', 'Pattern' ],
+		[ 'colors', 'Colors' ],
+		[ 'layout', 'Rapport' ],
+		[ 'elements', 'Elements' ],
+	] ) {
+		tabs[ id ] = button(
+			tabbar,
+			label,
+			() => {
+				tab = id;
+				renderControls();
+			},
+			'dsm-mini'
+		);
+		tabs[ id ].setAttribute( 'role', 'tab' );
+	}
+	tabbar.setAttribute( 'role', 'tablist' );
+	const controls = el( 'div', 'wpiepg-controls', side );
+	function renderLayers() {
+		// Keep keyboard focus when selection or visibility rebuilds a row.
+		const focused = layerList.contains( document.activeElement )
+			? document.activeElement.dataset.layerFocus
+			: null;
+		layerList.replaceChildren();
+		addLayer.disabled = duplicateLayer.disabled = design.layers.length >= 4;
+		layerUp.disabled = active === design.layers.length - 1;
+		layerDown.disabled = active === 0;
+		removeLayer.disabled = design.layers.length === 1;
+		design.layers
+			.map( ( l, i ) => ( { l, i } ) )
+			.reverse()
+			.forEach( ( { l, i } ) => {
+				const r = el( 'div', 'wpiepg-layerrow', layerList ),
+					visible = l.visible !== false,
+					visibilityLabel = visible ? 'Hide layer' : 'Show layer';
+				r.setAttribute( 'role', 'listitem' );
+				r.dataset.active = String( i === active );
+				r.dataset.visible = String( visible );
+				const visibility = layerIcon(
+					r,
+					t( visibilityLabel ) + ' ' + ( i + 1 ),
+					visible ? ICONS.eye : ICONS.eyeOff,
+					() =>
+						change(
+							() => {
+								l.visible = ! visible;
+							},
+							'',
+							true
+						)
+				);
+				visibility.dataset.layerFocus = 'visibility-' + i;
+				visibility.title = t( visibilityLabel ) + ': ' + t( l.name );
+				const select = button(
+					r,
+					l.name,
+					() => {
+						active = i;
+						selected = null;
+						renderLayers();
+						renderControls();
+						queue();
+					},
+					'wpiepg-layerselect'
+				);
+				select.setAttribute( 'aria-current', String( i === active ) );
+				select.dataset.layerFocus = 'select-' + i;
+				select.title = t( l.name );
+			} );
+		if ( focused )
+			layerList
+				.querySelector( '[data-layer-focus="' + focused + '"]' )
+				?.focus( { preventScroll: true } );
+	}
+	function resetEdits( p ) {
+		p.moved = [];
+		p.added = [];
+		p.removed = [];
+		selected = null;
+	}
+	function renderControls() {
+		clearColorHandles();
+		controls.replaceChildren();
+		for ( const id in tabs ) {
+			tabs[ id ].setAttribute( 'aria-selected', String( id === tab ) );
+			tabs[ id ].classList.toggle( 'is-active', id === tab );
+		}
+		if ( tab === 'pattern' ) patternControls();
+		if ( tab === 'colors' ) colorControls();
+		if ( tab === 'layout' ) layoutControls();
+		if ( tab === 'elements' ) elementControls();
+	}
+	function patternControls() {
+		const p = current(),
+			body = card( controls, 'Pattern' );
+		textField( body, 'Layer name', p.name, ( v ) =>
+			change( () => {
+				p.name = v;
+				renderLayers();
+			} )
+		);
+		choose(
+			body,
+			'Motif',
+			MOTIFS.map( ( m ) => [ m.id, m.label ] ),
+			p.motif,
+			( v ) =>
+				change(
+					() => {
+						p.motif = v;
+						resetEdits( p );
+						design.layers[ active ] = cleanLayer( p );
+					},
+					'',
+					true
+				)
+		);
+		if ( [ 'scatter', 'gitter', 'raute' ].includes( p.motif ) ) {
+			choose(
+				body,
+				'Doodle set',
+				GLYPH_SETS.map( ( s ) => [ s.id, s.label ] ).concat( [
+					[ 'stamp', 'Own layer (stamp)' ],
+				] ),
+				p.set,
+				( v ) =>
+					change(
+						() => {
+							p.set = v;
+							p.glyphWeights = [];
+							resetEdits( p );
+						},
+						'',
+						true
+					)
+			);
+			if ( p.set !== 'stamp' )
+				choose(
+					body,
+					'Second set',
+					[
+						[ '', 'Off' ],
+						...GLYPH_SETS.map( ( s ) => [ s.id, s.label ] ),
+					],
+					p.set2,
+					( v ) =>
+						change(
+							() => {
+								p.set2 = v;
+								p.glyphWeights = [];
+								resetEdits( p );
+							},
+							'',
+							true
+						)
+				);
+			else stampControls( body, p );
+		}
+		for ( const [ key, label, min, max ] of MOTIF_PARAMS[ p.motif ] )
+			range(
+				body,
+				label,
+				min,
+				max,
+				p[ key ],
+				( v ) => {
+					p[ key ] = v;
+				},
+				'dial-' + active + '-' + key
+			);
+		if ( p.motif === 'streifen' )
+			choose(
+				body,
+				'Direction',
+				[
+					[ '0', 'Horizontal' ],
+					[ '1', 'Vertical' ],
+					[ '2', 'Diagonal down' ],
+					[ '3', 'Diagonal up' ],
+				],
+				String( p.dir ),
+				( v ) =>
+					change( () => {
+						p.dir = +v;
+					} )
+			);
+		range(
+			body,
+			'Opacity',
+			5,
+			100,
+			p.alpha,
+			( v ) => {
+				p.alpha = v;
+			},
+			'alpha-' + active
+		);
+		if ( p.motif === 'scatter' || p.motif === 'terrazzo' ) {
+			const dist = card( controls, 'Distribution' );
+			choose(
+				dist,
+				'Arrangement',
+				[
+					[ 'jitter', 'Jittered' ],
+					[ 'spaced', 'Even spacing' ],
+					[ 'cluster', 'Clusters' ],
+					[ 'hero', 'Large and small' ],
+				],
+				p.distribution,
+				( v ) =>
+					change(
+						() => {
+							p.distribution = v;
+							resetEdits( p );
+						},
+						'',
+						true
+					)
+			);
+			range(
+				dist,
+				'Spacing',
+				0,
+				100,
+				p.spacing,
+				( v ) => {
+					p.spacing = v;
+				},
+				'spacing-' + active
+			);
+		}
+		if (
+			p.motif === 'scatter' ||
+			p.motif === 'gitter' ||
+			p.motif === 'raute'
+		) {
+			const weights = card( controls, 'Motif frequency' ),
+				pool = glyphPool( p ),
+				items = pool || p.stamps;
+			if ( items?.length ) {
+				const grid = el( 'div', 'wpiepg-glyphs', weights );
+				items.forEach( ( g, i ) => {
+					const item = el( 'div', 'wpiepg-glyphitem', grid );
+					item.appendChild( glyphThumb( p, i ) );
+					const input = el( 'input', 'dsm-input', item );
+					input.type = 'number';
+					input.min = 0;
+					input.max = 100;
+					input.value = p.glyphWeights[ i ] ?? 50;
+					input.setAttribute(
+						'aria-label',
+						t( 'Motif frequency' ) + ' ' + ( i + 1 )
+					);
+					input.onchange = () =>
+						change( () => {
+							if ( ! p.glyphWeights.length )
+								p.glyphWeights = Array( items.length ).fill(
+									50
+								);
+							p.glyphWeights[ i ] = clamp( +input.value, 0, 100 );
+							resetEdits( p );
+							input.value = p.glyphWeights[ i ];
+						} );
+				} );
+			}
+		}
+		const fx = card( controls, 'Effects' );
+		range(
+			fx,
+			'Offset print',
+			0,
+			100,
+			p.riso,
+			( v ) => {
+				p.riso = v;
+			},
+			'riso-' + active
+		);
+		choose(
+			fx,
+			'Line style',
+			[
+				[ '', 'Solid' ],
+				[ 'dash', 'Dashed' ],
+				[ 'dot', 'Dotted' ],
+			],
+			p.dash,
+			( v ) =>
+				change( () => {
+					p.dash = v;
+				} )
+		);
+	}
+	function glyphThumb( p, index ) {
+		const c = el( 'canvas' );
+		c.width = 72;
+		c.height = 64;
+		const ctx = c.getContext( '2d' );
+		ctx.fillStyle = '#f2f0eb';
+		ctx.fillRect( 0, 0, 72, 64 );
+		const pool = glyphPool( p ),
+			g = pool?.[ index % pool.length ];
+		if ( g ) {
+			const colors = palOf( p ).colors;
+			ctx.lineCap = ctx.lineJoin = 'round';
+			for ( const prim of g ) {
+				ctx.beginPath();
+				prim.pts.forEach( ( [ x, y ], i ) => {
+					if ( i ) ctx.lineTo( 36 + x * 56, 32 + y * 56 );
+					else ctx.moveTo( 36 + x * 56, 32 + y * 56 );
+				} );
+				if ( prim.closed || prim.fill ) ctx.closePath();
+				ctx.fillStyle = ctx.strokeStyle =
+					colors[
+						( prim.tone || 0 ) % Math.max( 1, colors.length - 1 )
+					];
+				ctx.lineWidth = Math.max( 0.7, ( prim.w || 0.022 ) * 56 );
+				if ( prim.fill ) ctx.fill();
+				else ctx.stroke();
+			}
+		} else {
+			const img = new Image();
+			img.onload = () => {
+				if ( closed ) return;
+				const scale = Math.min( 58 / img.width, 52 / img.height );
+				ctx.drawImage(
+					img,
+					( 72 - img.width * scale ) / 2,
+					( 64 - img.height * scale ) / 2,
+					img.width * scale,
+					img.height * scale
+				);
+			};
+			img.src = p.stamps?.[ index ]?.data || p.stampData;
+		}
+		return c;
+	}
+	function colorControls() {
+		const p = current(),
+			body = card( controls, 'Colors' ),
+			kits = (
+				bridge.brand?.kits?.() ||
+				window.WPIE.brandKits ||
+				[]
+			).filter( ( k ) => k?.name && k.colors?.length > 1 );
+		let baseHandle = null;
+		const inkHandles = [];
+		const paletteSelect = choose(
+			body,
+			'Palette',
+			PALETTES.map( ( p ) => [ p.id, p.label ] ).concat(
+				[
+					[ 'custom', 'Custom (brand color)' ],
+					[ 'edited', 'Edited palette' ],
+				],
+				kits.map( ( k, i ) => [ 'kit:' + i, k.name ] )
+			),
+			p.paletteColors.length
+				? 'edited'
+				: p.palette === 'kit'
+				? 'edited'
+				: p.palette,
+			( v ) =>
+				change(
+					() => {
+						if ( v === 'edited' ) {
+							const colors = palOf( p ).colors.slice();
+							p.paletteColors = p.reverse
+								? colors.reverse()
+								: colors;
+						} else if ( v.startsWith( 'kit:' ) ) {
+							const k = kits[ +v.slice( 4 ) ];
+							p.palette = 'kit';
+							p.kitColors = k.colors
+								.filter( ( c ) => /^#[0-9a-f]{6}$/i.test( c ) )
+								.slice( 0, 8 );
+							p.kitName = k.name;
+							p.paletteColors = [];
+						} else {
+							p.palette = v;
+							p.paletteColors = [];
+						}
+						p.colorWeights = [];
+					},
+					'',
+					true
+				)
+		);
+		if ( p.palette === 'custom' && ! p.paletteColors.length )
+			baseHandle = color( body, 'Base color', p.customBase, ( v ) =>
+				change( () => {
+					p.customBase = v;
+					inkHandles.forEach( ( h, i ) =>
+						h.set( palOf( p ).colors[ i ] )
+					);
+				}, 'base-color' )
+			);
+		const ink = card( controls, 'Palette colors' );
+		palOf( p ).colors.forEach( ( c, i ) => {
+			const r = el( 'div', 'wpiepg-inkrow', ink );
+			const inkHandle = color(
+				r,
+				t( 'Color' ) + ' ' + ( i + 1 ),
+				c,
+				( v ) =>
+					change(
+						() => {
+							const colors = palOf( p ).colors.slice();
+							colors[ i ] = v;
+							p.paletteColors = p.reverse
+								? colors.reverse()
+								: colors;
+							paletteSelect.value = 'edited';
+							if ( baseHandle ) baseHandle.row.hidden = true;
+						},
+						'ink-' + active + '-' + i
+					)
+			);
+			inkHandles.push( inkHandle );
+			range(
+				r,
+				'Share',
+				0,
+				100,
+				p.colorWeights[ i ] ?? 50,
+				( v ) => {
+					if ( ! p.colorWeights.length )
+						p.colorWeights = palOf( p ).colors.map( () => 50 );
+					p.colorWeights[ i ] = v;
+				},
+				'share-' + active + '-' + i
+			);
+		} );
+		button( body, 'New colorway', () =>
+			change( () => {
+				p.colorway = ( p.colorway + 1 ) % palOf( p ).colors.length;
+			} )
+		);
+		check( body, 'Reverse order', !! p.reverse, ( v ) =>
+			change(
+				() => {
+					p.reverse = v ? 1 : 0;
+				},
+				'',
+				true
+			)
+		);
+		const bg = card( controls, 'Background' );
+		check( bg, 'Transparent', ! design.bg, ( v ) =>
+			change(
+				() => {
+					design.bg = v ? '' : 'custom';
+				},
+				'',
+				true
+			)
+		);
+		if ( design.bg )
+			color( bg, 'Background color', design.bgCustom, ( v ) =>
+				change( () => {
+					design.bgCustom = v;
+				}, 'background' )
+			);
+	}
+	function layoutControls() {
+		const body = card( controls, 'Rapport' );
+		choose(
+			body,
+			'Repeat',
+			[
+				[ 'straight', 'Straight' ],
+				[ 'halfdrop', 'Half-drop' ],
+				[ 'brick', 'Brick' ],
+				[ 'mirror', 'Mirror' ],
+				[ 'third', 'Third-drop' ],
+				[ 'quarter', 'Quarter-drop' ],
+				[ 'rotate', 'Quarter turns' ],
+				[ 'halfturn', 'Half turns' ],
+			],
+			design.repeat,
+			( v ) =>
+				change( () => {
+					design.repeat = v;
+					selected = null;
+				} )
+		);
+		range(
+			body,
+			'Cell aspect',
+			0.5,
+			2,
+			design.aspect,
+			( v ) => {
+				design.aspect = v;
+			},
+			'aspect',
+			0.05
+		);
+		choose(
+			body,
+			'Tile size',
+			[ 128, 256, 384, 512, 768, 1024 ].map( ( n ) => [
+				String( n ),
+				n + ' px',
+			] ),
+			String( design.cellPx ),
+			( v ) =>
+				change( () => {
+					design.cellPx = +v;
+				} )
+		);
+		const p = current();
+		range(
+			body,
+			'Offset X',
+			-50,
+			50,
+			Math.round( p.shift.x * 100 ),
+			( v ) => {
+				p.shift.x = v / 100;
+			},
+			'offset-x-' + active
+		);
+		range(
+			body,
+			'Offset Y',
+			-50,
+			50,
+			Math.round( p.shift.y * 100 ),
+			( v ) => {
+				p.shift.y = v / 100;
+			},
+			'offset-y-' + active
+		);
+		const lib = card( controls, 'Pattern library' );
+		const name = textField( lib, 'Name', favoriteName.value, () => {} );
+		button( lib, 'Save as fill pattern', async () => {
+			if ( busy ) return;
+			setBusy( true );
+			try {
+				const tile = await outputTile();
+				await window.wp.apiFetch( {
+					url:
+						String( window.WPIE.restUrl || '' ).replace(
+							/\/$/,
+							''
+						) + '/library/pattern',
+					method: 'POST',
+					data: {
+						item: {
+							name: ( name.value || 'Pattern' ).slice( 0, 24 ),
+							dataUrl: tile.toDataURL( 'image/png' ),
+						},
+					},
+				} );
+				status(
+					'Saved. The tile is now available as a pattern fill for shapes and text.'
+				);
+			} catch {
+				status( 'Could not save the pattern.' );
+			} finally {
+				setBusy( false );
+			}
+		} );
+		button( lib, 'Download PNG tile', () => download( 'png' ) );
+		button( lib, 'Download SVG tile', () => download( 'svg' ) );
+	}
+	function selectedElement() {
+		return cellElements( current() ).find( ( e ) => e.i === selected );
+	}
+	function patchElement( p, id, patch ) {
+		const e = p.moved.find( ( m ) => m.i === id );
+		if ( e ) Object.assign( e, patch );
+		else p.moved.push( { i: id, ...patch } );
+	}
+	function elementControls() {
+		const p = current(),
+			body = card( controls, 'Elements' );
+		if ( ! [ 'scatter', 'terrazzo' ].includes( p.motif ) ) {
+			el(
+				'div',
+				'dsm-note',
+				body,
+				t( 'Use Scatter or Terrazzo to edit individual elements.' )
 			);
 			return;
 		}
-		// Group stamps include everything inside the group.
-		const members = [ active ];
-		if ( 'group' === active.type ) {
-			const inGroup = new Set( [ active.id ] );
-			for ( const l of st.layers ) {
-				if ( l.parent && inGroup.has( l.parent ) ) {
-					inGroup.add( l.id );
-					members.push( l );
-				}
-			}
-		}
-		// Rotation-aware bounding box around the layer.
-		const rad = ( ( active.rot || 0 ) * Math.PI ) / 180;
-		const bw =
-			Math.abs( Math.cos( rad ) * active.w ) +
-			Math.abs( Math.sin( rad ) * active.h );
-		const bh =
-			Math.abs( Math.sin( rad ) * active.w ) +
-			Math.abs( Math.cos( rad ) * active.h );
-		const viewport = {
-			x: active.x + active.w / 2 - bw / 2,
-			y: active.y + active.h / 2 - bh / 2,
-			w: Math.max( 2, bw ),
-			h: Math.max( 2, bh ),
-		};
-		const scale = Math.min( 4, 384 / Math.max( viewport.w, viewport.h ) );
-		try {
-			const c = await bridge.raster.renderToCanvas(
-				st.doc,
-				members,
-				{
-					viewport,
-					scale,
-					cache: bridge.raster.sharedImageCache,
-				}
+		const elements = cellElements( p ),
+			grid = el( 'div', 'wpiepg-elements', body );
+		for ( const e of elements ) {
+			const b = button(
+				grid,
+				String( e.i >= 100000 ? elements.indexOf( e ) + 1 : e.i + 1 ),
+				() => {
+					selected = e.i;
+					renderControls();
+					queue();
+				},
+				'dsm-pick wpiepg-element'
 			);
-			params.stampData = c.toDataURL( 'image/png' );
-			await ensureStamp( params.stampData );
-			stampNote.style.display = '';
-			stampNote.textContent = t( 'Layer captured as stamp.' );
-			syncUi();
-			markDirty();
-			renderPreview();
-		} catch ( e ) {
-			stampNote.style.display = '';
-			stampNote.textContent = t(
-				'Select a layer in the editor first.'
+			b.dataset.element = e.i;
+			b.setAttribute(
+				'aria-label',
+				t( 'Element' ) + ' ' + ( elements.indexOf( e ) + 1 )
 			);
+			b.setAttribute( 'aria-pressed', String( selected === e.i ) );
+			b.prepend( glyphThumb( p, e.g ) );
+			if ( e.locked ) b.title = t( 'Locked' );
 		}
-	}
-	stampBtn.onclick = captureStamp;
-	const seedRow = row( patternBody, t( 'Seed' ) );
-	const seedVal = el( 'span', 'wpiepg-seed', seedRow );
-	seedVal.textContent = String( params.seed );
-	const diceBtn = el( 'button', 'dsm-mini wpiepg-dice', seedRow );
-	diceBtn.type = 'button';
-	diceBtn.title = t( 'New seed' );
-	diceBtn.innerHTML = ICON_DICE;
-	diceBtn.onclick = () => {
-		params.seed = 1 + Math.floor( Math.random() * 99999 );
-		params.moved = [];
-		params.added = [];
-		params.removed = [];
-		seedVal.textContent = String( params.seed );
-		markDirty();
-		renderPreview();
-	};
-	const dialHost = el( 'div', 'wpiepg-dials', patternBody );
-
-	function renderDials() {
-		dialHost.innerHTML = '';
-		for ( const [ key, label, min, max ] of MOTIF_PARAMS[ params.motif ] ||
-			[] ) {
-			slider( dialHost, t( label ), min, max, params[ key ], ( v ) => {
-				params[ key ] = v;
-				markDirty();
-				queuePreview();
-			} );
-		}
-		if ( 'streifen' === params.motif ) {
-			select(
-				dialHost,
-				t( 'Direction' ),
-				[
-					[ '0', t( 'Horizontal' ) ],
-					[ '1', t( 'Vertical' ) ],
-					[ '2', t( 'Diagonal down' ) ],
-					[ '3', t( 'Diagonal up' ) ],
-				],
-				String( params.dir ),
-				( v ) => {
-					params.dir = parseInt( v, 10 );
-					markDirty();
-					renderPreview();
-				}
-			);
-		}
-		slider( dialHost, t( 'Opacity' ), 20, 100, params.alpha, ( v ) => {
-			params.alpha = v;
-			markDirty();
-			queuePreview();
-		} );
-	}
-
-	/* -------------------------------- rapport ------------------------------ */
-
-	const rapportBody = section( controls, ICONS.rapport, t( 'Rapport' ) );
-	const repSel = select(
-		rapportBody,
-		t( 'Repeat' ),
-		[
-			[ 'straight', t( 'Straight' ) ],
-			[ 'halfdrop', t( 'Half-drop' ) ],
-			[ 'brick', t( 'Brick' ) ],
-			[ 'mirror', t( 'Mirror' ) ],
-		],
-		params.repeat,
-		( v ) => {
-			params.repeat = v;
-			markDirty();
-			renderPreview();
-		}
-	);
-	select(
-		rapportBody,
-		t( 'Tile size' ),
-		[
-			[ '128', '128 px' ],
-			[ '256', '256 px' ],
-			[ '384', '384 px' ],
-			[ '512', '512 px' ],
-		],
-		String( params.cellPx ),
-		( v ) => {
-			params.cellPx = parseInt( v, 10 );
-		}
-	);
-	const zoomSlider = slider(
-		rapportBody,
-		t( 'Zoom' ),
-		35,
-		320,
-		Math.round( zoom * 100 ),
-		( v ) => {
-			zoom = v / 100;
-			queuePreview();
-		},
-		'%'
-	);
-	const frameRow = el( 'label', 'dsm-checkrow wpiepg-check', rapportBody );
-	const frameCb = el( 'input', null, frameRow );
-	frameCb.type = 'checkbox';
-	frameCb.checked = showFrame;
-	el( 'span', null, frameRow ).textContent = t( 'Show tile frame' );
-	frameCb.onchange = () => {
-		showFrame = frameCb.checked;
-		renderPreview();
-	};
-
-	/* --------------------------------- colors ------------------------------ */
-
-	const colorsBody = section( controls, ICONS.colors, t( 'Colors' ) );
-	// Brand kits (Pro, window.WPIE.brandKits) join the palette list.
-	// Selecting one copies its colors into the params, so the pattern
-	// stays reproducible even if the kit changes later.
-	const KITS = ( bridge.brand
-		? bridge.brand.kits()
-		: ( window.WPIE && window.WPIE.brandKits ) || []
-	).filter( ( k ) => k && k.name && ( k.colors || [] ).length > 1 );
-	const palSel = select(
-		colorsBody,
-		t( 'Palette' ),
-		PALETTES.map( ( p ) => [ p.id, t( p.label ) ] )
-			.concat( [ [ 'custom', t( 'Custom (brand color)' ) ] ] )
-			.concat(
-				KITS.map( ( k, i ) => [ 'kit:' + i, '★ ' + k.name ] )
-			),
-		params.palette,
-		( v ) => {
-			if ( v.startsWith( 'kit:' ) ) {
-				const kit = KITS[ parseInt( v.slice( 4 ), 10 ) ];
-				params.palette = 'kit';
-				params.kitName = kit.name;
-				params.kitColors = ( kit.colors || [] )
-					.filter( ( c ) => /^#[0-9a-f]{6}$/i.test( c ) )
-					.slice( 0, 8 );
-			} else {
-				params.palette = v;
-			}
-			syncUi();
-			markDirty();
-			renderPreview();
-		}
-	);
-	const palSelValue = () => {
-		if ( 'kit' !== params.palette ) {
-			return params.palette;
-		}
-		const idx = KITS.findIndex( ( k ) => k.name === params.kitName );
-		if ( idx >= 0 ) {
-			return 'kit:' + idx;
-		}
-		// The kit is gone but its colors travel in the params: keep a
-		// phantom entry so the select still tells the truth.
-		if ( ! palSel.querySelector( 'option[value="kit:saved"]' ) ) {
-			const o = el( 'option', null, palSel );
-			o.value = 'kit:saved';
-			o.textContent = '★ ' + ( params.kitName || 'Brand Kit' );
-		}
-		return 'kit:saved';
-	};
-	// Brand color picker in a plain div row (editor rule: never inside
-	// a label row) with a bare input fallback without the bridge.
-	const baseRow = el( 'div', 'wpiepg-row wpiepg-baserow', colorsBody );
-	el( 'span', 'dsm-rowline-label', baseRow ).textContent = t( 'Base color' );
-	const baseHost = el( 'div', 'wpiepg-colorhost', baseRow );
-	let baseHandle = null;
-	const mountColor = ( node, value, onChange ) => {
-		if ( bridge?.components?.mountColorButton ) {
-			return bridge.components.mountColorButton( node, {
-				color: value,
-				onChange,
-				title: t( 'Base color' ),
-			} );
-		}
-		const input = el( 'input', null, node );
-		input.type = 'color';
-		input.value = value;
-		input.oninput = () => onChange( input.value );
-		return { set: ( v ) => ( input.value = v ) };
-	};
-	baseHandle = mountColor( baseHost, params.customBase, ( c ) => {
-		params.customBase = c;
-		renderChips();
-		markDirty();
-		queuePreview();
-	} );
-	const chips = el( 'div', 'dsm-swatches wpiepg-chips', colorsBody );
-	function renderChips() {
-		chips.innerHTML = '';
-		for ( const c of palOf( params ).colors ) {
-			const d = el( 'span', 'dsm-swatch wpiepg-chip', chips );
-			d.style.background = c;
-		}
-	}
-	const wayBtnRow = el( 'div', 'wpiepg-row', colorsBody );
-	const wayBtn = el( 'button', 'ai-btn secondary', wayBtnRow );
-	wayBtn.type = 'button';
-	wayBtn.textContent = t( 'New colorway' );
-	wayBtn.onclick = () => {
-		params.colorway = ( params.colorway + 1 ) % 5;
-		markDirty();
-		renderPreview();
-	};
-	const revRow = el( 'label', 'dsm-checkrow wpiepg-check', colorsBody );
-	const revCb = el( 'input', null, revRow );
-	revCb.type = 'checkbox';
-	revCb.checked = !! params.reverse;
-	el( 'span', null, revRow ).textContent = t( 'Reverse order' );
-	revCb.onchange = () => {
-		params.reverse = revCb.checked ? 1 : 0;
-		renderChips();
-		markDirty();
-		renderPreview();
-	};
-	const bgSel = select(
-		colorsBody,
-		t( 'Background' ),
-		[
-			[ '', t( 'Transparent' ) ],
-			[ 'light', t( 'Light (palette)' ) ],
-			[ 'dark', t( 'Dark (palette)' ) ],
-			[ 'custom', t( 'Custom color' ) ],
-		],
-		params.bg,
-		( v ) => {
-			params.bg = v;
-			syncUi();
-			markDirty();
-			renderPreview();
-		}
-	);
-	const bgRow = el( 'div', 'wpiepg-row wpiepg-bgrow', colorsBody );
-	el( 'span', 'dsm-rowline-label', bgRow ).textContent = t( 'Custom color' );
-	const bgHost = el( 'div', 'wpiepg-colorhost', bgRow );
-	const bgHandle = mountColor( bgHost, params.bgCustom, ( c ) => {
-		params.bgCustom = c;
-		markDirty();
-		queuePreview();
-	} );
-
-	/* -------------------------------- effects ------------------------------ */
-
-	const fxBody = section( controls, ICONS.pattern, t( 'Effects' ) );
-	const risoSlider = slider(
-		fxBody,
-		t( 'Offset print' ),
-		0,
-		100,
-		params.riso,
-		( v ) => {
-			params.riso = v;
-			markDirty();
-			queuePreview();
-		}
-	);
-	const dashSel = select(
-		fxBody,
-		t( 'Line style' ),
-		[
-			[ '', t( 'Solid' ) ],
-			[ 'dash', t( 'Dashed' ) ],
-			[ 'dot', t( 'Dotted' ) ],
-		],
-		params.dash || '',
-		( v ) => {
-			params.dash = v;
-			markDirty();
-			renderPreview();
-		}
-	);
-
-	/* ------------------------------ library card --------------------------- */
-
-	const libBody = section( controls, ICONS.lib, t( 'Pattern library' ) );
-	const nameRow = row( libBody, t( 'Name' ) );
-	const nameInput = el( 'input', 'dsm-input', nameRow );
-	nameInput.type = 'text';
-	nameInput.maxLength = 24;
-	nameInput.value = ( editing && layer?.name ) || 'Pattern ' + params.seed;
-	const saveBtn = el( 'button', 'ai-btn secondary', libBody );
-	saveBtn.type = 'button';
-	saveBtn.textContent = t( 'Save as fill pattern' );
-	const libNote = el( 'div', 'dsm-note wpiepg-note', libBody );
-	libNote.textContent = t(
-		'The tile repeats seamlessly in every direction.'
-	);
-	const tileDataUrl = async () => {
-		await ensureStamp( params.stampData );
-		return renderTile( params, params.cellPx ).toDataURL( 'image/png' );
-	};
-	saveBtn.onclick = async () => {
-		const boot = window.WPIE || {};
-		const url =
-			String( boot.restUrl || '' ).replace( /\/$/, '' ) +
-			'/library/pattern';
-		saveBtn.disabled = true;
-		try {
-			// wp.apiFetch carries and refreshes the nonce (BRIDGE-04).
-			await window.wp.apiFetch( {
-				url,
-				method: 'POST',
-				data: {
-					item: {
-						name:
-							( nameInput.value || 'Pattern' ).slice( 0, 24 ),
-						dataUrl: await tileDataUrl(),
+		const e = selectedElement();
+		if ( e ) {
+			const info = card( controls, 'Selected element' );
+			check( info, 'Locked', !! e.locked, ( v ) =>
+				change(
+					() => {
+						patchElement( p, e.i, { locked: v } );
 					},
-				},
-			} );
-			libNote.textContent = t(
-				'Saved. The tile is now available as a pattern fill for shapes and text.'
+					'',
+					true
+				)
 			);
-		} catch ( e ) {
-			libNote.textContent = t( 'Could not save the pattern.' );
-		}
-		saveBtn.disabled = false;
-	};
-	const dlPng = el( 'button', 'ai-btn secondary', libBody );
-	dlPng.type = 'button';
-	dlPng.textContent = t( 'Download PNG tile' );
-	dlPng.onclick = async () => {
-		const a = document.createElement( 'a' );
-		a.href = await tileDataUrl();
-		a.download = 'pattern-' + params.motif + '-' + params.seed + '.png';
-		a.click();
-	};
-	const dlSvg = el( 'button', 'ai-btn secondary', libBody );
-	dlSvg.type = 'button';
-	dlSvg.textContent = t( 'Download SVG tile' );
-	dlSvg.onclick = async () => {
-		await ensureStamp( params.stampData );
-		const img = stampImage( params.stampData );
-		const stamp = img
-			? {
-					href: params.stampData,
-					aspect: img.height / Math.max( 1, img.width ),
-			  }
-			: null;
-		const blob = new Blob(
-			[ toSvgTile( params, params.cellPx, stamp ) ],
-			{
-				type: 'image/svg+xml',
-			}
-		);
-		const a = document.createElement( 'a' );
-		a.href = URL.createObjectURL( blob );
-		a.download = 'pattern-' + params.motif + '-' + params.seed + '.svg';
-		a.click();
-		window.setTimeout( () => URL.revokeObjectURL( a.href ), 4000 );
-	};
-
-	/* --------------------------------- foot -------------------------------- */
-
-	const foot = el( 'div', 'dsm-foot', dialog );
-	const footHint = el( 'div', 'dsm-hint', foot );
-	footHint.textContent = t(
-		'Inserts the pattern as an editable fill layer in document size.'
-	);
-	const actions = el( 'div', 'dsm-actions', foot );
-	const cancelBtn = el( 'button', 'ai-btn secondary', actions );
-	cancelBtn.type = 'button';
-	cancelBtn.textContent = t( 'Cancel' );
-	const apply = el( 'button', 'ai-btn primary', actions );
-	apply.type = 'button';
-	apply.textContent = editing
-		? t( 'Update pattern' )
-		: t( 'Insert pattern' );
-
-	apply.onclick = async () => {
-		const url = await tileDataUrl();
-		// Pre-decode the tile so the very first canvas paint after the
-		// dispatch shows the pattern (feature-detect: older cores warm
-		// the tile on their own since v1.287.1).
-		try {
-			await bridge.raster?.registerUserTile?.( url );
-		} catch ( e ) {}
-		const stored = {
-			...params,
-			shift: { ...params.shift },
-			moved: params.moved.map( ( m ) => ( { ...m } ) ),
-			added: params.added.map( ( a ) => ( { ...a } ) ),
-			removed: params.removed.slice(),
-		};
-		const name = ( nameInput.value || 'Pattern ' + params.seed ).slice(
-			0,
-			24
-		);
-		if ( editing ) {
-			editor.dispatch( {
-				type: 'UPDATE_LAYER',
-				id: layer.id,
-				patch: {
-					patternData: url,
-					pattern: 'custom',
-					fillType: 'pattern',
-					generator: { id: GEN_ID, params: stored },
+			range(
+				info,
+				'Size',
+				1,
+				100,
+				e.s * 100,
+				( v ) => {
+					if ( ! e.locked ) patchElement( p, e.i, { s: v / 100 } );
 				},
-			} );
-			editor.commit( t( 'Update pattern' ) );
-		} else {
-			const newLayer = bridge.documents.makeShape( {
-				name,
-				shape: 'rect',
-				x: 0,
-				y: 0,
-				w: doc.w,
-				h: doc.h,
-				fill: '#ffffff',
-				fillType: 'pattern',
-				pattern: 'custom',
-				patternData: url,
-			} );
-			newLayer.generator = { id: GEN_ID, params: stored };
-			editor.dispatch( { type: 'ADD_LAYER', layer: newLayer } );
-			editor.commit( 'Seamless Patterns' );
+				'element-size-' + e.i
+			).input.disabled = !! e.locked;
+			range(
+				info,
+				'Rotation',
+				-180,
+				180,
+				( e.rot * 180 ) / Math.PI,
+				( v ) => {
+					if ( ! e.locked )
+						patchElement( p, e.i, { rot: ( v * Math.PI ) / 180 } );
+				},
+				'element-rot-' + e.i
+			).input.disabled = !! e.locked;
+			if ( p.set !== 'stamp' && ! e.locked )
+				color(
+					info,
+					'Element color',
+					e.color ||
+						palOf( p ).colors[ e.c % palOf( p ).colors.length ],
+					( v ) => {
+						if ( ! e.locked )
+							change(
+								() => patchElement( p, e.i, { color: v } ),
+								'element-color-' + e.i
+							);
+					}
+				);
+			button( info, 'Duplicate element', () =>
+				change(
+					() => {
+						const id =
+							Math.max(
+								-1,
+								...p.added.map( ( a, i ) => a.id ?? i )
+							) + 1;
+						p.added.push( {
+							...e,
+							id,
+							...wrapCellPoint( design, {
+								x: e.x + 0.06,
+								y: e.y + 0.06,
+							} ),
+							locked: false,
+						} );
+						selected = 100000 + id;
+					},
+					'',
+					true
+				)
+			);
+			const remove = button( info, 'Remove element', removeSelected );
+			remove.disabled = !! e.locked;
 		}
-		close();
-	};
-
-	/* ------------------------------ lifecycle ------------------------------ */
-
-	function close() {
-		window.removeEventListener( 'resize', queuePreview );
-		document.removeEventListener( 'keydown', onKey );
-		document.removeEventListener( 'pointerdown', onDocDown );
-		backdrop.remove();
+		button( body, 'Add element', () => addElement( 0.5, 0.5 ) );
+		button( body, 'Reset edits', () =>
+			change(
+				() => {
+					resetEdits( p );
+				},
+				'',
+				true
+			)
+		);
 	}
-	const onKey = ( e ) => {
-		if ( 'Escape' === e.key ) {
-			close();
-		}
-	};
-	document.addEventListener( 'keydown', onKey );
-	window.addEventListener( 'resize', queuePreview );
-	closeBtn.onclick = close;
-	cancelBtn.onclick = close;
-	backdrop.onclick = ( e ) => {
-		if ( e.target === backdrop ) {
-			close();
-		}
-	};
+	function removeSelected() {
+		const p = current(),
+			e = selectedElement();
+		if ( ! e || e.locked ) return;
+		change(
+			() => {
+				if ( e.i >= 100000 ) {
+					p.added = p.added
+						.map( ( a, i ) => ( { ...a, id: a.id ?? i } ) )
+						.filter( ( a ) => a.id !== e.i - 100000 );
+				} else p.removed.push( e.i );
+				p.moved = p.moved.filter( ( m ) => m.i !== e.i );
+				selected = null;
+			},
+			'',
+			true
+		);
+	}
+	function addElement( x, y ) {
+		const p = current();
+		if ( p.added.length >= 100 ) return;
+		change(
+			() => {
+				const pool = glyphPool( p ) || p.stamps || [ 0 ],
+					id =
+						Math.max(
+							-1,
+							...p.added.map( ( a, i ) => a.id ?? i )
+						) + 1;
+				p.added.push( {
+					id,
+					...wrapCellPoint( design, { x, y } ),
+					s: 0.17,
+					g: Math.floor( Math.random() * Math.max( 1, pool.length ) ),
+					rot: 0,
+					c: Math.floor( Math.random() * palOf( p ).colors.length ),
+				} );
+				selected = 100000 + id;
+				tab = 'elements';
+			},
+			'',
+			true
+		);
+	}
+	function preserveLocked( p ) {
+		const locked = cellElements( p ).filter( ( e ) => e.locked );
+		p.moved = locked.map( ( e ) => ( { ...e } ) );
+		p.added = p.added.filter( ( a ) =>
+			locked.some( ( e ) => e.i === 100000 + a.id )
+		);
+		p.removed = [];
+	}
+	function randomize( mode = 'pattern' ) {
+		change(
+			() => {
+				design = randomizeDesign( design, { mode, active, locks } );
+				active = Math.min( active, design.layers.length - 1 );
+				selected = null;
+			},
+			'',
+			true
+		);
+	}
+	function stampControls( body, p ) {
+		const eligible = ( editor.state.layers || [] ).filter(
+				( l ) => l.id !== layer?.id && l.visible !== false
+			),
+			sources = eligible.map( ( l ) => [ l.id, l.name || l.type ] );
+		const select = choose(
+			body,
+			'Source layer',
+			[ [ '', 'Choose a layer' ], ...sources ],
+			sources.some( ( [ id ] ) => id === editor.state.activeId )
+				? editor.state.activeId
+				: '',
+			() => {}
+		);
+		const capture = button( body, 'Add layer stamp', async () => {
+			if ( ! select.value || p.stamps.length >= 6 ) return;
+			capture.disabled = true;
+			try {
+				const all = editor.state.layers || [],
+					source = all.find( ( l ) => l.id === select.value ),
+					ids = new Set( [ source.id ] );
+				let grew = true;
+				while ( grew ) {
+					grew = false;
+					for ( const l of all )
+						if (
+							l.parent &&
+							ids.has( l.parent ) &&
+							! ids.has( l.id )
+						) {
+							ids.add( l.id );
+							grew = true;
+						}
+				}
+				const members = all.filter( ( l ) => ids.has( l.id ) ),
+					bounds = members
+						.filter(
+							( l ) =>
+								l.type !== 'group' &&
+								Number.isFinite( l.x ) &&
+								Number.isFinite( l.y ) &&
+								Number.isFinite( l.w ) &&
+								Number.isFinite( l.h )
+						)
+						.map( ( l ) => {
+							const a = ( ( l.rot || 0 ) * Math.PI ) / 180,
+								w =
+									Math.abs( Math.cos( a ) * l.w ) +
+									Math.abs( Math.sin( a ) * l.h ),
+								h =
+									Math.abs( Math.sin( a ) * l.w ) +
+									Math.abs( Math.cos( a ) * l.h );
+							return {
+								x: l.x + l.w / 2 - w / 2,
+								y: l.y + l.h / 2 - h / 2,
+								w,
+								h,
+							};
+						} );
+				if ( ! bounds.length ) throw Error( 'bounds' );
+				const x = Math.min( ...bounds.map( ( b ) => b.x ) ),
+					y = Math.min( ...bounds.map( ( b ) => b.y ) ),
+					w = Math.max(
+						2,
+						Math.max( ...bounds.map( ( b ) => b.x + b.w ) ) - x
+					),
+					h = Math.max(
+						2,
+						Math.max( ...bounds.map( ( b ) => b.y + b.h ) ) - y
+					);
+				const canvas = await bridge.raster.renderToCanvas(
+					editor.state.doc,
+					members,
+					{
+						viewport: { x, y, w, h },
+						scale: Math.min( 4, 512 / Math.max( w, h ) ),
+						cache: bridge.raster.sharedImageCache,
+					}
+				);
+				if ( closed || ! design.layers.includes( p ) ) return;
+				checkpoint();
+				p.stamps.push( {
+					name: source.name || t( 'Stamp' ),
+					data: canvas.toDataURL( 'image/png' ),
+					aspect: canvas.height / canvas.width,
+				} );
+				p.stampData = '';
+				p.glyphWeights = [];
+				resetEdits( p );
+				await ensureStamps( design );
+				sync();
+			} catch {
+				status( 'Could not capture the selected layer.' );
+			} finally {
+				capture.disabled = false;
+			}
+		} );
+		capture.disabled = p.stamps.length >= 6;
+		p.stamps.forEach( ( s, i ) => {
+			const r = el( 'div', 'wpiepg-stamprow', body ),
+				img = el( 'img', 'wpiepg-stampthumb', r );
+			img.src = s.data;
+			img.alt = s.name;
+			el( 'span', '', r, s.name );
+			button(
+				r,
+				'×',
+				() =>
+					change(
+						() => {
+							p.stamps.splice( i, 1 );
+							p.glyphWeights = [];
+							resetEdits( p );
+						},
+						'',
+						true
+					),
+				'dsm-mini'
+			).setAttribute(
+				'aria-label',
+				t( 'Remove stamp' ) + ' ' + ( i + 1 )
+			);
+		} );
+		if ( ! p.stamps.length && ! p.stampData )
+			el(
+				'div',
+				'dsm-note',
+				body,
+				t( 'Add up to six source layers and adjust their frequency.' )
+			);
+	}
 
-	/* --------------------------- playground input --------------------------- */
-
-	const isElementMotif = () => ELEMENT_MOTIFS.includes( params.motif );
-
-	canvas.style.cursor = 'grab';
-	const setHint = () => {
-		canvas.title = isElementMotif()
-			? t(
-					'Drag: move elements (they wrap) · wheel: zoom · double-click: new colorway · right-click: more.'
-			  )
-			: t(
-					'Drag: shift the pattern · wheel: zoom · double-click: new colorway · right-click: more.'
-			  );
-	};
-	setHint();
-
-	// Pointer px -> tile units (the pattern starts at the canvas origin).
-	const tilePos = ( e ) => {
+	// Coordinates and hit testing share the repeat transforms with the renderer.
+	const position = ( e ) => {
 		const rect = canvas.getBoundingClientRect();
 		return {
-			x: ( e.clientX - rect.left ) / ( PRE * zoom ),
-			y: ( e.clientY - rect.top ) / ( PRE * zoom ),
+			x:
+				( e.clientX - rect.left - paintInfo.x ) /
+				( paintInfo.unit * design.aspect ),
+			y: ( e.clientY - rect.top - paintInfo.y ) / paintInfo.unit,
 		};
 	};
-
-	const nearestElement = ( u ) => {
-		const { cols, rows } = expandPlaces( params.repeat );
-		const tx = ( ( u.x % cols ) + cols ) % cols;
-		const ty = ( ( u.y % rows ) + rows ) % rows;
-		let best = null;
-		let bestD = Infinity;
-		for ( const e of elementsInTile( params ) ) {
-			for ( let ox = -cols; ox <= cols; ox += cols ) {
-				for ( let oy = -rows; oy <= rows; oy += rows ) {
-					const d = Math.hypot(
-						e.x + ox - tx,
-						e.y + oy - ty
-					);
-					if ( d < bestD ) {
-						bestD = d;
-						best = e;
-					}
-				}
+	function nearest( pos ) {
+		const { cols, rows } = paintInfo;
+		let best = null,
+			distance = Infinity;
+		for ( const e of elementsInTile( {
+			...current(),
+			repeat: design.repeat,
+		} ) ) {
+			const dx = Math.abs( wrap( pos.x / cols ) * cols - e.x ),
+				dy = Math.abs( wrap( pos.y / rows ) * rows - e.y ),
+				d = Math.hypot(
+					Math.min( dx, cols - dx ),
+					Math.min( dy, rows - dy )
+				);
+			if ( d < Math.max( 0.055, e.s * 0.65 ) && d < distance ) {
+				best = e;
+				distance = d;
 			}
 		}
-		return best && bestD < Math.max( 0.09, ( best.s || 0.1 ) * 0.85 )
-			? best
-			: null;
-	};
-
-	// The element's current CELL position (edits included).
-	const cellPosOf = ( i ) => {
-		const e = cellElements( params ).find( ( x ) => x.i === i );
-		return e ? { x: e.x, y: e.y } : null;
-	};
-
+		return best;
+	}
 	let drag = null;
 	canvas.onpointerdown = ( e ) => {
-		if ( 2 === e.button ) {
+		if ( e.button !== 0 || ! paintInfo ) return;
+		const pos = position( e ),
+			p = current();
+		if (
+			single &&
+			( pos.x < 0 ||
+				pos.y < 0 ||
+				pos.x >= paintInfo.cols ||
+				pos.y >= paintInfo.rows )
+		)
 			return;
-		}
-		const u = tilePos( e );
-		if ( isElementMotif() ) {
-			const hit = nearestElement( u );
-			if ( ! hit ) {
-				return;
+		if ( [ 'scatter', 'terrazzo' ].includes( p.motif ) ) {
+			const hit = nearest( pos );
+			selected = hit?.i ?? null;
+			if ( hit ) {
+				tab = 'elements';
+				renderControls();
+				const base = selectedElement();
+				if ( ! base.locked ) {
+					checkpoint();
+					drag = { pos, base: clone( base ), hit };
+				}
 			}
-			const cell = cellPosOf( hit.i );
-			if ( ! cell ) {
-				return;
-			}
-			drag = {
-				mode: 'element',
-				i: hit.i,
-				fx: hit.fx ? -1 : 1,
-				fy: hit.fy ? -1 : 1,
-				start: u,
-				cell,
-			};
+			queue();
 		} else {
-			drag = {
-				mode: 'shift',
-				start: u,
-				shift: { ...params.shift },
-			};
+			checkpoint();
+			drag = { pos, shift: clone( p.shift ) };
 		}
-		canvas.setPointerCapture( e.pointerId );
-		canvas.style.cursor = 'grabbing';
+		if ( drag ) {
+			canvas.setPointerCapture( e.pointerId );
+			canvas.style.cursor = 'grabbing';
+		}
 	};
 	canvas.onpointermove = ( e ) => {
-		if ( ! drag ) {
-			return;
-		}
-		const u = tilePos( e );
-		const dx = u.x - drag.start.x;
-		const dy = u.y - drag.start.y;
-		if ( 'element' === drag.mode ) {
-			const nx = drag.cell.x + dx * drag.fx;
-			const ny = drag.cell.y + dy * drag.fy;
-			params.moved = ( params.moved || [] ).filter(
-				( m ) => m.i !== drag.i
+		if ( ! drag ) return;
+		const pos = position( e ),
+			p = current(),
+			dx = pos.x - drag.pos.x,
+			dy = pos.y - drag.pos.y;
+		if ( drag.base ) {
+			const a = drag.hit.angle || 0,
+				rx =
+					( dx * Math.cos( a ) + dy * Math.sin( a ) ) *
+					( drag.hit.fx ? -1 : 1 ),
+				ry =
+					( -dx * Math.sin( a ) + dy * Math.cos( a ) ) *
+					( drag.hit.fy ? -1 : 1 );
+			patchElement(
+				p,
+				drag.base.i,
+				wrapCellPoint( design, {
+					x: drag.base.x + rx,
+					y: drag.base.y + ry,
+				} )
 			);
-			params.moved.push( {
-				i: drag.i,
-				x: ( ( nx % 1 ) + 1 ) % 1,
-				y: ( ( ny % 1 ) + 1 ) % 1,
-			} );
-		} else {
-			const wrap = ( v ) => {
-				let w = ( v + 0.5 ) % 1;
-				if ( w < 0 ) {
-					w += 1;
-				}
-				return w - 0.5;
+		} else
+			p.shift = {
+				x: wrap( drag.shift.x + dx + 0.5 ) - 0.5,
+				y: wrap( drag.shift.y + dy + 0.5 ) - 0.5,
 			};
-			params.shift = {
-				x: wrap( drag.shift.x + dx ),
-				y: wrap( drag.shift.y + dy ),
-			};
-		}
-		markDirty();
-		queuePreview();
+		dirty = true;
+		queue();
 	};
-	canvas.onpointerup = () => {
+	const endDrag = () => {
 		drag = null;
 		canvas.style.cursor = 'grab';
 	};
+	canvas.onpointerup = endDrag;
+	canvas.onpointercancel = endDrag;
 	canvas.addEventListener(
 		'wheel',
 		( e ) => {
 			e.preventDefault();
-			zoom = Math.max(
-				0.35,
-				Math.min( 3.2, zoom * ( e.deltaY < 0 ? 1.09 : 1 / 1.09 ) )
-			);
-			zoomSlider.value = String( Math.round( zoom * 100 ) );
-			zoomSlider.dispatchEvent( new Event( 'input' ) );
+			zoom = clamp( zoom * ( e.deltaY < 0 ? 1.08 : 1 / 1.08 ), 0.3, 4 );
+			queue();
 		},
 		{ passive: false }
 	);
-	canvas.ondblclick = () => {
-		params.colorway = ( params.colorway + 1 ) % 5;
-		markDirty();
-		renderPreview();
-	};
-
-	// Right click: a small playground menu (own div - never native).
 	const menu = el( 'div', 'wpiepg-menu', view );
-	menu.style.display = 'none';
-	let menuAt = { x: 0.5, y: 0.5 };
-	const menuItem = ( label, fn ) => {
-		const b = el( 'button', null, menu );
-		b.type = 'button';
-		b.textContent = label;
-		b.onclick = () => {
-			menu.style.display = 'none';
-			fn();
-		};
-		return b;
-	};
-	const itemAdd = menuItem( '+ ' + t( 'Add element' ), () => {
-		const { cols, rows } = expandPlaces( params.repeat );
-		const glyphs =
-			'terrazzo' === params.motif
-				? 6
-				: ( glyphPool( params ) || [ 0 ] ).length;
-		const tx = ( ( menuAt.x % cols ) + cols ) % cols;
-		const ty = ( ( menuAt.y % rows ) + rows ) % rows;
-		params.added = ( params.added || [] ).concat( [
-			{
-				x: ( ( tx % 1 ) + 1 ) % 1,
-				y: ( ( ty % 1 ) + 1 ) % 1,
-				g: Math.floor( Math.random() * glyphs ),
-				s:
-					( 0.34 + ( params.size / 100 ) * 0.62 ) /
-					Math.max( 2, Math.ceil( Math.sqrt( params.count ) ) ),
-				rot:
-					( Math.random() - 0.5 ) *
-					Math.PI *
-					( params.rot / 100 ),
-				c: Math.floor( Math.random() * 5 ),
-			},
-		] );
-		markDirty();
-		renderPreview();
+	menu.hidden = true;
+	button( menu, 'Add element', () => {
+		const p = cellPointAtTile(
+			{ ...current(), repeat: design.repeat },
+			menu._pos
+		);
+		addElement( p.x, p.y );
+		menu.hidden = true;
 	} );
-	const itemRemove = menuItem( t( 'Remove element' ), () => {
-		const hit = nearestElement( menuAt );
-		if ( ! hit ) {
-			return;
-		}
-		if ( hit.i >= 100000 ) {
-			params.added.splice( hit.i - 100000, 1 );
-			// Splicing renumbers later hand-added elements - drop
-			// their move overrides instead of misapplying them.
-			params.moved = ( params.moved || [] ).filter(
-				( m ) => m.i < 100000
-			);
-		} else {
-			params.removed = ( params.removed || [] ).concat( [ hit.i ] );
-			params.moved = ( params.moved || [] ).filter(
-				( m ) => m.i !== hit.i
-			);
-		}
-		markDirty();
-		renderPreview();
+	button( menu, 'Remove element', () => {
+		removeSelected();
+		menu.hidden = true;
 	} );
-	menuItem( t( 'New colorway' ), () => canvas.ondblclick() );
-	menuItem( t( 'Reset edits' ), () => {
-		params.shift = { x: 0, y: 0 };
-		params.moved = [];
-		params.added = [];
-		params.removed = [];
-		markDirty();
-		renderPreview();
-	} );
-	const itemFrame = menuItem( t( 'Show tile frame' ), () => {
-		showFrame = ! showFrame;
-		frameCb.checked = showFrame;
-		itemFrame.textContent = showFrame
-			? t( 'Hide tile frame' )
-			: t( 'Show tile frame' );
-		renderPreview();
-	} );
-	view.oncontextmenu = ( e ) => {
+	canvas.oncontextmenu = ( e ) => {
 		e.preventDefault();
-		menuAt = tilePos( e );
-		const rect = view.getBoundingClientRect();
-		itemAdd.style.display = isElementMotif() ? '' : 'none';
-		itemRemove.style.display = isElementMotif() ? '' : 'none';
-		menu.style.left =
-			Math.min( e.clientX - rect.left, rect.width - 210 ) + 'px';
-		menu.style.top =
-			Math.min( e.clientY - rect.top, rect.height - 170 ) + 'px';
-		menu.style.display = 'flex';
+		if ( ! [ 'scatter', 'terrazzo' ].includes( current().motif ) ) return;
+		menu._pos = position( e );
+		selected = nearest( menu._pos )?.i ?? null;
+		const b = view.getBoundingClientRect();
+		menu.style.left = Math.min( e.clientX - b.left, b.width - 205 ) + 'px';
+		menu.style.top = Math.min( e.clientY - b.top, b.height - 90 ) + 'px';
+		menu.hidden = false;
+		queue();
 	};
-	const onDocDown = ( e ) => {
-		if ( ! menu.contains( e.target ) ) {
-			menu.style.display = 'none';
+	onOutside = ( e ) => {
+		if ( ! menu.contains( e.target ) ) menu.hidden = true;
+	};
+	document.addEventListener( 'pointerdown', onOutside );
+	onKey = ( e ) => {
+		if (
+			closed ||
+			! modal.dialog.contains( e.target ) ||
+			e.target.closest( 'input,select,textarea,[contenteditable="true"]' )
+		)
+			return;
+		if ( ( e.ctrlKey || e.metaKey ) && e.key.toLowerCase() === 'z' ) {
+			e.preventDefault();
+			e.stopPropagation();
+			if ( e.shiftKey ) stateHistory.redo();
+			else stateHistory.undo();
+			updateHistory();
+		} else if ( e.key === 'Delete' || e.key === 'Backspace' ) {
+			e.preventDefault();
+			removeSelected();
 		}
 	};
-	document.addEventListener( 'pointerdown', onDocDown );
-
-	/* --------------------------------- sync -------------------------------- */
-
-	function syncUi() {
-		motSel.value = params.motif;
-		repSel.value = params.repeat;
-		bgSel.value = params.bg;
-		palSel.value = palSelValue();
-		baseRow.style.display =
-			'custom' === params.palette ? '' : 'none';
-		bgRow.style.display = 'custom' === params.bg ? '' : 'none';
-		const setsVisible = SET_MOTIFS.includes( params.motif );
-		setRow.parentElement.style.display = setsVisible ? '' : 'none';
-		setRow.value = params.set;
-		set2Row.parentElement.style.display =
-			setsVisible && 'stamp' !== params.set ? '' : 'none';
-		set2Row.value = params.set2 || '';
-		stampRow.style.display =
-			setsVisible && 'stamp' === params.set ? '' : 'none';
-		if ( params.stampData ) {
-			stampThumb.style.backgroundImage =
-				'url(' + params.stampData + ')';
-		} else {
-			stampThumb.style.backgroundImage = '';
-		}
-		seedVal.textContent = String( params.seed );
-		if ( String( params.riso ) !== risoSlider.value ) {
-			risoSlider.value = String( params.riso );
-			risoSlider.dispatchEvent( new Event( 'input' ) );
-		}
-		dashSel.value = params.dash || '';
-		revCb.checked = !! params.reverse;
-		if ( baseHandle ) {
-			baseHandle.set( params.customBase );
-		}
-		if ( bgHandle ) {
-			bgHandle.set( params.bgCustom );
-		}
-		renderChips();
-		renderDials();
-		setHint();
+	modal.dialog.addEventListener( 'keydown', onKey );
+	resize = new ResizeObserver( queue );
+	resize.observe( view );
+	function sync() {
+		if ( closed ) return;
+		dirty = true;
+		renderLayers();
+		renderControls();
+		updateHistory();
+		updateRandomControls();
+		queue();
 	}
-
-	renderPresets();
-	renderFavs();
-	syncUi();
-	renderPreview();
-	// Late layout (fonts/flex): one follow-up paint on the real size.
-	window.requestAnimationFrame( renderPreview );
-	// Editing a stamped pattern: decode the stored stamp, then repaint.
-	if ( params.stampData ) {
-		ensureStamp( params.stampData ).then( () => {
-			markDirty();
-			renderPreview();
-		} );
+	function setBusy( value ) {
+		busy = value;
+		applyBtn.disabled = value;
 	}
-
-	// QA hooks (headless smoke tests drive these).
-	window.__pgParams = params;
-	window.__pgApply = applyParams;
-	window.__pgPreview = renderPreview;
+	async function outputTile() {
+		await ensureStamps( design );
+		return renderTile( design, design.cellPx );
+	}
+	async function download( format ) {
+		if ( busy ) return;
+		setBusy( true );
+		try {
+			await ensureStamps( design );
+			const blob =
+				format === 'svg'
+					? new Blob( [ toSvgTile( design, design.cellPx ) ], {
+							type: 'image/svg+xml',
+					  } )
+					: await new Promise( ( resolve ) =>
+							renderTile( design, design.cellPx ).toBlob(
+								resolve,
+								'image/png'
+							)
+					  );
+			if ( ! blob ) throw Error( 'empty' );
+			const href = URL.createObjectURL( blob ),
+				a = document.createElement( 'a' );
+			a.href = href;
+			a.download = 'seamless-pattern.' + format;
+			a.click();
+			setTimeout( () => URL.revokeObjectURL( href ), 4000 );
+		} catch {
+			status( 'Could not export the pattern.' );
+		} finally {
+			setBusy( false );
+		}
+	}
+	async function insert() {
+		if ( busy ) return;
+		setBusy( true );
+		try {
+			const output = await outputTile(),
+				url = output.toDataURL( 'image/png' );
+			await bridge.raster.registerUserTile?.( url );
+			if ( closed ) return;
+			const generator = { id: GEN_ID, params: clone( design ) },
+				name = ( favoriteName.value || 'Seamless Patterns' ).slice(
+					0,
+					60
+				);
+			if ( editing ) {
+				editor.dispatch( {
+					type: 'UPDATE_LAYER',
+					id: layer.id,
+					patch: {
+						patternData: url,
+						pattern: 'custom',
+						fillType: 'pattern',
+						generator,
+					},
+				} );
+				editor.commit( t( 'Update pattern' ) );
+			} else {
+				const added = bridge.documents.makeShape( {
+					name,
+					shape: 'rect',
+					x: 0,
+					y: 0,
+					w: editor.state.doc.w,
+					h: editor.state.doc.h,
+					fill: '#ffffff',
+					fillType: 'pattern',
+					pattern: 'custom',
+					patternData: url,
+				} );
+				added.generator = generator;
+				editor.dispatch( { type: 'ADD_LAYER', layer: added } );
+				editor.commit( 'Seamless Patterns' );
+			}
+			close();
+		} catch {
+			status( 'Could not insert the pattern.' );
+		} finally {
+			setBusy( false );
+		}
+	}
+	function dispose() {
+		if ( closed ) return;
+		closed = true;
+		previewEpoch++;
+		if ( raf ) cancelAnimationFrame( raf );
+		thumbObserver?.disconnect();
+		clearColorHandles();
+		resize?.disconnect();
+		document.removeEventListener( 'pointerdown', onOutside );
+		modal.dialog.removeEventListener( 'keydown', onKey );
+		if ( window.__wpiePattern?.canvas === canvas )
+			delete window.__wpiePattern;
+	}
+	function close() {
+		dispose();
+		modal.close();
+	}
+	renderGallery();
+	await ensureStamps( design );
+	if ( closed ) return;
+	sync();
+	if ( window.__wpieQA )
+		window.__wpiePattern = {
+			params: () => clone( design ),
+			preview: () => ( { ...paintInfo } ),
+			active: () => active,
+			selectLayer: ( i ) => {
+				active = i;
+				sync();
+			},
+			apply: applyDesign,
+			canvas,
+			tile: outputTile,
+			svg: () => toSvgTile( design, design.cellPx ),
+			busy: () => busy,
+		};
 }
-
-/* -------------------------------- register ------------------------------- */
-
 function register( api ) {
 	api.registerGenerator( {
 		id: GEN_ID,
 		label: 'Seamless Patterns',
-		run: ( ctx ) => openStudio( ctx ),
-		edit: ( ctx ) => openStudio( ctx ),
+		run: openStudio,
+		edit: openStudio,
 	} );
 }
-
-if ( window.WPIE && window.WPIE.api ) {
-	register( window.WPIE.api );
-} else {
+if ( window.WPIE?.api ) register( window.WPIE.api );
+else
 	window.wp.hooks.addAction(
 		'wpie.ready',
 		'wpie-pattern-generator',
 		register
 	);
-}

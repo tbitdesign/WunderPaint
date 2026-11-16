@@ -23,6 +23,8 @@ import { openStampMaker } from '@ed/lib/stamp-maker.js';
 // approximate it - a studio that turns layers into paths must see real data.
 import { shapeToPathD, isParametricShape } from '@ed/lib/shape-path.js';
 import { importSvg, exportSvg } from '@ed/lib/svg-io.js';
+import { maskContours } from '@ed/lib/mask-contour.js';
+import { selectionToMaskCanvas } from '@ed/store/selection.js';
 
 /** Six coloured plates with real pixel dimensions, shared by both media mocks. */
 function mockMediaItems() {
@@ -239,7 +241,16 @@ window.__installWpieMock = ( opts = {} ) => {
 		providers: {},
 		extensions: [],
 		bridge: {
-			ui, // the REAL ext-ui builders - zero drift by construction
+			// The REAL ext-ui builders, under the names the bridge gives them
+			// and under no others: pro-bridge.js publishes optGrid/optBtn as
+			// opts/opt (API 2.24). A studio that calls ui.optGrid works
+			// nowhere but here if the stage offers that name too - Performance
+			// Art 0.17.0 shipped a layer panel that broke off in the editor
+			// that way, with every check green.
+			ui: ( () => {
+				const { optGrid, optBtn, ...named } = ui;
+				return { ...named, opts: optGrid, opt: optBtn };
+			} )(),
 			// The stamp recipe engine and its maker, also the real ones
 			// (API 2.17). Particle Strokes THROWS at load without this,
 			// so from the day the engine moved into the core its harness
@@ -338,7 +349,9 @@ window.__installWpieMock = ( opts = {} ) => {
 					).colors || null;
 				},
 			},
+			selection: { toMask: selectionToMaskCanvas },
 			raster: {
+				traceAlpha: maskContours,
 				// The editor's cache warms itself before a render; a bare
 				// object here made every studio that asks for it fall into
 				// its own error branch and close again without a word.

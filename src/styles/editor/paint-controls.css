@@ -1,0 +1,328 @@
+#wpie-root .paint-chip {
+	position: relative;
+	display: inline-block;
+	flex: 0 0 auto;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 3px;
+	background: var(--paint);
+}
+
+#wpie-root .paint-chip-stroke::after {
+	content: "";
+	position: absolute;
+	inset: 5px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 1px;
+	background: var(--surface-panel);
+}
+
+#wpie-root .paint-targets {
+	display: flex;
+	gap: 6px;
+}
+
+#wpie-root .paint-target {
+	display: flex;
+	flex: 1;
+	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	padding: 4px;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--ed-text-dim);
+	font-size: 11px;
+}
+
+#wpie-root .paint-target[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--text-primary);
+}
+
+#wpie-root .paint-targets-compact {
+	gap: 2px;
+	justify-content: center;
+	padding: 8px 2px;
+}
+
+#wpie-root .paint-targets-compact .paint-target {
+	flex: 0 0 auto;
+	padding: 2px;
+}
+
+#wpie-root .paint-targets-compact .paint-chip {
+	width: 20px;
+	height: 20px;
+}
+
+#wpie-root .paint-swatch-wrap {
+	display: inline-flex;
+}
+
+#wpie-root .paint-popover {
+	width: 242px;
+	max-height: calc(100vh - 24px);
+	overflow: auto;
+	padding: 10px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 6px;
+	background: var(--surface-panel);
+	color: var(--text-primary);
+	box-shadow: var(--shadow-lg);
+}
+
+#wpie-root .paint-popover .color-popover-embedded {
+	width: 100%;
+	padding: 0;
+	margin-top: 10px;
+}
+
+#wpie-root .paint-gradient-controls {
+	display: grid;
+	gap: 8px;
+	min-width: 0;
+	padding: 4px 0 10px;
+	margin: 0;
+	border: 0;
+}
+
+#wpie-root .paint-preset-row,
+#wpie-root .paint-gradient-geometry,
+#wpie-root .paint-stop-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+}
+
+#wpie-root .paint-preset-row select,
+#wpie-root .paint-gradient-geometry select {
+	flex: 1;
+	min-width: 0;
+	width: 0;
+}
+
+#wpie-root .paint-gradient-controls input,
+#wpie-root .paint-gradient-controls select {
+	height: 26px;
+	font-size: 11px;
+}
+
+#wpie-root .paint-gradient-controls label {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+#wpie-root .paint-gradient-controls input {
+	width: 52px;
+}
+
+#wpie-root .paint-stop-row > span {
+	flex: 1;
+	white-space: nowrap;
+	font-size: 11px;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .color-panel-paint {
+	display: grid;
+	gap: 7px;
+	padding: 0 10px 8px;
+}
+
+#wpie-root .rp-progrow:has(.rp-color-paint) {
+	display: grid;
+}
+
+#wpie-root .rp-color-paint {
+	min-width: 0;
+}
+
+#wpie-root .rp-color-paint .rp-seg {
+	margin-bottom: 6px;
+}
+
+#wpie-root .paint-type button {
+	border: 1px solid transparent;
+}
+
+#wpie-root .paint-type button[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: transparent;
+	color: var(--text-primary);
+}
+
+#wpie-root .paint-ramp-swatch {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	height: 28px;
+	padding: 4px 6px;
+	color: var(--text-secondary);
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+}
+
+#wpie-root .paint-ramp-swatch > span {
+	flex: 1;
+	height: 18px;
+	border-radius: 2px;
+	background: var(--paint);
+}
+
+#wpie-root .paint-stroke-row,
+#wpie-root .paint-stroke-opacity {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 6px 0;
+}
+
+#wpie-root .paint-stroke-row label {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	color: var(--text-secondary);
+	font-size: 11px;
+}
+
+#wpie-root .paint-stroke-row input,
+#wpie-root .paint-stroke-opacity input {
+	width: 54px;
+	min-width: 0;
+}
+
+#wpie-root .paint-stroke-row select {
+	flex: 1;
+	min-width: 60px;
+}
+
+#wpie-root .paint-stroke-group summary {
+	padding: 8px 0 2px;
+	font-size: 11px;
+	color: var(--text-secondary);
+	cursor: pointer;
+}
+
+#wpie-root .gp-tool > .gp-settings {
+	flex: 1;
+	overflow-y: auto;
+}
+
+#wpie-root .gp-shared-colors {
+	display: grid;
+	grid-template-columns: 60px minmax(0, 1fr);
+	align-items: center;
+	gap: 8px;
+	margin: 10px 0;
+	color: var(--text-secondary);
+	font-size: 11px;
+}
+
+#wpie-root .paint-gradient-advanced {
+	font-size: 11px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .paint-gradient-advanced > summary {
+	cursor: pointer;
+}
+
+#wpie-root .paint-gradient-advanced > :not(summary) {
+	margin-top: 8px;
+}
+
+#wpie-root .paint-gradient-advanced label {
+	justify-content: space-between;
+	gap: 6px;
+}
+
+/* The main Color editor needs explicit choices, distinct from its navigation tabs. */
+#wpie-root .paint-type-cards {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(0, 1fr);
+	gap: 6px;
+	min-width: 0;
+}
+
+#wpie-root .paint-type.paint-type-cards .ai-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+	height: auto;
+	min-height: 68px;
+	padding: 5px;
+	gap: 4px;
+	border: 1px solid var(--ed-border-strong);
+	background: var(--surface-panel);
+}
+
+#wpie-root .paint-type.paint-type-cards .ai-tile[aria-pressed="true"] {
+	border-color: var(--accent);
+}
+
+#wpie-root .paint-type.paint-type-cards .ai-tile-icon {
+	min-height: 34px;
+}
+
+#wpie-root .paint-type.paint-type-cards .ai-tile-name {
+	min-height: 18px;
+	padding: 0;
+	font-size: 12px;
+	line-height: 16px;
+}
+
+/* Fill/stroke use real preview cards only in the Color panel; toolbar swatches stay compact. */
+#wpie-root .paint-targets-cards .paint-target {
+	flex-direction: column;
+	align-items: stretch;
+	height: auto;
+	min-height: 64px;
+	padding: 4px;
+	gap: 3px;
+}
+
+#wpie-root .paint-targets-cards .ai-tile-icon {
+	min-height: 32px;
+}
+
+#wpie-root .paint-targets-cards .ai-tile-name {
+	min-height: 16px;
+	padding: 0;
+	font-size: 11px;
+	line-height: 16px;
+}
+
+/* A mixed selection has no single representative swatch color. */
+#wpie-root .paint-chip.is-mixed {
+	display: inline-grid;
+	place-items: center;
+	background: var(--surface-input);
+	color: var(--text-secondary);
+}
+
+#wpie-root .paint-chip.is-mixed::after {
+	display: none;
+}
+
+#wpie-root .paint-swatch-wrap:has(.paint-mixed-label) {
+	align-items: center;
+	gap: 7px;
+}
+
+#wpie-root .paint-mixed-label {
+	font-size: 11px;
+	line-height: 1.35;
+	color: var(--text-secondary);
+}

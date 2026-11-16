@@ -1,114 +1,155 @@
-/**
- * Editable multi-stop gradient bar (spec 04.2 / 06.2): drag stops, click the
- * bar to add one, double-click a stop to recolor, right-click/⌫ to remove.
- *
- * IT FILLS ITS CONTAINER. The default used to be 180 pixels, and every place
- * that mounted one guessed a number of its own - 150 here, 190 there, 230,
- * 176 - so the bar stopped short of the panel edge in some panels and pushed
- * a scrollbar out of others, and no guess could be right in two panels at
- * once because the panels are not the same width. A percentage is right in
- * all of them, and it stays right when the panel is resized.
- *
- * Pass a pixel number ONLY where there is no width to fill: a horizontal
- * toolbar row is sized by its contents, so a percentage there resolves
- * against nothing.
- */
-
-import { useState, useRef } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
-
+/** Shared gradient editor. Fills its container; the toolbar can set an explicit width. */
+import { useState, useRef, useEffect, useMemo } from '@wordpress/element';
+import { useColorEditor } from './use-color-editor';
+import { __, sprintf } from '@wordpress/i18n';
 import { ColorPopover, anchoredPopoverStyle } from './color-popover';
+import {
+	expandedGradientStops,
+	insertGradientStop,
+} from '../lib/gradient-ramp';
 
-/**
- * @param {Object}          props          Component props.
- * @param {Array}           props.stops    [ { color, at } ], `at` from 0 to 1.
- * @param {Function}        props.onChange Called with the new stop list.
- * @param {number|string}   props.width    CSS width. Leave it alone.
- * @return {Object} The bar element.
- */
-export function GradientBar( { stops, onChange, width = '100%' } ) {
-	const barRef = useRef( null );
-	const [ activeIdx, setActiveIdx ] = useState( null );
-	const [ editingIdx, setEditingIdx ] = useState( null );
-	const dragRef = useRef( null );
-
-	const sorted = [ ...stops ]
-		.map( ( s, i ) => ( { ...s, _i: i } ) )
-		.sort( ( a, b ) => a.at - b.at );
+export function GradientBar( {
+	stops,
+	onChange,
+	width = '100%',
+	activeIndex,
+	onSelect,
+	onCommit,
+	disabled = false,
+} ) {
+	const barRef = useRef( null ),
+		[ localIndex, setLocalIndex ] = useState( null ),
+		[ editing, setEditing ] = useState( null ),
+		cleanup = useRef( null ),
+		latest = useRef( null );
+	latest.current = { stops, onChange, onCommit };
+	const paint = useMemo( () => ( { stops } ), [ stops ] );
+	const shared = useColorEditor( {
+		paint,
+		ramp: true,
+		onChange: ( patch ) => onChange( patch.stops ),
+		onCommit,
+		disabled,
+		title: __( 'Gradient', 'wunderpaint' ),
+	} );
+	useEffect( () => () => cleanup.current?.(), [] );
+	const selected = activeIndex === undefined ? localIndex : activeIndex;
+	const select = ( index ) => {
+		setLocalIndex( index );
+		onSelect?.( index );
+	};
+	const sorted = expandedGradientStops( stops );
 	const css = `linear-gradient(90deg, ${ sorted
 		.map( ( s ) => `${ s.color } ${ s.at * 100 }%` )
 		.join( ', ' ) })`;
-
-	const atFromEvent = ( e ) => {
+	const position = ( clientX ) => {
 		const rect = barRef.current.getBoundingClientRect();
-		return Math.min(
-			1,
-			Math.max( 0, ( e.clientX - rect.left ) / rect.width )
+		return Math.max(
+			0,
+			Math.min( 1, ( clientX - rect.left ) / rect.width )
 		);
 	};
-
-	const updateStop = ( index, patch ) => {
-		onChange(
-			stops.map( ( s, i ) => ( i === index ? { ...s, ...patch } : s ) )
+	const update = ( index, patch, done = false ) => {
+		if ( disabled ) {
+			return;
+		}
+		const current = latest.current;
+		current.onChange(
+			current.stops.map( ( s, i ) =>
+				i === index ? { ...s, ...patch } : s
+			)
 		);
+		if ( done ) {
+			current.onCommit?.();
+		}
 	};
-
-	const addStop = ( e ) => {
-		const at = atFromEvent( e );
-		// Interpolate the color roughly by picking the nearest stop's color.
-		const nearest = sorted.reduce(
-			( best, s ) =>
-				Math.abs( s.at - at ) < Math.abs( best.at - at ) ? s : best,
-			sorted[ 0 ]
-		);
-		onChange( [ ...stops, { color: nearest?.color || '#000000', at } ] );
-		setActiveIdx( stops.length );
+	const add = ( at ) => {
+		if ( disabled ) {
+			return;
+		}
+		onChange( insertGradientStop( stops, at ) );
+		select( stops.length );
+		onCommit?.();
 	};
-
-	const removeStop = ( index ) => {
-		if ( stops.length <= 2 ) {
-			return; // keep at least two stops
+	const remove = ( index ) => {
+		if ( disabled || stops.length <= 2 ) {
+			return;
 		}
 		onChange( stops.filter( ( _, i ) => i !== index ) );
-		setActiveIdx( null );
-		setEditingIdx( null );
+		select( Math.max( 0, index - 1 ) );
+		setEditing( null );
+		onCommit?.();
 	};
-
-	const onStopMouseDown = ( index, e ) => {
+	const recolor = ( index, target ) => {
+		select( index );
+		const host = target.closest( '.global-color-panel' );
+		if ( host ) {
+			host.querySelector( 'input[data-color-hex]' )?.focus();
+			return;
+		}
+		if ( shared.show( target, { initialStop: index } ) ) {
+			return;
+		}
+		setEditing( {
+			index,
+			style: anchoredPopoverStyle( target.getBoundingClientRect() ),
+		} );
+	};
+	const drag = ( index, e ) => {
 		e.stopPropagation();
+		if ( disabled || e.button !== 0 ) {
+			return;
+		}
 		e.preventDefault();
-		setActiveIdx( index );
-		dragRef.current = index;
-		const onMove = ( ev ) => {
-			if ( null !== dragRef.current ) {
-				updateStop( dragRef.current, { at: atFromEvent( ev ) } );
-			}
+		select( index );
+		cleanup.current?.();
+		const move = ( event ) =>
+			update( index, { at: position( event.clientX ) } );
+		const end = () => {
+			cleanup.current?.();
+			latest.current.onCommit?.();
 		};
-		const onUp = () => {
-			dragRef.current = null;
-			document.removeEventListener( 'mousemove', onMove );
-			document.removeEventListener( 'mouseup', onUp );
+		cleanup.current = () => {
+			document.removeEventListener( 'mousemove', move );
+			document.removeEventListener( 'mouseup', end );
+			cleanup.current = null;
 		};
-		document.addEventListener( 'mousemove', onMove );
-		document.addEventListener( 'mouseup', onUp );
+		document.addEventListener( 'mousemove', move );
+		document.addEventListener( 'mouseup', end );
 	};
-
 	return (
-		<div style={ { position: 'relative', width } }>
+		<div
+			className="gradient-editor"
+			style={ { position: 'relative', width } }
+		>
 			<div
 				ref={ barRef }
 				className="gradient-bar"
 				style={ { background: css } }
 				role="button"
-				tabIndex={ 0 }
+				tabIndex={ disabled ? -1 : 0 }
+				aria-disabled={ disabled }
+				aria-label={ __( 'Click to add a stop', 'wunderpaint' ) }
 				title={ __( 'Click to add a stop', 'wunderpaint' ) }
-				onMouseDown={ addStop }
+				onMouseDown={ ( e ) => {
+					if ( e.button === 0 ) {
+						add( position( e.clientX ) );
+					}
+				} }
 				onKeyDown={ ( e ) => {
+					if ( e.target !== e.currentTarget ) {
+						return;
+					}
+					if ( e.key === 'Enter' || e.key === ' ' ) {
+						e.preventDefault();
+						add( 0.5 );
+					}
 					if (
-						( 'Delete' === e.key || 'Backspace' === e.key ) &&
-						null !== activeIdx
+						[ 'Delete', 'Backspace' ].includes( e.key ) &&
+						selected !== null
 					) {
-						removeStop( activeIdx );
+						e.preventDefault();
+						remove( selected );
 					}
 				} }
 			>
@@ -116,43 +157,115 @@ export function GradientBar( { stops, onChange, width = '100%' } ) {
 					<div
 						key={ i }
 						className={ `gradient-stop${
-							i === activeIdx ? ' active' : ''
+							i === selected ? ' active' : ''
 						}` }
 						style={ {
 							left: `${ stop.at * 100 }%`,
 							background: stop.color,
 						} }
-						role="button"
-						tabIndex={ 0 }
+						role="slider"
+						tabIndex={ disabled ? -1 : 0 }
+						aria-disabled={ disabled }
+						aria-label={ sprintf(
+							/* translators: %d: color stop number. */ __(
+								'Color stop %d',
+								'wunderpaint'
+							),
+							i + 1
+						) }
+						aria-valuemin={ 0 }
+						aria-valuemax={ 100 }
+						aria-valuenow={ Math.round( stop.at * 100 ) }
 						title={ __(
 							'Drag to move · double-click to recolor · right-click to remove',
 							'wunderpaint'
 						) }
-						onMouseDown={ ( e ) => onStopMouseDown( i, e ) }
+						onFocus={ () => select( i ) }
+						onMouseDown={ ( e ) => drag( i, e ) }
 						onDoubleClick={ ( e ) => {
 							e.stopPropagation();
-							setEditingIdx( {
-								i,
-								style: anchoredPopoverStyle(
-									e.currentTarget.getBoundingClientRect()
-								),
-							} );
+							if ( ! disabled ) {
+								recolor( i, e.currentTarget );
+							}
 						} }
 						onContextMenu={ ( e ) => {
 							e.preventDefault();
-							removeStop( i );
+							e.stopPropagation();
+							remove( i );
+						} }
+						onKeyDown={ ( e ) => {
+							if ( disabled ) {
+								return;
+							}
+							if (
+								[
+									'ArrowLeft',
+									'ArrowRight',
+									'ArrowUp',
+									'ArrowDown',
+									'Home',
+									'End',
+									'Delete',
+									'Backspace',
+									'Enter',
+									' ',
+								].includes( e.key )
+							) {
+								e.preventDefault();
+								e.stopPropagation();
+							}
+							if ( [ 'Delete', 'Backspace' ].includes( e.key ) ) {
+								remove( i );
+							} else if ( e.key === 'Enter' || e.key === ' ' ) {
+								recolor( i, e.currentTarget );
+							} else if (
+								[
+									'ArrowLeft',
+									'ArrowRight',
+									'ArrowUp',
+									'ArrowDown',
+									'Home',
+									'End',
+								].includes( e.key )
+							) {
+								const delta =
+									( e.shiftKey ? 0.1 : 0.01 ) *
+									( [ 'ArrowLeft', 'ArrowDown' ].includes(
+										e.key
+									)
+										? -1
+										: 1 );
+								update(
+									i,
+									{
+										at:
+											e.key === 'Home'
+												? 0
+												: e.key === 'End'
+												? 1
+												: Math.max(
+														0,
+														Math.min(
+															1,
+															stop.at + delta
+														)
+												  ),
+									},
+									true
+								);
+							}
 						} }
 					/>
 				) ) }
 			</div>
-			{ null !== editingIdx && stops[ editingIdx.i ] && (
+			{ editing && stops[ editing.index ] && ! disabled && (
 				<ColorPopover
-					color={ stops[ editingIdx.i ].color }
-					onChange={ ( c ) =>
-						updateStop( editingIdx.i, { color: c } )
+					color={ stops[ editing.index ].color }
+					onChange={ ( color ) =>
+						update( editing.index, { color }, true )
 					}
-					onClose={ () => setEditingIdx( null ) }
-					style={ editingIdx.style }
+					onClose={ () => setEditing( null ) }
+					style={ editing.style }
 				/>
 			) }
 		</div>

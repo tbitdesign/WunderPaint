@@ -8,6 +8,7 @@ import { useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
 import { I } from '../icons';
+import { PRESETS } from '../store/constants';
 import { useEditor } from '../store/editor-context';
 import { useEscape } from '../components/use-escape';
 import { HelpLink } from './help-dialog';
@@ -39,6 +40,7 @@ export function ResizeDialog( { mode, onClose, extras } ) {
 	const [ linked, setLinked ] = useState( true );
 	const [ relative, setRelative ] = useState( false );
 	const [ anchor, setAnchor ] = useState( 'center' );
+	const [ presetId, setPresetId ] = useState( '' );
 	const [ w, setW ] = useState( doc.w );
 	const [ h, setH ] = useState( doc.h );
 	useEscape( onClose );
@@ -73,6 +75,7 @@ export function ResizeDialog( { mode, onClose, extras } ) {
 	};
 
 	const setWidth = ( value ) => {
+		setPresetId( '' );
 		setW( value );
 		if ( linked && ! relative && ! isCanvas ) {
 			setH(
@@ -83,6 +86,7 @@ export function ResizeDialog( { mode, onClose, extras } ) {
 		}
 	};
 	const setHeight = ( value ) => {
+		setPresetId( '' );
 		setH( value );
 		if ( linked && ! relative && ! isCanvas ) {
 			setW(
@@ -182,6 +186,58 @@ export function ResizeDialog( { mode, onClose, extras } ) {
 					</button>
 				</div>
 				<div style={ { padding: 16, display: 'grid', gap: 14 } }>
+					{ isCanvas && (
+						<label
+							htmlFor="wpie-resize-format"
+							style={ { display: 'grid', gap: 6, fontSize: 12 } }
+						>
+							{ __( 'Format', 'wunderpaint' ) }
+							<select
+								id="wpie-resize-format"
+								aria-label={ __( 'Format', 'wunderpaint' ) }
+								value={ presetId }
+								onChange={ ( event ) => {
+									const id = event.target.value;
+									setPresetId( id );
+									const preset = PRESETS.flatMap(
+										( group ) => group.items
+									).find( ( item ) => item.id === id );
+									if ( ! preset?.w || ! preset?.h ) {
+										return;
+									}
+									// Presets only prepare this dialog. The existing Apply/Cancel contract stays intact.
+									setUnit( 'px' );
+									setRelative( false );
+									setW( preset.w );
+									setH( preset.h );
+								} }
+							>
+								<option value="">
+									{ __( 'Custom size', 'wunderpaint' ) }
+								</option>
+								{ PRESETS.map( ( group ) => (
+									<optgroup
+										key={ group.group }
+										label={ group.group }
+									>
+										{ group.items
+											.filter(
+												( item ) => item.w && item.h
+											)
+											.map( ( item ) => (
+												<option
+													key={ item.id }
+													value={ item.id }
+												>
+													{ item.label } ({ item.w } ×{ ' ' }
+													{ item.h })
+												</option>
+											) ) }
+									</optgroup>
+								) ) }
+							</select>
+						</label>
+					) }
 					<div
 						style={ {
 							fontSize: 12,
@@ -279,6 +335,7 @@ export function ResizeDialog( { mode, onClose, extras } ) {
 									type="checkbox"
 									checked={ relative }
 									onChange={ ( e ) => {
+										setPresetId( '' );
 										setRelative( e.target.checked );
 										setW( e.target.checked ? 0 : doc.w );
 										setH( e.target.checked ? 0 : doc.h );

@@ -7,8 +7,31 @@
  */
 
 import { drawGlyph, SIGN_KEYS } from './glyphs.js';
-import { paintBackground, paintStarDust, foilStyle } from './themes.js';
+import {
+	paintBackground,
+	paintStarDust,
+	foilStyle,
+	rgba,
+	star4,
+} from './themes.js';
 import { wrap180, norm360, signOf } from './astro.js';
+import { SIGN_ELEMENT } from './content.js';
+import { elementColors } from './medallion.js';
+
+export const WHEEL_STYLES = [ 'classic', 'elegant', 'minimal' ];
+
+/** Fill one annular sector between two radii and two longitudes. */
+function sector( ctx, cx, cy, r1, r2, lonA, lonB, lambda0 ) {
+	const a1 = pointAt( cx, cy, r2, lonA, lambda0 ).a;
+	const a2 = pointAt( cx, cy, r2, lonB, lambda0 ).a;
+	ctx.beginPath();
+	// Screen angles run clockwise in canvas space; the chart's longitudes
+	// grow counterclockwise, hence the negated angles.
+	ctx.arc( cx, cy, r2, -a1, -a2, true );
+	ctx.arc( cx, cy, r1, -a2, -a1, false );
+	ctx.closePath();
+	ctx.fill();
+}
 
 const DEG = Math.PI / 180;
 
@@ -76,7 +99,10 @@ export function drawWheel( ctx, size, chart, opts ) {
 		showDegrees = true,
 		fontFamily = 'Inter',
 		transparent = false,
+		style = 'classic',
 	} = opts;
+	const minimal = 'minimal' === style;
+	const elegant = 'elegant' === style;
 	const cx = size / 2;
 	const cy = size / 2;
 	const R = size * 0.445; // zodiac band outer
@@ -95,6 +121,36 @@ export function drawWheel( ctx, size, chart, opts ) {
 	const lambda0 = houses ? houses.asc : 0;
 	const foil = foilStyle( ctx, size, size, theme );
 
+	/* Elegant: the band tinted by element, a beaded ring outside. */
+	if ( elegant ) {
+		const colors = elementColors( theme );
+		for ( let s = 0; s < 12; s++ ) {
+			ctx.fillStyle = rgba(
+				colors[ SIGN_ELEMENT[ s ] ],
+				theme.dark ? 0.16 : 0.13
+			);
+			sector( ctx, cx, cy, R2, R, s * 30, s * 30 + 30, lambda0 );
+		}
+		ctx.strokeStyle = foil;
+		ctx.lineWidth = Math.max( 1, size * 0.0016 );
+		ctx.beginPath();
+		ctx.arc( cx, cy, R + size * 0.016, 0, 2 * Math.PI );
+		ctx.stroke();
+		ctx.fillStyle = theme.accent;
+		for ( let d = 0; d < 360; d += 10 ) {
+			const p = pointAt( cx, cy, R + size * 0.008, d, lambda0 );
+			ctx.beginPath();
+			ctx.arc(
+				p.x,
+				p.y,
+				Math.max( 0.8, size * ( 0 === d % 30 ? 0.0028 : 0.0016 ) ),
+				0,
+				2 * Math.PI
+			);
+			ctx.fill();
+		}
+	}
+
 	/* Zodiac band. */
 	ctx.lineWidth = Math.max( 1.4, size * 0.0035 );
 	ctx.strokeStyle = foil;
@@ -111,13 +167,20 @@ export function drawWheel( ctx, size, chart, opts ) {
 		ctx.lineTo( b2.x, b2.y );
 		ctx.stroke();
 		const g = pointAt( cx, cy, ( R + R2 ) / 2, s * 30 + 15, lambda0 );
-		drawGlyph( ctx, SIGN_KEYS[ s ], g.x, g.y, size * 0.032, theme.ink );
+		drawGlyph(
+			ctx,
+			SIGN_KEYS[ s ],
+			g.x,
+			g.y,
+			size * ( minimal ? 0.036 : 0.032 ),
+			elegant ? foil : theme.ink
+		);
 	}
 
 	/* Degree ticks on the band's inner edge. */
 	ctx.strokeStyle = theme.dim;
 	ctx.lineWidth = Math.max( 1, size * 0.0016 );
-	for ( let d = 0; d < 360; d += 5 ) {
+	for ( let d = 0; d < 360 && ! minimal; d += 5 ) {
 		const len = d % 10 === 0 ? 0.014 : 0.008;
 		const t1 = pointAt( cx, cy, R2, d, lambda0 );
 		const t2 = pointAt( cx, cy, R2 - size * len, d, lambda0 );
@@ -146,6 +209,9 @@ export function drawWheel( ctx, size, chart, opts ) {
 			const span = norm360( next - houses.cusps[ i ] );
 			const mid = houses.cusps[ i ] + span / 2;
 			const n = pointAt( cx, cy, Rnum, mid, lambda0 );
+			if ( minimal ) {
+				continue;
+			}
 			ctx.fillStyle = theme.dim;
 			ctx.font = `500 ${ Math.round( size * 0.02 ) }px ${ stack }`;
 			ctx.textAlign = 'center';
@@ -175,13 +241,25 @@ export function drawWheel( ctx, size, chart, opts ) {
 			const p1 = pointAt( cx, cy, Rhub, lonOf[ asp.a ], lambda0 );
 			const p2 = pointAt( cx, cy, Rhub, lonOf[ asp.b ], lambda0 );
 			ctx.strokeStyle = 'soft' === asp.kind ? theme.soft : theme.hard;
-			ctx.globalAlpha = 0.85 - Math.min( 0.45, asp.exact * 0.07 );
+			ctx.globalAlpha =
+				( minimal ? 0.6 : 0.85 ) - Math.min( 0.45, asp.exact * 0.07 );
 			ctx.beginPath();
 			ctx.moveTo( p1.x, p1.y );
 			ctx.lineTo( p2.x, p2.y );
 			ctx.stroke();
 		}
 		ctx.globalAlpha = 1;
+	}
+
+	/* Elegant: a small star holds the hub. */
+	if ( elegant ) {
+		ctx.fillStyle = theme.accent;
+		star4( ctx, cx, cy, size * 0.02 );
+		ctx.strokeStyle = theme.faint;
+		ctx.lineWidth = Math.max( 1, size * 0.0014 );
+		ctx.beginPath();
+		ctx.arc( cx, cy, size * 0.034, 0, 2 * Math.PI );
+		ctx.stroke();
 	}
 
 	/* Planets: exact markers plus spread glyphs. */
@@ -212,7 +290,23 @@ export function drawWheel( ctx, size, chart, opts ) {
 			ctx.lineTo( mark.x, mark.y );
 			ctx.stroke();
 		}
-		drawGlyph( ctx, p.body, g.x, g.y, size * 0.034, theme.ink );
+		if ( elegant ) {
+			ctx.fillStyle = rgba( theme.bg[ 0 ], theme.dark ? 0.72 : 0.82 );
+			ctx.beginPath();
+			ctx.arc( g.x, g.y, size * 0.026, 0, 2 * Math.PI );
+			ctx.fill();
+			ctx.strokeStyle = theme.faint;
+			ctx.lineWidth = Math.max( 1, size * 0.0014 );
+			ctx.stroke();
+		}
+		drawGlyph(
+			ctx,
+			p.body,
+			g.x,
+			g.y,
+			size * ( minimal ? 0.038 : 0.034 ),
+			theme.ink
+		);
 		if ( p.retro ) {
 			ctx.fillStyle = theme.dim;
 			ctx.font = `600 ${ Math.round( size * 0.016 ) }px ${ stack }`;
@@ -220,7 +314,7 @@ export function drawWheel( ctx, size, chart, opts ) {
 			ctx.textBaseline = 'top';
 			ctx.fillText( 'R', g.x + size * 0.02, g.y + size * 0.012 );
 		}
-		if ( showDegrees ) {
+		if ( showDegrees && ! minimal ) {
 			const { degree } = signOf( p.lon );
 			const whole = Math.floor( degree );
 			const min = Math.floor( ( degree - whole ) * 60 );

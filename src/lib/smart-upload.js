@@ -21,6 +21,7 @@ import {
 import { dominantColorBuckets } from './image-colors';
 import { toDataUrl, captionOne } from './caption-fields';
 import { mediaLib, ensureTagIds } from './media-library';
+import { normalizeImageFile } from './heic';
 
 /** Types worth re-encoding; SVG and GIF are left untouched. */
 const RASTER = new Set( [ 'image/jpeg', 'image/png', 'image/webp' ] );
@@ -68,11 +69,18 @@ export async function optimizeFile( file, maxDim = 2048, quality = 0.85 ) {
  * Needs the image search model; returns null without it or when nothing is
  * close enough.
  *
- * @param {File} file The file to check.
+ * @param {File} picked The file to check.
  * @return {Promise<?{id:number,score:number,thumb:string}>}
  */
-export async function checkDuplicate( file ) {
+export async function checkDuplicate( picked ) {
 	if ( ! searchModelInstalled() ) {
+		return null;
+	}
+	let file = picked;
+	try {
+		// The browser cannot read a HEIC photo to compare it.
+		file = await normalizeImageFile( picked );
+	} catch ( e ) {
 		return null;
 	}
 	const url = URL.createObjectURL( file );
@@ -99,11 +107,11 @@ export async function checkDuplicate( file ) {
 /**
  * Import one file with the chosen options.
  *
- * @param {File}   file  The file.
- * @param {Object} opts  { folder, optimize, describe, engine, lang }.
+ * @param {File}   picked The file.
+ * @param {Object} opts   { folder, optimize, describe, engine, lang }.
  * @return {Promise<{id:number}>}
  */
-export async function importOne( file, opts = {} ) {
+export async function importOne( picked, opts = {} ) {
 	const {
 		folder = 0,
 		optimize = false,
@@ -111,6 +119,9 @@ export async function importOne( file, opts = {} ) {
 		engine = 'local',
 		lang = '',
 	} = opts;
+	// HEIC first (lib/heic.js): optimizing, colors and the search vector
+	// all need pixels the browser can read.
+	const file = await normalizeImageFile( picked );
 	const f = optimize ? await optimizeFile( file ) : file;
 	const { id, url } = await uploadMediaFile( f );
 	if ( folder ) {

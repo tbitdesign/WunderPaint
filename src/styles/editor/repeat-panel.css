@@ -1,0 +1,237 @@
+/* Repeat panel (v1.431): the rule of the current Repeat layer, two columns. */
+#wpie-root .rp {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 8px 10px 10px;
+	font-size: 12px;
+	color: var(--text-primary);
+}
+
+#wpie-root .rp fieldset {
+	margin: 0;
+	padding: 8px 0 0;
+	border: 0;
+	border-top: 1px solid var(--ed-border);
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+#wpie-root .rp-main {
+	display: grid;
+	grid-template-columns: 84px minmax(0, 1fr);
+	gap: 8px;
+	align-items: start;
+}
+
+#wpie-root .rp-modes {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+#wpie-root .rp-modes .ai-tile {
+	min-height: 44px;
+	padding: 4px;
+}
+
+#wpie-root .rp-modes .ai-tile .ai-tile-icon {
+	min-height: 18px;
+}
+
+#wpie-root .rp-modes .ai-tile-label {
+	font-size: 11px;
+}
+
+#wpie-root .rp-settings {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+#wpie-root .rp-hint {
+	margin: 0;
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .rp-field {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+#wpie-root .rp-field-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+#wpie-root .rp-field-head label {
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .rp-number {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .rp-number input {
+	width: 56px;
+	padding: 2px 4px;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: var(--ed-panel-alt, transparent);
+	color: var(--text-primary);
+	font: inherit;
+	font-size: 11px;
+}
+
+#wpie-root .rp-seg {
+	display: flex;
+	width: 100%;
+}
+
+#wpie-root .rp-seg button {
+	flex: 1;
+	min-width: 0;
+	font-size: 11px;
+}
+
+#wpie-root .rp-path {
+	display: block;
+	width: 100%;
+	height: 110px;
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+	background: var(--ed-panel-alt, rgba(0, 0, 0, 0.2));
+	cursor: crosshair;
+	touch-action: none;
+}
+
+#wpie-root .rp-targets {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 4px;
+}
+
+#wpie-root .rp-targets button {
+	position: relative;
+	height: 24px;
+	padding: 0 6px;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--ed-text-muted);
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+#wpie-root .rp-targets button[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--text-primary);
+}
+
+#wpie-root .rp-targets button[data-on="true"]::after {
+	content: "";
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--accent);
+}
+
+#wpie-root .rp-progrow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+#wpie-root .rp-check,
+#wpie-root .rp-color {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	color: var(--text-primary);
+}
+
+#wpie-root .rp-color.is-off {
+	opacity: 0.45;
+	pointer-events: none;
+}
+
+#wpie-root .rp-curve svg {
+	width: 100%;
+}
+
+#wpie-root .rp-curve.is-off {
+	opacity: 0.45;
+	pointer-events: none;
+}
+
+#wpie-root .rp-foot {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding-top: 8px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .rp-actions {
+	display: flex;
+	gap: 6px;
+}
+
+#wpie-root .rp-actions > button {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .rp-actions-small > button {
+	padding: 4px 6px;
+	font-size: 11px;
+}
+
+/* Handles and guides on the canvas. */
+#wpie-root .rp-overlay .rp-guide {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 1.5;
+	stroke-dasharray: 4 4;
+}
+
+#wpie-root .rp-overlay .rp-ring {
+	stroke-dasharray: 6 4;
+	opacity: 0.8;
+}
+
+#wpie-root .rp-overlay .rp-frame {
+	fill: rgba(59, 102, 255, 0.04);
+	stroke: var(--accent);
+	stroke-width: 1;
+}
+
+#wpie-root .rp-overlay .rp-path {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 1.5;
+	pointer-events: none;
+}
+
+#wpie-root .rp-overlay .rp-handle {
+	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}

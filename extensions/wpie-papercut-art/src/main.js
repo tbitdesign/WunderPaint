@@ -13,12 +13,15 @@
 
 import { t } from './i18n.js';
 import { PaperEngine } from './ui/engine.js';
+import { stackRows, isolateRow, moveRow } from './core/stack.js';
+import { PAPER_SURFACES } from './core/finishes.js';
 import { createLibraryPreview } from './ui/library-preview.js';
 import {
 	cleanParams,
 	defaultParams,
 	defaultLayer,
 	defaultObject,
+	newId,
 	PRESETS,
 	LOOKS,
 	PROFILES,
@@ -40,6 +43,7 @@ import {
 	EXTRA_PLANTS,
 	LANDFORMS,
 	DECORATIONS,
+	ANIMAL_ENTRIES,
 	THEMES,
 	LIBRARY_LABELS,
 	ORNAMENT_WINDOWS,
@@ -47,6 +51,7 @@ import {
 	MULTI_WINDOWS,
 } from './core/library.js';
 import { isExtraBotanical } from './core/botanical.js';
+import { formChoices } from './core/forms.js';
 import { autoThresholds, histogram } from './core/photo.js';
 
 /**
@@ -72,6 +77,8 @@ const I = {
 	dice: svg(
 		'<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/>'
 	),
+	up: svg( '<path d="M6 15l6 -6l6 6"/>', 12 ),
+	down: svg( '<path d="M6 9l6 6l6 -6"/>', 12 ),
 	x: svg( '<path d="M18 6l-12 12M6 6l12 12"/>', 12 ),
 	sun: svg(
 		'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4l1.4 -1.4M17 7l1.4 -1.4"/>',
@@ -97,6 +104,13 @@ const I = {
 		12
 	),
 	flip: svg( '<path d="M12 3v18M8 8l-4 4l4 4M16 8l4 4l-4 4"/>', 12 ),
+	shapes: svg(
+		'<path d="M8 20s-5-3.2-5-7.2A2.8 2.8 0 0 1 8 11a2.8 2.8 0 0 1 5 1.8C13 16.8 8 20 8 20z"/><path d="M16.5 3l1.4 3 3.1.4-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.6-3.1L12 6.4l3.1-.4z"/>'
+	),
+	copy: svg(
+		'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0 -2 -2H6a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2"/>',
+		12
+	),
 	palette: svg(
 		'<path d="M12 21a9 9 0 1 1 9 -9c0 2 -1.5 3 -3 3h-2a2 2 0 0 0 -2 2c0 .5 .2 1 .6 1.4c.4 .4 .4 1 .1 1.5c-.5 .7 -1.5 1.1 -2.7 1.1"/><circle cx="8" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/>'
 	),
@@ -161,8 +175,16 @@ function openStudio( ctx ) {
 			? t( 'Adjust the scene, the group updates in place.' )
 			: t( 'Layered paper pictures with real depth.' ),
 		width: 1460,
-		closeOnBackdrop: true,
+		closeOnBackdrop: false,
+		escapeCloses: false,
 		onClose: () => destroy(),
+	} );
+	// The core color panel portals into our backdrop, next to the dialog.
+	// Only an actual background click should dismiss the unfinished scene.
+	modal.backdrop.addEventListener( 'click', ( event ) => {
+		if ( event.target === modal.backdrop ) {
+			closeStudio();
+		}
 	} );
 	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
 	ui.badge( modal );
@@ -176,6 +198,10 @@ function openStudio( ctx ) {
 	const canvas = ui.el( 'canvas', null, view );
 	const sunBtn = ui.el( 'div', 'wpiepca-sun', view );
 	sunBtn.innerHTML = I.sun;
+	sunBtn.title = t( 'Drag to move the light' );
+	sunBtn.setAttribute( 'aria-label', t( 'Drag to move the light' ) );
+	sunBtn.setAttribute( 'role', 'button' );
+	sunBtn.tabIndex = 0;
 	const hint = ui.el( 'div', 'dsm-viewhint wpiepca-hint', view );
 	hint.textContent = t(
 		'Click to pick · drag to move · corner handles resize · Del removes · Ctrl+Z undoes'
@@ -241,12 +267,43 @@ function openStudio( ctx ) {
 	 */
 	const rebuildLive = () => {
 		engine.build( params );
-		engine.render( { selected } );
+		// v3.8: only the sheets that changed are painted again; the rest
+		// come from two frozen images (see PaperEngine.renderLive).
+		engine.renderLive( { selected } );
 	};
 	const repaint = () => engine.render( { selected } );
+	/**
+	 * A drag paints once per screen frame. A mouse reports 60 to 240
+	 * moves a second, and every one used to rebuild and paint the whole
+	 * picture on the spot.
+	 */
+	let liveFrame = 0;
+	let liveBuild = false;
+	const liveSoon = ( build = true ) => {
+		liveBuild = liveBuild || build;
+		if ( liveFrame ) {
+			return;
+		}
+		liveFrame = requestAnimationFrame( () => {
+			liveFrame = 0;
+			if ( liveBuild ) {
+				engine.build( params );
+			}
+			liveBuild = false;
+			engine.renderLive( { selected } );
+		} );
+	};
+	const liveFlush = () => {
+		if ( liveFrame ) {
+			cancelAnimationFrame( liveFrame );
+			liveFrame = 0;
+		}
+		liveBuild = false;
+	};
 
 	const syncSun = () => {
-		sunBtn.style.left = 'calc(50% + ' + ( params.lightX / 100 ) * 30 + '%)';
+		sunBtn.style.left = 'calc(50% + ' + ( params.lightX / 100 ) * 36 + '%)';
+		sunBtn.style.top = 'calc(50% + ' + ( params.lightY / 100 ) * 38 + '%)';
 	};
 
 	const syncStatus = () => {
@@ -326,24 +383,118 @@ function openStudio( ctx ) {
 	// A plain ring of snapshots. Everything that changes the scene calls
 	// mark() first, so Ctrl+Z is a real way back and not a promise.
 	const undoStack = [];
-	const mark = () => {
+	// v3.8: and a way forward again (Ctrl+Shift+Z, Ctrl+Y).
+	const redoStack = [];
+	// A burst of the same small step - arrow nudges of one thing - is ONE
+	// step back. Every nudge used to be its own, and thirty of them used
+	// up the whole history in a second of holding a key.
+	let burst = '';
+	let burstAt = 0;
+	const mark = ( group = '' ) => {
+		const now = Date.now();
+		if (
+			group &&
+			group === burst &&
+			now - burstAt < 1000 &&
+			undoStack.length
+		) {
+			burstAt = now;
+			return;
+		}
+		burst = group;
+		burstAt = now;
 		undoStack.push( JSON.stringify( params ) );
 		if ( undoStack.length > 30 ) {
 			undoStack.shift();
 		}
+		redoStack.length = 0;
 	};
-	const undo = () => {
-		const prev = undoStack.pop();
-		if ( ! prev ) {
-			return;
-		}
-		const restored = cleanParams( JSON.parse( prev ) );
+	const restore = ( json ) => {
+		const restored = cleanParams( JSON.parse( json ) );
 		for ( const k of Object.keys( params ) ) {
 			delete params[ k ];
 		}
 		Object.assign( params, restored );
 		if ( selected && ! findObject( selected ) && ! findLayer( selected ) ) {
 			selected = null;
+		}
+		rebuild();
+		syncAll();
+	};
+	const undo = () => {
+		const prev = undoStack.pop();
+		if ( ! prev ) {
+			return;
+		}
+		redoStack.push( JSON.stringify( params ) );
+		burst = '';
+		restore( prev );
+	};
+	const redo = () => {
+		const next = redoStack.pop();
+		if ( ! next ) {
+			return;
+		}
+		undoStack.push( JSON.stringify( params ) );
+		burst = '';
+		restore( next );
+	};
+
+	/**
+	 * v3.8: a copy of the selected thing, a little offset. An object gets
+	 * a sheet of its own right above the original's (with that sheet's
+	 * colour, spacing and paper), as every new object does; a selected
+	 * sheet is copied whole, with everything on it.
+	 */
+	const duplicateSelected = () => {
+		if ( ! selected ) {
+			return;
+		}
+		const found = findObject( selected );
+		const fresh = ( o ) => ( {
+			...JSON.parse( JSON.stringify( o ) ),
+			id: newId(),
+		} );
+		if ( found ) {
+			mark();
+			const copy = fresh( found.object );
+			copy.x = Math.min( 1.15, ( copy.x ?? 0.5 ) + 0.04 );
+			copy.y = Math.min( 1.15, ( copy.y ?? 0.5 ) + 0.04 );
+			const at = params.layers.indexOf( found.layer );
+			if ( 'elements' === found.layer.source ) {
+				const { objects, id, ...sheet } = found.layer;
+				void objects;
+				void id;
+				params.layers.splice(
+					at + 1,
+					0,
+					defaultLayer( {
+						...JSON.parse( JSON.stringify( sheet ) ),
+						objects: [ copy ],
+					} )
+				);
+			} else {
+				found.layer.objects.push( copy );
+			}
+			selected = copy.id;
+		} else {
+			const sheet = findLayer( selected );
+			if ( ! sheet ) {
+				return;
+			}
+			mark();
+			const copy = fresh( sheet );
+			copy.objects = copy.objects.map( fresh );
+			copy.dx = Math.max(
+				-0.5,
+				Math.min( 0.5, ( copy.dx || 0 ) + 0.03 )
+			);
+			copy.dy = Math.max(
+				-0.5,
+				Math.min( 0.5, ( copy.dy || 0 ) + 0.03 )
+			);
+			params.layers.splice( params.layers.indexOf( sheet ) + 1, 0, copy );
+			selected = copy.id;
 		}
 		rebuild();
 		syncAll();
@@ -432,7 +583,7 @@ function openStudio( ctx ) {
 				-180,
 				Math.min( 180, Math.round( drag.rot0 + ddx * 360 ) )
 			);
-			rebuildLive();
+			liveSoon();
 		} else if ( 'scale' === drag.kind ) {
 			// Pulling away from the middle grows it; the diagonal reads
 			// as one number so a corner handle behaves like every other.
@@ -441,7 +592,7 @@ function openStudio( ctx ) {
 				3,
 				Math.min( 140, Math.round( drag.scale0 * f ) )
 			);
-			rebuildLive();
+			liveSoon();
 		} else if ( 'object' === drag.kind ) {
 			// Both axes, for everything. Trees and animals used to refuse
 			// the pointer's y and moved the horizon of their sheet
@@ -449,17 +600,21 @@ function openStudio( ctx ) {
 			// instead of the bird" meant.
 			drag.obj.x = Math.max( -0.15, Math.min( 1.15, drag.x0 + ddx ) );
 			drag.obj.y = Math.max( -0.15, Math.min( 1.15, drag.y0 + ddy ) );
-			rebuildLive();
+			liveSoon();
 		} else {
 			drag.layer.dx = Math.max( -0.5, Math.min( 0.5, drag.dx0 + ddx ) );
 			drag.layer.dy = Math.max( -0.5, Math.min( 0.5, drag.dy0 + ddy ) );
-			repaint();
+			liveSoon( false );
 		}
 	} );
 	const endDrag = () => {
+		// The last frame of a drag is a full one: the frozen images go.
+		liveFlush();
 		if ( drag && 'layer' !== drag.kind ) {
 			rebuild();
 			syncAll();
+		} else if ( drag ) {
+			repaint();
 		}
 		drag = null;
 	};
@@ -468,7 +623,13 @@ function openStudio( ctx ) {
 
 	let sunDrag = null;
 	sunBtn.addEventListener( 'pointerdown', ( e ) => {
-		sunDrag = { x: e.clientX, v: params.lightX };
+		mark();
+		sunDrag = {
+			x: e.clientX,
+			y: e.clientY,
+			v: params.lightX,
+			vy: params.lightY,
+		};
 		sunBtn.setPointerCapture( e.pointerId );
 		e.stopPropagation();
 	} );
@@ -481,21 +642,89 @@ function openStudio( ctx ) {
 			-100,
 			Math.min(
 				100,
-				sunDrag.v + ( ( e.clientX - sunDrag.x ) / r.width ) * 320
+				sunDrag.v +
+					( ( e.clientX - sunDrag.x ) / ( r.width * 0.36 ) ) * 100
+			)
+		);
+		params.lightY = Math.max(
+			-100,
+			Math.min(
+				100,
+				sunDrag.vy +
+					( ( e.clientY - sunDrag.y ) / ( r.height * 0.38 ) ) * 100
 			)
 		);
 		syncSun();
 		repaint();
+		if ( lightYSlider ) {
+			lightYSlider.set( Math.round( params.lightY ) );
+		}
 		if ( lightSlider ) {
 			lightSlider.set( Math.round( params.lightX ) );
 		}
 	} );
 	sunBtn.addEventListener( 'pointerup', () => ( sunDrag = null ) );
+	sunBtn.addEventListener( 'pointercancel', () => ( sunDrag = null ) );
+	sunBtn.addEventListener( 'keydown', ( event ) => {
+		const directions = {
+			ArrowLeft: [ -4, 0 ],
+			ArrowRight: [ 4, 0 ],
+			ArrowUp: [ 0, -4 ],
+			ArrowDown: [ 0, 4 ],
+		};
+		const direction = directions[ event.key ];
+		if ( ! direction ) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		mark();
+		params.lightX = Math.max(
+			-100,
+			Math.min( 100, params.lightX + direction[ 0 ] )
+		);
+		params.lightY = Math.max(
+			-100,
+			Math.min( 100, params.lightY + direction[ 1 ] )
+		);
+		syncSun();
+		syncFinishControls();
+		repaint();
+	} );
 
 	/* ------------------------------ keyboard ----------------------------- */
 
 	// There was no keydown handler at all before v3: Delete did not
 	// delete, the arrows did nothing, and there was no way back.
+	// The shared color editor already has an Escape stack. Let its active
+	// picker (or a confirmation above us) consume the key before this studio.
+	const onEscape = ( event ) => {
+		if (
+			event.key !== 'Escape' ||
+			event.defaultPrevented ||
+			closed ||
+			! modal.backdrop.isConnected
+		) {
+			return;
+		}
+		const dialogs = [
+			...document.querySelectorAll( '#wpie-root .modal-backdrop' ),
+		];
+		if ( dialogs.at( -1 ) !== modal.backdrop ) {
+			return;
+		}
+		if (
+			modal.dialog.querySelector(
+				'.wpie-color-swatch button[aria-expanded="true"], .color-popover'
+			)
+		) {
+			return;
+		}
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		closeStudio();
+	};
+	document.addEventListener( 'keydown', onEscape, true );
 	const onKey = ( e ) => {
 		if ( ! document.body.contains( canvas ) ) {
 			return;
@@ -504,9 +733,24 @@ function openStudio( ctx ) {
 		if ( 'INPUT' === tag || 'TEXTAREA' === tag || 'SELECT' === tag ) {
 			return;
 		}
-		if ( ( e.ctrlKey || e.metaKey ) && 'z' === e.key.toLowerCase() ) {
+		const mod = e.ctrlKey || e.metaKey;
+		if ( mod && 'z' === e.key.toLowerCase() ) {
 			e.preventDefault();
-			undo();
+			if ( e.shiftKey ) {
+				redo();
+			} else {
+				undo();
+			}
+			return;
+		}
+		if ( mod && 'y' === e.key.toLowerCase() ) {
+			e.preventDefault();
+			redo();
+			return;
+		}
+		if ( mod && 'd' === e.key.toLowerCase() ) {
+			e.preventDefault();
+			duplicateSelected();
 			return;
 		}
 		if ( ! selected ) {
@@ -543,7 +787,7 @@ function openStudio( ctx ) {
 			return;
 		}
 		e.preventDefault();
-		mark();
+		mark( 'nudge:' + selected );
 		if ( found ) {
 			found.object.x = Math.max(
 				-0.15,
@@ -734,6 +978,8 @@ function openStudio( ctx ) {
 		return (
 			{
 				preset: 'scenes',
+				look: 'looks',
+				surface: 'surfaces',
 				win: 'frames',
 				tree: 'trees',
 				plant: 'plants',
@@ -741,6 +987,7 @@ function openStudio( ctx ) {
 				sky: 'sky',
 				landform: 'landscape',
 				decoration: 'decor',
+				form: 'shapes',
 				fr: 'framing',
 			}[ prefix ] ||
 			( prefix === 'base' && [ 'full', 'edge' ].includes( id )
@@ -785,16 +1032,21 @@ function openStudio( ctx ) {
 		el.title = label;
 		el.dataset.libraryKey = key;
 		const [ prefix, id ] = key.split( ':' );
-		const meta =
-			prefix === 'preset'
-				? PRESETS.find( ( p ) => p.id === id )
-				: [
-						...EXTRA_WINDOWS,
-						...EXTRA_TREES,
-						...EXTRA_PLANTS,
-						...LANDFORMS,
-						...DECORATIONS,
-				  ].find( ( e ) => e.id === id );
+		// Looked up in the family the tile belongs to: a shape and an
+		// animal can share an id (the seal), and the shape must not come
+		// up under the animal's theme.
+		const metaList = {
+			preset: PRESETS,
+			an: ANIMAL_ENTRIES,
+			sky: ANIMAL_ENTRIES,
+			decoration: DECORATIONS,
+			landform: LANDFORMS,
+			win: EXTRA_WINDOWS,
+			tree: EXTRA_TREES,
+			plant: EXTRA_PLANTS,
+		}[ prefix ];
+		const metaId = 'sky' === prefix ? id.replace( /^flyer/, '' ) : id;
+		const meta = metaList && metaList.find( ( e ) => e.id === metaId );
 		libraryEntries.push( {
 			el,
 			family: familyFor( key ),
@@ -872,11 +1124,14 @@ function openStudio( ctx ) {
 		const families = [
 			[ 'all', t( 'All categories' ) ],
 			[ 'scenes', t( 'Start from a scene' ) ],
+			[ 'looks', t( 'Color palettes' ) ],
+			[ 'surfaces', t( 'Paper surfaces' ) ],
 			[ 'frames', t( 'Passepartout' ) ],
 			[ 'landscape', t( 'Landscape' ) ],
 			[ 'trees', t( 'Trees' ) ],
 			[ 'plants', t( 'Plants' ) ],
 			[ 'decor', t( 'Architecture & decoration' ) ],
+			[ 'shapes', t( 'Shapes' ) ],
 			[ 'animals', t( 'Animals' ) ],
 			[ 'sky', t( 'Sky' ) ],
 			[ 'paper', t( 'Paper' ) ],
@@ -929,7 +1184,7 @@ function openStudio( ctx ) {
 		for ( const p of PRESETS ) {
 			tile(
 				pf,
-				p.theme ? t( p.label ) : p.label,
+				t( p.label ),
 				'preset:' + p.id,
 				presetThumb( p ),
 				async () => {
@@ -952,6 +1207,93 @@ function openStudio( ctx ) {
 			);
 		}
 
+		const lookGrid = famSection( t( 'Color palettes' ), I.palette );
+		for ( const look of LOOKS ) {
+			const sample = {
+				id: 'look-' + look.id,
+				patch: () => {
+					const base = PRESETS.find(
+						( item ) => item.id === 'lagoon-vault'
+					).patch();
+					return {
+						...base,
+						look: look.id,
+						paper: 'cotton',
+						layers: base.layers.map( ( sheet ) => ( {
+							...sheet,
+							color: '',
+							paper: '',
+						} ) ),
+					};
+				},
+			};
+			tile(
+				lookGrid,
+				t( look.label ),
+				'look:' + look.id,
+				presetThumb( sample ),
+				() => {
+					mark();
+					params.look = look.id;
+					rebuild();
+					syncFinishControls();
+				}
+			);
+		}
+		const surfaceGrid = famSection( t( 'Paper surfaces' ), I.paper );
+		for ( const surface of PAPER_SURFACES ) {
+			const sample = {
+				id: 'surface-' + surface.id,
+				patch: () => ( {
+					look: 'terracotta',
+					paper: surface.id,
+					grain: 85,
+					sheen: 85,
+					lightX: -65,
+					layers: [
+						defaultLayer( {
+							color: '#dfc9ac',
+							objects: [ defaultObject( 'backdrop' ) ],
+						} ),
+						defaultLayer( {
+							color: '#ce9e75',
+							objects: [
+								defaultObject( 'orb', {
+									variant: 'moon',
+									x: 0.57,
+									y: 0.65,
+									scale: 90,
+								} ),
+							],
+						} ),
+						defaultLayer( {
+							color: '#e9ccb1',
+							objects: [
+								defaultObject( 'terrain', {
+									profile: 'hills',
+									yBase: 89,
+									y: 0.89,
+									height: 34,
+									seed: 42,
+								} ),
+							],
+						} ),
+					],
+				} ),
+			};
+			tile(
+				surfaceGrid,
+				t( surface.label ),
+				'surface:' + surface.id,
+				presetThumb( sample ),
+				() => {
+					mark();
+					params.paper = surface.id;
+					repaint();
+					syncFinishControls();
+				}
+			);
+		}
 		const wf = famSection( t( 'Passepartout' ), I.frame );
 		for ( const win of WINDOWS ) {
 			tile(
@@ -1070,6 +1412,10 @@ function openStudio( ctx ) {
 				'rowboat',
 				'starfield',
 				'aurora',
+				'fence',
+				'townhouses',
+				'steamtrain',
+				'kelp',
 			].includes( entry.id );
 			const settings = {
 				variant: entry.id,
@@ -1098,6 +1444,36 @@ function openStudio( ctx ) {
 						} )
 					)
 			);
+		}
+		// v3.8: the editor's own shapes, cut from paper - only those the
+		// editor offers, under the names it gives them.
+		const forms = formChoices( bridge );
+		if ( forms.length ) {
+			const shapeGrid = famSection( t( 'Shapes' ), I.shapes );
+			for ( const f of forms ) {
+				tile(
+					shapeGrid,
+					f.name,
+					'form:' + f.id,
+					thumbOf( [
+						rawSheet( 'full' ),
+						{
+							objects: [
+								defaultObject( 'form', {
+									shape: f.id,
+									x: 0.5,
+									y: 0.5,
+									scale: 62,
+								} ),
+							],
+						},
+					] ),
+					() =>
+						addObject(
+							defaultObject( 'form', { shape: f.id, scale: 30 } )
+						)
+				);
+			}
 		}
 		const tf = famSection( t( 'Trees & plants' ), I.tree );
 		for ( const species of TREE_SPECIES ) {
@@ -1318,6 +1694,8 @@ function openStudio( ctx ) {
 	let selBody = null;
 	let ampelEl = null;
 	let lightSlider = null;
+	let lightYSlider = null;
+	let syncFinishControls = () => {};
 	let histCanvas = null;
 	let histogramSource = null;
 
@@ -1353,6 +1731,10 @@ function openStudio( ctx ) {
 		flat: 'Flat ground',
 	};
 	const objectName = ( o ) => {
+		if ( 'form' === o.kind ) {
+			const f = formChoices( bridge ).find( ( x ) => x.id === o.shape );
+			return f ? f.name : cap( o.shape );
+		}
 		if ( 'terrain' === o.kind ) {
 			return t( PROFILE_LABEL[ o.profile ] || 'Landscape' );
 		}
@@ -1422,6 +1804,7 @@ function openStudio( ctx ) {
 		const b = ui.el( 'button', 'dsm-mini wpiepca-mini', row );
 		b.type = 'button';
 		b.title = title;
+		b.setAttribute( 'aria-label', title );
 		b.innerHTML = icon;
 		b.disabled = !! disabled;
 		b.onclick = ( e ) => {
@@ -1460,267 +1843,297 @@ function openStudio( ctx ) {
 	 *
 	 * @return {Array} `[ { id, layer, object } ]`, frontmost first.
 	 */
-	const flatRows = () => {
-		const rows = [];
-		for ( let i = params.layers.length - 1; i >= 0; i-- ) {
-			const sheet = params.layers[ i ];
-			if ( 'elements' !== sheet.source || ! sheet.objects.length ) {
-				rows.push( { id: sheet.id, layer: sheet, object: null } );
-				continue;
-			}
-			for ( let k = sheet.objects.length - 1; k >= 0; k-- ) {
-				const object = sheet.objects[ k ];
-				rows.push( { id: object.id, layer: sheet, object } );
-			}
-		}
-		return rows;
-	};
+	const flatRows = () => stackRows( params.layers );
 
-	/**
-	 * Move a thing in the stack.
-	 *
-	 * @param {string} rowId  The row's id.
-	 * @param {Object|string} to A layer to sit in front of, or the string
-	 *                           'front' / 'back' for the two ends.
-	 */
-	const moveThing = ( rowId, to ) => {
+	const moveThing = ( id, beforeId ) => {
 		const rows = flatRows();
-		const from = rows.find( ( r ) => r.id === rowId );
-		if ( ! from ) {
+		const from = rows.findIndex( ( row ) => row.id === id );
+		const to =
+			beforeId === null
+				? rows.length
+				: rows.findIndex( ( row ) => row.id === beforeId );
+		if ( from < 0 || to < 0 || to === from || to === from + 1 ) {
 			return;
 		}
 		mark();
-		// Where in the layer array the thing lands. The array runs back to
-		// front, so "in front of L" is one past L.
-		const slotFor = () => {
-			if ( 'back' === to ) {
-				return 0;
-			}
-			if ( 'front' === to || ! to ) {
-				return params.layers.length;
-			}
-			const at = params.layers.indexOf( to );
-			return at < 0 ? params.layers.length : at + 1;
-		};
-		if ( ! from.object ) {
-			// A photo sheet moves as a whole; it has no objects to split.
-			const at = params.layers.indexOf( from.layer );
-			params.layers.splice( at, 1 );
-			params.layers.splice( Math.max( 0, slotFor() ), 0, from.layer );
-		} else {
-			// Dragging SPLITS: the thing gets a sheet of its own at the new
-			// place, which is exactly what "I moved it there" should mean.
-			const k = from.layer.objects.indexOf( from.object );
-			from.layer.objects.splice( k, 1 );
-			params.layers.splice(
-				Math.max( 0, slotFor() ),
-				0,
-				defaultLayer( {
-					color: from.layer.color,
-					shadow: from.layer.shadow,
-					objects: [ from.object ],
-				} )
-			);
-		}
-		// Sheets that are left empty were bookkeeping, not a decision.
-		params.layers = params.layers.filter(
-			( l ) => 'elements' !== l.source || l.objects.length
-		);
-		if ( ! params.layers.length ) {
-			params.layers = [ defaultLayer() ];
-		}
+		moveRow( params.layers, id, beforeId );
+		selected = id;
 		rebuild();
 		syncAll();
 	};
 
-	/** The colour of one thing. Setting it splits the thing out. */
-	const setThingColor = ( row, hex ) => {
-		mark();
-		if ( ! row.object || 1 === row.layer.objects.length ) {
-			row.layer.color = hex;
-			rebuild();
+	/** Splitting remains intentional; the active picker and its object ID stay alive. */
+	const setThingColor = ( id, hex, markColor ) => {
+		const row = flatRows().find( ( item ) => item.id === id );
+		if ( closed || ! row || ! hex || row.layer.color === hex ) {
 			return;
 		}
-		const k = row.layer.objects.indexOf( row.object );
-		row.layer.objects.splice( k, 1 );
-		const at = params.layers.indexOf( row.layer );
-		params.layers.splice(
-			at + 1,
-			0,
-			defaultLayer( {
-				color: hex,
-				shadow: row.layer.shadow,
-				objects: [ row.object ],
-			} )
-		);
+		markColor();
+		isolateRow( params.layers, id ).layer.color = hex;
 		rebuild();
 		syncAll();
 	};
 
+	const stackViews = new Map();
 	let dragRow = null;
+	let dragFrame = 0;
+	let frontEdge = null;
+	let backEdge = null;
+	const clearDropMarks = () => {
+		for ( const el of stackBody.children ) {
+			el.classList.remove( 'is-over', 'is-over-after' );
+		}
+	};
+	const updateDropTarget = () => {
+		clearDropMarks();
+		dragRow.target = undefined;
+		const under = document
+			.elementsFromPoint( dragRow.x, dragRow.y )
+			.find(
+				( el ) =>
+					el.parentElement === stackBody &&
+					el.matches( '.wpiepca-lrow, .wpiepca-edge' )
+			);
+		if ( ! under || under.dataset.rowId === dragRow.id ) {
+			return;
+		}
+		if ( under === frontEdge ) {
+			dragRow.target = flatRows()[ 0 ]?.id;
+		} else if ( under === backEdge ) {
+			dragRow.target = null;
+		} else {
+			const rows = flatRows();
+			const at = rows.findIndex(
+				( row ) => row.id === under.dataset.rowId
+			);
+			const rect = under.getBoundingClientRect();
+			const after = dragRow.y > rect.top + rect.height / 2;
+			dragRow.target = rows[ at + ( after ? 1 : 0 ) ]?.id ?? null;
+			under.classList.toggle( 'is-over-after', after );
+		}
+		under.classList.add( 'is-over' );
+	};
+	const scrollStackDrag = () => {
+		if ( ! dragRow ) {
+			return;
+		}
+		if ( dragRow.moved ) {
+			const rect = side.getBoundingClientRect();
+			if ( dragRow.x >= rect.left && dragRow.x <= rect.right ) {
+				const edge = 42;
+				const speed =
+					dragRow.y < rect.top + edge
+						? -Math.min( 14, ( rect.top + edge - dragRow.y ) / 3 )
+						: dragRow.y > rect.bottom - edge
+						? Math.min( 14, ( dragRow.y - rect.bottom + edge ) / 3 )
+						: 0;
+				if ( speed ) {
+					side.scrollTop += speed;
+					updateDropTarget();
+				}
+			}
+		}
+		dragFrame = requestAnimationFrame( scrollStackDrag );
+	};
+	const endRowDrag = ( apply = false ) => {
+		if ( ! dragRow ) {
+			return;
+		}
+		const { id, moved, target } = dragRow;
+		dragRow = null;
+		cancelAnimationFrame( dragFrame );
+		rowsById.get( id )?.classList.remove( 'is-drag' );
+		clearDropMarks();
+		if ( apply && moved && target !== undefined ) {
+			moveThing( id, target );
+		}
+	};
 
+	const createStackRow = ( data ) => {
+		const row = ui.el( 'div', 'dsm-listrow wpiepca-lrow' );
+		row.dataset.rowId = data.id;
+		const rowView = { row, data, color: null, colorMarked: false };
+		row.onclick = () => {
+			selected = data.id;
+			syncHighlight();
+			syncSelection();
+			repaint();
+		};
+		const grip = ui.el( 'span', 'wpiepca-grip', row );
+		grip.innerHTML = I.grip;
+		grip.title = t( 'Drag to reorder' );
+		rowView.name = ui.el( 'span', 'wpiepca-lname', row );
+		const colorHost = ui.el( 'span', 'wpiepca-lcolor', row );
+		colorHost.addEventListener( 'pointerdown', ( event ) =>
+			event.stopPropagation()
+		);
+		colorHost.addEventListener( 'click', ( event ) => {
+			event.stopPropagation();
+			if (
+				event.target.closest( 'button' ) ===
+				colorHost.querySelector( 'button' )
+			) {
+				rowView.colorMarked = false;
+			}
+		} );
+		if ( bridge.components?.mountColorButton ) {
+			rowView.handle = bridge.components.mountColorButton( colorHost, {
+				color:
+					data.layer.color ||
+					engine
+						.allLayers()
+						.find( ( s ) => s.layer.id === data.layer.id )?.color ||
+					'#888888',
+				onChange: ( c ) =>
+					setThingColor(
+						data.id,
+						typeof c === 'string' ? c : c?.hex,
+						() => {
+							if ( ! rowView.colorMarked ) {
+								mark();
+								rowView.colorMarked = true;
+							}
+						}
+					),
+			} );
+		}
+		const step = ( direction ) => {
+			const rows = flatRows();
+			const at = rows.findIndex( ( r ) => r.id === data.id );
+			const target =
+				direction < 0 ? rows[ at - 1 ]?.id : rows[ at + 2 ]?.id ?? null;
+			if ( target !== undefined ) {
+				moveThing( data.id, target );
+			}
+		};
+		rowView.up = miniBtn( row, I.up, t( 'Move forward' ), false, () =>
+			step( -1 )
+		);
+		rowView.down = miniBtn( row, I.down, t( 'Move backward' ), false, () =>
+			step( 1 )
+		);
+		rowView.remove = miniBtn( row, I.x, t( 'Remove' ), false, () => {
+			const current = flatRows().find( ( r ) => r.id === data.id );
+			if ( ! current ) {
+				return;
+			}
+			mark();
+			if ( current.object ) {
+				current.layer.objects.splice(
+					current.layer.objects.indexOf( current.object ),
+					1
+				);
+			}
+			params.layers = params.layers.filter(
+				( l ) =>
+					l !== current.layer ||
+					( l.source === 'elements' && l.objects.length )
+			);
+			if ( ! params.layers.length ) {
+				params.layers = [ defaultLayer() ];
+			}
+			if ( selected === data.id ) {
+				selected = null;
+			}
+			rebuild();
+			syncAll();
+		} );
+		grip.addEventListener( 'pointerdown', ( event ) => {
+			if ( event.button !== 0 ) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			grip.setPointerCapture( event.pointerId );
+			dragRow = {
+				id: data.id,
+				startY: event.clientY,
+				x: event.clientX,
+				y: event.clientY,
+				moved: false,
+				target: undefined,
+			};
+			row.classList.add( 'is-drag' );
+			dragFrame = requestAnimationFrame( scrollStackDrag );
+		} );
+		grip.addEventListener( 'pointermove', ( event ) => {
+			if ( ! dragRow || dragRow.id !== data.id ) {
+				return;
+			}
+			dragRow.x = event.clientX;
+			dragRow.y = event.clientY;
+			if (
+				! dragRow.moved &&
+				Math.abs( event.clientY - dragRow.startY ) < 4
+			) {
+				return;
+			}
+			dragRow.moved = true;
+			updateDropTarget();
+		} );
+		grip.addEventListener( 'pointerup', () => endRowDrag( true ) );
+		grip.addEventListener( 'pointercancel', () => endRowDrag() );
+		grip.addEventListener( 'lostpointercapture', () => endRowDrag() );
+		return rowView;
+	};
+
+	/** Keep React roots keyed by object ID, including while a color change splits paper. */
 	const syncStack = () => {
 		if ( ! stackBody ) {
 			return;
 		}
-		unmountAll();
-		rowsById = new Map();
-		stackBody.textContent = '';
 		const rows = flatRows();
-		ui.el( 'div', 'wpiepca-edge', stackBody, t( 'Front' ) );
-		rows.forEach( ( r, n ) => {
-			const row = ui.el(
-				'div',
-				'dsm-listrow wpiepca-lrow' +
-					( selected === r.id ? ' is-on' : '' ),
-				stackBody
-			);
-			rowsById.set( r.id, row );
-			row.onclick = () => {
-				selected = r.id;
-				syncHighlight();
-				syncSelection();
-				repaint();
-			};
-			ui.el( 'span', 'wpiepca-grip', row ).innerHTML = I.grip;
-			ui.el(
-				'span',
-				'wpiepca-lname',
-				row,
-				r.object ? objectName( r.object ) : layerName( r.layer, n )
-			);
-			const colorHost = ui.el( 'span', 'wpiepca-lcolor', row );
-			// The picker renders its popover INSIDE this host; letting the
-			// click reach the row would reselect and rebuild the list,
-			// tearing the popover down in the same tick.
-			colorHost.addEventListener( 'pointerdown', ( e ) =>
-				e.stopPropagation()
-			);
-			colorHost.addEventListener( 'click', ( e ) => e.stopPropagation() );
-			if ( bridge.components && bridge.components.mountColorButton ) {
-				const built = engine
-					.allLayers()
-					.find( ( s ) => s.layer.id === r.layer.id );
-				const handle = bridge.components.mountColorButton( colorHost, {
-					color:
-						r.layer.color || ( built && built.color ) || '#888888',
-					onChange: ( c ) => {
-						const hex = 'string' === typeof c ? c : c && c.hex;
-						handle.set( hex );
-						setThingColor( r, hex );
-					},
-				} );
-				unmounts.push( handle );
+		const live = new Set( rows.map( ( row ) => row.id ) );
+		for ( const [ id, rowView ] of stackViews ) {
+			if ( live.has( id ) ) {
+				continue;
 			}
-			miniBtn( row, I.x, t( 'Remove' ), rows.length <= 1, () => {
-				mark();
-				if ( r.object ) {
-					r.layer.objects.splice(
-						r.layer.objects.indexOf( r.object ),
-						1
-					);
-				}
-				params.layers = params.layers.filter(
-					( l ) =>
-						l !== r.layer ||
-						( 'elements' === l.source && l.objects.length )
-				);
-				if ( ! params.layers.length ) {
-					params.layers = [ defaultLayer() ];
-				}
-				if ( selected === r.id ) {
-					selected = null;
-				}
-				rebuild();
-				syncAll();
-			} );
-
-			// Pointer events, not HTML5 drag and drop: the latter needs a
-			// DataTransfer, does nothing at all on touch, and behaves
-			// differently inside the editor's modal. This is the same
-			// gesture the stage already uses.
-			const grip = row.querySelector( '.wpiepca-grip' );
-			grip.addEventListener( 'pointerdown', ( e ) => {
-				e.preventDefault();
-				e.stopPropagation();
-				grip.setPointerCapture( e.pointerId );
-				dragRow = {
-					id: r.id,
-					y: e.clientY,
-					moved: false,
-					target: null,
-				};
-				row.classList.add( 'is-drag' );
-			} );
-			grip.addEventListener( 'pointermove', ( e ) => {
-				if ( ! dragRow || dragRow.id !== r.id ) {
-					return;
-				}
-				if (
-					! dragRow.moved &&
-					Math.abs( e.clientY - dragRow.y ) < 4
-				) {
-					return;
-				}
-				dragRow.moved = true;
-				dragRow.target = null;
-				for ( const el of stackBody.children ) {
-					el.classList.remove( 'is-over' );
-				}
-				// What is under the pointer decides where it lands, which
-				// is the only rule a hand can predict.
-				const under = document
-					.elementsFromPoint( e.clientX, e.clientY )
-					.find(
-						( el ) =>
-							el.classList &&
-							( el.classList.contains(
-								'dsm-listrow wpiepca-lrow'
-							) ||
-								el.classList.contains( 'wpiepca-edge' ) )
-					);
-				if ( ! under || under === row ) {
-					return;
-				}
-				under.classList.add( 'is-over' );
-				dragRow.target = under;
-			} );
-			const endRowDrag = () => {
-				if ( ! dragRow || dragRow.id !== r.id ) {
-					return;
-				}
-				row.classList.remove( 'is-drag' );
-				const target = dragRow.moved ? dragRow.target : null;
-				const id = dragRow.id;
-				dragRow = null;
-				for ( const el of stackBody.children ) {
-					el.classList.remove( 'is-over' );
-				}
-				if ( ! target ) {
-					return;
-				}
-				// Dropping ON a row means "put it in front of that one";
-				// the BACK marker at the bottom means "all the way back".
-				if ( target.classList.contains( 'wpiepca-edge' ) ) {
-					moveThing(
-						id,
-						target.classList.contains( 'is-tail' )
-							? 'back'
-							: 'front'
-					);
-					return;
-				}
-				const hit = rows.find(
-					( x ) => rowsById.get( x.id ) === target
-				);
-				moveThing( id, hit ? hit.layer : 'front' );
-			};
-			grip.addEventListener( 'pointerup', endRowDrag );
-			grip.addEventListener( 'pointercancel', endRowDrag );
+			rowView.handle?.unmount();
+			rowView.row.remove();
+			stackViews.delete( id );
+		}
+		if ( ! frontEdge ) {
+			frontEdge = ui.el( 'div', 'wpiepca-edge', stackBody, t( 'Front' ) );
+			backEdge = ui.el(
+				'div',
+				'wpiepca-edge is-tail',
+				stackBody,
+				t( 'Back' )
+			);
+		}
+		const colors = new Map(
+			engine.allLayers().map( ( item ) => [ item.layer.id, item.color ] )
+		);
+		rowsById = new Map();
+		let previous = frontEdge;
+		rows.forEach( ( data, index ) => {
+			let rowView = stackViews.get( data.id );
+			if ( ! rowView ) {
+				rowView = createStackRow( data );
+				stackViews.set( data.id, rowView );
+			} else {
+				Object.assign( rowView.data, data );
+			}
+			rowView.name.textContent = data.object
+				? objectName( data.object )
+				: layerName( data.layer, index );
+			rowView.row.classList.toggle( 'is-on', selected === data.id );
+			rowView.up.disabled = index === 0;
+			rowView.down.disabled = index === rows.length - 1;
+			rowView.remove.disabled = rows.length <= 1;
+			const color =
+				data.layer.color || colors.get( data.layer.id ) || '#888888';
+			if ( color !== rowView.color ) {
+				rowView.color = color;
+				rowView.handle?.set( color );
+			}
+			if ( previous.nextElementSibling !== rowView.row ) {
+				previous.after( rowView.row );
+			}
+			previous = rowView.row;
+			rowsById.set( data.id, rowView.row );
 		} );
-		// The very back is a drop target too, or nothing could ever be
-		// moved behind the last thing.
-		ui.el( 'div', 'wpiepca-edge is-tail', stackBody, t( 'Back' ) );
+		previous.after( backEdge );
 	};
 
 	const expandedObject = ( o ) =>
@@ -1739,9 +2152,9 @@ function openStudio( ctx ) {
 			value,
 			onInput,
 		} );
-		// New library controls participate in undo, once per pointer gesture
+		// Paper and object controls participate in undo, once per pointer gesture
 		// or keyboard adjustment, before the range input changes the model.
-		if ( expandedObject( selected && findObject( selected )?.object ) ) {
+		if ( control.input ) {
 			control.input.addEventListener( 'pointerdown', mark );
 			control.input.addEventListener( 'keydown', ( event ) => {
 				if (
@@ -1793,10 +2206,42 @@ function openStudio( ctx ) {
 		);
 	};
 
+	const sheetFinishFields = ( sheet ) => {
+		const surface = ui.select( ui.row( selBody, t( 'Sheet surface' ) ), {
+			options: [
+				{ value: '', label: t( 'Use global surface' ) },
+				...PAPER_SURFACES.map( ( item ) => ( {
+					value: item.id,
+					label: t( item.label ),
+				} ) ),
+			],
+			value: sheet.paper || '',
+			onChange: ( value ) => {
+				mark();
+				sheet.paper = value;
+				rebuildLive();
+				syncFinishControls();
+			},
+		} );
+		surface.dataset.paperControl = 'sheetPaper';
+		const lift = sliderRow(
+			selBody,
+			t( 'Sheet spacing' ),
+			sheet.elevation ?? 100,
+			0,
+			200,
+			( value ) => {
+				sheet.elevation = value;
+				rebuildLive();
+			}
+		);
+		lift.input.dataset.paperControl = 'sheetElevation';
+	};
 	const syncSelection = () => {
 		if ( ! selBody ) {
 			return;
 		}
+		unmountAll();
 		selBody.textContent = '';
 		const objHit = selected ? findObject( selected ) : null;
 		const sheet = ! objHit && selected ? findLayer( selected ) : null;
@@ -1910,6 +2355,21 @@ function openStudio( ctx ) {
 					);
 				}
 			}
+			if ( 'form' === o.kind ) {
+				ui.select( ui.row( selBody, t( 'Shape' ) ), {
+					options: formChoices( bridge ).map( ( f ) => ( {
+						value: f.id,
+						label: f.name,
+					} ) ),
+					value: o.shape,
+					onChange: ( v ) => {
+						mark();
+						o.shape = v;
+						rebuild();
+						syncAll();
+					},
+				} );
+			}
 			if ( 'landform' === o.kind || 'decoration' === o.kind ) {
 				const list = o.kind === 'landform' ? LANDFORMS : DECORATIONS;
 				ui.select( ui.row( selBody, t( 'Kind' ) ), {
@@ -1985,6 +2445,20 @@ function openStudio( ctx ) {
 					o.inset = v;
 					rebuildLive();
 				} );
+				if ( o.window !== 'letter' ) {
+					const angle = sliderRow(
+						selBody,
+						t( 'Window angle' ),
+						o.windowAngle || 0,
+						-180,
+						180,
+						( value ) => {
+							o.windowAngle = value;
+							rebuildLive();
+						}
+					);
+					angle.input.dataset.paperControl = 'windowAngle';
+				}
 				if ( ORNAMENT_WINDOWS.includes( o.window ) ) {
 					sliderRow(
 						selBody,
@@ -2307,6 +2781,7 @@ function openStudio( ctx ) {
 					rebuild();
 				} );
 			}
+			miniBtn( row, I.copy, t( 'Duplicate' ), false, duplicateSelected );
 			miniBtn( row, I.x, t( 'Remove' ), false, () => {
 				mark();
 				const idx = objHit.layer.objects.indexOf( o );
@@ -2334,6 +2809,7 @@ function openStudio( ctx ) {
 					rebuildLive();
 				}
 			);
+			sheetFinishFields( objHit.layer );
 			shareSwitch( objHit.layer );
 			return;
 		}
@@ -2353,6 +2829,7 @@ function openStudio( ctx ) {
 			sheet.shadow = v;
 			rebuildLive();
 		} );
+		sheetFinishFields( sheet );
 		shareSwitch( sheet );
 	};
 
@@ -2505,7 +2982,7 @@ function openStudio( ctx ) {
 					);
 					if ( one ) {
 						// A grouped layer keeps its parent, and the renderer
-						// starts at parent-less roots only (Codex F15).
+						// starts at parent-less roots only (audit F15).
 						const ownIds = descendantIds( layers, one.id );
 						allLayers = layers.filter( ( l ) =>
 							ownIds.has( l.id )
@@ -2872,106 +3349,158 @@ function openStudio( ctx ) {
 			icon: I.palette,
 			title: t( 'Look' ),
 		} );
-		const chips = ui.el( 'div', 'wpiepca-looks', lookSec );
-		for ( const look of LOOKS ) {
-			const chip = ui.el( 'button', 'dsm-strip wpiepca-look', chips );
-			chip.type = 'button';
-			chip.title = look.label;
-			chip.style.background = `linear-gradient(135deg, ${ look.front } 0%, ${ look.back } 60%, ${ look.bg[ 1 ] } 100%)`;
-			chip.classList.toggle( 'is-on', params.look === look.id );
-			chip.onclick = () => {
-				params.look = look.id;
-				chips
-					.querySelectorAll( '.wpiepca-look' )
-					.forEach( ( c ) => c.classList.remove( 'is-on' ) );
-				chip.classList.add( 'is-on' );
-				rebuild();
-			};
-		}
-		sliderRow( lookSec, t( 'Glow' ), params.glow, 0, 100, ( v ) => {
-			params.glow = v;
-			repaint();
-		} );
-		sliderRow( lookSec, t( 'Paper grain' ), params.grain, 0, 100, ( v ) => {
-			params.grain = v;
-			repaint();
-		} );
+		const controls = new Map();
+		const selectField = (
+			parent,
+			label,
+			key,
+			options,
+			change = repaint
+		) => {
+			const input = ui.select( ui.row( parent, label ), {
+				options,
+				value: params[ key ],
+				onChange: ( value ) => {
+					mark();
+					params[ key ] = value;
+					change();
+					syncFinishControls();
+				},
+			} );
+			input.dataset.paperControl = key;
+			controls.set( key, {
+				set: ( value ) => {
+					input.value = value;
+				},
+			} );
+			return input;
+		};
+		const dial = (
+			parent,
+			label,
+			key,
+			min = 0,
+			max = 100,
+			change = repaint
+		) => {
+			const control = sliderRow(
+				parent,
+				label,
+				params[ key ],
+				min,
+				max,
+				( value ) => {
+					params[ key ] = value;
+					change();
+				}
+			);
+			control.input.dataset.paperControl = key;
+			controls.set( key, control );
+			return control;
+		};
+		selectField(
+			lookSec,
+			t( 'Look' ),
+			'look',
+			LOOKS.map( ( look ) => ( {
+				value: look.id,
+				label: t( look.label ),
+			} ) ),
+			rebuild
+		);
+		const paletteStrip = ui.el( 'div', 'wpiepca-palette-strip', lookSec );
+		paletteStrip.setAttribute( 'aria-hidden', 'true' );
+		selectField(
+			lookSec,
+			t( 'Color from' ),
+			'colorSource',
+			[
+				{ value: 'palette', label: t( 'The look' ) },
+				{ value: 'photo', label: t( 'The photo' ) },
+			],
+			rebuild
+		);
+		dial( lookSec, t( 'Glow' ), 'glow' );
 
 		const lightSec = ui.section( side, {
 			icon: I.sun,
 			title: t( 'Light & paper' ),
 		} );
-		lightSlider = sliderRow(
+		lightSlider = dial( lightSec, t( 'Light' ), 'lightX', -100, 100, () => {
+			syncSun();
+			repaint();
+		} );
+		lightYSlider = dial(
 			lightSec,
-			t( 'Light' ),
-			params.lightX,
+			t( 'Vertical light' ),
+			'lightY',
 			-100,
 			100,
-			( v ) => {
-				params.lightX = v;
+			() => {
 				syncSun();
 				repaint();
 			}
 		);
-		sliderRow( lightSec, t( 'Shadow' ), params.shadow, 0, 100, ( v ) => {
-			params.shadow = v;
-			repaint();
-		} );
-		sliderRow( lightSec, t( 'Softness' ), params.soft, 0, 100, ( v ) => {
-			params.soft = v;
-			repaint();
-		} );
+		dial( lightSec, t( 'Shadow' ), 'shadow' );
+		dial( lightSec, t( 'Softness' ), 'soft' );
+		selectField( lightSec, t( 'Separation' ), 'edge', [
+			{ value: 'shadow', label: t( 'Deep shadow' ) },
+			{ value: 'rim', label: t( 'Narrow rim' ) },
+		] );
 
-		// The three look axes. The named looks above are presets on them,
-		// so turning a dial here simply leaves the preset behind.
 		const paperSec = ui.section( side, {
-			icon: I.scissors,
+			icon: I.paper,
 			title: t( 'Paper' ),
 		} );
-		ui.select( ui.row( paperSec, t( 'Colour from' ) ), {
-			options: [
-				{ value: 'palette', label: t( 'The look' ) },
-				{ value: 'photo', label: t( 'The photo' ) },
-			],
-			value: params.colorSource,
-			onChange: ( v ) => {
-				mark();
-				params.colorSource = v;
-				rebuild();
-			},
-		} );
-		ui.select( ui.row( paperSec, t( 'Surface' ) ), {
-			options: [
-				{ value: 'smooth', label: t( 'Smooth' ) },
-				{ value: 'fibre', label: t( 'Fibrous' ) },
-			],
-			value: params.paper,
-			onChange: ( v ) => {
-				mark();
-				params.paper = v;
-				rebuild();
-			},
-		} );
-		ui.select( ui.row( paperSec, t( 'Separation' ) ), {
-			options: [
-				{ value: 'shadow', label: t( 'Deep shadow' ) },
-				{ value: 'rim', label: t( 'Narrow rim' ) },
-			],
-			value: params.edge,
-			onChange: ( v ) => {
-				mark();
-				params.edge = v;
-				repaint();
-			},
-		} );
-		sliderRow( paperSec, t( 'Detail' ), params.detail, 0, 100, ( v ) => {
-			params.detail = v;
-			rebuildLive();
-		} );
+		selectField(
+			paperSec,
+			t( 'Surface' ),
+			'paper',
+			PAPER_SURFACES.map( ( surface ) => ( {
+				value: surface.id,
+				label: t( surface.label ),
+			} ) )
+		);
+		dial( paperSec, t( 'Paper grain' ), 'grain' );
+		dial( paperSec, t( 'Texture scale' ), 'textureScale' );
+		dial( paperSec, t( 'Paper thickness' ), 'thickness' );
+		dial( paperSec, t( 'Cut edge light' ), 'edgeLight' );
+		const sheenRow = ui.el( 'div', 'wpiepca-sheen', paperSec );
+		dial( sheenRow, t( 'Sheen' ), 'sheen' );
+		dial( paperSec, t( 'Detail' ), 'detail', 0, 100, rebuildLive );
+		syncFinishControls = () => {
+			controls.forEach( ( control, key ) =>
+				control.set( params[ key ] )
+			);
+			const look = lookById( params.look );
+			const colors = look.colors || [ look.back, look.front ];
+			paletteStrip.style.background =
+				'linear-gradient(90deg,' + colors.join( ',' ) + ')';
+			sheenRow.hidden = ! [
+				params.paper,
+				...params.layers.map( ( sheet ) => sheet.paper ),
+			].some(
+				( material ) => material === 'foil' || material === 'pearl'
+			);
+			for ( const finish of left.querySelectorAll(
+				'[data-library-key^="look:"], [data-library-key^="surface:"]'
+			) ) {
+				const [ kind, id ] = finish.dataset.libraryKey.split( ':' );
+				finish.setAttribute(
+					'aria-pressed',
+					String(
+						id === params[ kind === 'look' ? 'look' : 'paper' ]
+					)
+				);
+			}
+		};
+		syncFinishControls();
+
 		ampelEl = ui.el( 'div', 'wpiepca-ampel', paperSec, '' );
 	};
 
 	const syncAll = () => {
+		syncFinishControls();
 		syncStack();
 		syncSelection();
 		drawHistogram();
@@ -3052,12 +3581,12 @@ function openStudio( ctx ) {
 		editor.dispatch( { type: 'SET_ACTIVE', id: group.id } );
 		editor.commit( 'Papercut Art' );
 		toasts.success( t( 'Inserted as editable layers.' ) );
-		modal.close();
+		closeStudio();
 	};
 
 	/* ------------------------------ footer ------------------------------- */
 
-	ui.btn( actions, { label: t( 'Cancel' ), onClick: () => modal.close() } );
+	ui.btn( actions, { label: t( 'Cancel' ), onClick: () => closeStudio() } );
 	ui.btn( actions, {
 		label: editing ? t( 'Update' ) : t( 'Insert' ),
 		primary: true,
@@ -3066,9 +3595,24 @@ function openStudio( ctx ) {
 
 	/* ------------------------------ start up ----------------------------- */
 
+	function closeStudio() {
+		destroy();
+		modal.close();
+	}
 	function destroy() {
+		if ( closed ) {
+			return;
+		}
 		closed = true;
+		endRowDrag();
+		document.removeEventListener( 'keydown', onEscape, true );
+		for ( const rowView of stackViews.values() ) {
+			rowView.handle?.unmount();
+		}
+		stackViews.clear();
 		document.removeEventListener( 'keydown', onKey );
+		// A drag frame still pending must not paint into a closed studio.
+		liveFlush();
 		unmountAll();
 		if ( window.__pca && window.__pca.engine === engine ) {
 			delete window.__pca;
@@ -3134,7 +3678,7 @@ function openStudio( ctx ) {
 			return params;
 		},
 		rebuild,
-		close: () => modal.close(),
+		close: () => closeStudio(),
 		applyPreset: ( id ) => {
 			const p = PRESETS.find( ( x ) => x.id === id );
 			if ( p ) {

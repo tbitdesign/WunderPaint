@@ -5,6 +5,13 @@
  * turn it into layers, and its height is trimmed to the content.
  */
 import ABCJS from 'abcjs';
+import { selectExcerpt, isEmphasized, markEmphasis } from './excerpt.js';
+import {
+	scoreGeometry,
+	decorateScore,
+	transformGeometry,
+	markGhostNotes,
+} from './score-layout.js';
 
 const FONT = ( family, size, extra ) =>
 	`${ family } ${ size }${ extra ? ' ' + extra : '' }`;
@@ -24,9 +31,13 @@ export async function renderScore( abc, o ) {
 	document.body.appendChild( host );
 	try {
 		const tunes = ABCJS.renderAbc( host, abc, {
+			afterParsing: ( tune ) => {
+				selectExcerpt( tune, o.excerpt );
+				if ( o.ghostNotes ) markGhostNotes( tune );
+			},
 			staffwidth: innerW - 2 * margin,
 			scale: 1,
-			paddingtop: margin,
+			paddingtop: margin + ( o.annotations?.length || 0 ) * 20,
 			paddingbottom: margin,
 			paddingleft: margin,
 			paddingright: margin,
@@ -44,6 +55,12 @@ export async function renderScore( abc, o ) {
 				  ]
 				: undefined,
 			format: {
+				...( o.annotations?.length
+					? {
+							stafftopmargin: 40 + o.annotations.length * 20,
+							systemsep: 60 + o.annotations.length * 20,
+					  }
+					: {} ),
 				titlefont: FONT( o.fonts.title, 28, 'bold' ),
 				subtitlefont: FONT( o.fonts.title, 20 ),
 				composerfont: FONT( o.fonts.text, 16, 'italic' ),
@@ -59,7 +76,16 @@ export async function renderScore( abc, o ) {
 		if ( ! svg ) {
 			throw new Error( 'The score could not be drawn.' );
 		}
-		inlineStyles( svg, o.ink, o.accent );
+		markEmphasis( tunes, o.excerpt );
+		const geometry =
+			o.noteRanges ||
+			o.annotations?.length ||
+			o.highlightIndices ||
+			o.ghostNotes
+				? scoreGeometry( tunes, o )
+				: null;
+		inlineStyles( svg, o.ink, o.accent, o.excerpt );
+		if ( geometry ) decorateScore( svg, geometry, o );
 		const box = svg.getBBox();
 		const innerH = box.y + box.height + margin;
 		const height = Math.ceil( innerH * scale );
@@ -81,14 +107,22 @@ export async function renderScore( abc, o ) {
 				'<svg xmlns="http://www.w3.org/2000/svg"'
 			);
 		}
-		return { svg: text, width: o.width, height, warnings };
+		return {
+			svg: text,
+			width: o.width,
+			height,
+			warnings,
+			...( o.noteRanges
+				? { geometry: transformGeometry( geometry, 0, 0, scale ) }
+				: {} ),
+		};
 	} finally {
 		host.remove();
 	}
 }
 
 /** Every element carries its colour as an attribute; classes and styles go. */
-export function inlineStyles( svg, ink, accent ) {
+export function inlineStyles( svg, ink, accent, excerpt ) {
 	for ( const st of svg.querySelectorAll( 'style' ) ) {
 		st.remove();
 	}
@@ -106,10 +140,14 @@ export function inlineStyles( svg, ink, accent ) {
 	for ( const el of svg.querySelectorAll(
 		'path, text, rect, line, ellipse, circle, polygon'
 	) ) {
-		const isChord = chord( el );
+		const isChord = chord( el ) || isEmphasized( el, svg, excerpt );
 		const col = isChord ? accent : ink;
 		const fill = el.getAttribute( 'fill' );
-		if ( ! fill || 'currentColor' === fill ) {
+		if (
+			! fill ||
+			'currentColor' === fill ||
+			( isChord && fill !== 'none' )
+		) {
 			el.setAttribute( 'fill', 'line' === el.tagName ? 'none' : col );
 		}
 		const stroke = el.getAttribute( 'stroke' );
@@ -124,5 +162,6 @@ export function inlineStyles( svg, ink, accent ) {
 		el.removeAttribute( 'class' );
 		el.removeAttribute( 'style' );
 		el.removeAttribute( 'data-name' );
+		el.removeAttribute( 'data-wpiesm-emphasis' );
 	}
 }

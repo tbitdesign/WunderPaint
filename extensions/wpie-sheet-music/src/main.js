@@ -4,6 +4,7 @@
  * The dialog follows the house form (bridge.ui, three columns); every
  * picture comes from a card's pure render function in cards.js.
  */
+import { captureAround } from '../../shared/doc-preview.js';
 import { t } from './i18n.js';
 import { CARDS, cardById, normalizeParams } from './cards.js';
 import { STARTERS, starterById } from './starters.js';
@@ -14,6 +15,7 @@ import { normalizeTextAnchors } from './engine/svg-dom.js';
 import { buildLeft } from './ui/left.js';
 import { buildView } from './ui/view.js';
 import { buildSide } from './ui/side.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 export const GEN_ID = 'wpie-sheet-music/sheet';
 const SLUG = 'wpie-sheet-music';
@@ -89,9 +91,9 @@ function openStudio( ctx ) {
 		layer.generator &&
 		layer.generator.id === GEN_ID
 	);
-	const first = starterById( 'ode-to-joy' );
+	const first = starterById( 'first-melody' );
 	const params = normalizeParams(
-		editing ? layer.generator.params : { ...first.params, card: 'score' }
+		editing ? layer.generator.params : { ...first.params, card: first.card }
 	);
 	const S = {
 		params,
@@ -105,13 +107,14 @@ function openStudio( ctx ) {
 		showDoc: false,
 		editing,
 		layer,
+		drafts: new Map(),
 	};
 	const env = makeEnv( editor, bridge );
 
 	const modal = ui.dialog( {
 		title: 'Sheet Music',
 		subtitle: t(
-			'Scores, chord sheets, chord diagrams and fretboard maps from your own material.'
+			'Music graphics, visual notation and coordinated teaching sheets.'
 		),
 		width: 1400,
 		onClose: () => cleanup(),
@@ -123,8 +126,33 @@ function openStudio( ctx ) {
 	const left = ui.el( 'div', 'wpiesm-left', body );
 	const mid = ui.el( 'div', 'wpiesm-mid', body );
 	const side = ui.el( 'div', 'wpiesm-side', body );
+	const materialHost = ui.el( 'div', 'wpiesm-settings-stack', side );
+	const settingsHost = ui.el( 'div', 'wpiesm-settings-stack', side );
+	const previewCache = new Map();
+	async function previewStarter( id ) {
+		if ( previewCache.has( id ) ) return previewCache.get( id );
+		const starter = starterById( id );
+		if ( ! starter ) return null;
+		const p = normalizeParams( { ...starter.params, card: starter.card } );
+		const res = await cardById( starter.card ).render( p, {
+			...env,
+			docW: 1000,
+			docH: 800,
+		} );
+		const src =
+			'data:image/svg+xml;charset=utf-8,' + encodeURIComponent( res.svg );
+		if ( previewCache.size > 80 ) previewCache.clear();
+		previewCache.set( id, src );
+		return src;
+	}
 
-	const view = buildView( mid, { ui, t, onToggleDoc: () => toggleDoc() } );
+	const view = buildView( mid, {
+		ui,
+		t,
+		onToggleDoc: () => toggleDoc(),
+		getEditor: () => ( S.busy ? null : S.melodyEditor ),
+	} );
+	S.updateSelection = ( from, to ) => view.setSelection( from, to );
 	const leftUi = buildLeft( left, {
 		S,
 		ui,
@@ -132,16 +160,32 @@ function openStudio( ctx ) {
 		t,
 		onCard: ( id ) => switchCard( id ),
 		onStarter: ( id ) => loadStarter( id ),
-		onChange: () => queue(),
+		onChange: () => {
+			queue();
+			if ( S.card === 'diagrams' ) rebuildControls();
+		},
 		onImport: ( file ) => importFile( file ),
+		materialParent: materialHost,
+		previewStarter,
+		onRebuild: () => rebuildControls(),
 	} );
-	const sideUi = buildSide( side, {
-		S,
-		ui,
-		bridge,
-		t,
-		onChange: () => queue(),
-	} );
+	let sideUi;
+	function rebuildControls() {
+		sideUi?.unmountAll();
+		settingsHost.replaceChildren();
+		S.selectMelodyNote = null;
+		S.melodyEditor = null;
+		view.setSelection( -1, -1 );
+		sideUi = buildSide( settingsHost, {
+			S,
+			ui,
+			bridge,
+			t,
+			onChange: () => queue(),
+			onRebuild: () => rebuildControls(),
+		} );
+	}
+	rebuildControls();
 
 	/* Footer. */
 	const status = ui.el( 'div', 'dsm-mono', modal.foot, '' );
@@ -170,33 +214,30 @@ function openStudio( ctx ) {
 		if ( S.card === id ) {
 			return;
 		}
+		S.drafts.set( S.card, {
+			params: normalizeParams( S.params ),
+			starter: S.starter,
+		} );
 		S.card = id;
-		S.params.card = id;
-		const own = STARTERS.find( ( s ) => s.card === id );
-		// A card without material yet gets its first starter.
-		const empty =
-			( 'score' === id && ! S.params.abc.trim() ) ||
-			( 'leadsheet' === id && ! S.params.chordpro.trim() );
-		if ( own && ( empty || ! S.editing ) && ! S.touched ) {
-			applyStarter( own );
+		const draft = S.drafts.get( id );
+		if ( draft ) {
+			S.params = normalizeParams( draft.params );
+			S.starter = draft.starter;
+		} else {
+			const own = STARTERS.find( ( s ) => s.card === id );
+			if ( own ) applyStarter( own );
+			else {
+				S.params = normalizeParams( { card: id } );
+				S.starter = null;
+			}
 		}
 		leftUi.refresh();
-		sideUi.applyVisibility();
+		rebuildControls();
 		queue( 0 );
 	}
 
 	function applyStarter( s ) {
-		const p = s.params;
-		for ( const k of Object.keys( p ) ) {
-			if ( 'layout' === k || 'style' === k || 'text' === k ) {
-				S.params[ k ] = { ...S.params[ k ], ...p[ k ] };
-			} else {
-				S.params[ k ] = p[ k ];
-			}
-		}
-		if ( ! p.text ) {
-			S.params.text = { title: '', subtitle: '', composer: '' };
-		}
+		S.params = normalizeParams( { ...s.params, card: s.card } );
 		S.starter = s.id;
 	}
 
@@ -206,18 +247,40 @@ function openStudio( ctx ) {
 			return;
 		}
 		if ( s.card !== S.card ) {
+			S.drafts.set( S.card, {
+				params: normalizeParams( S.params ),
+				starter: S.starter,
+			} );
 			S.card = s.card;
 			S.params.card = s.card;
 		}
 		applyStarter( s );
 		leftUi.refresh();
-		sideUi.applyVisibility();
+		rebuildControls();
 		queue( 0 );
 	}
+
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: the card
+	// and its music, notes included.
+	const history = studioUndo( {
+		backdrop: modal.backdrop,
+		read: () => ( { card: S.card, params: S.params } ),
+		write: ( data ) => {
+			S.card = data.card;
+			S.params = normalizeParams( { ...data.params, card: data.card } );
+			leftUi.refresh();
+			rebuildControls();
+			queue( 0 );
+		},
+	} );
 
 	/* Rendering, debounced; the newest request wins. */
 	function queue( delay = 250 ) {
 		clearTimeout( S.timer );
+		S.token++;
+		S.busy = true;
+		S.last = null;
+		insertBtn.disabled = true;
 		S.timer = setTimeout( () => render(), delay );
 	}
 	async function render() {
@@ -225,12 +288,14 @@ function openStudio( ctx ) {
 		S.busy = true;
 		try {
 			const card = cardById( S.card );
-			const res = await card.render( S.params, env );
+			const res = await card.render( normalizeParams( S.params ), env );
 			if ( my !== S.token ) {
 				return;
 			}
+			const shown = await view.show( res );
+			if ( my !== S.token || ! shown ) return;
 			S.last = res;
-			await view.show( res );
+			insertBtn.disabled = false;
 			if ( res.warnings && res.warnings.length ) {
 				setStatus( res.warnings.join( ' · ' ), true );
 			} else {
@@ -241,7 +306,7 @@ function openStudio( ctx ) {
 			}
 		} catch ( e ) {
 			if ( my === S.token ) {
-				setStatus( ( e && e.message ) || String( e ), true );
+				setStatus( t( ( e && e.message ) || String( e ) ), true );
 			}
 		} finally {
 			if ( my === S.token ) {
@@ -266,34 +331,48 @@ function openStudio( ctx ) {
 			view.setDoc( null );
 			return;
 		}
-		const doc = editor.state.doc;
-		bridge.raster
-			.renderToCanvas(
-				doc,
-				( editor.state.layers || [] ).filter(
-					( l ) =>
-						! (
-							S.editing &&
-							( l.id === layer.id || l.parent === layer.id )
-						)
-				),
-				{
-					scale: Math.min( 1, 1400 / Math.max( doc.w, doc.h ) ),
-					cache: bridge.raster.sharedImageCache,
-				}
+		// v1.1.2: split at the layer, placed where it lands.
+		captureAround( bridge.raster, editor.state, S.editing ? layer.id : null )
+			.then( ( around ) =>
+				view.setDoc( {
+					around,
+					doc: editor.state.doc,
+					region: ( w, h ) => targetBox( { width: w, height: h } ),
+				} )
 			)
-			.then( ( c ) => {
-				const bg = document.createElement( 'canvas' );
-				bg.width = c.width;
-				bg.height = c.height;
-				const g = bg.getContext( '2d' );
-				g.fillStyle = doc.bg || '#ffffff';
-				g.fillRect( 0, 0, bg.width, bg.height );
-				g.drawImage( c, 0, 0 );
-				view.setDoc( bg.toDataURL() );
-			} )
 			.catch( () => view.setDoc( null ) );
 	}
+	/** Where a picture of res's size lands in the document. */
+	function targetBox( res ) {
+		const doc = editor.state.doc;
+		if ( S.editing ) {
+			const box = boundsOf( layer, editor.state.layers );
+			const fit = Math.min( box.w / res.width, box.h / res.height );
+			const w = Math.round( res.width * fit );
+			const h = Math.round( res.height * fit );
+			return {
+				x: Math.round( box.x + ( box.w - w ) / 2 ),
+				y: Math.round( box.y + ( box.h - h ) / 2 ),
+				w,
+				h,
+			};
+		}
+		const srcAR = res.width / res.height;
+		const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
+		if ( Math.abs( srcAR - docAR ) / docAR < 0.02 ) {
+			return { x: 0, y: 0, w: doc.w, h: doc.h };
+		}
+		const fit = Math.min( ( doc.w * 0.92 ) / res.width, ( doc.h * 0.92 ) / res.height );
+		const w = Math.round( res.width * fit );
+		const h = Math.round( res.height * fit );
+		return {
+			x: Math.round( ( doc.w - w ) / 2 ),
+			y: Math.round( ( doc.h - h ) / 2 ),
+			w,
+			h,
+		};
+	}
+
 
 	/* Import: ABC straight in, MusicXML through xml2abc. */
 	async function importFile( file ) {
@@ -330,7 +409,7 @@ function openStudio( ctx ) {
 			S.starter = null;
 			S.params.text = { title: '', subtitle: '', composer: '' };
 			leftUi.refresh();
-			sideUi.applyVisibility();
+			rebuildControls();
 			queue( 0 );
 		} catch ( e ) {
 			setStatus(
@@ -352,38 +431,7 @@ function openStudio( ctx ) {
 		// Target box: a picture in the document's own frame covers it, a
 		// foreign frame is fit centred (the placement rule of every studio);
 		// an update keeps the old box.
-		let box;
-		if ( S.editing ) {
-			box = boundsOf( layer, editor.state.layers );
-			const fit = Math.min( box.w / res.width, box.h / res.height );
-			const w = Math.round( res.width * fit );
-			const h = Math.round( res.height * fit );
-			box = {
-				x: Math.round( box.x + ( box.w - w ) / 2 ),
-				y: Math.round( box.y + ( box.h - h ) / 2 ),
-				w,
-				h,
-			};
-		} else {
-			const srcAR = res.width / res.height;
-			const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
-			if ( Math.abs( srcAR - docAR ) / docAR < 0.02 ) {
-				box = { x: 0, y: 0, w: doc.w, h: doc.h };
-			} else {
-				const fit = Math.min(
-					( doc.w * 0.92 ) / res.width,
-					( doc.h * 0.92 ) / res.height
-				);
-				const w = Math.round( res.width * fit );
-				const h = Math.round( res.height * fit );
-				box = {
-					x: Math.round( ( doc.w - w ) / 2 ),
-					y: Math.round( ( doc.h - h ) / 2 ),
-					w,
-					h,
-				};
-			}
-		}
+		const box = targetBox( res );
 		if (
 			bridge.svg &&
 			bridge.svg.importSvg &&
@@ -499,9 +547,12 @@ function openStudio( ctx ) {
 
 	function cleanup() {
 		clearTimeout( S.timer );
+		history.dispose();
 		S.token++;
-		leftUi.unmountAll();
+		leftUi.dispose();
 		sideUi.unmountAll();
+		view.dispose();
+		previewCache.clear();
 		window.__wpiesmState = null;
 		window.__wpiesmProof = null;
 	}

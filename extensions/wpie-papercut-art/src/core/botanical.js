@@ -1,3 +1,4 @@
+import { collectionBotanical } from './collection-shapes.js';
 import { rng } from './geom.js';
 import { EXTRA_TREES, EXTRA_PLANTS } from './library.js';
 import {
@@ -18,6 +19,10 @@ export const isExtraBotanical = ( o ) =>
 
 /** A single specimen, authored with its roots at (0,0), a nominal height of one. */
 export function botanicalShape( species, r ) {
+	const collection = collectionBotanical( species, r );
+	if ( collection ) {
+		return collection;
+	}
 	const out = [],
 		add = ( p ) => out.push( [ p ] ),
 		line = ( a, b, c, d, w = 0.025 ) => add( stem( a, b, c, d, w ) );
@@ -64,7 +69,9 @@ export function botanicalShape( species, r ) {
 				Math.max( 0.01, w * 0.5 )
 			)
 		);
-		if ( depth <= 0 ) return;
+		if ( depth <= 0 ) {
+			return;
+		}
 		const dx = tx - x,
 			dy = ty - y;
 		for ( const side of [ -1, 1 ] ) {
@@ -215,7 +222,9 @@ export function botanicalShape( species, r ) {
 						y = -h * t,
 						xx = x + slant * t;
 					add( ellipse( xx, y, 0.027, 0.012, 12 ) );
-					if ( j % 2 !== i % 2 ) continue;
+					if ( j % 2 !== i % 2 ) {
+						continue;
+					}
 					const side = i === 0 ? -1 : i === 2 ? 1 : j % 2 ? 1 : -1;
 					line( xx, y, xx + side * 0.12, y - 0.04, 0.013 );
 					add(
@@ -252,8 +261,9 @@ export function botanicalShape( species, r ) {
 				[ 0.09, -0.82, 0.14, -1.04, 0.063 ],
 				[ 0.44, -1.1, 0.69, -0.61, 0.082 ],
 				[ 0.47, -0.78, 0.67, -0.29, 0.068 ],
-			] )
+			] ) {
 				add( curvedLeaf( 0, -0.58, cx, cy, tx, ty, width ) );
+			}
 			break;
 		case 'cherry':
 			line( 0, 0, -0.025, -0.68, 0.045 );
@@ -277,7 +287,7 @@ export function botanicalShape( species, r ) {
 				[ 0.025, -0.64 ],
 			] ) {
 				line( 0, -0.38, x, y, 0.018 );
-				for ( let j = 0; j < 3; j++ )
+				for ( let j = 0; j < 3; j++ ) {
 					add(
 						curvedLeaf(
 							x,
@@ -289,6 +299,7 @@ export function botanicalShape( species, r ) {
 							0.048
 						)
 					);
+				}
 			}
 			break;
 		case 'apple':
@@ -343,7 +354,7 @@ export function botanicalShape( species, r ) {
 						px = x * t,
 						py = y * t,
 						ll = 0.14 * ( 1 - t ) + 0.045;
-					for ( const side of [ -1, 1 ] )
+					for ( const side of [ -1, 1 ] ) {
 						add(
 							leaf(
 								px,
@@ -353,6 +364,7 @@ export function botanicalShape( species, r ) {
 								0.023
 							)
 						);
+					}
 				}
 			}
 			break;
@@ -384,7 +396,9 @@ export function botanicalShape( species, r ) {
 							)
 						),
 					] );
-				} else add( ring );
+				} else {
+					add( ring );
+				}
 			}
 			break;
 		case 'agave':
@@ -431,7 +445,7 @@ export function botanicalShape( species, r ) {
 			add( blossom( -0.14, -0.99, 0.052, 5 ) );
 			break;
 		case 'succulent':
-			for ( let k = 0; k < 2; k++ )
+			for ( let k = 0; k < 2; k++ ) {
 				for ( let i = 0; i < 7; i++ ) {
 					const a = ( i * TAU ) / 7 + k * 0.4,
 						rad = k ? 0.24 : 0.46;
@@ -445,6 +459,7 @@ export function botanicalShape( species, r ) {
 						)
 					);
 				}
+			}
 			add( ellipse( 0, -0.17, 0.08 ) );
 			break;
 		case 'lotus':
@@ -527,7 +542,7 @@ export function botanicalShape( species, r ) {
 							)
 						);
 					} else {
-						for ( const side of [ -1, 1 ] )
+						for ( const side of [ -1, 1 ] ) {
 							add(
 								ellipse(
 									x + side * ww * 0.75,
@@ -538,9 +553,10 @@ export function botanicalShape( species, r ) {
 									side * 0.4
 								)
 							);
+						}
 					}
 				}
-				for ( const side of [ -1, 1 ] )
+				for ( const side of [ -1, 1 ] ) {
 					add(
 						leaf(
 							x * 0.5,
@@ -550,6 +566,7 @@ export function botanicalShape( species, r ) {
 							0.029
 						)
 					);
+				}
 			}
 			break;
 		}
@@ -589,8 +606,9 @@ export function botanicalShape( species, r ) {
 			line( 0, 0, 0, -0.76, 0.018 );
 			add( star( 0, -0.76, 0.14, 0.68, 15 ) );
 			add( ellipse( 0, -0.72, 0.095, 0.09 ) );
-			for ( const s of [ -1, 1 ] )
+			for ( const s of [ -1, 1 ] ) {
 				add( leaf( 0, -0.25, s * 0.24, -0.48, 0.07, 0.4 ) );
+			}
 			break;
 		case 'mushroom':
 			for ( const [ x, h ] of [
@@ -677,11 +695,12 @@ export function botanicalShape( species, r ) {
 						  ] )
 						: leaf( x, y, x + s * 0.22, y - 0.14, 0.047 )
 				);
-				if ( species === 'rosevine' && i % 3 === 0 )
+				if ( species === 'rosevine' && i % 3 === 0 ) {
 					out.push( [
 						blossom( x - s * 0.06, y - 0.05, 0.105, 7, 0.85 ),
 						blossom( x - s * 0.06, y - 0.05, 0.044, 5, 0.78 ),
 					] );
+				}
 			}
 			break;
 		}

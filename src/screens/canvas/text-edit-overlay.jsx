@@ -16,6 +16,7 @@ import { useRef, useEffect } from '@wordpress/element';
 import { docToScreen } from './use-viewport';
 import { textEditOffset } from '../../lib/raster';
 import { withTextFitForEdit } from '../../lib/text-fit';
+import { previewTextColor } from '../../lib/text-color-preview';
 
 /**
  * The selection of the document the node actually lives in (v1.342.0).
@@ -44,7 +45,7 @@ import {
 // While editing, pointerdowns inside these containers must NOT commit the
 // session — they host the styling controls acting on the selection.
 const KEEP_ALIVE =
-	'.ed-menubar, .ed-tool-opts, .ed-right, .color-popover, .font-picker-pop, .blend-menu, .layout-popover, .ed-rail-tip';
+	'.ed-menubar, .ed-tool-opts, .ed-right, .color-popover, .font-picker-pop, .blend-menu, .layout-popover, .ed-rail-tip, .text-tool-panel, .color-panel-window, .color-panel-pick-surface, [data-ws="tool.eyedropper"], .wpie-number-editor';
 
 export function TextEditOverlay( {
 	layer,
@@ -53,6 +54,8 @@ export function TextEditOverlay( {
 	onCommit,
 	onCancel,
 	richTextRef,
+	getDraftRef,
+	previewingEffects = false,
 } ) {
 	// Fluid Text (v1.429): the overlay edits the fitted lines and sizes,
 	// with the stored characters (no baked uppercase or list markers).
@@ -72,6 +75,12 @@ export function TextEditOverlay( {
 	const zoomRef = useRef( zoom );
 	const lastRange = useRef( null );
 	const doneRef = useRef( false );
+	const colorPreview = useRef( null );
+	const clearColorPreview = () => {
+		colorPreview.current?.();
+		colorPreview.current = null;
+	};
+	useEffect( () => clearColorPreview, [ layer.id, zoom, pan ] );
 
 	useEffect( () => {
 		const el = ref.current;
@@ -95,8 +104,20 @@ export function TextEditOverlay( {
 	}, [ layer.id ] );
 
 	const serialize = () => domToSpans( ref.current, layer, zoomRef.current );
+	// Read-only access for canvas effect previews, including shape text.
+	// Keep the editable DOM and its selection alive while its pixels hide.
+	useEffect( () => {
+		if ( ! getDraftRef ) {
+			return undefined;
+		}
+		getDraftRef.current = serialize;
+		return () => {
+			getDraftRef.current = null;
+		};
+	} );
 
 	const commit = () => {
+		clearColorPreview();
 		if ( doneRef.current ) {
 			return;
 		}
@@ -138,7 +159,19 @@ export function TextEditOverlay( {
 		};
 		richTextRef.current = {
 			layerId: layer.id,
+			commit,
+			getText: () => serialize().text,
+			clearColorPreview,
+			previewColor: ( color ) => {
+				clearColorPreview();
+				colorPreview.current = previewTextColor(
+					ref.current,
+					lastRange.current,
+					color
+				);
+			},
 			applyStyle: ( patch ) => {
+				clearColorPreview();
 				const el = ref.current;
 				if ( ! el ) {
 					return false;
@@ -210,6 +243,7 @@ export function TextEditOverlay( {
 			}
 		};
 		const onDown = ( e ) => {
+			clearColorPreview();
 			const el = ref.current;
 			if ( ! el || el.contains( e.target ) ) {
 				return;
@@ -247,6 +281,7 @@ export function TextEditOverlay( {
 			tabIndex={ 0 }
 			spellCheck={ false }
 			style={ {
+				opacity: previewingEffects ? 0 : undefined,
 				left: screen.x,
 				top: screen.y + yOffset,
 				minWidth: Math.max( 40, layer.w * zoom ),
@@ -279,7 +314,9 @@ export function TextEditOverlay( {
 				textTransform: caseOf( layer.textTransform ) || 'none',
 				color: layer.color,
 			} }
+			onBeforeInput={ clearColorPreview }
 			onKeyDown={ ( e ) => {
+				clearColorPreview();
 				e.stopPropagation();
 				if ( 'Escape' === e.key ) {
 					doneRef.current = true;

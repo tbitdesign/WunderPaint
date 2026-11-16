@@ -1,14 +1,17 @@
 /**
- * Screenshot Beautifier (v1.106.0): wraps the active image layer in a
- * rounded card with shadow, optional browser/window/phone chrome or
- * generative deco frames, grows the canvas (padding + aspect presets)
- * and drops a Background-Studio backdrop behind it. Everything lands as
+ * Screenshot Beautifier (v1.106.0, extended in v1.433.0): wraps the
+ * active image layer in a rounded card with shadow, optional browser /
+ * window / app window / phone / tablet chrome, a glass rim or generative
+ * deco frames, lays it out (centered, rising from the bottom edge,
+ * running into a corner, tilted), grows the canvas (padding + aspect
+ * presets) and drops a backdrop behind it: a Background-Studio style or
+ * look, a blurred copy of the shot, a solid color or nothing. Everything lands as
  * editable layers in a "Screenshot" group; the backdrop keeps its
  * params, so Edit Background still works on it.
  */
 
-import { useEffect, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { useEffect, useRef, useState } from '@wordpress/element';
+import { __, _x, sprintf } from '@wordpress/i18n';
 
 import { I } from '../icons';
 import { useEditor } from '../store/editor-context';
@@ -22,8 +25,20 @@ import {
 	makeShape,
 	makeText,
 } from '../store/document';
-import { BEAUTIFY_DEFAULTS, beautifySpec } from '../lib/beautify';
-import { BG_DEFAULTS, renderBackground } from '../lib/backgrounds';
+import {
+	BEAUTIFY_DEFAULTS,
+	BEAUTIFY_GENERATOR_ID,
+	beautifySpec,
+	placeBeautify,
+} from '../lib/beautify';
+import {
+	BG_DEFAULTS,
+	encodeBackground,
+	renderBackground,
+	soft,
+} from '../lib/backgrounds';
+import { encodeCanvas } from '../lib/canvas-encode';
+import { BACKGROUND_LOOKS, lookParams } from '../lib/background-looks';
 import { buildScheme, randomSchemeInput } from '../lib/color-scheme';
 import { renderToCanvas, sharedImageCache } from '../lib/raster';
 
@@ -31,18 +46,23 @@ const SOURCE_TYPES = [ 'image', 'raster', 'smart' ];
 
 function Slider( { label, value, min, max, onChange } ) {
 	return (
-		<label style={ { display: 'grid', gap: 4, fontSize: 12 } }>
-			<span className="dsm-label">
-				{ label } { value }
-			</span>
+		<div className="dsm-sliderrow">
+			<div className="dsm-sliderrow-head">
+				<span data-number-label>{ label }</span>
+				<span className="dsm-sliderrow-val" data-number-value>
+					{ value }
+				</span>
+			</div>
 			<input
 				type="range"
+				className="dsm-range"
 				min={ min }
 				max={ max }
 				value={ value }
+				aria-label={ label }
 				onChange={ ( e ) => onChange( +e.target.value ) }
 			/>
-		</label>
+		</div>
 	);
 }
 
@@ -102,6 +122,99 @@ function ColorsFrom( { onApply } ) {
 	);
 }
 
+/** Backdrop looks that sit calmly behind a screenshot. */
+const CALM_LOOKS = [
+	'pastel',
+	'golden',
+	'northern',
+	'city',
+	'sunset',
+	'spotlight',
+	'candy',
+];
+
+function makeCanvas( w, h ) {
+	const c = document.createElement( 'canvas' );
+	c.width = Math.max( 1, Math.round( w ) );
+	c.height = Math.max( 1, Math.round( h ) );
+	return c;
+}
+
+/**
+ * Average color of a canvas. Halved step by step to a few pixels and then
+ * averaged: one big draw down to a single pixel only samples a handful of
+ * pixels around the middle, and a bright spot there reads as a light
+ * picture.
+ *
+ * @param {HTMLCanvasElement} source Picture.
+ * @return {Object} { r, g, b }, white for a see-through picture.
+ */
+function averageRgb( source ) {
+	let cur = source;
+	while ( cur.width > 16 || cur.height > 16 ) {
+		const next = makeCanvas(
+			Math.ceil( cur.width / 2 ),
+			Math.ceil( cur.height / 2 )
+		);
+		next.getContext( '2d' ).drawImage( cur, 0, 0, next.width, next.height );
+		cur = next;
+	}
+	const data = cur
+		.getContext( '2d' )
+		.getImageData( 0, 0, cur.width, cur.height ).data;
+	let r = 0;
+	let g = 0;
+	let b = 0;
+	let a = 0;
+	for ( let i = 0; i < data.length; i += 4 ) {
+		const w = data[ i + 3 ];
+		r += data[ i ] * w;
+		g += data[ i + 1 ] * w;
+		b += data[ i + 2 ] * w;
+		a += w;
+	}
+	return a ? { r: r / a, g: g / a, b: b / a } : { r: 255, g: 255, b: 255 };
+}
+
+/**
+ * A blurred, dimmed copy of the shot covering the whole canvas; see
+ * through areas of the shot fill with its average color first.
+ *
+ * @param {HTMLCanvasElement} pic  Small render of the shot.
+ * @param {number}            w    Width.
+ * @param {number}            h    Height.
+ * @param {Object}            blur { amount, dim } 0-100.
+ * @return {HTMLCanvasElement} The backdrop.
+ */
+function blurBackdrop( pic, w, h, blur ) {
+	const out = makeCanvas( w, h );
+	const ctx = out.getContext( '2d' );
+	const avg = averageRgb( pic );
+	const base = `rgb(${ avg.r },${ avg.g },${ avg.b })`;
+	ctx.fillStyle = base;
+	ctx.fillRect( 0, 0, out.width, out.height );
+	const factor = 1 / ( 10 + ( ( blur.amount ?? 60 ) / 100 ) * 50 );
+	soft( ctx, out.width, out.height, factor, ( sctx ) => {
+		sctx.fillStyle = base;
+		sctx.fillRect( 0, 0, out.width, out.height );
+		const k =
+			Math.max( out.width / pic.width, out.height / pic.height ) * 1.08;
+		sctx.drawImage(
+			pic,
+			( out.width - pic.width * k ) / 2,
+			( out.height - pic.height * k ) / 2,
+			pic.width * k,
+			pic.height * k
+		);
+	} );
+	const dim = ( blur.dim ?? 25 ) / 100;
+	if ( dim > 0 ) {
+		ctx.fillStyle = `rgba(0,0,0,${ dim * 0.7 })`;
+		ctx.fillRect( 0, 0, out.width, out.height );
+	}
+	return out;
+}
+
 /** Spec object -> real layer. */
 function specToLayer( spec ) {
 	const { kind, clipped, styles, rot, ...props } = spec;
@@ -118,10 +231,31 @@ function specToLayer( spec ) {
 	return layer;
 }
 
-export function BeautifyDialog( { onClose, extras } ) {
+export function BeautifyDialog( { onClose, extras, layerId = null } ) {
 	useEscape( onClose );
 	const editor = useEditor();
-	const { state, dispatch } = editor;
+	const { state, dispatch, commit } = editor;
+
+	// Edit (20.10.2026): a framed screenshot keeps its recipe on its group;
+	// the shot inside it, at the size it was framed at, is the source again.
+	const editGroup = layerId
+		? state.layers.find(
+				( l ) =>
+					l.id === layerId &&
+					l.generator?.id === BEAUTIFY_GENERATOR_ID
+		  ) || null
+		: null;
+	const recipe = editGroup?.generator?.params || null;
+	const editShot = editGroup
+		? state.layers.find(
+				( l ) => l.parent === editGroup.id && l.beautifyShot
+		  ) || null
+		: null;
+	// A backdrop changed with Edit Background since is the one to keep.
+	const editBackdrop = editGroup
+		? state.layers.find( ( l ) => l.beautifyOf === editGroup.id && l.bg ) ||
+		  null
+		: null;
 
 	// Source: the active image-ish layer, else the bottom-most one; or
 	// the WHOLE document flattened (v1.107, user request).
@@ -129,10 +263,20 @@ export function BeautifyDialog( { onClose, extras } ) {
 		( l ) => SOURCE_TYPES.includes( l.type ) && l.visible !== false
 	);
 	const active = state.layers.find( ( l ) => l.id === state.activeId );
-	const source =
+	let source =
 		active && SOURCE_TYPES.includes( active.type )
 			? active
 			: candidates[ 0 ] || null;
+	if ( editShot ) {
+		source = {
+			...editShot,
+			w: recipe?.shot?.w || editShot.w,
+			h: recipe?.shot?.h || editShot.h,
+			rot: 0,
+			clipped: false,
+			parent: null,
+		};
+	}
 	const [ sourceMode, setSourceMode ] = useState( () =>
 		source ? 'layer' : 'doc'
 	);
@@ -158,6 +302,7 @@ export function BeautifyDialog( { onClose, extras } ) {
 						src: canvas.toDataURL( 'image/png' ),
 						naturalW: canvas.width,
 						naturalH: canvas.height,
+						canvas,
 					} );
 				}
 			} )
@@ -168,6 +313,57 @@ export function BeautifyDialog( { onClose, extras } ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ sourceMode ] );
 
+	// A small render of the shot, for the blurred backdrop and its tone.
+	const [ pic, setPic ] = useState( null );
+	useEffect( () => {
+		let live = true;
+		const small = ( canvas ) => {
+			const k = Math.min(
+				1,
+				480 / Math.max( canvas.width, canvas.height )
+			);
+			const c = makeCanvas( canvas.width * k, canvas.height * k );
+			c.getContext( '2d' ).drawImage( canvas, 0, 0, c.width, c.height );
+			return c;
+		};
+		if ( 'doc' === sourceMode ) {
+			setPic( docShot?.canvas ? small( docShot.canvas ) : null );
+		} else if ( source ) {
+			renderToCanvas(
+				{
+					...state.doc,
+					w: source.w,
+					h: source.h,
+					bg: 'transparent',
+				},
+				[
+					{
+						...source,
+						x: 0,
+						y: 0,
+						rot: 0,
+						parent: null,
+						clipped: false,
+						visible: true,
+					},
+				],
+				{
+					scale: Math.min(
+						1,
+						480 / Math.max( source.w || 1, source.h || 1 )
+					),
+					cache: sharedImageCache,
+				}
+			)
+				.then( ( canvas ) => live && setPic( canvas ) )
+				.catch( () => {} );
+		}
+		return () => {
+			live = false;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ sourceMode, docShot ] );
+
 	const shotSize =
 		'doc' === sourceMode
 			? { w: state.doc.w, h: state.doc.h }
@@ -175,27 +371,67 @@ export function BeautifyDialog( { onClose, extras } ) {
 	const sourceReady = 'doc' === sourceMode ? !! docShot : !! source;
 
 	const kitColors = ( window.WPIE?.brand?.colors || [] ).slice( 0, 2 );
-	const [ params, setParams ] = useState( () => ( {
-		...BEAUTIFY_DEFAULTS,
-		colors: kitColors.length > 1 ? kitColors : BEAUTIFY_DEFAULTS.colors,
-	} ) );
-	const [ bgMode, setBgMode ] = useState( 'studio' ); // studio|solid|none
-	const [ bgParams, setBgParams ] = useState( () => ( {
-		...BG_DEFAULTS,
-		style: 'mesh',
-		colors:
-			( window.WPIE?.brand?.colors || [] ).length > 1
-				? window.WPIE.brand.colors.slice( 0, 4 )
-				: BG_DEFAULTS.colors,
-		seed: 1 + Math.floor( Math.random() * 1e9 ),
-	} ) );
-	const [ solidColor, setSolidColor ] = useState( '#e9ebf0' );
+	const [ params, setParams ] = useState( () =>
+		recipe?.params
+			? { ...BEAUTIFY_DEFAULTS, ...recipe.params }
+			: {
+					...BEAUTIFY_DEFAULTS,
+					colors:
+						kitColors.length > 1
+							? kitColors
+							: BEAUTIFY_DEFAULTS.colors,
+			  }
+	);
+	// studio|blur|solid|none
+	const [ bgMode, setBgMode ] = useState( recipe?.bgMode || 'studio' );
+	const [ blur, setBlur ] = useState(
+		recipe?.blur || { amount: 60, dim: 25 }
+	);
+	const [ bgParams, setBgParams ] = useState( () => {
+		const kept = editBackdrop?.bg || recipe?.bgParams;
+		if ( kept ) {
+			return { ...BG_DEFAULTS, ...kept };
+		}
+		return {
+			...BG_DEFAULTS,
+			style: 'mesh',
+			colors:
+				( window.WPIE?.brand?.colors || [] ).length > 1
+					? window.WPIE.brand.colors.slice( 0, 4 )
+					: BG_DEFAULTS.colors,
+			seed: 1 + Math.floor( Math.random() * 1e9 ),
+		};
+	} );
+	const [ solidColor, setSolidColor ] = useState(
+		recipe?.solidColor || '#e9ebf0'
+	);
 	const [ preview, setPreview ] = useState( null );
 	const [ busy, setBusy ] = useState( false );
 
 	const patch = ( changes ) => setParams( ( p ) => ( { ...p, ...changes } ) );
 	const patchDeco = ( changes ) =>
 		setParams( ( p ) => ( { ...p, deco: { ...p.deco, ...changes } } ) );
+
+	/**
+	 * The backdrop picture at a size (Background Studio or blur).
+	 *
+	 * @param {number} w      Width.
+	 * @param {number} h      Height.
+	 * @param {string} format Image type.
+	 * @return {string|null} Data URL.
+	 */
+	const backdropSrc = ( w, h, format ) => {
+		if ( 'studio' === bgMode ) {
+			return renderBackground( bgParams, w, h ).toDataURL( format );
+		}
+		if ( 'blur' === bgMode && pic ) {
+			return blurBackdrop( pic, w, h, blur ).toDataURL(
+				'image/jpeg',
+				0.92
+			);
+		}
+		return null;
+	};
 
 	/**
 	 * Build the composition layers (shared by preview and apply).
@@ -209,7 +445,7 @@ export function BeautifyDialog( { onClose, extras } ) {
 		if ( 'solid' === bgMode ) {
 			layers.push(
 				makeShape( {
-					name: 'Background',
+					name: __( 'Background', 'wunderpaint' ),
 					x: 0,
 					y: 0,
 					w: spec.doc.w,
@@ -217,10 +453,29 @@ export function BeautifyDialog( { onClose, extras } ) {
 					fill: solidColor,
 				} )
 			);
+		} else if ( 'blur' === bgMode && bgSrc ) {
+			layers.push(
+				makeImage( {
+					name: sprintf(
+						/* translators: %s: background style name. */
+						__( 'Background: %s', 'wunderpaint' ),
+						__( 'Blur', 'wunderpaint' )
+					),
+					x: 0,
+					y: 0,
+					w: spec.doc.w,
+					h: spec.doc.h,
+					src: bgSrc,
+				} )
+			);
 		} else if ( 'studio' === bgMode && bgSrc ) {
 			layers.push( {
 				...makeImage( {
-					name: 'Background: Studio',
+					name: sprintf(
+						/* translators: %s: background style name. */
+						__( 'Background: %s', 'wunderpaint' ),
+						__( 'Gradient', 'wunderpaint' )
+					),
 					x: 0,
 					y: 0,
 					w: spec.doc.w,
@@ -255,9 +510,16 @@ export function BeautifyDialog( { onClose, extras } ) {
 						clipped: true,
 						parent: null,
 				  };
+		// Tilt turns the shot with its frame.
+		shotLayer.rot = spec.shotRect.rot || 0;
+		// The shot is what Edit frames again.
+		shotLayer.beautifyShot = true;
+		// Devices and glass clip the shot to a rounded screen of its own.
 		const parts = [
 			...spec.below.map( specToLayer ),
 			specToLayer( spec.card ),
+			...spec.bezel.map( specToLayer ),
+			...( spec.screen ? [ specToLayer( spec.screen ) ] : [] ),
 			shotLayer,
 			...spec.overlays.map( specToLayer ),
 		];
@@ -269,6 +531,8 @@ export function BeautifyDialog( { onClose, extras } ) {
 		bgMode,
 		bgParams,
 		solidColor,
+		blur,
+		pic: !! pic,
 	} );
 	useEffect( () => {
 		if ( ! sourceReady ) {
@@ -282,14 +546,11 @@ export function BeautifyDialog( { onClose, extras } ) {
 					1,
 					460 / Math.max( spec.doc.w, spec.doc.h )
 				);
-				const bgSrc =
-					'studio' === bgMode
-						? renderBackground(
-								bgParams,
-								Math.round( spec.doc.w * scale ),
-								Math.round( spec.doc.h * scale )
-						  ).toDataURL()
-						: null;
+				const bgSrc = backdropSrc(
+					Math.round( spec.doc.w * scale ),
+					Math.round( spec.doc.h * scale ),
+					'image/png'
+				);
 				const { layers, parts } = buildLayers( bgSrc, spec );
 				const canvas = await renderToCanvas(
 					{ ...state.doc, w: spec.doc.w, h: spec.doc.h },
@@ -310,29 +571,80 @@ export function BeautifyDialog( { onClose, extras } ) {
 			clearTimeout( t );
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ paramsKey, sourceReady, docShot ] );
+	}, [ paramsKey, sourceReady, docShot, pic ] );
 
-	const apply = () => {
-		if ( ! sourceReady ) {
+	// The full-size backdrop used to be painted and stored as a PNG in one
+	// go on the main thread - a gradient with grain froze the editor and
+	// weighed megabytes. It is encoded off the main thread now, and stored
+	// the way Background Studio stores it (19.10.2026).
+	const mounted = useRef( true );
+	useEffect(
+		() => () => {
+			mounted.current = false;
+		},
+		[]
+	);
+	const fullBackdrop = async ( w, h ) => {
+		if ( 'studio' === bgMode ) {
+			return encodeBackground(
+				renderBackground( bgParams, w, h ),
+				bgParams
+			);
+		}
+		if ( 'blur' === bgMode && pic ) {
+			return encodeCanvas(
+				blurBackdrop( pic, w, h, blur ),
+				'image/jpeg',
+				0.92
+			);
+		}
+		return null;
+	};
+
+	const apply = async () => {
+		if ( ! sourceReady || busy ) {
 			return;
 		}
 		setBusy( true );
+		await new Promise( ( resolve ) =>
+			requestAnimationFrame( () => setTimeout( resolve, 0 ) )
+		);
 		try {
 			const spec = beautifySpec( shotSize, params );
-			const bgSrc =
-				'studio' === bgMode
-					? renderBackground(
-							bgParams,
-							spec.doc.w,
-							spec.doc.h
-					  ).toDataURL( 'image/png' )
-					: null;
+			const bgSrc = await fullBackdrop( spec.doc.w, spec.doc.h );
+			if ( ! mounted.current ) {
+				return;
+			}
 			const { layers, parts } = buildLayers( bgSrc, spec );
 			// The shot is a fresh copy in a fresh document, never the live
 			// layer object of the current one.
-			const shotIdx = spec.below.length + 1;
+			const shotIdx =
+				spec.below.length +
+				1 +
+				spec.bezel.length +
+				( spec.screen ? 1 : 0 );
 			parts[ shotIdx ] = { ...parts[ shotIdx ] };
-			const group = makeGroup( { name: 'Screenshot' } );
+			const group = makeGroup( {
+				name: __( 'Screenshot', 'wunderpaint' ),
+			} );
+			group.generator = {
+				id: BEAUTIFY_GENERATOR_ID,
+				params: {
+					params,
+					bgMode,
+					blur,
+					bgParams,
+					solidColor,
+					shot: { w: shotSize.w, h: shotSize.h },
+				},
+			};
+			if ( editGroup ) {
+				group.id = editGroup.id;
+				group.name = editGroup.name || group.name;
+				group.parent = editGroup.parent || null;
+				group.visible = editGroup.visible;
+				group.locked = editGroup.locked;
+			}
 			// Groups are double-linked: children point at the group AND the
 			// group lists the child ids - the panel and the renderer walk
 			// group.children, parent alone leaves the group empty (v1.106.2).
@@ -340,6 +652,34 @@ export function BeautifyDialog( { onClose, extras } ) {
 				part.parent = group.id;
 			}
 			group.children = parts.map( ( p ) => p.id );
+			// The backdrop belongs to this frame, so Edit replaces it too.
+			for ( const layer of layers ) {
+				layer.beautifyOf = group.id;
+			}
+			if ( editGroup ) {
+				// In place: the frame and its backdrop, at the size the new
+				// recipe needs; every other layer stays where it is.
+				if (
+					spec.doc.w !== state.doc.w ||
+					spec.doc.h !== state.doc.h
+				) {
+					dispatch( {
+						type: 'SET_DOC',
+						doc: { w: spec.doc.w, h: spec.doc.h },
+					} );
+				}
+				dispatch( {
+					type: 'SET_LAYERS',
+					layers: placeBeautify( state.layers, layers, parts, group ),
+				} );
+				dispatch( { type: 'SET_ACTIVE', id: group.id } );
+				commit( __( 'Edit screenshot frame', 'wunderpaint' ) );
+				extras?.toasts?.success?.(
+					__( 'Screenshot frame updated.', 'wunderpaint' )
+				);
+				onClose();
+				return;
+			}
 			// The framed result has its own size, so it becomes its own
 			// document - in a new tab, the current work stays put (v1.107).
 			const doc = createBlankDoc( {
@@ -366,7 +706,9 @@ export function BeautifyDialog( { onClose, extras } ) {
 				__( 'The screenshot could not be framed.', 'wunderpaint' )
 			);
 		} finally {
-			setBusy( false );
+			if ( mounted.current ) {
+				setBusy( false );
+			}
 		}
 	};
 
@@ -377,7 +719,7 @@ export function BeautifyDialog( { onClose, extras } ) {
 			<div
 				className="stock-dialog"
 				style={ {
-					width: 'min(820px, 96vw)',
+					width: 'min(1120px, 96vw)',
 					height: 'auto',
 					maxHeight: '92vh',
 					gridTemplateRows: 'auto 1fr auto',
@@ -438,66 +780,115 @@ export function BeautifyDialog( { onClose, extras } ) {
 							alignContent: 'start',
 						} }
 					>
-						<div style={ { display: 'grid', gap: 6 } }>
-							<span className="dsm-label">
-								{ __( 'Source', 'wunderpaint' ) }
-							</span>
-							<Seg
-								options={ [
-									...( source
-										? [
-												[
-													'layer',
-													__(
-														'Selected image layer',
-														'wunderpaint'
-													),
-												],
-										  ]
-										: [] ),
-									...( state.layers.length
-										? [
-												[
-													'doc',
-													__(
-														'Whole document (flattened)',
-														'wunderpaint'
-													),
-												],
-										  ]
-										: [] ),
-								] }
-								value={ sourceMode }
-								onChange={ setSourceMode }
-							/>
-							{ ! source && ! state.layers.length && (
-								<div
-									style={ {
-										fontSize: 12,
-										color: 'var(--ed-warn, #f5a623)',
-									} }
-								>
-									{ __(
-										'Add or select an image layer first, the beautifier wraps it.',
-										'wunderpaint'
+						<div
+							style={ {
+								display: 'flex',
+								gap: 16,
+								alignItems: 'flex-start',
+								flexWrap: 'wrap',
+							} }
+						>
+							{ ! editGroup && (
+								<div style={ { display: 'grid', gap: 6 } }>
+									<span className="dsm-label">
+										{ __( 'Source', 'wunderpaint' ) }
+									</span>
+									<Seg
+										options={ [
+											...( source
+												? [
+														[
+															'layer',
+															__(
+																'Selected image layer',
+																'wunderpaint'
+															),
+														],
+												  ]
+												: [] ),
+											...( state.layers.length
+												? [
+														[
+															'doc',
+															__(
+																'Whole document (flattened)',
+																'wunderpaint'
+															),
+														],
+												  ]
+												: [] ),
+										] }
+										value={ sourceMode }
+										onChange={ setSourceMode }
+									/>
+									{ ! source && ! state.layers.length && (
+										<div
+											style={ {
+												fontSize: 12,
+												color: 'var(--ed-warn, #f5a623)',
+											} }
+										>
+											{ __(
+												'Add or select an image layer first, the beautifier wraps it.',
+												'wunderpaint'
+											) }
+										</div>
 									) }
+									{ 'doc' === sourceMode &&
+										! docShot &&
+										state.layers.length > 0 && (
+											<div
+												style={ {
+													fontSize: 12,
+													color: 'var(--ed-text-muted)',
+												} }
+											>
+												{ __(
+													'Flattening the document…',
+													'wunderpaint'
+												) }
+											</div>
+										) }
 								</div>
 							) }
-							{ 'doc' === sourceMode &&
-								! docShot &&
-								state.layers.length > 0 && (
-									<div
-										style={ {
-											fontSize: 12,
-											color: 'var(--ed-text-muted)',
-										} }
-									>
+
+							<label
+								style={ {
+									display: 'grid',
+									gap: 4,
+									fontSize: 12,
+									maxWidth: 220,
+								} }
+							>
+								<span className="dsm-label">
+									{ __( 'Canvas format', 'wunderpaint' ) }
+								</span>
+								<select
+									className="dsm-select"
+									value={ params.aspect }
+									onChange={ ( e ) =>
+										patch( { aspect: e.target.value } )
+									}
+								>
+									<option value="original">
 										{ __(
-											'Flattening the document…',
+											'Original + padding',
 											'wunderpaint'
 										) }
-									</div>
-								) }
+									</option>
+									<option value="16:9">16:9</option>
+									<option value="4:3">4:3</option>
+									<option value="1:1">1:1</option>
+									<option value="4:5">4:5</option>
+									<option value="9:16">9:16</option>
+									<option value="og">
+										{ __(
+											'OG / social card (1.91:1)',
+											'wunderpaint'
+										) }
+									</option>
+								</select>
+							</label>
 						</div>
 
 						<div style={ { display: 'grid', gap: 6 } }>
@@ -512,8 +903,13 @@ export function BeautifyDialog( { onClose, extras } ) {
 										__( 'Browser', 'wunderpaint' ),
 									],
 									[ 'window', __( 'Window', 'wunderpaint' ) ],
+									[
+										'app',
+										__( 'App window', 'wunderpaint' ),
+									],
 									[ 'phone', __( 'Phone', 'wunderpaint' ) ],
 									[ 'tablet', __( 'Tablet', 'wunderpaint' ) ],
+									[ 'glass', __( 'Glass', 'wunderpaint' ) ],
 									[ 'deco', __( 'Deco', 'wunderpaint' ) ],
 								] }
 								value={ params.frame }
@@ -521,7 +917,9 @@ export function BeautifyDialog( { onClose, extras } ) {
 							/>
 						</div>
 
-						{ [ 'browser', 'window' ].includes( params.frame ) && (
+						{ [ 'browser', 'window', 'app', 'glass' ].includes(
+							params.frame
+						) && (
 							<div
 								style={ {
 									display: 'flex',
@@ -687,8 +1085,9 @@ export function BeautifyDialog( { onClose, extras } ) {
 						<div
 							style={ {
 								display: 'grid',
-								gridTemplateColumns: '1fr 1fr',
-								gap: 12,
+								gridTemplateColumns:
+									'repeat(4, minmax(0, 1fr))',
+								gap: '8px 14px',
 							} }
 						>
 							<Slider
@@ -720,41 +1119,50 @@ export function BeautifyDialog( { onClose, extras } ) {
 								onChange={ ( v ) => patch( { border: v } ) }
 							/>
 						</div>
-						<label
+
+						<div
 							style={ {
 								display: 'grid',
-								gap: 4,
-								fontSize: 12,
-								maxWidth: 220,
+								gridTemplateColumns: 'auto minmax(0, 1fr)',
+								gap: 16,
+								alignItems: 'end',
 							} }
 						>
-							<span className="dsm-label">
-								{ __( 'Canvas format', 'wunderpaint' ) }
-							</span>
-							<select
-								className="dsm-select"
-								value={ params.aspect }
-								onChange={ ( e ) =>
-									patch( { aspect: e.target.value } )
-								}
-							>
-								<option value="original">
-									{ __(
-										'Original + padding',
-										'wunderpaint'
-									) }
-								</option>
-								<option value="16:9">16:9</option>
-								<option value="4:3">4:3</option>
-								<option value="1:1">1:1</option>
-								<option value="og">
-									{ __(
-										'OG / social card (1.91:1)',
-										'wunderpaint'
-									) }
-								</option>
-							</select>
-						</label>
+							<div style={ { display: 'grid', gap: 6 } }>
+								<span className="dsm-label">
+									{ __( 'Layout', 'wunderpaint' ) }
+								</span>
+								<Seg
+									options={ [
+										[
+											'center',
+											__( 'Centered', 'wunderpaint' ),
+										],
+										[
+											'rise',
+											_x(
+												'Rising',
+												'screenshot layout',
+												'wunderpaint'
+											),
+										],
+										[
+											'corner',
+											__( 'Corner', 'wunderpaint' ),
+										],
+									] }
+									value={ params.layout }
+									onChange={ ( v ) => patch( { layout: v } ) }
+								/>
+							</div>
+							<Slider
+								label={ __( 'Tilt', 'wunderpaint' ) }
+								value={ params.tilt }
+								min={ -20 }
+								max={ 20 }
+								onChange={ ( v ) => patch( { tilt: v } ) }
+							/>
+						</div>
 
 						<div style={ { display: 'grid', gap: 8 } }>
 							<span className="dsm-label">
@@ -764,15 +1172,13 @@ export function BeautifyDialog( { onClose, extras } ) {
 								options={ [
 									[
 										'studio',
-										__(
-											'Background Studio',
-											'wunderpaint'
-										),
+										__( 'Gradient', 'wunderpaint' ),
 									],
 									[
 										'solid',
 										__( 'Solid color', 'wunderpaint' ),
 									],
+									[ 'blur', __( 'Blur', 'wunderpaint' ) ],
 									[
 										'none',
 										__( 'Transparent', 'wunderpaint' ),
@@ -814,6 +1220,45 @@ export function BeautifyDialog( { onClose, extras } ) {
 										</option>
 										<option value="poly">
 											{ __( 'Low-Poly', 'wunderpaint' ) }
+										</option>
+										<option value="topo">
+											{ __(
+												'Topographic',
+												'wunderpaint'
+											) }
+										</option>
+										<option value="halftone">
+											{ __( 'Halftone', 'wunderpaint' ) }
+										</option>
+										<option value="rings">
+											{ __( 'Rings', 'wunderpaint' ) }
+										</option>
+										<option value="confetti">
+											{ __( 'Confetti', 'wunderpaint' ) }
+										</option>
+										<option value="gradient">
+											{ __( 'Gradient', 'wunderpaint' ) }
+										</option>
+										<option value="glow">
+											{ __( 'Glow', 'wunderpaint' ) }
+										</option>
+										<option value="aurora">
+											{ __( 'Aurora', 'wunderpaint' ) }
+										</option>
+										<option value="bokeh">
+											{ __( 'Bokeh', 'wunderpaint' ) }
+										</option>
+										<option value="stars">
+											{ __( 'Starfield', 'wunderpaint' ) }
+										</option>
+										<option value="terrazzo">
+											{ __( 'Terrazzo', 'wunderpaint' ) }
+										</option>
+										<option value="plaid">
+											{ __( 'Plaid', 'wunderpaint' ) }
+										</option>
+										<option value="scales">
+											{ __( 'Scales', 'wunderpaint' ) }
 										</option>
 									</select>
 									{ bgParams.colors
@@ -869,6 +1314,72 @@ export function BeautifyDialog( { onClose, extras } ) {
 									</button>
 								</div>
 							) }
+							{ 'studio' === bgMode && (
+								<div
+									style={ {
+										display: 'flex',
+										gap: 6,
+										alignItems: 'center',
+										flexWrap: 'wrap',
+									} }
+								>
+									{ BACKGROUND_LOOKS()
+										.filter( ( l ) =>
+											CALM_LOOKS.includes( l.id )
+										)
+										.map( ( look ) => (
+											<button
+												key={ look.id }
+												className="ai-btn secondary"
+												style={ {
+													padding: '3px 9px',
+													fontSize: 11,
+												} }
+												onClick={ () =>
+													setBgParams(
+														lookParams( look )
+													)
+												}
+											>
+												{ look.label }
+											</button>
+										) ) }
+								</div>
+							) }
+							{ 'blur' === bgMode && (
+								<div
+									style={ {
+										display: 'grid',
+										gridTemplateColumns: '1fr 1fr',
+										gap: 12,
+									} }
+								>
+									<Slider
+										label={ __( 'Blur', 'wunderpaint' ) }
+										value={ blur.amount }
+										min={ 0 }
+										max={ 100 }
+										onChange={ ( v ) =>
+											setBlur( ( b ) => ( {
+												...b,
+												amount: v,
+											} ) )
+										}
+									/>
+									<Slider
+										label={ __( 'Dim', 'wunderpaint' ) }
+										value={ blur.dim }
+										min={ 0 }
+										max={ 80 }
+										onChange={ ( v ) =>
+											setBlur( ( b ) => ( {
+												...b,
+												dim: v,
+											} ) )
+										}
+									/>
+								</div>
+							) }
 							{ 'solid' === bgMode && (
 								<SwatchButton
 									color={ solidColor }
@@ -886,7 +1397,7 @@ export function BeautifyDialog( { onClose, extras } ) {
 					{ /* ------------------------- preview ------------------------- */ }
 					<div
 						style={ {
-							width: 320,
+							width: 380,
 							display: 'grid',
 							gap: 8,
 							alignContent: 'start',
@@ -894,7 +1405,7 @@ export function BeautifyDialog( { onClose, extras } ) {
 					>
 						<div
 							style={ {
-								width: 320,
+								width: 380,
 								borderRadius: 8,
 								border: '1px solid var(--ed-border-strong)',
 								overflow: 'hidden',
@@ -934,10 +1445,15 @@ export function BeautifyDialog( { onClose, extras } ) {
 				<div className="dsm-foot">
 					<div className="dsm-hint">
 						{ I.layers ? I.layers( { size: 14 } ) : null }
-						{ __(
-							'Opens in a new tab, all layers editable',
-							'wunderpaint'
-						) }
+						{ editGroup
+							? __(
+									'Replaces the frame and its background in this document',
+									'wunderpaint'
+							  )
+							: __(
+									'Opens in a new tab, all layers editable',
+									'wunderpaint'
+							  ) }
 					</div>
 					<div style={ { display: 'flex', gap: 8 } }>
 						<button
@@ -951,7 +1467,14 @@ export function BeautifyDialog( { onClose, extras } ) {
 							disabled={ ! sourceReady || busy }
 							onClick={ apply }
 						>
-							{ __( 'Beautify screenshot', 'wunderpaint' ) }
+							{ busy && __( 'Rendering…', 'wunderpaint' ) }
+							{ ! busy &&
+								( editGroup
+									? __( 'Update frame', 'wunderpaint' )
+									: __(
+											'Beautify screenshot',
+											'wunderpaint'
+									  ) ) }
 						</button>
 					</div>
 				</div>

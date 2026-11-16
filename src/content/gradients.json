@@ -1410,5 +1410,1297 @@
 				"at": 1
 			}
 		]
+	},
+	{
+		"name": "Porcelain Ink",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#eee7db",
+				"at": 0
+			},
+			{
+				"color": "#c9c3b8",
+				"at": 0.45
+			},
+			{
+				"color": "#8f959e",
+				"at": 0.72
+			},
+			{
+				"color": "#293444",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Dune Glass",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#493d45",
+				"at": 0.0
+			},
+			{
+				"color": "#ae7d6c",
+				"at": 0.3333
+			},
+			{
+				"color": "#e4cba6",
+				"at": 0.6667
+			},
+			{
+				"color": "#cfdfd5",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Cobalt Linen",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#10284e",
+				"at": 0
+			},
+			{
+				"color": "#315de4",
+				"at": 0.32
+			},
+			{
+				"color": "#91b2ed",
+				"at": 0.64
+			},
+			{
+				"color": "#efe9dc",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Apricot Smoke",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#393345",
+				"at": 0.0
+			},
+			{
+				"color": "#a77388",
+				"at": 0.3333
+			},
+			{
+				"color": "#f3b8a1",
+				"at": 0.6667
+			},
+			{
+				"color": "#ffe1a7",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Orchid Fog",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#30384b",
+				"at": 0.0
+			},
+			{
+				"color": "#9d82b8",
+				"at": 0.3333
+			},
+			{
+				"color": "#d9bbd6",
+				"at": 0.6667
+			},
+			{
+				"color": "#f6eae5",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Petrol Copper",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#123c43",
+				"at": 0
+			},
+			{
+				"color": "#397579",
+				"at": 0.4
+			},
+			{
+				"color": "#b37d63",
+				"at": 0.68
+			},
+			{
+				"color": "#efbc8e",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Tidal Glass",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#19345b",
+				"at": 0.0
+			},
+			{
+				"color": "#5b8eac",
+				"at": 0.3333
+			},
+			{
+				"color": "#a9d4d0",
+				"at": 0.6667
+			},
+			{
+				"color": "#e6eedf",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Clay Rose",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#713e4e",
+				"at": 0.0
+			},
+			{
+				"color": "#b9787d",
+				"at": 0.3333
+			},
+			{
+				"color": "#dfb5a2",
+				"at": 0.6667
+			},
+			{
+				"color": "#efe1cb",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Olive Silk",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#283e38",
+				"at": 0.0
+			},
+			{
+				"color": "#7c9062",
+				"at": 0.3333
+			},
+			{
+				"color": "#c4c889",
+				"at": 0.6667
+			},
+			{
+				"color": "#f6ecc5",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Cherry Cream",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#441d39",
+				"at": 0
+			},
+			{
+				"color": "#af3456",
+				"at": 0.4
+			},
+			{
+				"color": "#ec9293",
+				"at": 0.65
+			},
+			{
+				"color": "#ffedcb",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Aubergine Gold",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#251f37",
+				"at": 0.0
+			},
+			{
+				"color": "#62445e",
+				"at": 0.3333
+			},
+			{
+				"color": "#ad776c",
+				"at": 0.6667
+			},
+			{
+				"color": "#e9c67b",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Frosted Slate",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#20313d",
+				"at": 0.0
+			},
+			{
+				"color": "#526c7b",
+				"at": 0.3333
+			},
+			{
+				"color": "#afc7c9",
+				"at": 0.6667
+			},
+			{
+				"color": "#f0eee3",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Iris Pearl",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#474080",
+				"at": 0.0
+			},
+			{
+				"color": "#8a8ac9",
+				"at": 0.3333
+			},
+			{
+				"color": "#c3b7e0",
+				"at": 0.6667
+			},
+			{
+				"color": "#f3ded3",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Lagoon Sand",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#164b55",
+				"at": 0.0
+			},
+			{
+				"color": "#388b8a",
+				"at": 0.3333
+			},
+			{
+				"color": "#a9d1b8",
+				"at": 0.6667
+			},
+			{
+				"color": "#f2d5a4",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Graphite Mist",
+		"kind": "linear",
+		"stops": [
+			{
+				"color": "#141e29",
+				"at": 0
+			},
+			{
+				"color": "#434b56",
+				"at": 0.45
+			},
+			{
+				"color": "#9da9b4",
+				"at": 0.8
+			},
+			{
+				"color": "#e6e7e3",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Pearl Halo",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fffbec",
+				"at": 0
+			},
+			{
+				"color": "#efddcc",
+				"at": 0.28
+			},
+			{
+				"color": "#9d99b4",
+				"at": 0.6
+			},
+			{
+				"color": "#3a3a5d",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Copper Halo",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fff2c6",
+				"at": 0
+			},
+			{
+				"color": "#dba471",
+				"at": 0.28
+			},
+			{
+				"color": "#8d5256",
+				"at": 0.6
+			},
+			{
+				"color": "#26243c",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Indigo Bloom",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#d4c5ff",
+				"at": 0
+			},
+			{
+				"color": "#7774d0",
+				"at": 0.28
+			},
+			{
+				"color": "#353569",
+				"at": 0.6
+			},
+			{
+				"color": "#171d32",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Citrus Light",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#ffffd2",
+				"at": 0
+			},
+			{
+				"color": "#eae98d",
+				"at": 0.28
+			},
+			{
+				"color": "#8ead7e",
+				"at": 0.6
+			},
+			{
+				"color": "#254b49",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Opal Light",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fffff6",
+				"at": 0
+			},
+			{
+				"color": "#c4e5db",
+				"at": 0.28
+			},
+			{
+				"color": "#9ea6c8",
+				"at": 0.6
+			},
+			{
+				"color": "#604d82",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Mineral Pool",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#c5f4e2",
+				"at": 0
+			},
+			{
+				"color": "#64bcae",
+				"at": 0.28
+			},
+			{
+				"color": "#31657b",
+				"at": 0.6
+			},
+			{
+				"color": "#182e4a",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Jade Mist",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#f3f0c5",
+				"at": 0
+			},
+			{
+				"color": "#b7cf93",
+				"at": 0.28
+			},
+			{
+				"color": "#588b74",
+				"at": 0.6
+			},
+			{
+				"color": "#223f41",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Crimson Core",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#ffe6ae",
+				"at": 0
+			},
+			{
+				"color": "#ed947c",
+				"at": 0.28
+			},
+			{
+				"color": "#a84564",
+				"at": 0.6
+			},
+			{
+				"color": "#39283f",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Ink Halo",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#c5d6e4",
+				"at": 0
+			},
+			{
+				"color": "#819bb0",
+				"at": 0.28
+			},
+			{
+				"color": "#3c4d6b",
+				"at": 0.6
+			},
+			{
+				"color": "#172334",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Cloud Pool",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#ffffff",
+				"at": 0
+			},
+			{
+				"color": "#e7ebf2",
+				"at": 0.28
+			},
+			{
+				"color": "#b9c6d4",
+				"at": 0.6
+			},
+			{
+				"color": "#738caa",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Lilac Light",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fff6e6",
+				"at": 0
+			},
+			{
+				"color": "#e4cde5",
+				"at": 0.28
+			},
+			{
+				"color": "#ae95c6",
+				"at": 0.6
+			},
+			{
+				"color": "#65528a",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Blue Lantern",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#f0ffff",
+				"at": 0
+			},
+			{
+				"color": "#b7e4ef",
+				"at": 0.28
+			},
+			{
+				"color": "#5984cd",
+				"at": 0.6
+			},
+			{
+				"color": "#293a6e",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Warm Porcelain",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fffdf1",
+				"at": 0
+			},
+			{
+				"color": "#f0dfbc",
+				"at": 0.28
+			},
+			{
+				"color": "#c3a68d",
+				"at": 0.6
+			},
+			{
+				"color": "#846e71",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Night Iris",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#e8d2fc",
+				"at": 0
+			},
+			{
+				"color": "#b77ad2",
+				"at": 0.28
+			},
+			{
+				"color": "#644993",
+				"at": 0.6
+			},
+			{
+				"color": "#241f48",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Moss Lantern",
+		"kind": "radial",
+		"stops": [
+			{
+				"color": "#fff0b5",
+				"at": 0
+			},
+			{
+				"color": "#c0c56d",
+				"at": 0.28
+			},
+			{
+				"color": "#6d8757",
+				"at": 0.6
+			},
+			{
+				"color": "#254640",
+				"at": 1
+			}
+		]
+	},
+	{
+		"name": "Silver Facet",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#29394e",
+				"at": 0.0
+			},
+			{
+				"color": "#eff4fa",
+				"at": 0.25
+			},
+			{
+				"color": "#6d8096",
+				"at": 0.5
+			},
+			{
+				"color": "#d9e1e9",
+				"at": 0.75
+			},
+			{
+				"color": "#29394e",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Copper Prism",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#522f3a",
+				"at": 0.0
+			},
+			{
+				"color": "#d38a64",
+				"at": 0.25
+			},
+			{
+				"color": "#ffdf9d",
+				"at": 0.5
+			},
+			{
+				"color": "#a96359",
+				"at": 0.75
+			},
+			{
+				"color": "#522f3a",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Gold Orbit",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#604521",
+				"at": 0.0
+			},
+			{
+				"color": "#d8b76c",
+				"at": 0.25
+			},
+			{
+				"color": "#fff2c7",
+				"at": 0.5
+			},
+			{
+				"color": "#9a713e",
+				"at": 0.75
+			},
+			{
+				"color": "#604521",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Opal Sweep",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#8297c3",
+				"at": 0.0
+			},
+			{
+				"color": "#f1d7ea",
+				"at": 0.25
+			},
+			{
+				"color": "#d8ecd9",
+				"at": 0.5
+			},
+			{
+				"color": "#b6d3e8",
+				"at": 0.75
+			},
+			{
+				"color": "#8297c3",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Spectrum Wheel",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#dd657e",
+				"at": 0.0
+			},
+			{
+				"color": "#f0c975",
+				"at": 0.2
+			},
+			{
+				"color": "#a7ce92",
+				"at": 0.4
+			},
+			{
+				"color": "#63bfc6",
+				"at": 0.6
+			},
+			{
+				"color": "#8a87d3",
+				"at": 0.8
+			},
+			{
+				"color": "#dd657e",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Pastel Compass",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#e2b6cf",
+				"at": 0.0
+			},
+			{
+				"color": "#eed3ab",
+				"at": 0.2
+			},
+			{
+				"color": "#c1dbba",
+				"at": 0.4
+			},
+			{
+				"color": "#b5d3de",
+				"at": 0.6
+			},
+			{
+				"color": "#c2b9e0",
+				"at": 0.8
+			},
+			{
+				"color": "#e2b6cf",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Night Compass",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#122c49",
+				"at": 0.0
+			},
+			{
+				"color": "#316576",
+				"at": 0.25
+			},
+			{
+				"color": "#84c4b6",
+				"at": 0.5
+			},
+			{
+				"color": "#8b82b3",
+				"at": 0.75
+			},
+			{
+				"color": "#122c49",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Ember Turn",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#33263d",
+				"at": 0.0
+			},
+			{
+				"color": "#b55664",
+				"at": 0.25
+			},
+			{
+				"color": "#f3b474",
+				"at": 0.5
+			},
+			{
+				"color": "#df7056",
+				"at": 0.75
+			},
+			{
+				"color": "#33263d",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Iris Orbit",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#484380",
+				"at": 0.0
+			},
+			{
+				"color": "#a4a7e3",
+				"at": 0.25
+			},
+			{
+				"color": "#edcdeb",
+				"at": 0.5
+			},
+			{
+				"color": "#c393d3",
+				"at": 0.75
+			},
+			{
+				"color": "#484380",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Jade Compass",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#204742",
+				"at": 0.0
+			},
+			{
+				"color": "#6e9f7c",
+				"at": 0.25
+			},
+			{
+				"color": "#dce2a5",
+				"at": 0.5
+			},
+			{
+				"color": "#8dbbaf",
+				"at": 0.75
+			},
+			{
+				"color": "#204742",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Porcelain Turn",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#aba3a4",
+				"at": 0.0
+			},
+			{
+				"color": "#faf0dc",
+				"at": 0.25
+			},
+			{
+				"color": "#d2c2b8",
+				"at": 0.5
+			},
+			{
+				"color": "#ecded7",
+				"at": 0.75
+			},
+			{
+				"color": "#aba3a4",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Lagoon Sweep",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#1c505f",
+				"at": 0.0
+			},
+			{
+				"color": "#7fc7c6",
+				"at": 0.25
+			},
+			{
+				"color": "#d8ecd1",
+				"at": 0.5
+			},
+			{
+				"color": "#59a4ac",
+				"at": 0.75
+			},
+			{
+				"color": "#1c505f",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Garnet Prism",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#41273c",
+				"at": 0.0
+			},
+			{
+				"color": "#ab5177",
+				"at": 0.25
+			},
+			{
+				"color": "#ecc1ad",
+				"at": 0.5
+			},
+			{
+				"color": "#b7728b",
+				"at": 0.75
+			},
+			{
+				"color": "#41273c",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Saffron Wheel",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#ba7051",
+				"at": 0.0
+			},
+			{
+				"color": "#f4d28c",
+				"at": 0.25
+			},
+			{
+				"color": "#fbedd1",
+				"at": 0.5
+			},
+			{
+				"color": "#d99562",
+				"at": 0.75
+			},
+			{
+				"color": "#ba7051",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Slate Prism",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#1b2c3c",
+				"at": 0.0
+			},
+			{
+				"color": "#8faaba",
+				"at": 0.25
+			},
+			{
+				"color": "#d5e2e6",
+				"at": 0.5
+			},
+			{
+				"color": "#5e748f",
+				"at": 0.75
+			},
+			{
+				"color": "#1b2c3c",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Candy Orbit",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#ab78a9",
+				"at": 0.0
+			},
+			{
+				"color": "#e6a8c2",
+				"at": 0.25
+			},
+			{
+				"color": "#f9d2ae",
+				"at": 0.5
+			},
+			{
+				"color": "#c4cbec",
+				"at": 0.75
+			},
+			{
+				"color": "#ab78a9",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Mineral Wheel",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#306f76",
+				"at": 0.0
+			},
+			{
+				"color": "#9cbf9d",
+				"at": 0.25
+			},
+			{
+				"color": "#d0bf8d",
+				"at": 0.5
+			},
+			{
+				"color": "#8c7e9d",
+				"at": 0.75
+			},
+			{
+				"color": "#306f76",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Polar Turn",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#49789e",
+				"at": 0.0
+			},
+			{
+				"color": "#bedcf0",
+				"at": 0.25
+			},
+			{
+				"color": "#fbf9ed",
+				"at": 0.5
+			},
+			{
+				"color": "#9fafc9",
+				"at": 0.75
+			},
+			{
+				"color": "#49789e",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Ochre Compass",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#654537",
+				"at": 0.0
+			},
+			{
+				"color": "#be865a",
+				"at": 0.25
+			},
+			{
+				"color": "#e8c892",
+				"at": 0.5
+			},
+			{
+				"color": "#9b7955",
+				"at": 0.75
+			},
+			{
+				"color": "#654537",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Deep Prism",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#171e3b",
+				"at": 0.0
+			},
+			{
+				"color": "#454b93",
+				"at": 0.25
+			},
+			{
+				"color": "#9d72b2",
+				"at": 0.5
+			},
+			{
+				"color": "#41677e",
+				"at": 0.75
+			},
+			{
+				"color": "#171e3b",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Rose Ribbon",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#763d66",
+				"at": 0.0
+			},
+			{
+				"color": "#d491b4",
+				"at": 0.25
+			},
+			{
+				"color": "#f5d9ce",
+				"at": 0.5
+			},
+			{
+				"color": "#ca7a89",
+				"at": 0.75
+			},
+			{
+				"color": "#763d66",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Seafoam Turn",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#42837b",
+				"at": 0.0
+			},
+			{
+				"color": "#b2d7b3",
+				"at": 0.25
+			},
+			{
+				"color": "#edf1d3",
+				"at": 0.5
+			},
+			{
+				"color": "#89bcca",
+				"at": 0.75
+			},
+			{
+				"color": "#42837b",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Graphite Facet",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#182533",
+				"at": 0.0
+			},
+			{
+				"color": "#a3adb7",
+				"at": 0.25
+			},
+			{
+				"color": "#eef0ee",
+				"at": 0.5
+			},
+			{
+				"color": "#718391",
+				"at": 0.75
+			},
+			{
+				"color": "#182533",
+				"at": 1.0
+			}
+		]
+	},
+	{
+		"name": "Velvet Orbit",
+		"kind": "angle",
+		"stops": [
+			{
+				"color": "#3e3157",
+				"at": 0.0
+			},
+			{
+				"color": "#90659b",
+				"at": 0.25
+			},
+			{
+				"color": "#e6b9a4",
+				"at": 0.5
+			},
+			{
+				"color": "#ac6875",
+				"at": 0.75
+			},
+			{
+				"color": "#3e3157",
+				"at": 1.0
+			}
+		]
 	}
 ]

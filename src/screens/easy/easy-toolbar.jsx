@@ -1,62 +1,18 @@
-/**
- * Easy Mode tool rail (v1.166.0): the handful of things a beginner
- * actually does. Shapes, photos, templates and emoji all deep-link
- * into the bottom asset tray (the surface people use); CI tooltips
- * explain each tool, including the drop-a-photo-onto-a-shape trick.
- * The pro rail with its 20 tools stays untouched for the full editor.
- */
-
+/** Direct tools and creative extensions, without duplicating the asset tray. */
 import { __ } from '@wordpress/i18n';
-
 import { I } from '../../icons';
 import { useTip } from '../../components/use-tip';
 import { useEditor } from '../../store/editor-context';
-import { makeText } from '../../store/document';
+import { activateEasyTool, openEasySection } from './easy-actions';
 
-export function EasyToolbar() {
+export function EasyToolbar( { extras, navigation } ) {
 	const editor = useEditor();
-	const { state, dispatch, commit } = editor;
+	const { state } = editor;
+	const { area, section } = navigation;
 	const { tipFor, tipNode } = useTip();
-
-	const size = Math.round( Math.min( state.doc.w, state.doc.h ) * 0.3 );
-	const center = ( w, h ) => ( {
-		x: Math.round( ( state.doc.w - w ) / 2 ),
-		y: Math.round( ( state.doc.h - h ) / 2 ),
-		w,
-		h,
-	} );
-
-	const addText = () => {
-		dispatch( {
-			type: 'ADD_LAYER',
-			layer: makeText( {
-				text: __( 'Your text', 'wunderpaint' ),
-				...center( size * 2, Math.round( size / 2 ) ),
-				fontSize: Math.round( size / 3 ),
-				align: 'center',
-				color: state.fgColor || '#1a1d21',
-			} ),
-		} );
-		commit( __( 'Insert Text', 'wunderpaint' ) );
-		dispatch( { type: 'SET_TOOL', tool: 'move' } );
-	};
-
-	// Shapes, photos, templates and emoji live in the bottom tray.
-	// Unhide it first; the event fires a tick later so a freshly
-	// mounted tray catches it.
-	const openTray = ( sectionId ) => {
-		if ( state.libraryHidden ) {
-			dispatch( { type: 'TOGGLE_LIBRARY' } );
-		}
-		window.setTimeout( () => {
-			window.dispatchEvent(
-				new CustomEvent( 'wpie:tray-open', {
-					detail: { section: sectionId },
-				} )
-			);
-		}, 50 );
-	};
-
+	const editing = area === 'edit';
+	const painting = [ 'brush', 'pencil' ].includes( state.tool );
+	const edit = ( next ) => openEasySection( editor, extras, next );
 	const tools = [
 		{
 			id: 'move',
@@ -66,92 +22,114 @@ export function EasyToolbar() {
 				'Move and arrange the elements on your canvas.',
 				'wunderpaint'
 			),
-			run: () => dispatch( { type: 'SET_TOOL', tool: 'move' } ),
-			active: 'move' === state.tool || 'select' === state.tool,
+			run: () => activateEasyTool( editor, 'move', extras ),
+			active:
+				editing &&
+				section === 'basics' &&
+				[ 'move', 'select' ].includes( state.tool ),
+		},
+		{
+			id: 'creative',
+			icon: 'sparkles',
+			label: __( 'Creative', 'wunderpaint' ),
+			tip: __( 'Creative & AI', 'wunderpaint' ),
+			run: () => openEasySection( editor, extras, 'basics', 'creative' ),
+			active: area === 'creative',
 		},
 		{
 			id: 'text',
 			icon: 'text',
 			label: __( 'Text', 'wunderpaint' ),
-			tip: __(
-				'Adds a text to the middle, double-click it to type.',
-				'wunderpaint'
-			),
-			run: addText,
+			tip: __( 'Add text and start typing.', 'wunderpaint' ),
+			run: () => activateEasyTool( editor, 'text', extras ),
 		},
 		{
 			id: 'shape',
 			icon: 'shape',
-			label: __( 'Shape', 'wunderpaint' ),
-			tip: __(
-				'Shapes from the library. Tip: drop a photo onto a shape and it fills the shape.',
-				'wunderpaint'
-			),
-			run: () => openTray( 'elements' ),
-		},
-		{
-			id: 'photo',
-			icon: 'image',
-			label: __( 'Photos', 'wunderpaint' ),
-			tip: __(
-				'Free stock photos. Drag one onto the canvas, or onto a shape to fill it.',
-				'wunderpaint'
-			),
-			run: () => openTray( 'photos' ),
-		},
-		{
-			id: 'templates',
-			icon: 'textLayout',
-			label: __( 'Templates', 'wunderpaint' ),
-			tip: __(
-				'Beautifully styled text combinations, one click inserts them.',
-				'wunderpaint'
-			),
-			run: () => openTray( 'headlines' ),
-		},
-		{
-			id: 'emoji',
-			icon: 'sun',
-			label: __( 'Emoji', 'wunderpaint' ),
-			tip: __( 'Emoji as design elements.', 'wunderpaint' ),
-			run: () => openTray( 'emoji' ),
+			label: __( 'Shapes', 'wunderpaint' ),
+			tip: __( 'Shapes', 'wunderpaint' ),
+			run: () => {
+				activateEasyTool( editor, 'move', extras );
+				extras.openShapeStudioModal();
+			},
 		},
 		{
 			id: 'brush',
 			icon: 'brush',
 			label: __( 'Draw', 'wunderpaint' ),
 			tip: __(
-				'Paint freehand - then let AI Magic turn your sketch into a real picture.',
+				'Draw with your brush, pencil or eraser. Settings appear on the right.',
 				'wunderpaint'
 			),
-			run: () => dispatch( { type: 'SET_TOOL', tool: 'brush' } ),
-			active: 'brush' === state.tool,
+			run: () =>
+				activateEasyTool(
+					editor,
+					painting ? state.tool : 'brush',
+					extras
+				),
+			active: editing && painting,
+		},
+		{
+			id: 'eraser',
+			icon: 'eraser',
+			label: __( 'Eraser', 'wunderpaint' ),
+			run: () => activateEasyTool( editor, 'eraser', extras ),
+			active: editing && state.tool === 'eraser',
 		},
 		{
 			id: 'crop',
 			icon: 'crop',
 			label: __( 'Crop', 'wunderpaint' ),
 			tip: __( 'Trim your design to a new size.', 'wunderpaint' ),
-			run: () => dispatch( { type: 'SET_TOOL', tool: 'crop' } ),
-			active: 'crop' === state.tool,
+			run: () => activateEasyTool( editor, 'crop', extras ),
+			active: editing && state.tool === 'crop',
+		},
+		{
+			id: 'photo',
+			icon: 'image',
+			label: __( 'Photo', 'wunderpaint' ),
+			tip: __( 'Improve photo', 'wunderpaint' ),
+			run: () => edit( 'photo' ),
+			active: editing && section === 'photo',
+		},
+		{
+			id: 'looks',
+			icon: 'palette',
+			label: __( 'Looks', 'wunderpaint' ),
+			run: () => edit( 'looks' ),
+			active: editing && section === 'looks',
+		},
+		{
+			id: 'layout',
+			icon: 'textLayout',
+			label: __( 'Layout', 'wunderpaint' ),
+			run: () => edit( 'layout' ),
+			active: editing && section === 'layout',
 		},
 	];
-
 	return (
-		<div className="ed-toolbar ed-easy-toolbar">
-			{ tools.map( ( t ) => (
+		<nav
+			className="ed-toolbar ed-easy-toolbar"
+			aria-label={ __( 'Tools', 'wunderpaint' ) }
+		>
+			{ tools.map( ( tool ) => (
 				<button
-					key={ t.id }
-					className={ 'ed-easy-tool' + ( t.active ? ' active' : '' ) }
-					{ ...tipFor( t.tip ) }
-					aria-label={ t.label }
-					onClick={ t.run }
+					key={ tool.id }
+					type="button"
+					className="ai-tile ai-tile-compact ed-easy-tool"
+					data-easy-tool={ tool.id }
+					aria-pressed={ tool.active }
+					{ ...tipFor( tool.tip || tool.label ) }
+					aria-label={ tool.label }
+					onClick={ tool.run }
 				>
-					{ I[ t.icon ] ? I[ t.icon ]( { size: 40 } ) : null }
-					<span>{ t.label }</span>
+					<span className="ai-tile-icon" aria-hidden="true">
+						{ I[ tool.icon ]( { size: 23 } ) }
+					</span>
+					<span className="ai-tile-name">{ tool.label }</span>
 				</button>
 			) ) }
 			{ tipNode }
-		</div>
+		</nav>
 	);
 }

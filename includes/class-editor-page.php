@@ -28,6 +28,7 @@ class Editor_Page {
 		add_action( 'admin_menu', array( $this, 'register_page' ) );
 		add_filter( 'admin_body_class', array( $this, 'body_class' ) );
 		add_action( 'admin_head', array( $this, 'print_favicon' ) );
+		add_action( 'current_screen', array( $this, 'drop_command_palette' ) );
 		// "+ New → Image" in the admin bar (v1.155.0): the blank-canvas
 		// entry, reachable from every screen incl. the front end.
 		add_action( 'admin_bar_menu', array( $this, 'admin_bar_new_design' ), 82 );
@@ -65,6 +66,24 @@ class Editor_Page {
 			'<link rel="icon" type="image/svg+xml" href="%s" />' . "\n",
 			esc_url( WPIE_URL . 'assets/icon-wpie.svg' )
 		);
+	}
+
+	/**
+	 * Keep WordPress's command palette off the editor page (20.10.2026).
+	 * WordPress enqueues it on every admin screen: wp-commands,
+	 * wp-core-commands and the block editor packages they pull in, measured
+	 * on this page on 02.09.2026 at about 1.1 MB in 72 scripts, all loaded
+	 * before the editor's own bundle. The editor fills the whole window and
+	 * nothing in it uses the palette. current_screen runs before
+	 * admin_enqueue_scripts, so removing the hook here is in time; every
+	 * other screen keeps it.
+	 *
+	 * @param \WP_Screen|null $screen Current screen.
+	 */
+	public function drop_command_palette( $screen ) {
+		if ( $screen && self::$hook_suffix && self::$hook_suffix === $screen->id ) {
+			remove_action( 'admin_enqueue_scripts', 'wp_enqueue_command_palette_assets' );
+		}
 	}
 
 	/**
@@ -391,6 +410,9 @@ class Editor_Page {
 			'embed'           => self::embed_context(),
 			'pickEmbed'       => self::pick_context(),
 			'brandKits'       => $brand_kits,
+			// AI Studio Buttons (spec 2026-09-16): own buttons, hidden ids and
+			// order for the AI Studio panel, admin-managed, read by everyone.
+			'aiButtons'       => AI_Buttons::client_data(),
 			// Same check the /brand-kits routes use, so the menu entry is
 			// enabled exactly when saving would actually be allowed.
 			'canManageKits'   => Settings::can_manage_kits(),
@@ -405,6 +427,13 @@ class Editor_Page {
 			// stopped by a hardcoded 8 in the dialog (v1.353.0).
 			'maxBrandKits'    => Settings::max_kits(),
 			'palettes'        => Palettes::all(),
+			// Palettes carry an owner; the Color Schemer offers rename and
+			// delete only where the /palettes route would accept them
+			// (Helpers::can_manage_owned: administrators, or the owner).
+			'userId'          => get_current_user_id(),
+			// Theme palette, Styles colors and Elementor Global Colors
+			// (v1.432.0), offered in the Color panel and the Color Schemer.
+			'siteColors'      => Palettes::site_colors(),
 			'brand'           => $brand_kits ? $brand_kits[0] : array(
 				'colors'  => array(),
 				'fonts'   => array(),

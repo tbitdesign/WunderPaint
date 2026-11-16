@@ -21,6 +21,29 @@
 
 const SEG_MIN = 1.5; // px, shortest segment worth stamping
 
+// BROAD STROKES. The style pass of the editor's engine (pigment mixing,
+// bleed, drying edge, grain, relief) is JavaScript per pixel. A sweep
+// across the sheet - an opening underpainting, a glaze over a mass - is a
+// window of one to three megapixels, and measured (23.09.) it held the
+// dialog for 0.4 to 1.6 seconds at a time; Classicism piled seven seconds
+// of it into its first six. From BROAD_AREA on, a stroke is laid at a
+// working resolution of at most BROAD_TARGET pixels (between a half and a
+// quarter of the sheet's) and laid over the picture at full resolution by
+// how much of the picture it lets through: what shows beneath a glaze
+// stays as sharp as it was, the broad stroke itself gets a little softer
+// - which a wash that size is anyway.
+export const BROAD_AREA = 350000; // px² of window
+export const BROAD_TARGET = 180000; // px² the style pass may work on
+const BROAD_MIN_K = 0.25;
+const BROAD_MAX_K = 0.5;
+
+/** The working scale of a broad window: at most half, at least a quarter. */
+export const broadScale = ( area ) =>
+	Math.max(
+		BROAD_MIN_K,
+		Math.min( BROAD_MAX_K, Math.sqrt( BROAD_TARGET / Math.max( 1, area ) ) )
+	);
+
 /**
  * Without the editor's brush engine (an older core, the mock editor of
  * the checks): plain round strokes, no media, no wet paint. The society
@@ -50,6 +73,16 @@ function plainKit() {
 		wet: null,
 	};
 }
+
+// The core's own names, spelled the way the core spells them. A sweep to
+// American spelling (03.09.2026) turned the colour key and the watercolour
+// style into 'color' and 'watercolor' here; the core never followed, so
+// for six weeks every stroke on the CPU road lost its colour (the core
+// fell back to black) and every watercolour lost its water. Chaos Art
+// speaks American; this boundary translates, and tests/core-names.test.js
+// keeps it honest against the core's own list.
+export const CORE_STYLE = { watercolor: 'watercolour' };
+export const coreStyle = ( id ) => CORE_STYLE[ id ] || id;
 
 export function makePainter( { kit: kitIn, createCanvas, surface, S } ) {
 	const kit = kitIn && kitIn.drawStroke ? kitIn : plainKit();
@@ -209,26 +242,8 @@ export function makePainter( { kit: kitIn, createCanvas, surface, S } ) {
 
 	/* --------------------------------- CPU --------------------------------- */
 
-	function prepCpu( cmd ) {
-		const tips = kit.tips;
-		const parts = runs(
-			cmd.pts,
-			cmd.taper === undefined ? 5 : cmd.taper,
-			tipMul( cmd.tip )
-		);
-		if ( ! parts.length ) {
-			return null;
-		}
-		const maxSize = Math.max( ...parts.map( ( r ) => r.size ) );
-		const reach = tips.stampMaxReach( cmd.tip, maxSize, cmd ) + 4;
-		const all = parts.flatMap( ( r ) => r.pts );
-		const { bx, by, bw, bh } = windowOf( all, reach );
-		if ( bw < 2 || bh < 2 ) {
-			return null;
-		}
-		const scratch = createCanvas( bw, bh );
-		const g = scratch.getContext( '2d' );
-		g.translate( -bx, -by );
+	/** The stroke's runs laid with the media brush into `g` (already transformed). */
+	function layStroke( g, cmd, parts ) {
 		for ( const r of parts ) {
 			kit.drawStroke(
 				g,
@@ -251,58 +266,34 @@ export function makePainter( { kit: kitIn, createCanvas, surface, S } ) {
 				cmd.hardness === undefined ? 85 : cmd.hardness
 			);
 		}
-		// The styled window: the stroke as it will finally lie on the sheet.
-		const styled = createCanvas( bw, bh );
-		const stg = styled.getContext( '2d' );
-		if ( kit.styles.styleIsPlain( cmd.style || 'normal' ) ) {
-			stg.drawImage( surface, bx, by, bw, bh, 0, 0, bw, bh );
-			stg.drawImage( scratch, 0, 0 );
-		} else {
-			const dst = sctx.getImageData( bx, by, bw, bh );
-			kit.styles.applyPaintStyle( dst, g.getImageData( 0, 0, bw, bh ), {
-				style: cmd.style,
-				color: cmd.color,
-				size: maxSize,
-				originX: bx,
-				originY: by,
-				from: { x: all[ 0 ].x - bx, y: all[ 0 ].y - by },
-				to: {
-					x: all[ all.length - 1 ].x - bx,
-					y: all[ all.length - 1 ].y - by,
-				},
-				points: all.map( ( p ) => ( { x: p.x - bx, y: p.y - by } ) ),
-			} );
-			stg.putImageData( dst, 0, 0 );
+	}
+
+	/** The stroke's own alpha, spread by `d` px: where it may touch the sheet. */
+	function dilatedMask( scratch, w, h, d ) {
+		const maskC = createCanvas( w, h );
+		const mg = maskC.getContext( '2d' );
+		for ( let k = 0; k < 8; k++ ) {
+			const a = ( k / 8 ) * Math.PI * 2;
+			mg.drawImage( scratch, Math.cos( a ) * d, Math.sin( a ) * d );
 		}
-		// A paint style may touch the whole window (a film, a lighting
-		// pass); on the sheet only the stroke and its spread belong to
-		// the mark, never the window's rectangle. Keep the window where
-		// the stroke's alpha lies, dilated by the style's reach.
-		{
-			const d = Math.max( 2, reach * 0.6 );
-			const maskC = createCanvas( bw, bh );
-			const mg = maskC.getContext( '2d' );
-			for ( let k = 0; k < 8; k++ ) {
-				const a = ( k / 8 ) * Math.PI * 2;
-				mg.drawImage( scratch, Math.cos( a ) * d, Math.sin( a ) * d );
-			}
-			mg.drawImage( scratch, 0, 0 );
-			for ( let k = 0; k < 8; k++ ) {
-				const a = ( k / 8 ) * Math.PI * 2 + Math.PI / 8;
-				mg.drawImage(
-					scratch,
-					Math.cos( a ) * d * 0.5,
-					Math.sin( a ) * d * 0.5
-				);
-			}
-			stg.globalCompositeOperation = 'destination-in';
-			stg.drawImage( maskC, 0, 0 );
-			stg.globalCompositeOperation = 'source-over';
+		mg.drawImage( scratch, 0, 0 );
+		for ( let k = 0; k < 8; k++ ) {
+			const a = ( k / 8 ) * Math.PI * 2 + Math.PI / 8;
+			mg.drawImage(
+				scratch,
+				Math.cos( a ) * d * 0.5,
+				Math.sin( a ) * d * 0.5
+			);
 		}
-		// Reveal along the path: circles around the points of each chunk.
+		return maskC;
+	}
+
+	/** Reveal along the path: circles around the points of each chunk. */
+	function revealer( all, reach, bx, by, styledOf ) {
 		const n = Math.min( 24, Math.max( 1, Math.floor( all.length / 2 ) ) );
 		const per = Math.ceil( all.length / n );
 		const draw = ( ctx, i ) => {
+			const styled = styledOf();
 			const from = i * per;
 			const to = Math.min( all.length, from + per + 1 );
 			ctx.save();
@@ -324,6 +315,229 @@ export function makePainter( { kit: kitIn, createCanvas, surface, S } ) {
 			ctx.drawImage( styled, bx, by );
 			ctx.restore();
 		};
+		return { n, draw };
+	}
+
+	/**
+	 * A broad stroke, styled at working resolution, laid over the picture at
+	 * full resolution.
+	 *
+	 * The style runs on a small copy of what lies under the stroke. Per
+	 * pixel it then says how much of the ground still shows through: the
+	 * share of the way from the ground to the paint's own color that the
+	 * result has gone, read on the channel where the two differ most (the
+	 * stroke's own coverage where they hardly differ). Up at full size the
+	 * picture is laid over the styled result by exactly that share - an
+	 * opaque stroke covers the detail beneath, a glaze lets it through,
+	 * veiled as a glaze veils. A first version carried only the change up
+	 * and let every detail through, opaque oil included (seen 23.09.).
+	 *
+	 *   result = up( S - T x U ) + T_up x picture,  T = 1 - share
+	 *
+	 * done with the canvas: multiply by T, then add and subtract the rest
+	 * (invert, add, invert back), eight bits each, exact.
+	 */
+	function styleBroad( cmd, parts, all, maxSize, reach, win ) {
+		const { bx, by, bw, bh } = win;
+		const k = broadScale( bw * bh );
+		const sw = Math.max( 2, Math.round( bw * k ) );
+		const sh = Math.max( 2, Math.round( bh * k ) );
+		const kx = sw / bw;
+		const ky = sh / bh;
+		const scratch = createCanvas( sw, sh );
+		const g = scratch.getContext( '2d' );
+		g.setTransform( kx, 0, 0, ky, -bx * kx, -by * ky );
+		layStroke( g, cmd, parts );
+		g.setTransform( 1, 0, 0, 1, 0, 0 );
+		const stroke = g.getImageData( 0, 0, sw, sh );
+		// What lies under the stroke, at the working scale.
+		const under = createCanvas( sw, sh );
+		const ug = under.getContext( '2d' );
+		ug.imageSmoothingEnabled = true;
+		ug.imageSmoothingQuality = 'high';
+		ug.drawImage( surface, bx, by, bw, bh, 0, 0, sw, sh );
+		const base = ug.getImageData( 0, 0, sw, sh );
+		const dst = ug.getImageData( 0, 0, sw, sh );
+		kit.styles.applyPaintStyle( dst, stroke, {
+			style: cmd.style,
+			// 'colour': the core's key (see CORE_STYLE above).
+			colour: cmd.color,
+			size: maxSize * k,
+			originX: Math.round( bx * kx ),
+			originY: Math.round( by * ky ),
+			from: { x: ( all[ 0 ].x - bx ) * kx, y: ( all[ 0 ].y - by ) * ky },
+			to: {
+				x: ( all[ all.length - 1 ].x - bx ) * kx,
+				y: ( all[ all.length - 1 ].y - by ) * ky,
+			},
+			points: all.map( ( p ) => ( {
+				x: ( p.x - bx ) * kx,
+				y: ( p.y - by ) * ky,
+			} ) ),
+		} );
+		const paint = [ 1, 3, 5 ].map( ( i ) =>
+			parseInt( String( cmd.color || '#000000' ).slice( i, i + 2 ), 16 )
+		);
+		const opacity = cmd.opacity === undefined ? 1 : cmd.opacity;
+		const through = ug.createImageData( sw, sh ); // T, as grey
+		const add = ug.createImageData( sw, sh ); // the rest, above zero
+		const take = ug.createImageData( sw, sh ); // the rest, below zero
+		const u = base.data;
+		const r = dst.data;
+		const a0 = stroke.data;
+		for ( let i = 0; i < u.length; i += 4 ) {
+			let c0 = 0;
+			let far = 0;
+			for ( let c = 0; c < 3; c++ ) {
+				const d = paint[ c ] - u[ i + c ];
+				if ( Math.abs( d ) > Math.abs( far ) ) {
+					far = d;
+					c0 = c;
+				}
+			}
+			const share =
+				Math.abs( far ) >= 24
+					? Math.min(
+							1,
+							Math.max( 0, ( r[ i + c0 ] - u[ i + c0 ] ) / far )
+					  )
+					: ( a0[ i + 3 ] / 255 ) * opacity;
+			const t = 1 - share;
+			const tv = Math.round( t * 255 );
+			through.data[ i ] = tv;
+			through.data[ i + 1 ] = tv;
+			through.data[ i + 2 ] = tv;
+			through.data[ i + 3 ] = 255;
+			for ( let c = 0; c < 3; c++ ) {
+				const rest = r[ i + c ] - ( tv / 255 ) * u[ i + c ];
+				if ( rest > 0 ) {
+					add.data[ i + c ] = Math.round( rest );
+				} else if ( rest < 0 ) {
+					take.data[ i + c ] = Math.round( -rest );
+				}
+			}
+			add.data[ i + 3 ] = 255;
+			take.data[ i + 3 ] = 255;
+		}
+		const canvasOf = ( img ) => {
+			const c = createCanvas( sw, sh );
+			c.getContext( '2d' ).putImageData( img, 0, 0 );
+			return c;
+		};
+		const throughC = canvasOf( through );
+		const addC = canvasOf( add );
+		const takeC = canvasOf( take );
+		// The full-resolution picture under the stroke, shown through by T.
+		const styled = createCanvas( bw, bh );
+		const stg = styled.getContext( '2d' );
+		stg.drawImage( surface, bx, by, bw, bh, 0, 0, bw, bh );
+		stg.imageSmoothingEnabled = true;
+		stg.globalCompositeOperation = 'multiply';
+		stg.drawImage( throughC, 0, 0, bw, bh );
+		stg.fillStyle = '#ffffff';
+		stg.globalCompositeOperation = 'difference';
+		stg.fillRect( 0, 0, bw, bh );
+		stg.globalCompositeOperation = 'lighter';
+		stg.drawImage( takeC, 0, 0, bw, bh );
+		stg.globalCompositeOperation = 'difference';
+		stg.fillRect( 0, 0, bw, bh );
+		stg.globalCompositeOperation = 'lighter';
+		stg.drawImage( addC, 0, 0, bw, bh );
+		// Only where the stroke and its spread lie, as on the small road.
+		stg.globalCompositeOperation = 'destination-in';
+		stg.drawImage(
+			dilatedMask( scratch, sw, sh, Math.max( 1, reach * 0.6 * k ) ),
+			0,
+			0,
+			bw,
+			bh
+		);
+		stg.globalCompositeOperation = 'source-over';
+		return styled;
+	}
+
+	function prepCpu( cmd ) {
+		const tips = kit.tips;
+		const parts = runs(
+			cmd.pts,
+			cmd.taper === undefined ? 5 : cmd.taper,
+			tipMul( cmd.tip )
+		);
+		if ( ! parts.length ) {
+			return null;
+		}
+		const maxSize = Math.max( ...parts.map( ( r ) => r.size ) );
+		const reach = tips.stampMaxReach( cmd.tip, maxSize, cmd ) + 4;
+		const all = parts.flatMap( ( r ) => r.pts );
+		const win = windowOf( all, reach );
+		const { bx, by, bw, bh } = win;
+		if ( bw < 2 || bh < 2 ) {
+			return null;
+		}
+		if (
+			bw * bh >= BROAD_AREA &&
+			! kit.styles.styleIsPlain( cmd.style || 'normal' ) &&
+			'metal-leaf' !== cmd.style
+		) {
+			// Styled when it is first needed: at once on the proof sheets,
+			// one at a time between frames in the dialog (stage.js).
+			let styled = null;
+			const run = () => {
+				if ( ! styled ) {
+					styled = styleBroad( cmd, parts, all, maxSize, reach, win );
+				}
+				return styled;
+			};
+			const { n, draw } = revealer( all, reach, bx, by, run );
+			return {
+				steps: n,
+				draw,
+				bounds: cmd.pts,
+				heavy: true,
+				run,
+				ready: () => !! styled,
+			};
+		}
+		const scratch = createCanvas( bw, bh );
+		const g = scratch.getContext( '2d' );
+		g.translate( -bx, -by );
+		layStroke( g, cmd, parts );
+		// The styled window: the stroke as it will finally lie on the sheet.
+		const styled = createCanvas( bw, bh );
+		const stg = styled.getContext( '2d' );
+		if ( kit.styles.styleIsPlain( cmd.style || 'normal' ) ) {
+			stg.drawImage( surface, bx, by, bw, bh, 0, 0, bw, bh );
+			stg.drawImage( scratch, 0, 0 );
+		} else {
+			const dst = sctx.getImageData( bx, by, bw, bh );
+			kit.styles.applyPaintStyle( dst, g.getImageData( 0, 0, bw, bh ), {
+				style: cmd.style,
+				// 'colour': the core's key (see CORE_STYLE above).
+				colour: cmd.color,
+				size: maxSize,
+				originX: bx,
+				originY: by,
+				from: { x: all[ 0 ].x - bx, y: all[ 0 ].y - by },
+				to: {
+					x: all[ all.length - 1 ].x - bx,
+					y: all[ all.length - 1 ].y - by,
+				},
+				points: all.map( ( p ) => ( { x: p.x - bx, y: p.y - by } ) ),
+			} );
+			stg.putImageData( dst, 0, 0 );
+		}
+		// A paint style may touch the whole window (a film, a lighting
+		// pass); on the sheet only the stroke and its spread belong to
+		// the mark, never the window's rectangle. Keep the window where
+		// the stroke's alpha lies, dilated by the style's reach.
+		stg.globalCompositeOperation = 'destination-in';
+		stg.drawImage(
+			dilatedMask( scratch, bw, bh, Math.max( 2, reach * 0.6 ) ),
+			0,
+			0
+		);
+		stg.globalCompositeOperation = 'source-over';
+		const { n, draw } = revealer( all, reach, bx, by, () => styled );
 		return { steps: n, draw, bounds: cmd.pts };
 	}
 
@@ -629,10 +843,15 @@ export function makePainter( { kit: kitIn, createCanvas, surface, S } ) {
 
 	return {
 		wetOK,
-		prepare( cmd ) {
+		prepare( cmdIn ) {
 			if ( ! kit ) {
 				return null;
 			}
+			// The style by the core's own name (CORE_STYLE).
+			const cmd =
+				cmdIn.style && CORE_STYLE[ cmdIn.style ]
+					? { ...cmdIn, style: coreStyle( cmdIn.style ) }
+					: cmdIn;
 			return cmd.wet ? prepWet( cmd ) : prepCpu( cmd );
 		},
 		tick,

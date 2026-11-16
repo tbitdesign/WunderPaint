@@ -6,6 +6,7 @@
  * blocks.js. The formula engine (MathJax) is a separate bundle in
  * assets/, loaded on first use.
  */
+import { captureAround } from '../../shared/doc-preview.js';
 import { t } from './i18n.js';
 import { BLOCKS, renderFigure } from './blocks.js';
 import { normalizeParams, newBlock, blockFields } from './figure.js';
@@ -15,7 +16,9 @@ import { normalizeTextAnchors } from './engine/svg-dom.js';
 import { buildLeft } from './ui/left.js';
 import { buildView } from './ui/view.js';
 import { buildSide } from './ui/side.js';
+import { geometryInteraction } from './ui/geometry-tools.js';
 import { buildMaterial } from './ui/material.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 export const GEN_ID = 'wpie-math-figures/figure';
 const SLUG = 'wpie-math-figures';
@@ -129,6 +132,7 @@ function makeEnv( editor, bridge ) {
 
 /** Does this figure need MathJax for anything? */
 function needsEngine( params ) {
+	if ( JSON.stringify( params ).includes( '[[' ) ) return true;
 	if (
 		params.blocks.some(
 			( b ) => BLOCKS[ b.type ] && BLOCKS[ b.type ].needsEngine( b )
@@ -177,6 +181,7 @@ function openStudio( ctx ) {
 		last: null,
 		status: '',
 		busy: false,
+		dirty: true,
 		token: 0,
 		timer: 0,
 		showDoc: false,
@@ -204,6 +209,7 @@ function openStudio( ctx ) {
 
 	const view = buildView( mid, { ui, t, onToggleDoc: () => toggleDoc() } );
 	const matUi = buildMaterial( mid, {
+		onSource: () => sideUi.rebuild(),
 		S,
 		ui,
 		bridge,
@@ -211,6 +217,11 @@ function openStudio( ctx ) {
 		onChange: ( textChanged ) => {
 			if ( textChanged ) {
 				leftUi.renderBlocks();
+				if (
+					S.params.blocks.find( ( b ) => b.id === S.blockId )
+						?.type === 'geometry'
+				)
+					sideUi.rebuild();
 			}
 			queue();
 		},
@@ -233,7 +244,27 @@ function openStudio( ctx ) {
 		ui,
 		bridge,
 		t,
-		onChange: () => queue(),
+		onChange: () => {
+			S.starter = null;
+			queue();
+		},
+		onStructure: () => {
+			matUi.refresh();
+		},
+	} );
+	const geometryUi = geometryInteraction( view, {
+		S,
+		ui,
+		t,
+		onChange: ( done ) => {
+			S.starter = null;
+			if ( done ) {
+				matUi.refresh();
+				sideUi.rebuild();
+				leftUi.renderBlocks();
+			}
+			queue( done ? 0 : 40 );
+		},
 	} );
 
 	const status = ui.el( 'div', 'dsm-mono', modal.foot, '' );
@@ -270,6 +301,7 @@ function openStudio( ctx ) {
 		leftUi.refresh();
 		matUi.refresh();
 		sideUi.rebuild();
+		geometryUi.refresh();
 		setTimeout( () => view.fit(), 0 );
 	}
 
@@ -295,6 +327,7 @@ function openStudio( ctx ) {
 		leftUi.refresh();
 		matUi.refresh();
 		sideUi.rebuild();
+		geometryUi.refresh();
 		setTimeout( () => view.fit(), 0 );
 		queue( 0 );
 	}
@@ -316,6 +349,7 @@ function openStudio( ctx ) {
 		leftUi.refresh();
 		matUi.refresh();
 		sideUi.rebuild();
+		geometryUi.refresh();
 		setTimeout( () => view.fit(), 0 );
 		queue( 0 );
 	}
@@ -342,6 +376,7 @@ function openStudio( ctx ) {
 		leftUi.refresh();
 		matUi.refresh();
 		sideUi.rebuild();
+		geometryUi.refresh();
 		setTimeout( () => view.fit(), 0 );
 		queue( 0 );
 	}
@@ -355,6 +390,9 @@ function openStudio( ctx ) {
 	}
 
 	function queue( delay = 250 ) {
+		S.dirty = true;
+		S.token++;
+		insertBtn.disabled = true;
 		clearTimeout( S.timer );
 		S.timer = setTimeout( () => render(), delay );
 	}
@@ -382,6 +420,7 @@ function openStudio( ctx ) {
 			S.last = res;
 			matUi.setWarnings( res.warnings );
 			await view.show( res );
+			geometryUi.refresh();
 			if ( res.warnings && res.warnings.length ) {
 				setStatus( res.warnings.join( ' · ' ), true );
 			} else {
@@ -399,11 +438,14 @@ function openStudio( ctx ) {
 			}
 		} catch ( e ) {
 			if ( my === S.token ) {
+				S.last = null;
 				setStatus( ( e && e.message ) || String( e ), true );
 			}
 		} finally {
 			if ( my === S.token ) {
 				S.busy = false;
+				S.dirty = false;
+				insertBtn.disabled = ! S.last;
 				S.frames++;
 			}
 		}
@@ -423,76 +465,57 @@ function openStudio( ctx ) {
 			view.setDoc( null );
 			return;
 		}
-		const doc = editor.state.doc;
-		bridge.raster
-			.renderToCanvas(
-				doc,
-				( editor.state.layers || [] ).filter(
-					( l ) =>
-						! (
-							S.editing &&
-							( l.id === layer.id || l.parent === layer.id )
-						)
-				),
-				{
-					scale: Math.min( 1, 1400 / Math.max( doc.w, doc.h ) ),
-					cache: bridge.raster.sharedImageCache,
-				}
+		// v1.0.1: split at the figure's layer, placed where it lands.
+		captureAround( bridge.raster, editor.state, S.editing ? layer.id : null )
+			.then( ( around ) =>
+				view.setDoc( {
+					around,
+					doc: editor.state.doc,
+					region: ( w, h ) => targetBox( { width: w, height: h } ),
+				} )
 			)
-			.then( ( c ) => {
-				const bg = document.createElement( 'canvas' );
-				bg.width = c.width;
-				bg.height = c.height;
-				const g = bg.getContext( '2d' );
-				g.fillStyle = doc.bg || '#ffffff';
-				g.fillRect( 0, 0, bg.width, bg.height );
-				g.drawImage( c, 0, 0 );
-				view.setDoc( bg.toDataURL() );
-			} )
 			.catch( () => view.setDoc( null ) );
 	}
-
-	/* ------------------------------- insert ------------------------------- */
-
-	function insert() {
-		if ( ! S.last || S.busy ) {
-			return;
-		}
-		const stored = normalizeParams( S.params );
-		const res = S.last;
+	/** Where a picture of res's size lands in the document. */
+	function targetBox( res ) {
 		const doc = editor.state.doc;
-		let box;
 		if ( S.editing ) {
-			box = boundsOf( layer, editor.state.layers );
+			const box = boundsOf( layer, editor.state.layers );
 			const fit = Math.min( box.w / res.width, box.h / res.height );
 			const w = Math.round( res.width * fit );
 			const h = Math.round( res.height * fit );
-			box = {
+			return {
 				x: Math.round( box.x + ( box.w - w ) / 2 ),
 				y: Math.round( box.y + ( box.h - h ) / 2 ),
 				w,
 				h,
 			};
-		} else {
-			const srcAR = res.width / res.height;
-			const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
-			if ( Math.abs( srcAR - docAR ) / docAR < 0.02 ) {
-				box = { x: 0, y: 0, w: doc.w, h: doc.h };
-			} else {
-				const fit = Math.min(
-					( doc.w * 0.92 ) / res.width,
-					( doc.h * 0.92 ) / res.height
-				);
-				const w = Math.round( res.width * fit );
-				const h = Math.round( res.height * fit );
-				box = {
-					x: Math.round( ( doc.w - w ) / 2 ),
-					y: Math.round( ( doc.h - h ) / 2 ),
-					w,
-					h,
-				};
-			}
 		}
+		const srcAR = res.width / res.height;
+		const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
+		if ( Math.abs( srcAR - docAR ) / docAR < 0.02 ) {
+			return { x: 0, y: 0, w: doc.w, h: doc.h };
+		}
+		const fit = Math.min( ( doc.w * 0.92 ) / res.width, ( doc.h * 0.92 ) / res.height );
+		const w = Math.round( res.width * fit );
+		const h = Math.round( res.height * fit );
+		return {
+			x: Math.round( ( doc.w - w ) / 2 ),
+			y: Math.round( ( doc.h - h ) / 2 ),
+			w,
+			h,
+		};
+	}
+	/* ------------------------------- insert ------------------------------- */
+
+	function insert() {
+		if ( ! S.last || S.busy || S.dirty ) {
+			return;
+		}
+		const stored = normalizeParams( S.params );
+		const res = S.last;
+		const doc = editor.state.doc;
+		const box = targetBox( res );
 		if (
 			bridge.svg &&
 			bridge.svg.importSvg &&
@@ -606,13 +629,33 @@ function openStudio( ctx ) {
 
 	function cleanup() {
 		clearTimeout( S.timer );
+		history.dispose();
 		S.token++;
 		leftUi.unmountAll();
 		matUi.unmountAll();
 		sideUi.unmountAll();
+		geometryUi.destroy();
 		window.__wpiemfState = null;
 		window.__wpiemfProof = null;
 	}
+
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button. Like a
+	// starter load, but the picked block and the view stay where they are.
+	const history = studioUndo( {
+		backdrop: modal.backdrop,
+		read: () => S.params,
+		write: ( data ) => {
+			S.params = normalizeParams( data );
+			if ( ! S.params.blocks.some( ( b ) => b.id === S.blockId ) ) {
+				S.blockId = S.params.blocks[ 0 ].id;
+			}
+			leftUi.refresh();
+			matUi.refresh();
+			sideUi.rebuild();
+			geometryUi.refresh();
+			queue( 0 );
+		},
+	} );
 
 	window.__wpiemfState = () => ( {
 		params: S.params,
@@ -625,6 +668,7 @@ function openStudio( ctx ) {
 					height: S.last.height,
 					warnings: S.last.warnings,
 					svg: S.last.svg,
+					placements: S.last.placements,
 			  }
 			: null,
 		status: S.status,
@@ -679,7 +723,9 @@ async function resolveFigure( args ) {
 	for ( const k of [ 'caption', 'note' ] ) {
 		expand( p.foot, k );
 	}
+	for ( const f of p.math.definitions ) expand( f, 'expression' );
 	for ( const b of p.blocks ) {
+		expand( b, 'heading' );
 		for ( const k of blockFields( b.type ) ) {
 			expand( b, k );
 		}

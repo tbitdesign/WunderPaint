@@ -77,6 +77,14 @@ const FULL_PAGE = [ 'backdrop', 'terrain', 'border', 'frame' ];
  * @return {Array} Stamps, or [] for a letter (handled as a mask).
  */
 export function windowStamps( obj, ctx, w, h ) {
+	return rotateStamps(
+		windowShapes( obj, ctx, w, h ),
+		obj.windowAngle || 0,
+		w / 2,
+		h / 2
+	);
+}
+function windowShapes( obj, ctx, w, h ) {
 	const extra = extraWindow( obj, w, h );
 	if ( extra ) return extra.apertures;
 	const inset = obj.inset / 100;
@@ -341,6 +349,9 @@ export function objectStamps( obj, ctx ) {
 	}
 	if ( 'text' === obj.kind ) {
 		return ctx.textStamps ? ctx.textStamps( obj, w, h ) : [];
+	}
+	if ( 'form' === obj.kind ) {
+		return ctx.formStamps ? ctx.formStamps( obj, w, h ) : [];
 	}
 	return [];
 }

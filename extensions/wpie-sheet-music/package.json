@@ -1,9 +1,9 @@
 {
 	"name": "wpie-sheet-music",
-	"version": "0.4.3",
+	"version": "1.2.0",
 	"private": true,
 	"type": "module",
-	"description": "WPIE extension: Sheet Music - scores, leadsheets, chord diagrams and fretboard maps",
+	"description": "WPIE extension: Sheet Music - visual notation, harmony charts and teaching graphics",
 	"scripts": {
 		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
 		"test": "node --test tests/*.test.js",

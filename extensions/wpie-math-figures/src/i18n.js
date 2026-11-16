@@ -11,6 +11,124 @@ const LOCALE = (
 ).replace( '-', '_' );
 
 const DE = {
+	'Enter an expression or choose a starter.':
+		'Gib einen Ausdruck ein oder wähle eine Vorlage.',
+	'Contour levels must be finite numbers.':
+		'Konturwerte müssen endliche Zahlen sein.',
+	'Invalid function name': 'Ungültiger Funktionsname',
+	'Duplicate function name': 'Doppelter Funktionsname',
+	'Use x and the parameters a, b, c.':
+		'Verwende x und die Parameter a, b, c.',
+	'Unknown shared function': 'Unbekannte gemeinsame Funktion',
+	'Undefined function value': 'Undefinierter Funktionswert',
+	'The interval end must be greater than its start.':
+		'Das Intervallende muss größer als der Anfang sein.',
+	'Choose a shared function or enter f(x).':
+		'Wähle eine gemeinsame Funktion oder gib f(x) ein.',
+	Roots: 'Nullstellen',
+	'None found in this interval.': 'In diesem Intervall keine gefunden.',
+	Extrema: 'Extrempunkte',
+	Minimum: 'Minimum',
+	Maximum: 'Maximum',
+	'Select a second function for intersections.':
+		'Wähle für Schnittpunkte eine zweite Funktion.',
+	Intersections: 'Schnittpunkte',
+	'No stable derivative at this position.':
+		'An dieser Stelle keine stabile Ableitung.',
+	Normal: 'Normale',
+	'The area is undefined or did not converge.':
+		'Die Fläche ist undefiniert oder die Berechnung konvergiert nicht.',
+	'Area between curves': 'Fläche zwischen Kurven',
+	'relative to the x-axis': 'bezogen auf die x-Achse',
+	'Numerical estimates in the selected interval. Very narrow features may be missed.':
+		'Numerische Näherungen im gewählten Intervall. Sehr schmale Merkmale werden möglicherweise nicht erfasst.',
+	'Positive x-axis': 'Positive x-Achse',
+	Point: 'Punkt',
+	Label: 'Beschriftung',
+	'From point': 'Vom Punkt',
+	'Angle reference': 'Winkelbezug',
+	Length: 'Länge',
+	'Angle in degrees': 'Winkel in Grad',
+	'Add segment': 'Strecke hinzufügen',
+	'Add vector': 'Vektor hinzufügen',
+	'Add circle': 'Kreis hinzufügen',
+	'Fit geometry': 'Geometrie einpassen',
+	'Drag points and labels in the preview. Derived points follow their construction.':
+		'Ziehe Punkte und Beschriftungen in der Vorschau. Abhängige Punkte folgen der Konstruktion.',
+	'Edit points and labels': 'Punkte und Beschriftungen bearbeiten',
+	'Linked to the shared definition.':
+		'Mit der gemeinsamen Definition verbunden.',
+	'Own material': 'Eigenes Material',
+	'All shared functions': 'Alle gemeinsamen Funktionen',
+	'Function source': 'Funktionsquelle',
+	'The shared definition is linked. The material field adds optional commands.':
+		'Die gemeinsame Definition ist verbunden. Das Materialfeld ergänzt optionale Befehle.',
+	'Snap step (0 = free)': 'Rastschritt (0 = frei)',
+	'Interval from': 'Intervall von',
+	'Interval to': 'Intervall bis',
+	'Tangent position': 'Tangentenstelle',
+	'Second entered function or zero': 'Zweite eingegebene Funktion oder null',
+	'Second function': 'Zweite Funktion',
+	Step: 'Schrittweite',
+	'Curve detail': 'Kurvendetails',
+	'Field density': 'Felddichte',
+	'Equal arrow lengths': 'Gleiche Pfeillängen',
+	'Modulus and argument': 'Betrag und Argument',
+	'Contour levels': 'Konturwerte',
+	'The figure uses a common coordinate range for all diagrams.':
+		'Die Abbildung verwendet für alle Diagramme denselben Koordinatenbereich.',
+	Columns: 'Spalten',
+	'Column gap': 'Spaltenabstand',
+	'Frame each panel': 'Jeden Bereich umrahmen',
+	'Shared axes': 'Gemeinsame Achsen',
+	'Common x from': 'Gemeinsam x von',
+	'Common x to': 'Gemeinsam x bis',
+	'Common y from': 'Gemeinsam y von',
+	'Common y to': 'Gemeinsam y bis',
+	'Shared functions': 'Gemeinsame Funktionen',
+	'Define once, link graphs, formulas and tables. Use [[f]] or [[f(2)]] in text and captions.':
+		'Einmal definieren, Graphen, Formeln und Tabellen verbinden. Verwende [[f]] oder [[f(2)]] in Texten und Bildunterschriften.',
+	Name: 'Name',
+	Expression: 'Ausdruck',
+	'Remove function': 'Funktion entfernen',
+	'Add function': 'Funktion hinzufügen',
+	'Panel title': 'Bereichstitel',
+	'Column span': 'Spaltenbreite',
+	'Function analysis': 'Funktionsanalyse',
+	'Roots, extrema, intersections, tangents, normals and areas.':
+		'Nullstellen, Extrempunkte, Schnittpunkte, Tangenten, Normalen und Flächen.',
+	'Choose shared functions or enter f(x) and g(x). Results are numerical estimates in the selected interval.':
+		'Wähle gemeinsame Funktionen oder gib f(x) und g(x) ein. Ergebnisse sind numerische Näherungen im gewählten Intervall.',
+	'Implicit curves': 'Implizite Kurven',
+	'Equations in two variables as contour curves.':
+		'Gleichungen mit zwei Variablen als Konturkurven.',
+	'One equation per line, for example x^2 + y^2 = 9.':
+		'Eine Gleichung pro Zeile, zum Beispiel x^2 + y^2 = 9.',
+	'Inequality regions': 'Ungleichungsgebiete',
+	'The common solution region of several inequalities.':
+		'Das gemeinsame Lösungsgebiet mehrerer Ungleichungen.',
+	'One inequality per line. All conditions apply together: y >= x^2, y <= 4.':
+		'Eine Ungleichung pro Zeile. Alle Bedingungen gelten gemeinsam: y >= x^2, y <= 4.',
+	'Vector field': 'Vektorfeld',
+	'Direction and strength of a two-dimensional vector field.':
+		'Richtung und Stärke eines zweidimensionalen Vektorfeldes.',
+	'Horizontal and vertical components separated by a semicolon: -y; x.':
+		'Horizontale und vertikale Komponente mit Semikolon trennen: -y; x.',
+	'Slope field': 'Richtungsfeld',
+	'Direction segments for a differential equation.':
+		'Richtungssegmente für eine Differentialgleichung.',
+	'Enter dy/dx as a function of x and y, for example x - y.':
+		'Gib dy/dx als Funktion von x und y ein, zum Beispiel x - y.',
+	'Contour map': 'Konturdiagramm',
+	'Level curves of a scalar field with value labels.':
+		'Niveaulinien eines Skalarfeldes mit Wertbeschriftungen.',
+	'Enter a scalar expression in x and y. Set the contour levels in the options.':
+		'Gib einen skalaren Ausdruck in x und y ein. Lege die Konturwerte in den Optionen fest.',
+	'Complex plane': 'Komplexe Ebene',
+	'Complex numbers, conjugates and roots of unity.':
+		'Komplexe Zahlen, Konjugierte und Einheitswurzeln.',
+	'z = (2, 1), polar w 3 60, conjugate u z, or roots 5. Polar angles use degrees.':
+		'z = (2, 1), polar w 3 60, conjugate u z oder roots 5. Polarwinkel in Grad.',
 	'A number line with marks, intervals and jumps.':
 		'Ein Zahlenstrahl mit Markierungen, Intervallen und Sprüngen.',
 	Accent: 'Akzent',
@@ -292,6 +410,122 @@ const DE = {
 };
 
 const ES = {
+	'Enter an expression or choose a starter.':
+		'Introduce una expresión o elige una plantilla.',
+	'Contour levels must be finite numbers.':
+		'Los niveles deben ser números finitos.',
+	'Invalid function name': 'Nombre de función no válido',
+	'Duplicate function name': 'Nombre de función duplicado',
+	'Use x and the parameters a, b, c.': 'Usa x y los parámetros a, b, c.',
+	'Unknown shared function': 'Función compartida desconocida',
+	'Undefined function value': 'Valor de función indefinido',
+	'The interval end must be greater than its start.':
+		'El final del intervalo debe ser mayor que el inicio.',
+	'Choose a shared function or enter f(x).':
+		'Elige una función compartida o introduce f(x).',
+	Roots: 'Raíces',
+	'None found in this interval.': 'No se encontraron en este intervalo.',
+	Extrema: 'Extremos',
+	Minimum: 'Mínimo',
+	Maximum: 'Máximo',
+	'Select a second function for intersections.':
+		'Elige una segunda función para las intersecciones.',
+	Intersections: 'Intersecciones',
+	'No stable derivative at this position.':
+		'No hay una derivada estable en esta posición.',
+	Normal: 'Normal',
+	'The area is undefined or did not converge.':
+		'El área es indefinida o el cálculo no converge.',
+	'Area between curves': 'Área entre curvas',
+	'relative to the x-axis': 'respecto al eje x',
+	'Numerical estimates in the selected interval. Very narrow features may be missed.':
+		'Aproximaciones numéricas en el intervalo elegido. Pueden omitirse detalles muy estrechos.',
+	'Positive x-axis': 'Eje x positivo',
+	Point: 'Punto',
+	Label: 'Etiqueta',
+	'From point': 'Desde el punto',
+	'Angle reference': 'Referencia angular',
+	Length: 'Longitud',
+	'Angle in degrees': 'Ángulo en grados',
+	'Add segment': 'Añadir segmento',
+	'Add vector': 'Añadir vector',
+	'Add circle': 'Añadir círculo',
+	'Fit geometry': 'Ajustar geometría',
+	'Drag points and labels in the preview. Derived points follow their construction.':
+		'Arrastra puntos y etiquetas en la vista previa. Los puntos derivados siguen la construcción.',
+	'Edit points and labels': 'Editar puntos y etiquetas',
+	'Linked to the shared definition.': 'Vinculado a la definición compartida.',
+	'Own material': 'Material propio',
+	'All shared functions': 'Todas las funciones compartidas',
+	'Function source': 'Fuente de función',
+	'The shared definition is linked. The material field adds optional commands.':
+		'La definición compartida está vinculada. El campo de material añade comandos opcionales.',
+	'Snap step (0 = free)': 'Paso de ajuste (0 = libre)',
+	'Interval from': 'Intervalo desde',
+	'Interval to': 'Intervalo hasta',
+	'Tangent position': 'Posición de tangencia',
+	'Second entered function or zero': 'Segunda función introducida o cero',
+	'Second function': 'Segunda función',
+	Step: 'Paso',
+	'Curve detail': 'Detalle de curva',
+	'Field density': 'Densidad del campo',
+	'Equal arrow lengths': 'Flechas de igual longitud',
+	'Modulus and argument': 'Módulo y argumento',
+	'Contour levels': 'Niveles de contorno',
+	'The figure uses a common coordinate range for all diagrams.':
+		'La figura usa el mismo rango de coordenadas para todos los diagramas.',
+	Columns: 'Columnas',
+	'Column gap': 'Espacio entre columnas',
+	'Frame each panel': 'Enmarcar cada panel',
+	'Shared axes': 'Ejes compartidos',
+	'Common x from': 'x común desde',
+	'Common x to': 'x común hasta',
+	'Common y from': 'y común desde',
+	'Common y to': 'y común hasta',
+	'Shared functions': 'Funciones compartidas',
+	'Define once, link graphs, formulas and tables. Use [[f]] or [[f(2)]] in text and captions.':
+		'Define una vez y vincula gráficos, fórmulas y tablas. Usa [[f]] o [[f(2)]] en textos y pies.',
+	Name: 'Nombre',
+	Expression: 'Expresión',
+	'Remove function': 'Eliminar función',
+	'Add function': 'Añadir función',
+	'Panel title': 'Título del panel',
+	'Column span': 'Columnas ocupadas',
+	'Function analysis': 'Análisis de funciones',
+	'Roots, extrema, intersections, tangents, normals and areas.':
+		'Raíces, extremos, intersecciones, tangentes, normales y áreas.',
+	'Choose shared functions or enter f(x) and g(x). Results are numerical estimates in the selected interval.':
+		'Elige funciones compartidas o introduce f(x) y g(x). Los resultados son aproximaciones en el intervalo elegido.',
+	'Implicit curves': 'Curvas implícitas',
+	'Equations in two variables as contour curves.':
+		'Ecuaciones de dos variables como curvas de nivel.',
+	'One equation per line, for example x^2 + y^2 = 9.':
+		'Una ecuación por línea, por ejemplo x^2 + y^2 = 9.',
+	'Inequality regions': 'Regiones de desigualdad',
+	'The common solution region of several inequalities.':
+		'La región solución común de varias desigualdades.',
+	'One inequality per line. All conditions apply together: y >= x^2, y <= 4.':
+		'Una desigualdad por línea. Todas se aplican juntas: y >= x^2, y <= 4.',
+	'Vector field': 'Campo vectorial',
+	'Direction and strength of a two-dimensional vector field.':
+		'Dirección e intensidad de un campo vectorial bidimensional.',
+	'Horizontal and vertical components separated by a semicolon: -y; x.':
+		'Componentes horizontal y vertical separadas por punto y coma: -y; x.',
+	'Slope field': 'Campo de pendientes',
+	'Direction segments for a differential equation.':
+		'Segmentos de dirección para una ecuación diferencial.',
+	'Enter dy/dx as a function of x and y, for example x - y.':
+		'Introduce dy/dx como función de x e y, por ejemplo x - y.',
+	'Contour map': 'Mapa de contornos',
+	'Level curves of a scalar field with value labels.':
+		'Curvas de nivel de un campo escalar con etiquetas.',
+	'Enter a scalar expression in x and y. Set the contour levels in the options.':
+		'Introduce una expresión escalar en x e y. Define los niveles en las opciones.',
+	'Complex plane': 'Plano complejo',
+	'Complex numbers, conjugates and roots of unity.':
+		'Números complejos, conjugados y raíces de la unidad.',
+	'z = (2, 1), polar w 3 60, conjugate u z, or roots 5. Polar angles use degrees.':
+		'z = (2, 1), polar w 3 60, conjugate u z o roots 5. Ángulos polares en grados.',
 	'A number line with marks, intervals and jumps.':
 		'Una recta numérica con marcas, intervalos y saltos.',
 	Accent: 'Acento',
@@ -574,6 +808,123 @@ const ES = {
 };
 
 const FR = {
+	'Enter an expression or choose a starter.':
+		'Saisissez une expression ou choisissez un modèle.',
+	'Contour levels must be finite numbers.':
+		'Les niveaux doivent être des nombres finis.',
+	'Invalid function name': 'Nom de fonction invalide',
+	'Duplicate function name': 'Nom de fonction en double',
+	'Use x and the parameters a, b, c.':
+		'Utilisez x et les paramètres a, b, c.',
+	'Unknown shared function': 'Fonction partagée inconnue',
+	'Undefined function value': 'Valeur de fonction indéfinie',
+	'The interval end must be greater than its start.':
+		'La fin de l’intervalle doit dépasser le début.',
+	'Choose a shared function or enter f(x).':
+		'Choisissez une fonction partagée ou saisissez f(x).',
+	Roots: 'Racines',
+	'None found in this interval.': 'Aucun résultat dans cet intervalle.',
+	Extrema: 'Extrema',
+	Minimum: 'Minimum',
+	Maximum: 'Maximum',
+	'Select a second function for intersections.':
+		'Choisissez une seconde fonction pour les intersections.',
+	Intersections: 'Intersections',
+	'No stable derivative at this position.':
+		'Aucune dérivée stable à cette position.',
+	Normal: 'Normale',
+	'The area is undefined or did not converge.':
+		'L’aire est indéfinie ou le calcul ne converge pas.',
+	'Area between curves': 'Aire entre les courbes',
+	'relative to the x-axis': 'par rapport à l’axe x',
+	'Numerical estimates in the selected interval. Very narrow features may be missed.':
+		'Estimations numériques dans l’intervalle choisi. Des détails très étroits peuvent être manqués.',
+	'Positive x-axis': 'Axe x positif',
+	Point: 'Point',
+	Label: 'Libellé',
+	'From point': 'Depuis le point',
+	'Angle reference': 'Référence de l’angle',
+	Length: 'Longueur',
+	'Angle in degrees': 'Angle en degrés',
+	'Add segment': 'Ajouter un segment',
+	'Add vector': 'Ajouter un vecteur',
+	'Add circle': 'Ajouter un cercle',
+	'Fit geometry': 'Ajuster la géométrie',
+	'Drag points and labels in the preview. Derived points follow their construction.':
+		'Déplacez les points et libellés dans l’aperçu. Les points dépendants suivent la construction.',
+	'Edit points and labels': 'Modifier les points et libellés',
+	'Linked to the shared definition.': 'Lié à la définition partagée.',
+	'Own material': 'Contenu propre',
+	'All shared functions': 'Toutes les fonctions partagées',
+	'Function source': 'Source de la fonction',
+	'The shared definition is linked. The material field adds optional commands.':
+		'La définition partagée est liée. Le champ de contenu ajoute des commandes facultatives.',
+	'Snap step (0 = free)': 'Pas d’accrochage (0 = libre)',
+	'Interval from': 'Intervalle de',
+	'Interval to': 'Intervalle à',
+	'Tangent position': 'Position de tangence',
+	'Second entered function or zero': 'Seconde fonction saisie ou zéro',
+	'Second function': 'Seconde fonction',
+	Step: 'Pas',
+	'Curve detail': 'Détail des courbes',
+	'Field density': 'Densité du champ',
+	'Equal arrow lengths': 'Flèches de même longueur',
+	'Modulus and argument': 'Module et argument',
+	'Contour levels': 'Niveaux des courbes',
+	'The figure uses a common coordinate range for all diagrams.':
+		'La figure utilise une plage de coordonnées commune à tous les diagrammes.',
+	Columns: 'Colonnes',
+	'Column gap': 'Espacement des colonnes',
+	'Frame each panel': 'Encadrer chaque panneau',
+	'Shared axes': 'Axes communs',
+	'Common x from': 'x commun de',
+	'Common x to': 'x commun à',
+	'Common y from': 'y commun de',
+	'Common y to': 'y commun à',
+	'Shared functions': 'Fonctions partagées',
+	'Define once, link graphs, formulas and tables. Use [[f]] or [[f(2)]] in text and captions.':
+		'Définissez une fois et liez graphiques, formules et tableaux. Utilisez [[f]] ou [[f(2)]] dans les textes et légendes.',
+	Name: 'Nom',
+	Expression: 'Expression',
+	'Remove function': 'Supprimer la fonction',
+	'Add function': 'Ajouter une fonction',
+	'Panel title': 'Titre du panneau',
+	'Column span': 'Colonnes occupées',
+	'Function analysis': 'Analyse de fonction',
+	'Roots, extrema, intersections, tangents, normals and areas.':
+		'Racines, extrema, intersections, tangentes, normales et aires.',
+	'Choose shared functions or enter f(x) and g(x). Results are numerical estimates in the selected interval.':
+		'Choisissez des fonctions partagées ou saisissez f(x) et g(x). Les résultats sont des estimations dans l’intervalle choisi.',
+	'Implicit curves': 'Courbes implicites',
+	'Equations in two variables as contour curves.':
+		'Équations à deux variables sous forme de courbes.',
+	'One equation per line, for example x^2 + y^2 = 9.':
+		'Une équation par ligne, par exemple x^2 + y^2 = 9.',
+	'Inequality regions': 'Régions d’inégalités',
+	'The common solution region of several inequalities.':
+		'La région solution commune de plusieurs inégalités.',
+	'One inequality per line. All conditions apply together: y >= x^2, y <= 4.':
+		'Une inégalité par ligne. Toutes s’appliquent ensemble : y >= x^2, y <= 4.',
+	'Vector field': 'Champ de vecteurs',
+	'Direction and strength of a two-dimensional vector field.':
+		'Direction et intensité d’un champ de vecteurs bidimensionnel.',
+	'Horizontal and vertical components separated by a semicolon: -y; x.':
+		'Composantes horizontale et verticale séparées par un point-virgule : -y; x.',
+	'Slope field': 'Champ de pentes',
+	'Direction segments for a differential equation.':
+		'Segments de direction pour une équation différentielle.',
+	'Enter dy/dx as a function of x and y, for example x - y.':
+		'Saisissez dy/dx comme fonction de x et y, par exemple x - y.',
+	'Contour map': 'Carte de niveaux',
+	'Level curves of a scalar field with value labels.':
+		'Courbes de niveau d’un champ scalaire avec valeurs.',
+	'Enter a scalar expression in x and y. Set the contour levels in the options.':
+		'Saisissez une expression scalaire en x et y. Réglez les niveaux dans les options.',
+	'Complex plane': 'Plan complexe',
+	'Complex numbers, conjugates and roots of unity.':
+		'Nombres complexes, conjugués et racines de l’unité.',
+	'z = (2, 1), polar w 3 60, conjugate u z, or roots 5. Polar angles use degrees.':
+		'z = (2, 1), polar w 3 60, conjugate u z ou roots 5. Angles polaires en degrés.',
 	'A number line with marks, intervals and jumps.':
 		'Une droite numérique avec repères, intervalles et sauts.',
 	Accent: 'Accent',
@@ -857,6 +1208,122 @@ const FR = {
 };
 
 const IT = {
+	'Enter an expression or choose a starter.':
+		'Inserisci un’espressione o scegli un modello.',
+	'Contour levels must be finite numbers.':
+		'I livelli devono essere numeri finiti.',
+	'Invalid function name': 'Nome di funzione non valido',
+	'Duplicate function name': 'Nome di funzione duplicato',
+	'Use x and the parameters a, b, c.': 'Usa x e i parametri a, b, c.',
+	'Unknown shared function': 'Funzione condivisa sconosciuta',
+	'Undefined function value': 'Valore della funzione non definito',
+	'The interval end must be greater than its start.':
+		'La fine dell’intervallo deve superare l’inizio.',
+	'Choose a shared function or enter f(x).':
+		'Scegli una funzione condivisa o inserisci f(x).',
+	Roots: 'Zeri',
+	'None found in this interval.': 'Nessun risultato in questo intervallo.',
+	Extrema: 'Estremi',
+	Minimum: 'Minimo',
+	Maximum: 'Massimo',
+	'Select a second function for intersections.':
+		'Scegli una seconda funzione per le intersezioni.',
+	Intersections: 'Intersezioni',
+	'No stable derivative at this position.':
+		'Nessuna derivata stabile in questa posizione.',
+	Normal: 'Normale',
+	'The area is undefined or did not converge.':
+		'L’area non è definita o il calcolo non converge.',
+	'Area between curves': 'Area tra le curve',
+	'relative to the x-axis': 'rispetto all’asse x',
+	'Numerical estimates in the selected interval. Very narrow features may be missed.':
+		'Stime numeriche nell’intervallo scelto. Dettagli molto stretti potrebbero non essere rilevati.',
+	'Positive x-axis': 'Asse x positivo',
+	Point: 'Punto',
+	Label: 'Etichetta',
+	'From point': 'Dal punto',
+	'Angle reference': 'Riferimento angolare',
+	Length: 'Lunghezza',
+	'Angle in degrees': 'Angolo in gradi',
+	'Add segment': 'Aggiungi segmento',
+	'Add vector': 'Aggiungi vettore',
+	'Add circle': 'Aggiungi cerchio',
+	'Fit geometry': 'Adatta geometria',
+	'Drag points and labels in the preview. Derived points follow their construction.':
+		'Trascina punti ed etichette nell’anteprima. I punti derivati seguono la costruzione.',
+	'Edit points and labels': 'Modifica punti ed etichette',
+	'Linked to the shared definition.': 'Collegato alla definizione condivisa.',
+	'Own material': 'Materiale proprio',
+	'All shared functions': 'Tutte le funzioni condivise',
+	'Function source': 'Origine della funzione',
+	'The shared definition is linked. The material field adds optional commands.':
+		'La definizione condivisa è collegata. Il campo materiale aggiunge comandi facoltativi.',
+	'Snap step (0 = free)': 'Passo di aggancio (0 = libero)',
+	'Interval from': 'Intervallo da',
+	'Interval to': 'Intervallo a',
+	'Tangent position': 'Punto di tangenza',
+	'Second entered function or zero': 'Seconda funzione inserita o zero',
+	'Second function': 'Seconda funzione',
+	Step: 'Passo',
+	'Curve detail': 'Dettaglio delle curve',
+	'Field density': 'Densità del campo',
+	'Equal arrow lengths': 'Frecce di uguale lunghezza',
+	'Modulus and argument': 'Modulo e argomento',
+	'Contour levels': 'Livelli delle curve',
+	'The figure uses a common coordinate range for all diagrams.':
+		'La figura usa lo stesso intervallo di coordinate per tutti i diagrammi.',
+	Columns: 'Colonne',
+	'Column gap': 'Spazio tra colonne',
+	'Frame each panel': 'Incornicia ogni pannello',
+	'Shared axes': 'Assi comuni',
+	'Common x from': 'x comune da',
+	'Common x to': 'x comune a',
+	'Common y from': 'y comune da',
+	'Common y to': 'y comune a',
+	'Shared functions': 'Funzioni condivise',
+	'Define once, link graphs, formulas and tables. Use [[f]] or [[f(2)]] in text and captions.':
+		'Definisci una volta e collega grafici, formule e tabelle. Usa [[f]] o [[f(2)]] nei testi e nelle didascalie.',
+	Name: 'Nome',
+	Expression: 'Espressione',
+	'Remove function': 'Rimuovi funzione',
+	'Add function': 'Aggiungi funzione',
+	'Panel title': 'Titolo del pannello',
+	'Column span': 'Colonne occupate',
+	'Function analysis': 'Analisi di funzione',
+	'Roots, extrema, intersections, tangents, normals and areas.':
+		'Zeri, estremi, intersezioni, tangenti, normali e aree.',
+	'Choose shared functions or enter f(x) and g(x). Results are numerical estimates in the selected interval.':
+		'Scegli funzioni condivise o inserisci f(x) e g(x). I risultati sono stime nell’intervallo scelto.',
+	'Implicit curves': 'Curve implicite',
+	'Equations in two variables as contour curves.':
+		'Equazioni in due variabili come curve di livello.',
+	'One equation per line, for example x^2 + y^2 = 9.':
+		'Un’equazione per riga, ad esempio x^2 + y^2 = 9.',
+	'Inequality regions': 'Regioni di disequazioni',
+	'The common solution region of several inequalities.':
+		'La regione soluzione comune di più disequazioni.',
+	'One inequality per line. All conditions apply together: y >= x^2, y <= 4.':
+		'Una disequazione per riga. Tutte valgono insieme: y >= x^2, y <= 4.',
+	'Vector field': 'Campo vettoriale',
+	'Direction and strength of a two-dimensional vector field.':
+		'Direzione e intensità di un campo vettoriale bidimensionale.',
+	'Horizontal and vertical components separated by a semicolon: -y; x.':
+		'Componenti orizzontale e verticale separate da punto e virgola: -y; x.',
+	'Slope field': 'Campo di direzioni',
+	'Direction segments for a differential equation.':
+		'Segmenti di direzione per un’equazione differenziale.',
+	'Enter dy/dx as a function of x and y, for example x - y.':
+		'Inserisci dy/dx come funzione di x e y, ad esempio x - y.',
+	'Contour map': 'Mappa di contorno',
+	'Level curves of a scalar field with value labels.':
+		'Curve di livello di un campo scalare con valori.',
+	'Enter a scalar expression in x and y. Set the contour levels in the options.':
+		'Inserisci un’espressione scalare in x e y. Imposta i livelli nelle opzioni.',
+	'Complex plane': 'Piano complesso',
+	'Complex numbers, conjugates and roots of unity.':
+		'Numeri complessi, coniugati e radici dell’unità.',
+	'z = (2, 1), polar w 3 60, conjugate u z, or roots 5. Polar angles use degrees.':
+		'z = (2, 1), polar w 3 60, conjugate u z o roots 5. Angoli polari in gradi.',
 	'A number line with marks, intervals and jumps.':
 		'Una retta numerica con segni, intervalli e salti.',
 	Accent: 'Accento',
@@ -1139,6 +1606,122 @@ const IT = {
 };
 
 const NL = {
+	'Enter an expression or choose a starter.':
+		'Voer een uitdrukking in of kies een sjabloon.',
+	'Contour levels must be finite numbers.':
+		'Contourniveaus moeten eindige getallen zijn.',
+	'Invalid function name': 'Ongeldige functienaam',
+	'Duplicate function name': 'Dubbele functienaam',
+	'Use x and the parameters a, b, c.': 'Gebruik x en de parameters a, b, c.',
+	'Unknown shared function': 'Onbekende gedeelde functie',
+	'Undefined function value': 'Ongedefinieerde functiewaarde',
+	'The interval end must be greater than its start.':
+		'Het intervaleinde moet groter zijn dan het begin.',
+	'Choose a shared function or enter f(x).':
+		'Kies een gedeelde functie of voer f(x) in.',
+	Roots: 'Nulpunten',
+	'None found in this interval.': 'Geen gevonden in dit interval.',
+	Extrema: 'Extremen',
+	Minimum: 'Minimum',
+	Maximum: 'Maximum',
+	'Select a second function for intersections.':
+		'Kies een tweede functie voor snijpunten.',
+	Intersections: 'Snijpunten',
+	'No stable derivative at this position.':
+		'Geen stabiele afgeleide op deze positie.',
+	Normal: 'Normaal',
+	'The area is undefined or did not converge.':
+		'De oppervlakte is ongedefinieerd of de berekening convergeert niet.',
+	'Area between curves': 'Oppervlakte tussen krommen',
+	'relative to the x-axis': 'ten opzichte van de x-as',
+	'Numerical estimates in the selected interval. Very narrow features may be missed.':
+		'Numerieke schattingen in het gekozen interval. Zeer smalle kenmerken kunnen worden gemist.',
+	'Positive x-axis': 'Positieve x-as',
+	Point: 'Punt',
+	Label: 'Label',
+	'From point': 'Vanaf punt',
+	'Angle reference': 'Hoekreferentie',
+	Length: 'Lengte',
+	'Angle in degrees': 'Hoek in graden',
+	'Add segment': 'Lijnstuk toevoegen',
+	'Add vector': 'Vector toevoegen',
+	'Add circle': 'Cirkel toevoegen',
+	'Fit geometry': 'Geometrie passend maken',
+	'Drag points and labels in the preview. Derived points follow their construction.':
+		'Versleep punten en labels in het voorbeeld. Afgeleide punten volgen de constructie.',
+	'Edit points and labels': 'Punten en labels bewerken',
+	'Linked to the shared definition.': 'Gekoppeld aan de gedeelde definitie.',
+	'Own material': 'Eigen materiaal',
+	'All shared functions': 'Alle gedeelde functies',
+	'Function source': 'Functiebron',
+	'The shared definition is linked. The material field adds optional commands.':
+		'De gedeelde definitie is gekoppeld. Het materiaalveld voegt optionele opdrachten toe.',
+	'Snap step (0 = free)': 'Uitlijnstap (0 = vrij)',
+	'Interval from': 'Interval vanaf',
+	'Interval to': 'Interval tot',
+	'Tangent position': 'Raakpuntpositie',
+	'Second entered function or zero': 'Tweede ingevoerde functie of nul',
+	'Second function': 'Tweede functie',
+	Step: 'Stap',
+	'Curve detail': 'Krommedetail',
+	'Field density': 'Velddichtheid',
+	'Equal arrow lengths': 'Gelijke pijllengtes',
+	'Modulus and argument': 'Modulus en argument',
+	'Contour levels': 'Contourniveaus',
+	'The figure uses a common coordinate range for all diagrams.':
+		'De figuur gebruikt hetzelfde coördinatenbereik voor alle diagrammen.',
+	Columns: 'Kolommen',
+	'Column gap': 'Kolomafstand',
+	'Frame each panel': 'Elk paneel omkaderen',
+	'Shared axes': 'Gedeelde assen',
+	'Common x from': 'Gedeeld x vanaf',
+	'Common x to': 'Gedeeld x tot',
+	'Common y from': 'Gedeeld y vanaf',
+	'Common y to': 'Gedeeld y tot',
+	'Shared functions': 'Gedeelde functies',
+	'Define once, link graphs, formulas and tables. Use [[f]] or [[f(2)]] in text and captions.':
+		'Definieer eenmaal en koppel grafieken, formules en tabellen. Gebruik [[f]] of [[f(2)]] in tekst en bijschriften.',
+	Name: 'Naam',
+	Expression: 'Uitdrukking',
+	'Remove function': 'Functie verwijderen',
+	'Add function': 'Functie toevoegen',
+	'Panel title': 'Paneeltitel',
+	'Column span': 'Kolombereik',
+	'Function analysis': 'Functieanalyse',
+	'Roots, extrema, intersections, tangents, normals and areas.':
+		'Nulpunten, extremen, snijpunten, raaklijnen, normalen en oppervlakten.',
+	'Choose shared functions or enter f(x) and g(x). Results are numerical estimates in the selected interval.':
+		'Kies gedeelde functies of voer f(x) en g(x) in. Resultaten zijn schattingen in het gekozen interval.',
+	'Implicit curves': 'Impliciete krommen',
+	'Equations in two variables as contour curves.':
+		'Vergelijkingen met twee variabelen als contourkrommen.',
+	'One equation per line, for example x^2 + y^2 = 9.':
+		'Eén vergelijking per regel, bijvoorbeeld x^2 + y^2 = 9.',
+	'Inequality regions': 'Ongelijkheidsgebieden',
+	'The common solution region of several inequalities.':
+		'Het gezamenlijke oplossingsgebied van meerdere ongelijkheden.',
+	'One inequality per line. All conditions apply together: y >= x^2, y <= 4.':
+		'Eén ongelijkheid per regel. Alle voorwaarden gelden samen: y >= x^2, y <= 4.',
+	'Vector field': 'Vectorveld',
+	'Direction and strength of a two-dimensional vector field.':
+		'Richting en sterkte van een tweedimensionaal vectorveld.',
+	'Horizontal and vertical components separated by a semicolon: -y; x.':
+		'Horizontale en verticale component met puntkomma scheiden: -y; x.',
+	'Slope field': 'Richtingsveld',
+	'Direction segments for a differential equation.':
+		'Richtingssegmenten voor een differentiaalvergelijking.',
+	'Enter dy/dx as a function of x and y, for example x - y.':
+		'Voer dy/dx in als functie van x en y, bijvoorbeeld x - y.',
+	'Contour map': 'Contourkaart',
+	'Level curves of a scalar field with value labels.':
+		'Niveaulijnen van een scalair veld met waarden.',
+	'Enter a scalar expression in x and y. Set the contour levels in the options.':
+		'Voer een scalaire uitdrukking in x en y in. Stel de niveaus in bij de opties.',
+	'Complex plane': 'Complex vlak',
+	'Complex numbers, conjugates and roots of unity.':
+		'Complexe getallen, geconjugeerden en eenheidswortels.',
+	'z = (2, 1), polar w 3 60, conjugate u z, or roots 5. Polar angles use degrees.':
+		'z = (2, 1), polar w 3 60, conjugate u z of roots 5. Poolhoeken in graden.',
 	'A number line with marks, intervals and jumps.':
 		'Een getallenlijn met markeringen, intervallen en sprongen.',
 	Accent: 'Accent',
@@ -1420,6 +2003,122 @@ const NL = {
 };
 
 const PT = {
+	'Enter an expression or choose a starter.':
+		'Introduza uma expressão ou escolha um modelo.',
+	'Contour levels must be finite numbers.':
+		'Os níveis devem ser números finitos.',
+	'Invalid function name': 'Nome de função inválido',
+	'Duplicate function name': 'Nome de função duplicado',
+	'Use x and the parameters a, b, c.': 'Use x e os parâmetros a, b, c.',
+	'Unknown shared function': 'Função partilhada desconhecida',
+	'Undefined function value': 'Valor da função indefinido',
+	'The interval end must be greater than its start.':
+		'O fim do intervalo deve ser maior que o início.',
+	'Choose a shared function or enter f(x).':
+		'Escolha uma função partilhada ou introduza f(x).',
+	Roots: 'Zeros',
+	'None found in this interval.': 'Nenhum resultado neste intervalo.',
+	Extrema: 'Extremos',
+	Minimum: 'Mínimo',
+	Maximum: 'Máximo',
+	'Select a second function for intersections.':
+		'Escolha uma segunda função para as interseções.',
+	Intersections: 'Interseções',
+	'No stable derivative at this position.':
+		'Não há derivada estável nesta posição.',
+	Normal: 'Normal',
+	'The area is undefined or did not converge.':
+		'A área é indefinida ou o cálculo não converge.',
+	'Area between curves': 'Área entre curvas',
+	'relative to the x-axis': 'em relação ao eixo x',
+	'Numerical estimates in the selected interval. Very narrow features may be missed.':
+		'Estimativas numéricas no intervalo escolhido. Detalhes muito estreitos podem não ser detetados.',
+	'Positive x-axis': 'Eixo x positivo',
+	Point: 'Ponto',
+	Label: 'Etiqueta',
+	'From point': 'A partir do ponto',
+	'Angle reference': 'Referência angular',
+	Length: 'Comprimento',
+	'Angle in degrees': 'Ângulo em graus',
+	'Add segment': 'Adicionar segmento',
+	'Add vector': 'Adicionar vetor',
+	'Add circle': 'Adicionar círculo',
+	'Fit geometry': 'Ajustar geometria',
+	'Drag points and labels in the preview. Derived points follow their construction.':
+		'Arraste pontos e etiquetas na pré-visualização. Os pontos derivados seguem a construção.',
+	'Edit points and labels': 'Editar pontos e etiquetas',
+	'Linked to the shared definition.': 'Ligado à definição partilhada.',
+	'Own material': 'Material próprio',
+	'All shared functions': 'Todas as funções partilhadas',
+	'Function source': 'Origem da função',
+	'The shared definition is linked. The material field adds optional commands.':
+		'A definição partilhada está ligada. O campo de material acrescenta comandos opcionais.',
+	'Snap step (0 = free)': 'Passo de encaixe (0 = livre)',
+	'Interval from': 'Intervalo de',
+	'Interval to': 'Intervalo até',
+	'Tangent position': 'Posição da tangente',
+	'Second entered function or zero': 'Segunda função introduzida ou zero',
+	'Second function': 'Segunda função',
+	Step: 'Passo',
+	'Curve detail': 'Detalhe da curva',
+	'Field density': 'Densidade do campo',
+	'Equal arrow lengths': 'Setas de igual comprimento',
+	'Modulus and argument': 'Módulo e argumento',
+	'Contour levels': 'Níveis das curvas',
+	'The figure uses a common coordinate range for all diagrams.':
+		'A figura usa o mesmo intervalo de coordenadas para todos os diagramas.',
+	Columns: 'Colunas',
+	'Column gap': 'Espaço entre colunas',
+	'Frame each panel': 'Emoldurar cada painel',
+	'Shared axes': 'Eixos comuns',
+	'Common x from': 'x comum de',
+	'Common x to': 'x comum até',
+	'Common y from': 'y comum de',
+	'Common y to': 'y comum até',
+	'Shared functions': 'Funções partilhadas',
+	'Define once, link graphs, formulas and tables. Use [[f]] or [[f(2)]] in text and captions.':
+		'Defina uma vez e ligue gráficos, fórmulas e tabelas. Use [[f]] ou [[f(2)]] em textos e legendas.',
+	Name: 'Nome',
+	Expression: 'Expressão',
+	'Remove function': 'Remover função',
+	'Add function': 'Adicionar função',
+	'Panel title': 'Título do painel',
+	'Column span': 'Colunas ocupadas',
+	'Function analysis': 'Análise de funções',
+	'Roots, extrema, intersections, tangents, normals and areas.':
+		'Zeros, extremos, interseções, tangentes, normais e áreas.',
+	'Choose shared functions or enter f(x) and g(x). Results are numerical estimates in the selected interval.':
+		'Escolha funções partilhadas ou introduza f(x) e g(x). Os resultados são estimativas no intervalo escolhido.',
+	'Implicit curves': 'Curvas implícitas',
+	'Equations in two variables as contour curves.':
+		'Equações de duas variáveis como curvas de nível.',
+	'One equation per line, for example x^2 + y^2 = 9.':
+		'Uma equação por linha, por exemplo x^2 + y^2 = 9.',
+	'Inequality regions': 'Regiões de desigualdades',
+	'The common solution region of several inequalities.':
+		'A região solução comum de várias desigualdades.',
+	'One inequality per line. All conditions apply together: y >= x^2, y <= 4.':
+		'Uma desigualdade por linha. Todas se aplicam em conjunto: y >= x^2, y <= 4.',
+	'Vector field': 'Campo vetorial',
+	'Direction and strength of a two-dimensional vector field.':
+		'Direção e intensidade de um campo vetorial bidimensional.',
+	'Horizontal and vertical components separated by a semicolon: -y; x.':
+		'Componentes horizontal e vertical separadas por ponto e vírgula: -y; x.',
+	'Slope field': 'Campo de direções',
+	'Direction segments for a differential equation.':
+		'Segmentos de direção para uma equação diferencial.',
+	'Enter dy/dx as a function of x and y, for example x - y.':
+		'Introduza dy/dx como função de x e y, por exemplo x - y.',
+	'Contour map': 'Mapa de contornos',
+	'Level curves of a scalar field with value labels.':
+		'Curvas de nível de um campo escalar com valores.',
+	'Enter a scalar expression in x and y. Set the contour levels in the options.':
+		'Introduza uma expressão escalar em x e y. Defina os níveis nas opções.',
+	'Complex plane': 'Plano complexo',
+	'Complex numbers, conjugates and roots of unity.':
+		'Números complexos, conjugados e raízes da unidade.',
+	'z = (2, 1), polar w 3 60, conjugate u z, or roots 5. Polar angles use degrees.':
+		'z = (2, 1), polar w 3 60, conjugate u z ou roots 5. Ângulos polares em graus.',
 	'A number line with marks, intervals and jumps.':
 		'Uma reta numérica com marcas, intervalos e saltos.',
 	Accent: 'Destaque',

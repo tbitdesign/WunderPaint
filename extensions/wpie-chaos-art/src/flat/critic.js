@@ -23,6 +23,7 @@
  */
 
 import { lum, hueSat } from './senses.js';
+import { inZones } from './clear.js';
 
 const clamp01 = ( v ) => Math.max( 0, Math.min( 1, v ) );
 
@@ -118,9 +119,12 @@ export function critique( world ) {
 				? 'warm'
 				: null
 			: null;
-	// The quiet zone: the calmest window; it wants to stay calm.
+	// The quiet zone: the calmest window; it wants to stay calm. Where
+	// the page has text, its zones ARE the quiet places - a second one
+	// of the critic's own would leave the picture with two holes.
+	const keep = world.clear && world.clear.length ? world.clear : null;
 	const quiet = s.emptiest( 0.3 );
-	const quietNeed = painted > n * 0.3 && quiet.cover < 0.25;
+	const quietNeed = ! keep && painted > n * 0.3 && quiet.cover < 0.25;
 	// Busyness: loud cells against painted cells; noise when most of the
 	// painted sheet is edge.
 	const busy = painted ? loud / painted : 0;
@@ -170,6 +174,7 @@ export function critique( world ) {
 		warmNeed,
 		quiet,
 		quietNeed,
+		keep,
 		busy,
 		busyNeed,
 		echoes,
@@ -200,6 +205,9 @@ function windowMean( s, map, x, y, size ) {
 
 /** Is a frame point inside the critic's quiet zone? */
 export function inQuiet( report, p, size = 0.3 ) {
+	if ( report && report.keep && inZones( report.keep, p[ 0 ], p[ 1 ] ) ) {
+		return true;
+	}
 	if ( ! report || ! report.quietNeed ) {
 		return false;
 	}

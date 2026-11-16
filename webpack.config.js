@@ -63,6 +63,31 @@ module.exports = {
 			zlib: false,
 			fs: false,
 			path: false,
+			// libheif's Emscripten glue asks for crypto in its Node branch
+			// too; the browser takes crypto.getRandomValues.
+			crypto: false,
+		},
+	},
+	optimization: {
+		...defaultConfig.optimization,
+		splitChunks: {
+			...defaultConfig.optimization.splitChunks,
+			cacheGroups: {
+				...defaultConfig.optimization.splitChunks.cacheGroups,
+				// The HEIC decoder (lib/heic.js) lands in a file named after the
+				// library: build/libheif.<hash>.js next to libheif.<hash>.wasm.
+				// webpack's default vendor group would otherwise move the glue
+				// into a numbered chunk, and a reviewer could no longer tell
+				// from build/ which file is the third-party code readme.txt
+				// names (20.10.2026). Not "heic": that is the name of the
+				// importing chunk, and a group with the same name is dropped.
+				libheif: {
+					test: /[\\/]node_modules[\\/]libheif-js[\\/]/,
+					name: 'libheif',
+					chunks: 'async',
+					enforce: true,
+				},
+			},
 		},
 	},
 };

@@ -1,3 +1,5 @@
+import { SelectionMaskPreview } from './selection-mask-preview';
+import { selectionContours } from '../../store/selection-geometry';
 /**
  * DOM/SVG interaction overlays above the single canvas (spec 05.2):
  * selection box + handles, marching ants, crop overlay, pen anchors,
@@ -8,8 +10,8 @@ import { Fragment, useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 import { I } from '../../icons';
-import { docToScreen, rulerStep } from './use-viewport';
-import { selectionBounds } from '../../store/selection';
+import { docToScreen } from './use-viewport';
+import { selectionBounds, combine } from '../../store/selection';
 import { maskContours } from '../../lib/mask-contour';
 import { createCanvas } from '../../lib/raster';
 import { layerFootprint } from '../../lib/selection-units';
@@ -23,6 +25,12 @@ import {
 import { ellipsePoints } from '../../lib/ellipse-points';
 import { pivotLocal, hasPivot } from '../../lib/pivot';
 import { textGrips } from '../../lib/text-grips';
+import {
+	penDraftAnchors,
+	penDraftD,
+	penOutline,
+	penLiveOutline,
+} from '../../lib/pen-path';
 
 /* ----------------------------- SelectionBox ----------------------------- */
 
@@ -273,7 +281,7 @@ function GradientHandles( { layer, zoom, onHandleDown } ) {
 						background: s.color,
 					} }
 					title={ __(
-						'Drag along the axis to move this colour stop',
+						'Drag along the axis to move this color stop',
 						'wunderpaint'
 					) }
 					onPointerDown={ ( e ) => e.stopPropagation() }
@@ -404,32 +412,6 @@ export function selectionBox( layers, ids ) {
 				? selectedRoots[ 0 ]
 				: null,
 	};
-}
-
-/**
- * The four canvas-edge gap measurements (left/right/top/bottom) for a box —
- * shown while moving a layer so you can read its distance to each edge.
- *
- * @param {Object} box  { x, y, w, h }.
- * @param {number} docW Document width.
- * @param {number} docH Document height.
- * @return {Array} DistanceLabels rects.
- */
-export function canvasEdgeRects( box, docW, docH ) {
-	const cx = box.x + box.w / 2;
-	const cy = box.y + box.h / 2;
-	return [
-		{ line: { x1: 0, y1: cy, x2: box.x, y2: cy }, value: box.x },
-		{
-			line: { x1: box.x + box.w, y1: cy, x2: docW, y2: cy },
-			value: docW - box.x - box.w,
-		},
-		{ line: { x1: cx, y1: 0, x2: cx, y2: box.y }, value: box.y },
-		{
-			line: { x1: cx, y1: box.y + box.h, x2: cx, y2: docH },
-			value: docH - box.y - box.h,
-		},
-	];
 }
 
 export function SelectionBox( {
@@ -576,7 +558,7 @@ export function SelectionBox( {
 									top: p.y * zoom,
 								} }
 								title={ __(
-									'Drag to move the point this layer turns around · double-click to centre it',
+									'Drag to move the point this layer turns around · double-click to center it',
 									'wunderpaint'
 								) }
 								onPointerDown={ ( e ) => e.stopPropagation() }
@@ -758,7 +740,7 @@ const maskTintUrl = ( canvas ) => {
 	return url;
 };
 
-const selectionToSvgShapes = ( sel, toScreen, tint ) => {
+const selectionToSvgShapes = ( sel, toScreen, tint, doc ) => {
 	if ( ! sel ) {
 		return [];
 	}
@@ -793,12 +775,10 @@ const selectionToSvgShapes = ( sel, toScreen, tint ) => {
 		return shapes;
 	}
 	if ( 'combo' === sel.kind ) {
-		return sel.ops.flatMap( ( { sel: part, op } ) =>
-			selectionToSvgShapes( part, toScreen, tint ).map( ( s ) => ( {
-				...s,
-				subtract: 'subtract' === op,
-			} ) )
-		);
+		return selectionContours( sel, doc ).map( ( points ) => ( {
+			type: 'poly',
+			points: points.map( toScreen ),
+		} ) );
 	}
 	return [];
 };
@@ -850,65 +830,110 @@ export function DropHint( { layer, zoom, pan } ) {
 	);
 }
 
-export function MarchingAnts( { selection, draft, zoom, pan, tint } ) {
-	const toScreen = ( p ) => docToScreen( p, pan, zoom );
-	const shapes = selectionToSvgShapes( selection, toScreen, tint );
+const selectionShapesPath = ( shapes, zoom ) =>
+	shapes
+		.filter( ( shape ) => shape.type !== 'tint' )
+		.map( ( shape ) => {
+			if ( shape.type === 'rect' ) {
+				return `M${ shape.x } ${ shape.y }h${ shape.w * zoom }v${
+					shape.h * zoom
+				}h${ -shape.w * zoom }Z`;
+			}
+			return (
+				shape.points
+					.map( ( p, i ) => `${ i ? 'L' : 'M' }${ p.x } ${ p.y }` )
+					.join( ' ' ) + 'Z'
+			);
+		} )
+		.join( ' ' );
 
-	// In-progress marquee/lasso drafts get ants too.
-	if ( draft && 'marquee' === draft.kind && draft.rect.w > 1 ) {
-		if ( 'ellipse' === draft.shape ) {
-			shapes.push( {
-				type: 'poly',
-				points: ellipsePoints( draft.rect ).map( toScreen ),
-				draft: true,
-			} );
-		} else {
-			const a = toScreen( draft.rect );
-			shapes.push( {
-				type: 'rect',
-				x: a.x,
-				y: a.y,
-				w: draft.rect.w,
-				h: draft.rect.h,
-				draft: true,
-			} );
-		}
+export function MarchingAnts( {
+	selection,
+	draft,
+	zoom,
+	pan,
+	tint,
+	doc,
+	preview = false,
+	feather = 0,
+} ) {
+	const toScreen = ( p ) => docToScreen( p, pan, zoom );
+	let next = null;
+	if ( draft?.kind === 'marquee' && draft.rect.w > 0 && draft.rect.h > 0 ) {
+		next =
+			draft.shape === 'ellipse'
+				? { kind: 'poly', points: ellipsePoints( draft.rect ) }
+				: { kind: 'rect', ...draft.rect };
+	} else if ( draft?.kind === 'lasso' && draft.points.length > 2 ) {
+		next = { kind: 'poly', points: draft.points };
+	} else if ( draft?.kind === 'lassoPoly' && draft.points.length > 1 ) {
+		next = {
+			kind: 'poly',
+			points: [ ...draft.points, draft.cursor || draft.points[ 0 ] ],
+		};
 	}
-	if ( draft && 'lasso' === draft.kind && draft.points.length > 1 ) {
+	const edgeFeather = selection ? selection.feather || 0 : feather;
+	const visible = next
+		? combine(
+				selection,
+				edgeFeather > 0 ? { ...next, feather: edgeFeather } : next,
+				draft.op
+		  )
+		: selection;
+	const showMask = preview && !! visible;
+	const maskPreview = showMask ? (
+		<SelectionMaskPreview
+			selection={ visible }
+			doc={ doc }
+			zoom={ zoom }
+			pan={ pan }
+		/>
+	) : null;
+	if ( showMask && ! draft ) {
+		return maskPreview;
+	}
+	const shapes = selectionToSvgShapes(
+		visible,
+		toScreen,
+		tint && ! next,
+		doc
+	);
+	// Open lasso paths still give feedback before a closed area exists.
+	if ( ! next && [ 'lasso', 'lassoPoly' ].includes( draft?.kind ) ) {
 		shapes.push( {
 			type: 'poly',
-			points: draft.points.map( toScreen ),
-			draft: true,
+			points: [
+				...draft.points,
+				...( draft.cursor ? [ draft.cursor ] : [] ),
+			].map( toScreen ),
 		} );
 	}
-	if ( draft && 'lassoPoly' === draft.kind ) {
-		// The corners so far plus the rubber line to the cursor (v1.429).
-		shapes.push( {
-			type: 'poly',
-			points: [ ...draft.points, draft.cursor || draft.points[ 0 ] ].map(
-				toScreen
-			),
-			draft: true,
-		} );
-	}
-	if ( ! shapes.length ) {
+
+	// Keep the drawing gesture visible even when subtraction touches nothing
+	// or removes the whole selection. This contour never contributes a fill.
+	const subtractOutline =
+		next && draft.op === 'subtract'
+			? selectionShapesPath(
+					selectionToSvgShapes( next, toScreen, false, doc ),
+					zoom
+			  )
+			: '';
+
+	if ( ! shapes.length && ! subtractOutline && ! showMask ) {
 		return null;
 	}
 
+	// Outer edges, holes and islands form ONE surface. Filling each contour
+	// separately paints over holes (and tints them twice). Even-odd fill keeps
+	// excluded areas clear, including an island added back inside a hole.
+	const outline = selectionShapesPath( shapes, zoom );
 	return (
-		<svg className="ed-overlay ants" width="100%" height="100%">
-			{ shapes.map( ( shape, i ) => {
-				// Two passes: a solid light underlay + dark moving dashes —
-				// the classic alternating ants stay visible on any background.
-				const common = {
-					className: 'ants-dash',
-					style: shape.subtract
-						? { stroke: 'var(--danger)' }
-						: undefined,
-				};
-				const under = { className: 'ants-under' };
-				if ( 'tint' === shape.type ) {
-					return (
+		<>
+			{ maskPreview }
+			<svg className="ed-overlay ants" width="100%" height="100%">
+				{ shapes
+					.filter( ( shape ) => ! showMask && shape.type === 'tint' )
+					.map( ( shape, i ) => (
 						<image
 							key={ i }
 							href={ maskTintUrl( shape.canvas ) }
@@ -919,33 +944,26 @@ export function MarchingAnts( { selection, draft, zoom, pan, tint } ) {
 							opacity="0.25"
 							style={ { pointerEvents: 'none' } }
 						/>
-					);
-				}
-				if ( 'rect' === shape.type ) {
-					const box = {
-						x: shape.x,
-						y: shape.y,
-						width: shape.w * zoom,
-						height: shape.h * zoom,
-					};
-					return (
-						<g key={ i }>
-							<rect { ...under } { ...box } />
-							<rect { ...common } { ...box } />
-						</g>
-					);
-				}
-				const points = shape.points
-					.map( ( p ) => `${ p.x },${ p.y }` )
-					.join( ' ' );
-				return (
-					<g key={ i }>
-						<polygon { ...under } points={ points } />
-						<polygon { ...common } points={ points } />
+					) ) }
+				<path
+					className="ants-under"
+					d={ outline }
+					fillRule="evenodd"
+					style={ showMask ? { fill: 'none' } : undefined }
+				/>
+				<path className="ants-dash" d={ outline } />
+				{ subtractOutline && (
+					<g className="ants-subtract-draft">
+						<path
+							className="ants-under"
+							d={ subtractOutline }
+							style={ { fill: 'none' } }
+						/>
+						<path className="ants-dash" d={ subtractOutline } />
 					</g>
-				);
-			} ) }
-		</svg>
+				) }
+			</svg>
+		</>
 	);
 }
 
@@ -1011,6 +1029,8 @@ export function SmartPoints( { selection, tool, zoom, pan } ) {
 
 export function CropOverlay( {
 	crop,
+	interactive = true,
+	guides = 'thirds',
 	zoom,
 	pan,
 	areaW,
@@ -1026,7 +1046,7 @@ export function CropOverlay( {
 	const w = crop.w * zoom;
 	const h = crop.h * zoom;
 	return (
-		<div className="crop-overlay">
+		<div className={ `crop-overlay${ interactive ? '' : ' is-preview' }` }>
 			{ /* Darkened outside (4 shades). */ }
 			<div
 				className="crop-shade"
@@ -1079,44 +1099,65 @@ export function CropOverlay( {
 					onRectDblClick?.();
 				} }
 			>
-				{ /* Rule of thirds. */ }
-				<div
-					className="third"
-					style={ { top: '33.33%', left: 0, right: 0, height: 1 } }
-				/>
-				<div
-					className="third"
-					style={ { top: '66.66%', left: 0, right: 0, height: 1 } }
-				/>
-				<div
-					className="third"
-					style={ { left: '33.33%', top: 0, bottom: 0, width: 1 } }
-				/>
-				<div
-					className="third"
-					style={ { left: '66.66%', top: 0, bottom: 0, width: 1 } }
-				/>
-				{ [ 'nw', 'ne', 'se', 'sw' ].map( ( corner ) => (
-					<div
-						key={ corner }
-						className="crop-handle"
-						style={ {
-							left: corner.includes( 'w' ) ? -5 : undefined,
-							right: corner.includes( 'e' ) ? -5 : undefined,
-							top: corner.includes( 'n' ) ? -5 : undefined,
-							bottom: corner.includes( 's' ) ? -5 : undefined,
-							cursor:
-								'nw' === corner || 'se' === corner
-									? 'nwse-resize'
-									: 'nesw-resize',
-						} }
-						onPointerDown={ ( e ) => {
-							e.stopPropagation();
-							onHandleDown( corner, e );
-						} }
-						onMouseDown={ ( e ) => e.stopPropagation() }
-					/>
+				<span className="crop-size">
+					{ Math.round( crop.w ) } × { Math.round( crop.h ) } px
+				</span>
+				{ ( guides === 'none'
+					? []
+					: guides === 'fine'
+					? // While straightening: tenths, to line an edge up against.
+					  [ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 ]
+					: guides === 'grid'
+					? [ 0.25, 0.5, 0.75 ]
+					: [ 1 / 3, 2 / 3 ]
+				).map( ( fraction ) => (
+					<span key={ fraction }>
+						<span
+							className={
+								guides === 'fine' ? 'third is-fine' : 'third'
+							}
+							style={ {
+								top: `${ fraction * 100 }%`,
+								left: 0,
+								right: 0,
+								height: 1,
+							} }
+						/>
+						<span
+							className={
+								guides === 'fine' ? 'third is-fine' : 'third'
+							}
+							style={ {
+								left: `${ fraction * 100 }%`,
+								top: 0,
+								bottom: 0,
+								width: 1,
+							} }
+						/>
+					</span>
 				) ) }
+				{ interactive &&
+					[ 'nw', 'ne', 'se', 'sw' ].map( ( corner ) => (
+						<div
+							key={ corner }
+							className="crop-handle"
+							style={ {
+								left: corner.includes( 'w' ) ? -5 : undefined,
+								right: corner.includes( 'e' ) ? -5 : undefined,
+								top: corner.includes( 'n' ) ? -5 : undefined,
+								bottom: corner.includes( 's' ) ? -5 : undefined,
+								cursor:
+									'nw' === corner || 'se' === corner
+										? 'nwse-resize'
+										: 'nesw-resize',
+							} }
+							onPointerDown={ ( e ) => {
+								e.stopPropagation();
+								onHandleDown( corner, e );
+							} }
+							onMouseDown={ ( e ) => e.stopPropagation() }
+						/>
+					) ) }
 			</div>
 		</div>
 	);
@@ -1124,13 +1165,28 @@ export function CropOverlay( {
 
 /* ------------------------------ Pen overlay ----------------------------- */
 
-export function PenOverlay( { draft, zoom, pan, onFinalize } ) {
+export function PenOverlay( { draft, zoom, pan, opts = {}, color = '#222' } ) {
 	if ( draft && 'penFree' === draft.kind ) {
 		// Freehand pen (v1.429): the raw stroke while the pointer is down;
 		// the fitted anchors appear on release.
 		const pts = draft.points.map( ( p ) => docToScreen( p, pan, zoom ) );
+		// Live ink in frozen pieces (lib/pen-path penLiveOutline): the cost
+		// per move no longer grows with the stroke. One group opacity, so
+		// the seams between pieces do not darken.
+		const inks =
+			draft.points.length > 1
+				? penLiveOutline( draft.points, opts.style || {} )
+				: [];
 		return (
 			<svg className="ed-overlay" width="100%" height="100%">
+				<g
+					opacity="0.8"
+					transform={ `translate(${ pan.x } ${ pan.y }) scale(${ zoom })` }
+				>
+					{ inks.map( ( d, i ) => (
+						<path key={ i } d={ d } fill={ color } />
+					) ) }
+				</g>
 				<polyline
 					className="pen-path"
 					fill="none"
@@ -1144,6 +1200,24 @@ export function PenOverlay( { draft, zoom, pan, onFinalize } ) {
 	if ( ! draft || 'pen' !== draft.kind || ! draft.anchors.length ) {
 		return null;
 	}
+	const ghost =
+		draft.preview && ! draft.dragging && opts.preview !== false
+			? penDraftD(
+					{
+						...draft,
+						anchors: [
+							...draft.anchors,
+							{ ...draft.preview, hIn: null, hOut: null },
+						],
+					},
+					opts
+			  )
+			: '';
+	draft = { ...draft, anchors: penDraftAnchors( draft, opts ) };
+	const visible = penOutline(
+		penDraftD( { ...draft, mode: 'pen' }, opts ),
+		opts.style
+	);
 	const toScreen = ( p ) => docToScreen( p, pan, zoom );
 	const points = draft.anchors.map( toScreen );
 	let d = `M ${ points[ 0 ].x } ${ points[ 0 ].y }`;
@@ -1160,12 +1234,29 @@ export function PenOverlay( { draft, zoom, pan, onFinalize } ) {
 			d += ` L ${ cp.x } ${ cp.y }`;
 		}
 	}
-	const last = points[ points.length - 1 ];
 
 	return (
 		<Fragment>
 			<svg className="ed-overlay" width="100%" height="100%">
+				<path
+					d={ visible }
+					transform={ `translate(${ pan.x } ${ pan.y }) scale(${ zoom })` }
+					fill={ color }
+					opacity={ 0.9 }
+				/>
 				<path className="pen-path" d={ d } />
+				{ ghost && (
+					<path
+						className="pp-next-curve"
+						d={ ghost }
+						transform={ `translate(${ pan.x } ${ pan.y }) scale(${ zoom })` }
+						fill="none"
+						stroke="var(--accent)"
+						strokeWidth={ 1.2 / zoom }
+						strokeDasharray={ `${ 5 / zoom } ${ 4 / zoom }` }
+						opacity="0.65"
+					/>
+				) }
 				{ draft.anchors.map( ( anchor, i ) => {
 					const p = points[ i ];
 					return (
@@ -1215,31 +1306,6 @@ export function PenOverlay( { draft, zoom, pan, onFinalize } ) {
 					);
 				} ) }
 			</svg>
-			{ draft.finalizing && (
-				<div
-					className="ctx-menu"
-					style={ {
-						left: last.x + 10,
-						top: last.y + 10,
-						pointerEvents: 'auto',
-					} }
-					onPointerDown={ ( e ) => e.stopPropagation() }
-					onMouseDown={ ( e ) => e.stopPropagation() }
-				>
-					<button onClick={ () => onFinalize( 'stroke' ) }>
-						{ I.pen( { size: 13 } ) }{ ' ' }
-						{ __( 'Stroke Path', 'wunderpaint' ) }
-					</button>
-					<button onClick={ () => onFinalize( 'fill' ) }>
-						{ I.bucket( { size: 13 } ) }{ ' ' }
-						{ __( 'Fill Path', 'wunderpaint' ) }
-					</button>
-					<div className="divider" />
-					<button onClick={ () => onFinalize( null ) }>
-						{ __( 'Cancel', 'wunderpaint' ) }
-					</button>
-				</div>
-			) }
 		</Fragment>
 	);
 }
@@ -1291,34 +1357,40 @@ export function GridOverlay( { doc, zoom, pan, size = 50 } ) {
 	);
 }
 
-export function SmartGuides( { guides, zoom, pan, areaW, areaH } ) {
+/**
+ * Smart guides of a drag (1.431): each line runs from the dragged frame
+ * across the layers it lines up with; canvas, guide and grid lines run the
+ * length of the canvas. Guides are { axis, pos, from, to } in doc px.
+ */
+export function SmartGuides( { guides, zoom, pan } ) {
 	return (
 		<Fragment>
-			{ guides.map( ( guide, i ) =>
-				'v' === guide.axis ? (
+			{ guides.map( ( guide, i ) => {
+				const at = guide.pos * zoom;
+				const from = guide.from * zoom;
+				const length = Math.max( 1, ( guide.to - guide.from ) * zoom );
+				return (
 					<div
 						key={ i }
 						className="smart-guide"
-						style={ {
-							left: guide.pos * zoom + pan.x,
-							top: 0,
-							width: 1,
-							height: areaH,
-						} }
+						style={
+							'v' === guide.axis
+								? {
+										left: at + pan.x,
+										top: from + pan.y,
+										width: 1,
+										height: length,
+								  }
+								: {
+										top: at + pan.y,
+										left: from + pan.x,
+										height: 1,
+										width: length,
+								  }
+						}
 					/>
-				) : (
-					<div
-						key={ i }
-						className="smart-guide"
-						style={ {
-							top: guide.pos * zoom + pan.y,
-							left: 0,
-							height: 1,
-							width: areaW,
-						} }
-					/>
-				)
-			) }
+				);
+			} ) }
 		</Fragment>
 	);
 }
@@ -1361,94 +1433,9 @@ export function GuidesOverlay( { guides, zoom, pan, areaW, areaH } ) {
 	);
 }
 
-/* --------------------------------- Rulers ------------------------------- */
-
-export function Rulers( { doc, zoom, pan, cursor, onStartGuide } ) {
-	const step = rulerStep( zoom );
-	const hTicks = [];
-	const vTicks = [];
-	for ( let i = 0; i <= doc.w; i += step ) {
-		hTicks.push(
-			<div
-				key={ i }
-				style={ {
-					position: 'absolute',
-					left: i * zoom + pan.x - 16,
-					top: 2,
-					pointerEvents: 'none',
-				} }
-			>
-				{ i }
-			</div>
-		);
-	}
-	for ( let i = 0; i <= doc.h; i += step ) {
-		vTicks.push(
-			<div
-				key={ i }
-				style={ {
-					position: 'absolute',
-					top: i * zoom + pan.y - 16,
-					left: 2,
-					pointerEvents: 'none',
-					writingMode: 'vertical-rl',
-					transform: 'rotate(180deg)',
-				} }
-			>
-				{ i }
-			</div>
-		);
-	}
-	return (
-		<Fragment>
-			<div className="ed-ruler-corner" />
-			<div
-				className="ed-ruler h"
-				role="presentation"
-				style={ { cursor: 'row-resize' } }
-				onMouseDown={ ( e ) => onStartGuide?.( 'h', e ) }
-			>
-				{ hTicks }
-				{ cursor && (
-					<div
-						style={ {
-							position: 'absolute',
-							left: cursor.x,
-							top: 0,
-							bottom: 0,
-							width: 1,
-							background: 'var(--accent)',
-						} }
-					/>
-				) }
-			</div>
-			<div
-				className="ed-ruler v"
-				role="presentation"
-				style={ { cursor: 'col-resize' } }
-				onMouseDown={ ( e ) => onStartGuide?.( 'v', e ) }
-			>
-				{ vTicks }
-				{ cursor && (
-					<div
-						style={ {
-							position: 'absolute',
-							top: cursor.y,
-							left: 0,
-							right: 0,
-							height: 1,
-							background: 'var(--accent)',
-						} }
-					/>
-				) }
-			</div>
-		</Fragment>
-	);
-}
-
 /* --------------------------------- Tip box ------------------------------ */
 
-export function TipBox( { tool, opts, fg, selection } ) {
+export function TipBox( { tool, opts, fg, selection, gradientKind } ) {
 	const tips = {
 		move: __(
 			'Click any layer to select · drag to move · hold Space to pan',
@@ -1486,14 +1473,31 @@ export function TipBox( { tool, opts, fg, selection } ) {
 			'Click to sample the composited color (Alt → background)',
 			'wunderpaint'
 		),
-		bucket: __(
-			'Click: recolor shape/text, flood-fill pixels, or add a fill layer',
-			'wunderpaint'
-		),
-		gradient: __(
-			'Drag to define the gradient · Shift = 45° steps',
-			'wunderpaint'
-		),
+		bucket:
+			opts.mode === 'object'
+				? __(
+						'Click a shape, text or path to recolor it.',
+						'wunderpaint'
+				  )
+				: __(
+						'Click an area to fill it. An active selection limits the fill, including its soft edge.',
+						'wunderpaint'
+				  ),
+		gradient:
+			gradientKind === 'mesh'
+				? __(
+						'Drag a mesh point to reshape the surface. Drag its handles to bend the grid.',
+						'wunderpaint'
+				  )
+				: gradientKind === 'freeform'
+				? __(
+						'Drag color points on the canvas. Double-click with the Gradient tool to add a point.',
+						'wunderpaint'
+				  )
+				: __(
+						'Drag to define the gradient · Shift = 45° steps',
+						'wunderpaint'
+				  ),
 		stamp: __(
 			'Alt-click: set source · drag: clone from the marked point',
 			'wunderpaint'
@@ -1503,6 +1507,10 @@ export function TipBox( { tool, opts, fg, selection } ) {
 			'wunderpaint'
 		),
 		hand: __( 'Drag to pan the canvas', 'wunderpaint' ),
+		repeat: __(
+			'Click a layer to repeat it · drag the handles to set the rule',
+			'wunderpaint'
+		),
 		crop: __(
 			'Drag to define crop · Enter/double-click applies · Esc cancels',
 			'wunderpaint'
@@ -1561,8 +1569,12 @@ export function TipBox( { tool, opts, fg, selection } ) {
 
 export { selectionBounds };
 
-/** Measurement overlay (v0.7): edge distances in px (Alt held). */
-export function DistanceLabels( { rects, zoom, pan } ) {
+/**
+ * Measurement overlay (v0.7): edge distances in px, with Alt held and while
+ * dragging. `tone="spacing"` draws equal gaps in the guide pink (1.431).
+ */
+export function DistanceLabels( { rects, zoom, pan, tone } ) {
+	const color = 'spacing' === tone ? 'var(--guide-spacing)' : 'var(--accent)';
 	const items = [];
 	for ( const { line, value } of rects ) {
 		if ( ! line || ! value ) {
@@ -1586,7 +1598,7 @@ export function DistanceLabels( { rects, zoom, pan } ) {
 								top: Math.min( y1, y2 ),
 								width: Math.max( 1, Math.abs( x2 - x1 ) ),
 								height: Math.max( 1, Math.abs( y2 - y1 ) ),
-								background: 'var(--accent)',
+								background: color,
 								pointerEvents: 'none',
 								zIndex: 46,
 							} }
@@ -1598,7 +1610,7 @@ export function DistanceLabels( { rects, zoom, pan } ) {
 								top: ( y1 + y2 ) / 2 - 18,
 								fontSize: 10,
 								fontFamily: 'var(--font-mono)',
-								background: 'var(--accent)',
+								background: color,
 								color: '#fff',
 								borderRadius: 3,
 								padding: '1px 4px',

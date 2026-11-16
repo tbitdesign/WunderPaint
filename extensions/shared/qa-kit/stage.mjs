@@ -57,6 +57,10 @@ export async function buildStage( { root, setup, out } ) {
 		},
 		nodePaths: [ path.join( EDITOR, 'node_modules' ) ],
 		loader: { '.json': 'json' },
+		// The editor's HEIC decoder (src/lib/heic.js, 20.10.2026) loads a
+		// Node-flavoured glue file and a .wasm on demand; the stage never
+		// opens a HEIC, so both stay outside the bundle.
+		external: [ 'libheif-js/*' ],
 	} );
 
 	fs.copyFileSync(

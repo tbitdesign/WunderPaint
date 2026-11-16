@@ -4,6 +4,17 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildStage, launchQA } from '../../shared/qa-kit/stage.mjs';
+import { bathGap, editPaused, pressAndWait } from './lab-qa.mjs';
+// Expected counts come from the real lists (21.10.2026): fixed numbers here
+// went stale with 1.8.0 (60 experiments, 14 liquids, 12 tools) and the QA
+// failed on a product that was fine.
+const { EXPERIMENTS } = await import( '../src/fluid/experiments.js' );
+const { MATERIALS, cleanSettings } = await import(
+	'../src/fluid/simulation.js'
+);
+const { TOOL_GROUPS } = await import( '../src/fluid/tool-groups.js' );
+const TOOL_COUNT =
+	TOOL_GROUPS.reduce( ( n, [ , , tools ] ) => n + tools.length, 0 ) + 1; // + orbit
 
 const active = execFileSync( 'ps', [ '-eo', 'stat=,comm=' ], {
 	encoding: 'utf8',
@@ -67,8 +78,12 @@ const signature = ( output = 'wet' ) =>
 				opaque++;
 				const luminance =
 					d[ i ] * 0.21 + d[ i + 1 ] * 0.72 + d[ i + 2 ] * 0.07;
-				if ( luminance < 80 ) dark++;
-				if ( luminance > 140 ) light++;
+				if ( luminance < 80 ) {
+					dark++;
+				}
+				if ( luminance > 140 ) {
+					light++;
+				}
 			}
 			if (
 				Math.max( d[ i ], d[ i + 1 ], d[ i + 2 ] ) -
@@ -110,27 +125,57 @@ try {
 				.count() ) === 0,
 		'no transport or history controls in the fluid lab'
 	);
-	await page.waitForFunction(
-		() =>
-			document.querySelectorAll(
-				'.wpiemb-lab-experiment canvas[data-ready="true"]'
-			).length === 60,
-		null,
-		{ timeout: 120000 }
-	);
-	check( true, 'all forty-two preview cards render before reuse' );
+	// Preview cards render when they scroll into view (IntersectionObserver
+	// on the library), so the QA scrolls each one in, as a person browsing
+	// the library would, and waits for its picture.
+	let unready = 0;
+	for ( const { id } of EXPERIMENTS ) {
+		const card = page.locator( '[data-experiment="' + id + '"] canvas' );
+		await card.scrollIntoViewIfNeeded();
+		const done = await card
+			.evaluate(
+				( c ) =>
+					new Promise( ( resolve ) => {
+						const end = Date.now() + 15000;
+						const tick = () => {
+							if ( 'true' === c.dataset.ready ) {
+								resolve( true );
+							} else if ( Date.now() > end ) {
+								resolve( false );
+							} else {
+								setTimeout( tick, 100 );
+							}
+						};
+						tick();
+					} )
+			)
+			.catch( () => false );
+		if ( ! done ) {
+			unready++;
+		}
+	}
 	check(
-		( await page.locator( '[data-material]' ).count() ) === 14,
-		'fourteen materials across the two palette groups'
+		0 === unready,
+		'every preview card renders when it scrolls into view' +
+			( unready ? ' (' + unready + ' did not)' : '' )
 	);
 	check(
-		( await page.locator( '[data-experiment]' ).count() ) === 60,
-		'forty-two experiments'
+		( await page.locator( '[data-material]' ).count() ) ===
+			MATERIALS.length,
+		'one button per liquid and reagent (' + MATERIALS.length + ')'
+	);
+	check(
+		( await page.locator( '[data-experiment]' ).count() ) ===
+			EXPERIMENTS.length,
+		'one card per experiment (' + EXPERIMENTS.length + ')'
 	);
 	check(
 		( await page.locator( '.wpiemb-lab-dialog [data-tool]' ).count() ) ===
-			12,
-		'twelve tools including camera orbit'
+			TOOL_COUNT &&
+			( await page
+				.locator( '.wpiemb-lab-dialog [data-tool="orbit"]' )
+				.count() ) === 1,
+		'every deck tool plus camera orbit (' + TOOL_COUNT + ')'
 	);
 	const first = await signature();
 	check(
@@ -189,9 +234,13 @@ try {
 		( await signature() ).hash !== lightBefore.hash,
 		'the light control changes the actual optical rendering'
 	);
-	let savedState = await snapshot(),
+	const savedState = await snapshot(),
 		savedPicture = await signature();
 	await page.locator( '[data-mode="classic"]' ).click();
+	// Classic opens once the lab state is packed for its layer.
+	await page.waitForFunction(
+		() => ! document.querySelector( '.wpiemb-lab-dialog' )
+	);
 	check(
 		classic ===
 			( await page.evaluate( () =>
@@ -343,13 +392,12 @@ try {
 			) ),
 		'controls unlock after recording'
 	);
-	savedState = await snapshot();
-	savedPicture = await signature();
 	// Insert -> editor generator edit -> Update must preserve position and IDs.
-	await page.getByRole( 'button', { name: 'Insert', exact: true } ).click();
-	await page.waitForFunction(
-		() => ! document.querySelector( '.wpiemb-lab-dialog' )
+	await page.evaluate( () => window.__wpieFluidLab.pause() );
+	const insertedBath = await page.evaluate(
+		() => window.__wpieFluidLab.save().snapshot
 	);
+	await pressAndWait( page, 'Insert' );
 	const inserted = await page.evaluate(
 		() =>
 			window.__dispatched.findLast( ( a ) => a.type === 'ADD_LAYER' )
@@ -360,20 +408,45 @@ try {
 			inserted.src.startsWith( 'data:image/png' ),
 		'insert creates a reopenable fluid generator with a real PNG'
 	);
-	await page.evaluate( ( layer ) => {
-		window.__gen.edit( { editor: window.__editor, layer } );
-		window.__wpieFluidLab.pause();
-	}, inserted );
-	await page.waitForFunction( () => !! window.__wpieFluidLab );
+	// The layer keeps the bath, packed (21.10.2026). From the audit of
+	// 11.09.2026 it kept the settings only, since the raw grid made saves
+	// fail with 413, and an edit reopened at the starting point of a new one.
+	const pack = inserted?.generator?.params?.lab?.snapshot?.pack;
+	const kb = ( n ) => Math.round( n / 1024 ) + ' KB';
 	check(
-		( await snapshot() ) === savedState,
-		'generator edit restores the exact inserted state'
+		pack?.data?.length < 1024 * 1024,
+		'the inserted layer carries the bath packed: ' +
+			kb( pack?.data?.length || 0 ) +
+			' where the raw grid is ' +
+			kb( insertedBath.data.length )
+	);
+	await editPaused( page, inserted );
+	const reopened = await page.evaluate(
+		() => window.__wpieFluidLab.settings
 	);
 	check(
-		( await signature() ).hash === savedPicture.hash,
-		'generator edit restores the exported appearance'
+		JSON.stringify( cleanSettings( reopened ) ) ===
+			JSON.stringify(
+				cleanSettings( inserted.generator.params.lab.settings )
+			),
+		'generator edit restores every inserted setting'
 	);
-	await page.getByRole( 'button', { name: 'Update', exact: true } ).click();
+	const gap = bathGap(
+		insertedBath,
+		await page.evaluate( () => window.__wpieFluidLab.save().snapshot )
+	);
+	check(
+		gap.same && gap.worst <= 1,
+		'generator edit reopens the inserted bath, not a new one (worst value ' +
+			gap.worst.toFixed( 2 ) +
+			' half steps off)'
+	);
+	const reopenedPicture = await signature();
+	check(
+		reopenedPicture.opaque > 40000 && reopenedPicture.varied > 500,
+		'generator edit shows the bath'
+	);
+	await pressAndWait( page, 'Update' );
 	const updated = await page.evaluate( () =>
 		window.__dispatched.findLast( ( a ) => a.type === 'UPDATE_LAYER' )
 	);
@@ -424,8 +497,9 @@ try {
 	const evolve = async ( n ) =>
 		page.evaluate( ( count ) => {
 			const lab = window.__wpieFluidLab;
-			for ( let k = 0; k < count; k++ )
+			for ( let k = 0; k < count; k++ ) {
 				lab.sim.step( lab.settings, 1 / 30 );
+			}
 			lab.renderer.update( lab.settings );
 			lab.renderer.render();
 		}, n );
@@ -623,6 +697,7 @@ try {
 		( layer ) => window.__gen.edit( { editor: window.__editor, layer } ),
 		inserted
 	);
+	await page.waitForFunction( () => !! window.__wpieFluidLab );
 	time = await flowTime();
 	await page.waitForTimeout( 350 );
 	check(

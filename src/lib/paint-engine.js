@@ -36,6 +36,8 @@
 import { __ } from '@wordpress/i18n';
 
 import { makeMixer } from './spectral';
+import { leafPixel, leafPieceFor } from './metal-leaf';
+import { boundCoverage, boundTooth, toothTile } from './dry-grain';
 
 /**
  * The styles. Ids are stored in tool options - stable, do not rename.
@@ -169,6 +171,55 @@ export const PAINT_STYLES = [
 		grain: 0.65,
 		bleed: 0,
 		body: 0.08,
+		gloss: 0,
+	},
+	{
+		id: 'crayon',
+		name: __( 'Wax crayon', 'wunderpaint' ),
+		mixing: true,
+		load: 0.08,
+		pickup: 0,
+		edge: 0,
+		grain: 0.58,
+		bleed: 0,
+		body: 0.18,
+		gloss: 0.16,
+	},
+	{
+		id: 'colored-pencil',
+		name: __( 'Colored pencil', 'wunderpaint' ),
+		mixing: true,
+		load: 0.12,
+		pickup: 0,
+		edge: 0,
+		grain: 0.72,
+		bleed: 0,
+		// A thin pencil film stays matte instead of acquiring paint relief.
+		body: 0,
+		gloss: 0,
+	},
+	{
+		id: 'airbrush',
+		name: __( 'Airbrush', 'wunderpaint' ),
+		mixing: false,
+		load: 0,
+		pickup: 0,
+		edge: 0,
+		grain: 0,
+		bleed: 0,
+		body: 0,
+		gloss: 0,
+	},
+	{
+		id: 'metal-leaf',
+		name: __( 'Metal leaf', 'wunderpaint' ),
+		mixing: false,
+		load: 0,
+		pickup: 0,
+		edge: 0,
+		grain: 0.14,
+		bleed: 0,
+		body: 0,
 		gloss: 0,
 	},
 	{
@@ -424,7 +475,9 @@ function applySurface( d, cov, bed, w, h, style, ox, oy, brush ) {
  *
  * @param {Object} dst     Destination ImageData, modified in place.
  * @param {Object} src     Stroke ImageData, read only.
- * @param {Object} opts    { style, colour, size, originX, originY }.
+ * @param {Object} opts    { style, colour, size, originX, originY,
+ *                         tuning, points, material } - material is the
+ *                         tip's own (leaf size, flakes, wear).
  * @return {Object} The destination, for chaining.
  */
 export function applyPaintStyle( dst, src, opts ) {
@@ -676,7 +729,27 @@ export function applyPaintStyle( dst, src, opts ) {
 			const y = oy + ( ( i / w ) | 0 );
 			const g =
 				paperNoise( x, y ) * 0.6 + paperNoise( x >> 1, y >> 1 ) * 0.4;
-			cov[ i ] *= 1 - style.grain * ( 1 - g );
+			if ( style.id === 'crayon' || style.id === 'colored-pencil' ) {
+				const pencil = style.id === 'colored-pencil';
+				const tooth = Math.max(
+					0,
+					Math.min(
+						1,
+						( opts.tuning?.tooth ?? ( pencil ? 80 : 75 ) ) / 100
+					)
+				);
+				// Keep the same fine pores as the GPU sheet. Amount is local
+				// brush coverage; this fallback has no persistent pigment field.
+				cov[ i ] = boundCoverage(
+					cov[ i ] * ( pencil ? 1.1 : 1.55 ),
+					g,
+					boundTooth( toothTile( null ), x, y, pencil ),
+					tooth,
+					pencil
+				);
+			} else {
+				cov[ i ] *= 1 - style.grain * ( 1 - g );
+			}
 		}
 	}
 
@@ -709,6 +782,59 @@ export function applyPaintStyle( dst, src, opts ) {
 		blurChannel( cg, dragG, w, h, rad );
 		blurChannel( cb, dragB, w, h, rad );
 		blurChannel( ca, dragA, w, h, rad );
+	}
+
+	if ( style.id === 'metal-leaf' ) {
+		// Foil is opaque and mirrors: the same leaf as the GPU painter,
+		// laid over whatever the layer holds.
+		const hex = opts.colour || '#d7aa46';
+		const f0 = [ 1, 3, 5 ].map(
+			( k ) => parseInt( hex.slice( k, k + 2 ), 16 ) / 255
+		);
+		const unit = ( v ) => Math.max( 0, Math.min( 1, ( v ?? 0 ) / 100 ) );
+		const mat = opts.material || {};
+		// One stroke is one laying: its own turn, from where it started, so
+		// the same stroke always lays the same leaf.
+		const p0 = opts.points?.[ 0 ] || { x: ox, y: oy };
+		const seedRaw = Math.sin( p0.x * 12.9898 + p0.y * 78.233 ) * 43758.5453;
+		const leafOpts = {
+			piece: leafPieceFor( mat ),
+			flakes: !! mat.flakes,
+			tex: unit( opts.tuning?.tooth ?? 35 ),
+			sheen: unit( opts.tuning?.sheen ?? 80 ),
+			wear: mat.wear ?? 0,
+			seed: seedRaw - Math.floor( seedRaw ),
+		};
+		for ( let i = 0; i < n; i++ ) {
+			if ( cov[ i ] <= 0.002 ) {
+				continue;
+			}
+			const lp = leafPixel(
+				ox + ( i % w ) + 0.5,
+				oy + Math.floor( i / w ) + 0.5,
+				f0,
+				cov[ i ] * 1.6,
+				leafOpts
+			);
+			if ( lp[ 3 ] <= 0 ) {
+				continue;
+			}
+			const o = i * 4;
+			const da = d[ o + 3 ] / 255;
+			const na = lp[ 3 ] + da * ( 1 - lp[ 3 ] );
+			for ( let c = 0; c < 3; c++ ) {
+				const under = ( d[ o + c ] / 255 ) * da * ( 1 - lp[ 3 ] );
+				d[ o + c ] = Math.round(
+					255 *
+						Math.min(
+							1,
+							( lp[ c ] + under ) / Math.max( na, 1e-6 )
+						)
+				);
+			}
+			d[ o + 3 ] = Math.round( 255 * Math.min( 1, na ) );
+		}
+		return dst;
 	}
 
 	const mix = style.mixing ? makeMixer( opts.colour || '#000000' ) : null;

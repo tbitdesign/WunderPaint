@@ -339,6 +339,39 @@ const DE = {
 	'All schools at once, each painter in another.':
 		'Alle Schulen zugleich, jeder Maler in einer anderen.',
 	'Now painting as': 'Malt jetzt als',
+	Music: 'Musik',
+	'Optional: the painters follow the song, and the picture is finished when it ends.':
+		'Optional: Die Maler folgen dem Song, und das Bild ist fertig, wenn er endet.',
+	'They are listening to the song…': 'Sie hören sich den Song an…',
+	'Choose a song': 'Song wählen',
+	'Remove song': 'Song entfernen',
+	'Use song': 'Song verwenden',
+	'The song could not be read.': 'Der Song ließ sich nicht lesen.',
+	'Choose a song up to ten minutes long.':
+		'Wähle einen Song von höchstens zehn Minuten.',
+	'The song could not be played. They paint to it in silence.':
+		'Der Song ließ sich nicht abspielen. Sie malen ihn trotzdem, nur ohne Ton.',
+	Finished: 'Fertig',
+	'The song has ended. Choose a moment, insert it or start over.':
+		'Der Song ist zu Ende. Wähle einen Moment, füge ihn ein oder fang von vorn an.',
+	'painted to “%s”': 'gemalt zu „%s“',
+	'The painters hear: %s': 'Die Maler hören: %s',
+	loud: 'laut',
+	quiet: 'leise',
+	percussive: 'perkussiv',
+	flowing: 'fließend',
+	bright: 'hell',
+	dark: 'dunkel',
+	full: 'voll',
+	sparse: 'luftig',
+	'steady beat': 'fester Beat',
+	'free pulse': 'freier Puls',
+	'Text on your page': 'Text auf Deiner Seite',
+	'Leave room for my text': 'Platz für meinen Text lassen',
+	'The painters keep the places where your text sits calm, and the picture goes in behind your text.':
+		'Die Maler halten die Stellen ruhig, an denen Dein Text steht, und das Bild kommt hinter Deinen Text.',
+	'Your text covers most of the page, so the painters use all of it.':
+		'Dein Text bedeckt fast die ganze Seite, deshalb nutzen die Maler alles.',
 };
 
 const ES = {
@@ -670,6 +703,39 @@ const ES = {
 	'All schools at once, each painter in another.':
 		'Todas las escuelas a la vez, cada pintor en otra.',
 	'Now painting as': 'Ahora pinta como',
+	Music: 'Música',
+	'Optional: the painters follow the song, and the picture is finished when it ends.':
+		'Opcional: los pintores siguen la canción y el cuadro está terminado cuando ella acaba.',
+	'They are listening to the song…': 'Están escuchando la canción…',
+	'Choose a song': 'Elegir una canción',
+	'Remove song': 'Quitar la canción',
+	'Use song': 'Usar la canción',
+	'The song could not be read.': 'No se pudo leer la canción.',
+	'Choose a song up to ten minutes long.':
+		'Elige una canción de diez minutos como máximo.',
+	'The song could not be played. They paint to it in silence.':
+		'No se pudo reproducir la canción. La pintan igualmente, en silencio.',
+	Finished: 'Terminado',
+	'The song has ended. Choose a moment, insert it or start over.':
+		'La canción ha terminado. Elige un momento, insértalo o empieza de nuevo.',
+	'painted to “%s”': 'pintado con «%s»',
+	'The painters hear: %s': 'Los pintores oyen: %s',
+	loud: 'fuerte',
+	quiet: 'suave',
+	percussive: 'percusivo',
+	flowing: 'fluido',
+	bright: 'brillante',
+	dark: 'oscuro',
+	full: 'lleno',
+	sparse: 'espaciado',
+	'steady beat': 'ritmo marcado',
+	'free pulse': 'pulso libre',
+	'Text on your page': 'Texto en tu página',
+	'Leave room for my text': 'Dejar espacio para mi texto',
+	'The painters keep the places where your text sits calm, and the picture goes in behind your text.':
+		'Los pintores mantienen en calma los lugares donde está tu texto, y la imagen se coloca detrás de tu texto.',
+	'Your text covers most of the page, so the painters use all of it.':
+		'Tu texto cubre casi toda la página, así que los pintores la usan entera.',
 };
 
 const FR = {
@@ -998,6 +1064,39 @@ const FR = {
 	'All schools at once, each painter in another.':
 		'Toutes les écoles à la fois, chaque peintre dans une autre.',
 	'Now painting as': 'Peint maintenant en',
+	Music: 'Musique',
+	'Optional: the painters follow the song, and the picture is finished when it ends.':
+		'Facultatif : les peintres suivent le morceau, et le tableau est terminé quand il s’achève.',
+	'They are listening to the song…': 'Ils écoutent le morceau…',
+	'Choose a song': 'Choisir un morceau',
+	'Remove song': 'Retirer le morceau',
+	'Use song': 'Utiliser ce morceau',
+	'The song could not be read.': 'Impossible de lire le morceau.',
+	'Choose a song up to ten minutes long.':
+		'Choisissez un morceau de dix minutes au maximum.',
+	'The song could not be played. They paint to it in silence.':
+		'Impossible de jouer le morceau. Ils le peignent quand même, en silence.',
+	Finished: 'Terminé',
+	'The song has ended. Choose a moment, insert it or start over.':
+		'Le morceau est terminé. Choisissez un moment, insérez-le ou recommencez.',
+	'painted to “%s”': 'peint sur « %s »',
+	'The painters hear: %s': 'Les peintres entendent : %s',
+	loud: 'fort',
+	quiet: 'doux',
+	percussive: 'percussif',
+	flowing: 'fluide',
+	bright: 'lumineux',
+	dark: 'sombre',
+	full: 'plein',
+	sparse: 'aéré',
+	'steady beat': 'rythme régulier',
+	'free pulse': 'pulsation libre',
+	'Text on your page': 'Texte sur votre page',
+	'Leave room for my text': 'Laisser de la place pour mon texte',
+	'The painters keep the places where your text sits calm, and the picture goes in behind your text.':
+		'Les peintres laissent au calme les endroits où se trouve votre texte, et l’image se place derrière votre texte.',
+	'Your text covers most of the page, so the painters use all of it.':
+		'Votre texte couvre presque toute la page, les peintres l’utilisent donc entièrement.',
 };
 
 const PT = {
@@ -1328,6 +1427,39 @@ const PT = {
 	'All schools at once, each painter in another.':
 		'Todas as escolas ao mesmo tempo, cada pintor numa outra.',
 	'Now painting as': 'Pinta agora como',
+	Music: 'Música',
+	'Optional: the painters follow the song, and the picture is finished when it ends.':
+		'Opcional: os pintores seguem a música, e o quadro fica pronto quando ela termina.',
+	'They are listening to the song…': 'Eles estão ouvindo a música…',
+	'Choose a song': 'Escolher uma música',
+	'Remove song': 'Remover a música',
+	'Use song': 'Usar a música',
+	'The song could not be read.': 'Não foi possível ler a música.',
+	'Choose a song up to ten minutes long.':
+		'Escolha uma música de no máximo dez minutos.',
+	'The song could not be played. They paint to it in silence.':
+		'Não foi possível tocar a música. Eles a pintam mesmo assim, em silêncio.',
+	Finished: 'Concluído',
+	'The song has ended. Choose a moment, insert it or start over.':
+		'A música terminou. Escolha um momento, insira-o ou comece de novo.',
+	'painted to “%s”': 'pintado ao som de “%s”',
+	'The painters hear: %s': 'Os pintores ouvem: %s',
+	loud: 'forte',
+	quiet: 'suave',
+	percussive: 'percussivo',
+	flowing: 'fluido',
+	bright: 'brilhante',
+	dark: 'escuro',
+	full: 'cheio',
+	sparse: 'espaçado',
+	'steady beat': 'batida firme',
+	'free pulse': 'pulso livre',
+	'Text on your page': 'Texto na tua página',
+	'Leave room for my text': 'Deixar espaço para o meu texto',
+	'The painters keep the places where your text sits calm, and the picture goes in behind your text.':
+		'Os pintores mantêm calmos os lugares onde está o teu texto, e a imagem fica atrás do teu texto.',
+	'Your text covers most of the page, so the painters use all of it.':
+		'O teu texto cobre quase toda a página, por isso os pintores usam-na toda.',
 };
 
 const IT = {
@@ -1659,6 +1791,39 @@ const IT = {
 	'All schools at once, each painter in another.':
 		"Tutte le scuole insieme, ogni pittore in un'altra.",
 	'Now painting as': 'Ora dipinge come',
+	Music: 'Musica',
+	'Optional: the painters follow the song, and the picture is finished when it ends.':
+		'Facoltativo: i pittori seguono il brano e il quadro è finito quando il brano finisce.',
+	'They are listening to the song…': 'Stanno ascoltando il brano…',
+	'Choose a song': 'Scegli un brano',
+	'Remove song': 'Rimuovi il brano',
+	'Use song': 'Usa il brano',
+	'The song could not be read.': 'Impossibile leggere il brano.',
+	'Choose a song up to ten minutes long.':
+		'Scegli un brano di dieci minuti al massimo.',
+	'The song could not be played. They paint to it in silence.':
+		'Impossibile riprodurre il brano. Lo dipingono comunque, in silenzio.',
+	Finished: 'Finito',
+	'The song has ended. Choose a moment, insert it or start over.':
+		'Il brano è finito. Scegli un momento, inseriscilo o ricomincia.',
+	'painted to “%s”': 'dipinto su «%s»',
+	'The painters hear: %s': 'I pittori sentono: %s',
+	loud: 'forte',
+	quiet: 'sommesso',
+	percussive: 'percussivo',
+	flowing: 'fluido',
+	bright: 'luminoso',
+	dark: 'scuro',
+	full: 'pieno',
+	sparse: 'arioso',
+	'steady beat': 'ritmo costante',
+	'free pulse': 'pulsazione libera',
+	'Text on your page': 'Testo sulla tua pagina',
+	'Leave room for my text': 'Lascia spazio al mio testo',
+	'The painters keep the places where your text sits calm, and the picture goes in behind your text.':
+		'I pittori lasciano tranquilli i punti in cui si trova il tuo testo, e l’immagine va dietro al tuo testo.',
+	'Your text covers most of the page, so the painters use all of it.':
+		'Il tuo testo copre quasi tutta la pagina, quindi i pittori la usano tutta.',
 };
 
 const NL = {
@@ -1987,6 +2152,39 @@ const NL = {
 	'All schools at once, each painter in another.':
 		'Alle scholen tegelijk, elke schilder in een andere.',
 	'Now painting as': 'Schildert nu als',
+	Music: 'Muziek',
+	'Optional: the painters follow the song, and the picture is finished when it ends.':
+		'Optioneel: de schilders volgen het nummer, en het schilderij is klaar als het afloopt.',
+	'They are listening to the song…': 'Ze luisteren naar het nummer…',
+	'Choose a song': 'Kies een nummer',
+	'Remove song': 'Nummer verwijderen',
+	'Use song': 'Nummer gebruiken',
+	'The song could not be read.': 'Het nummer kon niet worden gelezen.',
+	'Choose a song up to ten minutes long.':
+		'Kies een nummer van hoogstens tien minuten.',
+	'The song could not be played. They paint to it in silence.':
+		'Het nummer kon niet worden afgespeeld. Ze schilderen het toch, in stilte.',
+	Finished: 'Klaar',
+	'The song has ended. Choose a moment, insert it or start over.':
+		'Het nummer is afgelopen. Kies een moment, voeg het in of begin opnieuw.',
+	'painted to “%s”': 'geschilderd op „%s”',
+	'The painters hear: %s': 'De schilders horen: %s',
+	loud: 'luid',
+	quiet: 'zacht',
+	percussive: 'percussief',
+	flowing: 'vloeiend',
+	bright: 'helder',
+	dark: 'donker',
+	full: 'vol',
+	sparse: 'luchtig',
+	'steady beat': 'vaste beat',
+	'free pulse': 'vrije puls',
+	'Text on your page': 'Tekst op je pagina',
+	'Leave room for my text': 'Ruimte laten voor mijn tekst',
+	'The painters keep the places where your text sits calm, and the picture goes in behind your text.':
+		'De schilders houden de plekken waar je tekst staat rustig, en de afbeelding komt achter je tekst.',
+	'Your text covers most of the page, so the painters use all of it.':
+		'Je tekst bedekt bijna de hele pagina, dus de schilders gebruiken alles.',
 };
 
 export const TABLES = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

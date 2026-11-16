@@ -6,6 +6,39 @@ import { maxTextSize } from './text-metrics';
 
 /* ------------------------------- geometry ----------------------------- */
 
+/** Content overhang in local coordinates, shared with the flat warp buffer. */
+export function contentPadding( layer ) {
+	return (
+		strokePadding( layer ) +
+		( 'smart' === layer.type ? liveEffectPadding( layer ) : 0 ) +
+		textFxReach( layer ) +
+		// Path text overshoots further: the baseline rides the path (which
+		// may touch the box edge) and overflow continues straight past the
+		// path ends (v1.156.2).
+		( 'text' === layer.type
+			? Math.ceil( maxTextSize( layer ) * ( layer.textPath ? 1.5 : 0.5 ) )
+			: 0 )
+	);
+}
+
+/** Flat source area and its mapping relative to the original geometric box. */
+export function warpSourceBounds( layer, scale ) {
+	const pad = Math.ceil( contentPadding( layer ) * scale ) / scale;
+	const w = Math.ceil( ( layer.w + 2 * pad ) * scale ) / scale;
+	const h = Math.ceil( ( layer.h + 2 * pad ) * scale ) / scale;
+	return {
+		pad,
+		w,
+		h,
+		region: {
+			u0: -pad / layer.w,
+			v0: -pad / layer.h,
+			u1: ( w - pad ) / layer.w,
+			v1: ( h - pad ) / layer.h,
+		},
+	};
+}
+
 /**
  * Device-space bounding box of a rotated layer rect, padded for styles.
  * @param layer
@@ -15,17 +48,10 @@ export function layerDeviceBounds( layer, env ) {
 	// Text glyphs may overshoot the em box (emoji ascenders, swashes,
 	// combining marks), pad the scratch buffer so they never get cut
 	// at the layer bounds (v1.4 emoji clipping fix).
+	const localPad = contentPadding( layer );
 	const pad =
-		stylesPadding( layer ) +
-		liveEffectPadding( layer ) +
-		strokePadding( layer ) +
-		textFxReach( layer ) +
-		// Path text overshoots further: the baseline rides the path (which
-		// may touch the box edge) and overflow continues straight past the
-		// path ends (v1.156.2).
-		( 'text' === layer.type
-			? Math.ceil( maxTextSize( layer ) * ( layer.textPath ? 1.5 : 0.5 ) )
-			: 0 );
+		( env.tight && ! layer.styles ? 0 : stylesPadding( layer ) ) +
+		( layer.previewEffect ? effectReach( layer.previewEffect.params ) : 0 );
 	let corners;
 	if ( 'stroke' === layer.type ) {
 		// Stroke paths are absolute doc coordinates; use the tracked bbox.
@@ -44,15 +70,18 @@ export function layerDeviceBounds( layer, env ) {
 	} else if ( layer.quad ) {
 		// Free transform (v0.7): bounds = the warped corner points. A
 		// Bézier warp mesh can bulge OUTSIDE the quad, so sample it.
-		corners = layer.warpMesh
-			? warpedQuadPoints( layer.quad, layer.warpMesh )
-			: [ layer.quad.tl, layer.quad.tr, layer.quad.br, layer.quad.bl ];
+		corners = warpedQuadPoints(
+			layer.quad,
+			layer.warpMesh,
+			layer.warpMesh ? 16 : 8,
+			warpSourceBounds( layer, env.scale ).region
+		);
 	} else {
 		corners = rectCorners(
-			layer.x,
-			layer.y,
-			layer.w,
-			layer.h,
+			layer.x - localPad,
+			layer.y - localPad,
+			layer.w + 2 * localPad,
+			layer.h + 2 * localPad,
 			layer.rot,
 			layer
 		);
@@ -72,10 +101,16 @@ export function layerDeviceBounds( layer, env ) {
 	// Intersect with the device viewport.
 	const vw = env.viewport.w * env.scale;
 	const vh = env.viewport.h * env.scale;
-	const x0 = Math.max( 0, Math.floor( dev.x ) );
-	const y0 = Math.max( 0, Math.floor( dev.y ) );
-	const x1 = Math.min( vw, Math.ceil( dev.x + dev.w ) );
-	const y1 = Math.min( vh, Math.ceil( dev.y + dev.h ) );
+	const x0 = Math.max( env.unclipped ? -Infinity : 0, Math.floor( dev.x ) );
+	const y0 = Math.max( env.unclipped ? -Infinity : 0, Math.floor( dev.y ) );
+	const x1 = Math.min(
+		env.unclipped ? Infinity : vw,
+		Math.ceil( dev.x + dev.w )
+	);
+	const y1 = Math.min(
+		env.unclipped ? Infinity : vh,
+		Math.ceil( dev.y + dev.h )
+	);
 	if ( x1 <= x0 || y1 <= y0 ) {
 		return null;
 	}

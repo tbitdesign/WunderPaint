@@ -24,6 +24,7 @@ import {
 	mosaicSteps,
 } from './mosaic-engine.js';
 import { t } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 const GEN_ID = 'wpie-photo-mosaic/mosaic';
 const PREVIEW_W = 960;
@@ -397,7 +398,7 @@ function openStudio( ctx ) {
 		// l.type und l.name waren undefined, jedes Kind wurde als
 		// "layer:undefined" mit der Beschriftung "undefined" angeboten - und
 		// danach standen dieselben Ebenen noch einmal flach in der Liste,
-		// weil sie dort ohnehin schon drin sind. (Codex F15.)
+		// weil sie dort ohnehin schon drin sind. (Audit F15.)
 		const walk = ( layers ) => {
 			const list = layers || [];
 			for ( const l of list ) {
@@ -574,7 +575,7 @@ function openStudio( ctx ) {
 				if ( target ) {
 					// The layer may be the child of a group: the renderer
 					// starts at roots without a parent and never reached it,
-					// so a grouped photo arrived as an empty canvas (Codex
+					// so a grouped photo arrived as an empty canvas (audit
 					// F15, 10.09.2026). Render a parent-less copy and hand the
 					// renderer its descendants for a group.
 					const byId = new Map(
@@ -1245,6 +1246,7 @@ function openStudio( ctx ) {
 	};
 	function close() {
 		window.clearTimeout( timer );
+		history.dispose();
 		bakeToken++;
 		tileToken++;
 		window.removeEventListener( 'resize', onResize );
@@ -1270,6 +1272,31 @@ function openStudio( ctx ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: look,
+	// tiles and source, reloaded when they changed.
+	const history = studioUndo( {
+		backdrop,
+		read: () => params,
+		write: ( data ) => {
+			const source = () => JSON.stringify( [ params.source, params.image ] );
+			const before = source(),
+				tilesBefore = JSON.stringify( params.tiles );
+			Object.assign( params, data );
+			activePreset = '';
+			if ( params.selfMosaic && ! selfData.length ) {
+				rebuildSelf();
+			}
+			renderSide();
+			syncPresets();
+			if ( source() !== before ) {
+				loadSource();
+			}
+			if ( JSON.stringify( params.tiles ) !== tilesBefore ) {
+				loadTiles();
+			}
+			schedule();
+		},
+	} );
 
 	/* -------------------------------- insert ------------------------------ */
 

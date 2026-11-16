@@ -30,7 +30,9 @@ import { parseUnitCircle, renderUnitCircle } from './engine/unitcircle.js';
 import { parseSets, renderSets } from './engine/sets.js';
 import { parseTree, renderTree } from './engine/tree.js';
 import { parseSolids, renderSolids } from './engine/solids.js';
-import { WIDE, FIGURE_DEFAULTS } from './figure.js';
+import { PREMIUM_BLOCKS } from './premium-blocks.js';
+import { bindFigure } from './engine/shared.js';
+import { WIDE, FIGURE_DEFAULTS, COORDINATE_TYPES } from './figure.js';
 
 export const GRID_OPTIONS = [
 	{ value: 'none', label: 'No grid' },
@@ -356,6 +358,8 @@ function renderGeometryBlock( block, ctx, env ) {
 	}
 	const res = renderGeometry( fig, {
 		width: ctx.blockWidth,
+		range: block.viewRange,
+		labelOffsets: block.labelOffsets,
 		height: null,
 		ink: ctx.style.ink,
 		accent: ctx.style.accent,
@@ -366,7 +370,12 @@ function renderGeometryBlock( block, ctx, env ) {
 			? ( latex, o ) => env.typeset( latex, { ...o, display: false } )
 			: null,
 	} );
-	return { ...stripSvg( res.svg ), warnings };
+	return {
+		...stripSvg( res.svg ),
+		warnings,
+		view: res.view,
+		handles: res.handles,
+	};
 }
 
 /* ------------------------------- number line ------------------------------ */
@@ -647,6 +656,7 @@ const renderSolidsBlock = primaryBlock(
 /* --------------------------------- registry ------------------------------- */
 
 export const BLOCKS = {
+	...PREMIUM_BLOCKS,
 	formula: {
 		label: 'Formula',
 		hint: 'LaTeX in, a typeset formula out; \\mark{a}{...} and a note label a part.',
@@ -847,7 +857,15 @@ export function blockSnippet( block ) {
 		tree: 'tree',
 		solids: 'solids',
 	};
-	return String( block[ keys[ block.type ] ] || '' )
+	return String(
+		block.heading ||
+			block.source ||
+			block[
+				keys[ block.type ] ||
+					( block.type === 'analysis' ? 'functions' : 'content' )
+			] ||
+			''
+	)
 		.split( '\n' )
 		.map( ( s ) => s.trim() )
 		.filter( Boolean )
@@ -858,15 +876,20 @@ export function blockSnippet( block ) {
 
 export async function renderFigure( params, env ) {
 	const t = tOf( env );
+	params = bindFigure( params, t );
 	const fig = params.figure;
 	const frame = frameFor( fig, env.docW, env.docH );
 	const style = styleFor( fig, env.kits );
-	const margin = fig.margin;
+	const margin = Math.max(
+		0,
+		Math.min( Number( fig.margin ) || 0, ( frame.width - 160 ) / 2 )
+	);
 	const innerWidth = frame.width - 2 * margin;
 	const scale = fig.scale || 1;
 	const typo = params.typo;
-	const warnings = [];
+	const warnings = [ ...params.bindingWarnings ];
 	const children = [];
+	const placements = [];
 	let y = margin;
 	let lastGap = 0;
 
@@ -901,16 +924,59 @@ export async function renderFigure( params, env ) {
 
 	let number = 0;
 	let engineWarned = false;
-	for ( const block of params.blocks ) {
+	const columns = Math.max(
+		1,
+		Math.min(
+			3,
+			Math.floor( innerWidth / 180 ),
+			Math.round( fig.columns ) || 1
+		)
+	);
+	const gutter = Math.max( 0, Math.min( 120, fig.gutter || 0 ) );
+	const columnWidth = ( innerWidth - gutter * ( columns - 1 ) ) / columns;
+	let column = 0,
+		rowHeight = 0,
+		rowGap = 0;
+	let rowFrames = [];
+	const finishRow = () => {
+		if ( ! column ) return;
+		for ( const i of rowFrames )
+			children[ i ] = children[ i ].replace(
+				/height="[^"]*"/,
+				`height="${ r( rowHeight ) }"`
+			);
+		rowFrames = [];
+		y += rowHeight + rowGap;
+		lastGap = rowGap;
+		column = 0;
+		rowHeight = 0;
+		rowGap = 0;
+	};
+	for ( const original of params.blocks ) {
+		const block = { ...original };
+		if ( fig.sharedAxes && COORDINATE_TYPES.includes( block.type ) )
+			Object.assign( block, {
+				xmin: fig.xmin,
+				xmax: fig.xmax,
+				ymin: fig.ymin,
+				ymax: fig.ymax,
+				equal: false,
+			} );
 		const def = BLOCKS[ block.type ];
-		if ( ! def ) {
-			continue;
-		}
+		if ( ! def ) continue;
+		const span = Math.max(
+			1,
+			Math.min( columns, Number( block.span ) || 1 )
+		);
+		if ( column + span > columns ) finishRow();
+		const cellWidth = columnWidth * span + gutter * ( span - 1 );
+		const padding = fig.panels ? 16 : 0;
+		const available = Math.max( 80, cellWidth - 2 * padding );
 		const blockWidth = WIDE.has( block.type )
-			? Math.round( ( innerWidth * ( block.width || 100 ) ) / 100 )
-			: innerWidth;
+			? Math.round( ( available * ( block.width || 100 ) ) / 100 )
+			: available;
 		const ctx = {
-			innerWidth,
+			innerWidth: available,
 			blockWidth,
 			style,
 			typo,
@@ -922,55 +988,99 @@ export async function renderFigure( params, env ) {
 		try {
 			res = def.render( block, ctx, env );
 		} catch ( e ) {
-			res = empty( [ ( e && e.message ) || String( e ) ] );
+			res = empty( [ e.message || String( e ) ] );
 		}
 		for ( const w of res.warnings || [] ) {
 			if ( w === t( ENGINE_LOADING ) ) {
-				if ( engineWarned ) {
-					continue;
-				}
+				if ( engineWarned ) continue;
 				engineWarned = true;
 			}
 			warnings.push( w );
 		}
-		if ( res.inner ) {
-			const free = innerWidth - res.w;
-			const x =
-				margin +
-				( 'left' === block.align
-					? 0
-					: 'right' === block.align
-					? free
-					: free / 2 );
+		if ( ! res.inner ) continue;
+		const heading = block.heading
+			? layoutText(
+					block.heading,
+					{
+						width: available,
+						size: 23 * scale,
+						font: style.titleFont,
+						color: style.ink,
+						weight: 700,
+					},
+					env
+			  )
+			: null;
+		const headerHeight = heading ? heading.h + 14 * scale : 0;
+		const fit = Math.min( 1, available / res.w );
+		const free = available - res.w * fit;
+		const cellX = margin + column * ( columnWidth + gutter );
+		const x =
+			cellX +
+			padding +
+			( block.align === 'left'
+				? 0
+				: block.align === 'right'
+				? free
+				: free / 2 );
+		const by = y + padding + headerHeight;
+		const h = res.h * fit + headerHeight + 2 * padding;
+		if ( fig.panels ) rowFrames.push( children.length );
+		if ( fig.panels )
 			children.push(
-				`<g transform="translate(${ r( Math.max( margin, x ) ) } ${ r(
-					y
-				) })">${ res.inner }</g>`
+				`<rect x="${ r( cellX ) }" y="${ r( y ) }" width="${ r(
+					cellWidth
+				) }" height="${ r( h ) }" fill="none" stroke="${
+					style.muted
+				}" stroke-width="1"/>`
 			);
-			if (
-				params.numbering &&
-				( 'formula' === block.type || 'steps' === block.type )
-			) {
-				number++;
-				const ns = typo.numbers.size * scale;
-				children.push(
-					textEl(
-						margin + innerWidth,
-						y + res.h / 2 + ns * 0.35,
-						'(' + number + ')',
-						{
-							size: ns,
-							font: style.textFont,
-							fill: typo.numbers.color || style.muted,
-							anchor: 'end',
-						}
-					)
-				);
-			}
-			lastGap = ( undefined === block.gap ? 24 : block.gap ) * scale;
-			y += res.h + lastGap;
+		if ( heading )
+			children.push(
+				`<g transform="translate(${ r( cellX + padding ) } ${ r(
+					y + padding
+				) })">${ heading.inner }</g>`
+			);
+		children.push(
+			`<g transform="translate(${ r( x ) } ${ r(
+				by
+			) }) scale(${ fit })">${ res.inner }</g>`
+		);
+		placements.push( {
+			id: block.id,
+			type: block.type,
+			x,
+			y: by,
+			w: res.w * fit,
+			h: res.h * fit,
+			scale: fit,
+			view: res.view,
+			handles: res.handles || [],
+		} );
+		if (
+			params.numbering &&
+			[ 'formula', 'steps' ].includes( block.type )
+		) {
+			const ns = typo.numbers.size * scale;
+			children.push(
+				textEl(
+					cellX + cellWidth - padding,
+					by + ( res.h * fit ) / 2 + ns * 0.35,
+					'(' + ++number + ')',
+					{
+						size: ns,
+						font: style.textFont,
+						fill: typo.numbers.color || style.muted,
+						anchor: 'end',
+					}
+				)
+			);
 		}
+		rowHeight = Math.max( rowHeight, h );
+		rowGap = Math.max( rowGap, ( block.gap ?? 24 ) * scale );
+		column += span;
+		if ( column >= columns ) finishRow();
 	}
+	finishRow();
 	putText( params.foot.caption, 'caption', style.textFont );
 	putText( params.foot.note, 'note', style.textFont );
 
@@ -999,5 +1109,6 @@ export async function renderFigure( params, env ) {
 		width,
 		height,
 		warnings,
+		placements,
 	};
 }

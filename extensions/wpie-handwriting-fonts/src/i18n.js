@@ -177,6 +177,75 @@ const DE = {
 	'%d character(s) still needed': 'Es fehlen noch %d Zeichen',
 	'Copy CSS': 'CSS kopieren',
 	'CSS copied': 'CSS kopiert',
+	// The generated route (1.5.0).
+	'Generate':
+		'Generieren',
+	'Handwriting':
+		'Handschrift',
+	'Describe it':
+		'Beschreiben',
+	'From a note':
+		'Aus einer Notiz',
+	'Describe the handwriting in a few words, and both sheets are written in it.':
+		'Die Handschrift in ein paar Worten beschreiben, und beide Blätter werden darin geschrieben.',
+	'For example: neat, slightly slanted school handwriting with a blue ballpoint pen':
+		'Zum Beispiel: saubere, leicht geneigte Schulschrift mit blauem Kugelschreiber',
+	'School hand':
+		'Schulschrift',
+	'neat, rounded school handwriting with a blue ballpoint pen':
+		'saubere, runde Schulschrift mit blauem Kugelschreiber',
+	'Quick scribble':
+		'Schnelle Notiz',
+	'a quick, slightly untidy everyday scribble with a black ballpoint pen':
+		'eine schnelle, etwas unordentliche Alltagsschrift mit schwarzem Kugelschreiber',
+	'Elegant cursive':
+		'Elegante Schreibschrift',
+	'elegant, flowing cursive with long loops, written with a fountain pen':
+		'elegante, fließende Schreibschrift mit langen Schleifen, mit dem Füller geschrieben',
+	'Felt-tip marker':
+		'Filzstift',
+	'bold, upright felt-tip marker handwriting with simple, rounded shapes':
+		'kräftige, aufrechte Filzstiftschrift mit einfachen, runden Formen',
+	'A photo of a few handwritten lines is enough. Characters the note does not show are written to match.':
+		'Ein Foto von ein paar handgeschriebenen Zeilen genügt. Zeichen, die in der Notiz nicht vorkommen, werden passend dazu geschrieben.',
+	'From the media library':
+		'Aus der Mediathek',
+	'Use image':
+		'Bild verwenden',
+	'Handwritten note':
+		'Handgeschriebene Notiz',
+	'Anything to add (optional)':
+		'Noch etwas dazu (optional)',
+	'For example: a little bolder':
+		'Zum Beispiel: etwas kräftiger',
+	'Sheets':
+		'Blätter',
+	'AI provider':
+		'KI-Anbieter',
+	'No AI provider configured.':
+		'Kein KI-Anbieter konfiguriert.',
+	'Open settings':
+		'Einstellungen öffnen',
+	'Write the sheets':
+		'Blätter schreiben lassen',
+	'Writing sheet %1$d of %2$d':
+		'Blatt %1$d von %2$d wird geschrieben',
+	'Reading sheet %1$d of %2$d':
+		'Blatt %1$d von %2$d wird gelesen',
+	'The provider returned no image.':
+		'Der Anbieter hat kein Bild geliefert.',
+	'The written sheet came back without its corner squares.':
+		'Das geschriebene Blatt kam ohne seine Eckquadrate zurück.',
+	'Choose a photo of a handwritten note first.':
+		'Zuerst ein Foto einer handgeschriebenen Notiz auswählen.',
+	'Written sheets':
+		'Geschriebene Blätter',
+	'Sheet %d':
+		'Blatt %d',
+	'Download the sheets':
+		'Blätter herunterladen',
+	'%d character(s) could not be read. Draw them, or write the sheets again with only the missing characters.':
+		'%d Zeichen konnten nicht gelesen werden. Diese zeichnen oder die Blätter noch einmal nur mit den fehlenden Zeichen schreiben lassen.',
 };
 
 const ES = {
@@ -333,6 +402,75 @@ const ES = {
 	'This font has no project inside it.': 'Esta fuente no lleva ningún proyecto dentro.',
 	'Opened %s': '%s abierto',
 	'Draw an accent once, and every letter that needs it is built for you.': 'Dibuja un acento una vez y cada letra que lo necesite se construye sola.',
+	// The generated route (1.5.0).
+	'Generate':
+		'Generar',
+	'Handwriting':
+		'Escritura a mano',
+	'Describe it':
+		'Describirla',
+	'From a note':
+		'Desde una nota',
+	'Describe the handwriting in a few words, and both sheets are written in it.':
+		'Describir la letra en pocas palabras: ambas hojas se escriben con ella.',
+	'For example: neat, slightly slanted school handwriting with a blue ballpoint pen':
+		'Por ejemplo: letra escolar clara, algo inclinada, con bolígrafo azul',
+	'School hand':
+		'Letra escolar',
+	'neat, rounded school handwriting with a blue ballpoint pen':
+		'letra escolar clara y redondeada con bolígrafo azul',
+	'Quick scribble':
+		'Garabato rápido',
+	'a quick, slightly untidy everyday scribble with a black ballpoint pen':
+		'una letra cotidiana rápida y algo desordenada con bolígrafo negro',
+	'Elegant cursive':
+		'Cursiva elegante',
+	'elegant, flowing cursive with long loops, written with a fountain pen':
+		'cursiva elegante y fluida con bucles largos, escrita con pluma estilográfica',
+	'Felt-tip marker':
+		'Rotulador',
+	'bold, upright felt-tip marker handwriting with simple, rounded shapes':
+		'letra de rotulador gruesa y recta, con formas simples y redondeadas',
+	'A photo of a few handwritten lines is enough. Characters the note does not show are written to match.':
+		'Basta con una foto de unas pocas líneas escritas a mano. Los caracteres que no aparecen en la nota se escriben a juego.',
+	'From the media library':
+		'Desde la biblioteca de medios',
+	'Use image':
+		'Usar imagen',
+	'Handwritten note':
+		'Nota escrita a mano',
+	'Anything to add (optional)':
+		'Algo que añadir (opcional)',
+	'For example: a little bolder':
+		'Por ejemplo: un poco más gruesa',
+	'Sheets':
+		'Hojas',
+	'AI provider':
+		'Proveedor de IA',
+	'No AI provider configured.':
+		'Ningún proveedor de IA configurado.',
+	'Open settings':
+		'Abrir ajustes',
+	'Write the sheets':
+		'Escribir las hojas',
+	'Writing sheet %1$d of %2$d':
+		'Escribiendo la hoja %1$d de %2$d',
+	'Reading sheet %1$d of %2$d':
+		'Leyendo la hoja %1$d de %2$d',
+	'The provider returned no image.':
+		'El proveedor no devolvió ninguna imagen.',
+	'The written sheet came back without its corner squares.':
+		'La hoja escrita volvió sin sus cuadrados de las esquinas.',
+	'Choose a photo of a handwritten note first.':
+		'Elige primero una foto de una nota escrita a mano.',
+	'Written sheets':
+		'Hojas escritas',
+	'Sheet %d':
+		'Hoja %d',
+	'Download the sheets':
+		'Descargar las hojas',
+	'%d character(s) could not be read. Draw them, or write the sheets again with only the missing characters.':
+		'No se pudieron leer %d caracteres. Dibújalos o vuelve a escribir las hojas solo con los caracteres que faltan.',
 };
 
 const FR = {
@@ -489,6 +627,75 @@ const FR = {
 	'This font has no project inside it.': 'Cette police ne contient aucun projet.',
 	'Opened %s': '%s ouvert',
 	'Draw an accent once, and every letter that needs it is built for you.': 'Dessine un accent une fois, et chaque lettre qui en a besoin est construite pour toi.',
+	// The generated route (1.5.0).
+	'Generate':
+		'Générer',
+	'Handwriting':
+		'Écriture manuscrite',
+	'Describe it':
+		'La décrire',
+	'From a note':
+		'D’après une note',
+	'Describe the handwriting in a few words, and both sheets are written in it.':
+		'Décrire l’écriture en quelques mots : les deux feuilles sont écrites avec.',
+	'For example: neat, slightly slanted school handwriting with a blue ballpoint pen':
+		'Par exemple : écriture scolaire soignée, légèrement penchée, au stylo bille bleu',
+	'School hand':
+		'Écriture scolaire',
+	'neat, rounded school handwriting with a blue ballpoint pen':
+		'écriture scolaire soignée et arrondie au stylo bille bleu',
+	'Quick scribble':
+		'Griffonnage rapide',
+	'a quick, slightly untidy everyday scribble with a black ballpoint pen':
+		'une écriture rapide du quotidien, un peu brouillonne, au stylo bille noir',
+	'Elegant cursive':
+		'Cursive élégante',
+	'elegant, flowing cursive with long loops, written with a fountain pen':
+		'cursive élégante et fluide aux longues boucles, écrite au stylo plume',
+	'Felt-tip marker':
+		'Feutre',
+	'bold, upright felt-tip marker handwriting with simple, rounded shapes':
+		'écriture au feutre épaisse et droite, aux formes simples et arrondies',
+	'A photo of a few handwritten lines is enough. Characters the note does not show are written to match.':
+		'Une photo de quelques lignes manuscrites suffit. Les caractères absents de la note sont écrits dans le même style.',
+	'From the media library':
+		'Depuis la médiathèque',
+	'Use image':
+		'Utiliser l’image',
+	'Handwritten note':
+		'Note manuscrite',
+	'Anything to add (optional)':
+		'Autre chose à ajouter (facultatif)',
+	'For example: a little bolder':
+		'Par exemple : un peu plus épais',
+	'Sheets':
+		'Feuilles',
+	'AI provider':
+		'Fournisseur d’IA',
+	'No AI provider configured.':
+		'Aucun fournisseur d’IA configuré.',
+	'Open settings':
+		'Ouvrir les réglages',
+	'Write the sheets':
+		'Écrire les feuilles',
+	'Writing sheet %1$d of %2$d':
+		'Écriture de la feuille %1$d sur %2$d',
+	'Reading sheet %1$d of %2$d':
+		'Lecture de la feuille %1$d sur %2$d',
+	'The provider returned no image.':
+		'Le fournisseur n’a renvoyé aucune image.',
+	'The written sheet came back without its corner squares.':
+		'La feuille écrite est revenue sans ses carrés d’angle.',
+	'Choose a photo of a handwritten note first.':
+		'Choisissez d’abord la photo d’une note manuscrite.',
+	'Written sheets':
+		'Feuilles écrites',
+	'Sheet %d':
+		'Feuille %d',
+	'Download the sheets':
+		'Télécharger les feuilles',
+	'%d character(s) could not be read. Draw them, or write the sheets again with only the missing characters.':
+		'%d caractère(s) n’ont pas pu être lus. Dessinez-les ou faites réécrire les feuilles avec les seuls caractères manquants.',
 };
 
 const PT = {
@@ -645,6 +852,75 @@ const PT = {
 	'This font has no project inside it.': 'Esta fonte não traz nenhum projeto dentro.',
 	'Opened %s': '%s aberto',
 	'Draw an accent once, and every letter that needs it is built for you.': 'Desenhe um acento uma vez e cada letra que precisar dele é construída para você.',
+	// The generated route (1.5.0).
+	'Generate':
+		'Gerar',
+	'Handwriting':
+		'Letra manuscrita',
+	'Describe it':
+		'Descrever',
+	'From a note':
+		'A partir de uma nota',
+	'Describe the handwriting in a few words, and both sheets are written in it.':
+		'Descrever a letra em poucas palavras: as duas folhas são escritas com ela.',
+	'For example: neat, slightly slanted school handwriting with a blue ballpoint pen':
+		'Por exemplo: letra escolar caprichada, um pouco inclinada, com caneta esferográfica azul',
+	'School hand':
+		'Letra escolar',
+	'neat, rounded school handwriting with a blue ballpoint pen':
+		'letra escolar caprichada e arredondada com caneta esferográfica azul',
+	'Quick scribble':
+		'Rabisco rápido',
+	'a quick, slightly untidy everyday scribble with a black ballpoint pen':
+		'uma letra rápida do dia a dia, um pouco desarrumada, com caneta esferográfica preta',
+	'Elegant cursive':
+		'Cursiva elegante',
+	'elegant, flowing cursive with long loops, written with a fountain pen':
+		'cursiva elegante e fluida com laçadas longas, escrita com caneta-tinteiro',
+	'Felt-tip marker':
+		'Caneta hidrográfica',
+	'bold, upright felt-tip marker handwriting with simple, rounded shapes':
+		'letra de caneta hidrográfica grossa e reta, com formas simples e arredondadas',
+	'A photo of a few handwritten lines is enough. Characters the note does not show are written to match.':
+		'Uma foto de algumas linhas escritas à mão basta. Os caracteres que não aparecem na nota são escritos no mesmo estilo.',
+	'From the media library':
+		'Da biblioteca de mídia',
+	'Use image':
+		'Usar imagem',
+	'Handwritten note':
+		'Nota manuscrita',
+	'Anything to add (optional)':
+		'Algo a acrescentar (opcional)',
+	'For example: a little bolder':
+		'Por exemplo: um pouco mais grossa',
+	'Sheets':
+		'Folhas',
+	'AI provider':
+		'Provedor de IA',
+	'No AI provider configured.':
+		'Nenhum provedor de IA configurado.',
+	'Open settings':
+		'Abrir configurações',
+	'Write the sheets':
+		'Escrever as folhas',
+	'Writing sheet %1$d of %2$d':
+		'Escrevendo a folha %1$d de %2$d',
+	'Reading sheet %1$d of %2$d':
+		'Lendo a folha %1$d de %2$d',
+	'The provider returned no image.':
+		'O provedor não retornou nenhuma imagem.',
+	'The written sheet came back without its corner squares.':
+		'A folha escrita voltou sem os quadrados dos cantos.',
+	'Choose a photo of a handwritten note first.':
+		'Escolha primeiro a foto de uma nota manuscrita.',
+	'Written sheets':
+		'Folhas escritas',
+	'Sheet %d':
+		'Folha %d',
+	'Download the sheets':
+		'Baixar as folhas',
+	'%d character(s) could not be read. Draw them, or write the sheets again with only the missing characters.':
+		'Não foi possível ler %d caractere(s). Desenhe-os ou escreva as folhas de novo apenas com os caracteres que faltam.',
 };
 
 const IT = {
@@ -801,6 +1077,75 @@ const IT = {
 	'This font has no project inside it.': 'Questo font non contiene alcun progetto.',
 	'Opened %s': '%s aperto',
 	'Draw an accent once, and every letter that needs it is built for you.': 'Disegna un accento una volta e ogni lettera che ne ha bisogno viene costruita da sola.',
+	// The generated route (1.5.0).
+	'Generate':
+		'Genera',
+	'Handwriting':
+		'Scrittura a mano',
+	'Describe it':
+		'Descriverla',
+	'From a note':
+		'Da un appunto',
+	'Describe the handwriting in a few words, and both sheets are written in it.':
+		'Descrivere la scrittura in poche parole: entrambi i fogli vengono scritti così.',
+	'For example: neat, slightly slanted school handwriting with a blue ballpoint pen':
+		'Per esempio: scrittura scolastica ordinata, leggermente inclinata, con penna a sfera blu',
+	'School hand':
+		'Scrittura scolastica',
+	'neat, rounded school handwriting with a blue ballpoint pen':
+		'scrittura scolastica ordinata e rotonda con penna a sfera blu',
+	'Quick scribble':
+		'Scarabocchio veloce',
+	'a quick, slightly untidy everyday scribble with a black ballpoint pen':
+		'una scrittura veloce di tutti i giorni, un po’ disordinata, con penna a sfera nera',
+	'Elegant cursive':
+		'Corsivo elegante',
+	'elegant, flowing cursive with long loops, written with a fountain pen':
+		'corsivo elegante e scorrevole con lunghi occhielli, scritto con la stilografica',
+	'Felt-tip marker':
+		'Pennarello',
+	'bold, upright felt-tip marker handwriting with simple, rounded shapes':
+		'scrittura a pennarello marcata e diritta, con forme semplici e arrotondate',
+	'A photo of a few handwritten lines is enough. Characters the note does not show are written to match.':
+		'Basta la foto di qualche riga scritta a mano. I caratteri che l’appunto non mostra vengono scritti nello stesso stile.',
+	'From the media library':
+		'Dalla libreria media',
+	'Use image':
+		'Usa immagine',
+	'Handwritten note':
+		'Appunto scritto a mano',
+	'Anything to add (optional)':
+		'Altro da aggiungere (facoltativo)',
+	'For example: a little bolder':
+		'Per esempio: un po’ più marcata',
+	'Sheets':
+		'Fogli',
+	'AI provider':
+		'Provider IA',
+	'No AI provider configured.':
+		'Nessun provider IA configurato.',
+	'Open settings':
+		'Apri impostazioni',
+	'Write the sheets':
+		'Scrivi i fogli',
+	'Writing sheet %1$d of %2$d':
+		'Scrittura del foglio %1$d di %2$d',
+	'Reading sheet %1$d of %2$d':
+		'Lettura del foglio %1$d di %2$d',
+	'The provider returned no image.':
+		'Il provider non ha restituito alcuna immagine.',
+	'The written sheet came back without its corner squares.':
+		'Il foglio scritto è tornato senza i quadrati agli angoli.',
+	'Choose a photo of a handwritten note first.':
+		'Scegli prima la foto di un appunto scritto a mano.',
+	'Written sheets':
+		'Fogli scritti',
+	'Sheet %d':
+		'Foglio %d',
+	'Download the sheets':
+		'Scarica i fogli',
+	'%d character(s) could not be read. Draw them, or write the sheets again with only the missing characters.':
+		'Non è stato possibile leggere %d caratteri. Disegnali oppure fai riscrivere i fogli solo con i caratteri mancanti.',
 };
 
 const NL = {
@@ -952,6 +1297,75 @@ const NL = {
 	'%d character(s) still needed': 'Er ontbreken nog %d teken(s)',
 	'Copy CSS': 'CSS kopiëren',
 	'CSS copied': 'CSS gekopieerd',
+	// The generated route (1.5.0).
+	'Generate':
+		'Genereren',
+	'Handwriting':
+		'Handschrift',
+	'Describe it':
+		'Beschrijven',
+	'From a note':
+		'Uit een notitie',
+	'Describe the handwriting in a few words, and both sheets are written in it.':
+		'Het handschrift in een paar woorden beschrijven: beide vellen worden erin geschreven.',
+	'For example: neat, slightly slanted school handwriting with a blue ballpoint pen':
+		'Bijvoorbeeld: net, licht hellend schoolschrift met een blauwe balpen',
+	'School hand':
+		'Schoolschrift',
+	'neat, rounded school handwriting with a blue ballpoint pen':
+		'net, rond schoolschrift met een blauwe balpen',
+	'Quick scribble':
+		'Snelle krabbel',
+	'a quick, slightly untidy everyday scribble with a black ballpoint pen':
+		'een snel, wat slordig alledaags handschrift met een zwarte balpen',
+	'Elegant cursive':
+		'Elegant schrijfschrift',
+	'elegant, flowing cursive with long loops, written with a fountain pen':
+		'elegant, vloeiend schrijfschrift met lange lussen, geschreven met een vulpen',
+	'Felt-tip marker':
+		'Viltstift',
+	'bold, upright felt-tip marker handwriting with simple, rounded shapes':
+		'krachtig, rechtop viltstifthandschrift met eenvoudige, ronde vormen',
+	'A photo of a few handwritten lines is enough. Characters the note does not show are written to match.':
+		'Een foto van een paar handgeschreven regels is genoeg. Tekens die niet in de notitie staan, worden er passend bij geschreven.',
+	'From the media library':
+		'Uit de mediabibliotheek',
+	'Use image':
+		'Afbeelding gebruiken',
+	'Handwritten note':
+		'Handgeschreven notitie',
+	'Anything to add (optional)':
+		'Nog iets toe te voegen (optioneel)',
+	'For example: a little bolder':
+		'Bijvoorbeeld: iets vetter',
+	'Sheets':
+		'Vellen',
+	'AI provider':
+		'AI-aanbieder',
+	'No AI provider configured.':
+		'Geen AI-aanbieder ingesteld.',
+	'Open settings':
+		'Instellingen openen',
+	'Write the sheets':
+		'Vellen laten schrijven',
+	'Writing sheet %1$d of %2$d':
+		'Vel %1$d van %2$d wordt geschreven',
+	'Reading sheet %1$d of %2$d':
+		'Vel %1$d van %2$d wordt gelezen',
+	'The provider returned no image.':
+		'De aanbieder gaf geen afbeelding terug.',
+	'The written sheet came back without its corner squares.':
+		'Het geschreven vel kwam terug zonder zijn hoekvierkanten.',
+	'Choose a photo of a handwritten note first.':
+		'Kies eerst een foto van een handgeschreven notitie.',
+	'Written sheets':
+		'Geschreven vellen',
+	'Sheet %d':
+		'Vel %d',
+	'Download the sheets':
+		'Vellen downloaden',
+	'%d character(s) could not be read. Draw them, or write the sheets again with only the missing characters.':
+		'%d teken(s) konden niet worden gelezen. Teken ze, of laat de vellen opnieuw schrijven met alleen de ontbrekende tekens.',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

@@ -5,11 +5,16 @@
  * content button, and the warnings of the last render right where the
  * user types.
  */
+import { bindFigure } from '../engine/shared.js';
+import { sourceControl } from './math-tools.js';
 import { BLOCKS } from '../blocks.js';
 import { blockFields } from '../figure.js';
 import { ICONS } from './icons.js';
 
-export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
+export function buildMaterial(
+	host,
+	{ S, ui, bridge, t, onChange, onSource }
+) {
 	const panel = ui.el( 'div', 'dsm-card wpiemf-material', host );
 	const head = ui.el( 'div', 'dsm-card-head wpiemf-material-head', panel );
 	const headIcon = ui.el( 'span', 'wpiemf-material-ic', head );
@@ -45,12 +50,32 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 		headIcon.innerHTML = ICONS[ b.type ] || ICONS.formula;
 		headLabel.textContent = t( def.label );
 		headHint.textContent = t( def.note );
+		sourceControl( body, b, {
+			S,
+			ui,
+			t,
+			onChange,
+			refresh: () => {
+				refresh();
+				onSource();
+			},
+		} );
 		const row = ui.el( 'div', 'wpiemf-material-row', body );
 		const main = ui.el( 'div', 'wpiemf-material-main', row );
 		const textarea = ui.el( 'textarea', 'dsm-input wpiemf-text', main );
 		textarea.spellcheck = false;
-		textarea.value = b[ key ] || '';
-		textarea.placeholder = def.placeholder;
+		const linked = !! b.source && [ 'formula', 'table' ].includes( b.type );
+		textarea.value = linked
+			? bindFigure( S.params, t ).blocks.find( ( v ) => v.id === b.id )?.[
+					key
+			  ] || ''
+			: b[ key ] || '';
+		textarea.readOnly = linked;
+		textarea.placeholder = linked
+			? t( 'Linked to the shared definition.' )
+			: b.source
+			? ''
+			: def.placeholder;
 		textarea.oninput = () => {
 			b[ key ] = textarea.value;
 			S.starter = null;
@@ -76,7 +101,7 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 				)
 			);
 		}
-		if ( 'graph' === b.type ) {
+		if ( [ 'graph', 'analysis' ].includes( b.type ) && ! b.source ) {
 			const aside = ui.el( 'div', 'wpiemf-material-aside', row );
 			const fields = ui.el( 'div', 'wpiemf-fields', aside );
 			for ( const [ k, label ] of [
@@ -104,7 +129,11 @@ export function buildMaterial( host, { S, ui, bridge, t, onChange } ) {
 			);
 		}
 		const tools = ui.el( 'div', 'wpiemf-tools', main );
-		if ( bridge.components && bridge.components.mountVarButton ) {
+		if (
+			! linked &&
+			bridge.components &&
+			bridge.components.mountVarButton
+		) {
 			const varHost = ui.el( 'div', 'wpiemf-var', tools );
 			try {
 				mounts.push(

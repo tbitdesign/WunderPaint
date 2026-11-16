@@ -8,7 +8,7 @@
  * unavailable).
  */
 
-const makeCanvas = ( like, w, h ) => {
+export const makeCanvas = ( like, w, h ) => {
 	const c =
 		'undefined' !== typeof document
 			? document.createElement( 'canvas' )
@@ -20,7 +20,184 @@ const makeCanvas = ( like, w, h ) => {
 
 /* ------------------------------ shared color ------------------------------ */
 
-const BG = { dark: '#0e1013', light: '#ffffff' };
+export const BG = { dark: '#0e1013', light: '#ffffff' };
+
+/**
+ * The output sheet of a card (3.5): its layout is `w` x `h`, its pixels
+ * `opts.outScale` times that. The context arrives scaled, so every card
+ * draws in layout units and comes out sharp at any size - a preview, a
+ * thumbnail or a layer at the document's own size. Only what a transform
+ * does not reach, shadow blur and shadow offsets (device pixels), has to
+ * be multiplied by `out` by hand.
+ *
+ * @param {Object} like Canvas-like.
+ * @param {number} w    Layout width.
+ * @param {number} h    Layout height.
+ * @param {Object} opts { outScale }.
+ * @return {Object} { c, g, out }.
+ */
+export function outSheet( like, w, h, opts = {} ) {
+	const out = Math.max( 0.1, Math.min( 8, opts.outScale || 1 ) );
+	const c = makeCanvas(
+		like,
+		Math.max( 1, Math.round( w * out ) ),
+		Math.max( 1, Math.round( h * out ) )
+	);
+	const g = c.getContext( '2d' );
+	g.setTransform( out, 0, 0, out, 0, 0 );
+	return { c, g, out };
+}
+
+/**
+ * A soft drop shadow drawn ONCE and stamped under every stone (3.5).
+ *
+ * A canvas shadow is a Gaussian blur of the shape, computed again for
+ * every single fill - five thousand bottle caps were five thousand blurs,
+ * and that, not the caps, was the half second. Every stone of a card
+ * casts the same shadow, so it is drawn once, away from its shape (only
+ * the shadow lands on the stamp), and then simply placed.
+ *
+ * @param {Object}   like  Canvas-like.
+ * @param {number}   w     Shape width (layout units).
+ * @param {number}   h     Shape height.
+ * @param {number}   out   Output scale.
+ * @param {Function} shape Builds the shape's path around (0, 0).
+ * @param {Object}   o     { blur, dy, color } in layout units.
+ * @return {Object} { c, w, h } - draw centred on the stone.
+ */
+export function shadowStamp( like, w, h, out, shape, o ) {
+	const pad = Math.ceil( o.blur * 2 + Math.abs( o.dy || 0 ) + 1 );
+	const sw = w + pad * 2;
+	const sh = h + pad * 2;
+	const c = makeCanvas(
+		like,
+		Math.max( 1, Math.ceil( sw * out ) ),
+		Math.max( 1, Math.ceil( sh * out ) )
+	);
+	const g = c.getContext( '2d' );
+	const far = ( sw + sh ) * 4;
+	g.setTransform( out, 0, 0, out, ( sw / 2 - far ) * out, ( sh / 2 ) * out );
+	g.shadowColor = o.color;
+	g.shadowBlur = o.blur * out;
+	g.shadowOffsetX = far * out;
+	g.shadowOffsetY = ( o.dy || 0 ) * out;
+	g.fillStyle = '#000';
+	g.beginPath();
+	shape( g );
+	g.fill();
+	return { c, w: sw, h: sh };
+}
+
+// I0(x) * e^-x, the scaled Bessel function (Abramowitz & Stegun 9.8).
+const i0e = ( x ) => {
+	if ( x < 3.75 ) {
+		const t = ( x / 3.75 ) ** 2;
+		return (
+			( 1 +
+				t *
+					( 3.5156229 +
+						t *
+							( 3.0899424 +
+								t *
+									( 1.2067492 +
+										t *
+											( 0.2659732 +
+												t *
+													( 0.0360768 +
+														t *
+															0.0045813 ) ) ) ) ) ) *
+			Math.exp( -x )
+		);
+	}
+	const t = 3.75 / x;
+	return (
+		( 0.39894228 +
+			t *
+				( 0.01328592 +
+					t *
+						( 0.00225319 +
+							t *
+								( -0.00157565 +
+									t *
+										( 0.00916281 +
+											t *
+												( -0.02057706 +
+													t *
+														( 0.02635537 +
+															t *
+																( -0.01647633 +
+																	t *
+																		0.00392377 ) ) ) ) ) ) ) ) /
+		Math.sqrt( x )
+	);
+};
+
+/**
+ * How much of a disc of radius r0, blurred by a Gaussian of sigma, lands
+ * at distance r from its centre (0..1): exactly what a canvas shadow of
+ * a filled circle is, by the spec's sigma = shadowBlur / 2.
+ */
+export function discBlur( r, r0, sigma ) {
+	const steps = 40;
+	const s2 = sigma * sigma;
+	let sum = 0;
+	for ( let i = 0; i < steps; i++ ) {
+		const rho = ( ( i + 0.5 ) / steps ) * r0;
+		sum +=
+			( rho / s2 ) *
+			Math.exp( -( ( r - rho ) ** 2 ) / ( 2 * s2 ) ) *
+			i0e( ( r * rho ) / s2 );
+	}
+	return Math.min( 1, ( sum * r0 ) / steps );
+}
+
+const GLOW_AT = [ 0, 0.15, 0.3, 0.5, 0.75, 1.05, 1.4, 1.8, 2.3, 3 ];
+const glowStops = new Map();
+
+/**
+ * The halo a shadow-blurred light used to cast, as a radial gradient
+ * (3.5): one blur per bulb was what the LED wall and the marquee cost.
+ * The stops are the blurred disc itself, worked out once per size and
+ * softness and then reused for every bulb of that brightness.
+ *
+ * @param {Object} g    2d context.
+ * @param {number} cx   Centre x.
+ * @param {number} cy   Centre y.
+ * @param {number} r0   Radius of the light itself.
+ * @param {number} blur The shadowBlur it replaces (layout units).
+ * @param {Array}  col  RGB.
+ * @param {number} a    Opacity of the light.
+ */
+export function glow( g, cx, cy, r0, blur, col, a ) {
+	if ( blur < 0.5 || a <= 0 ) {
+		return;
+	}
+	const sigma = blur / 2;
+	const key = Math.round( r0 * 8 ) + ':' + Math.round( sigma * 16 );
+	let stops = glowStops.get( key );
+	if ( ! stops ) {
+		stops = GLOW_AT.map( ( f ) => [
+			f,
+			discBlur( r0 + f * sigma, r0, sigma ),
+		] );
+		glowStops.set( key, stops );
+	}
+	const ri = r0 * 0.6;
+	const ro = r0 + 3 * sigma;
+	const rgb = `${ col[ 0 ] | 0 },${ col[ 1 ] | 0 },${ col[ 2 ] | 0 }`;
+	const gr = g.createRadialGradient( cx, cy, ri, cx, cy, ro );
+	gr.addColorStop( 0, `rgba(${ rgb },${ a * stops[ 0 ][ 1 ] })` );
+	for ( const [ f, v ] of stops ) {
+		gr.addColorStop(
+			( r0 + f * sigma - ri ) / ( ro - ri ),
+			`rgba(${ rgb },${ a * v })`
+		);
+	}
+	g.fillStyle = gr;
+	g.beginPath();
+	g.arc( cx, cy, ro, 0, Math.PI * 2 );
+	g.fill();
+}
 
 export const CHARSETS = {
 	classic: ' .:-=+*#%@',
@@ -33,7 +210,7 @@ export const CHARSETS = {
 	typewriter: ' .,:;i1tfLG08@',
 };
 
-function makeSampler( like, source, w, h ) {
+export function makeSampler( like, source, w, h ) {
 	const c = makeCanvas( like, w, h );
 	c.getContext( '2d' ).drawImage( source, 0, 0, w, h );
 	const d = c.getContext( '2d' ).getImageData( 0, 0, w, h ).data;
@@ -50,7 +227,7 @@ function makeSampler( like, source, w, h ) {
 	};
 }
 
-const lumOf = ( p ) => 0.299 * p[ 0 ] + 0.587 * p[ 1 ] + 0.114 * p[ 2 ];
+export const lumOf = ( p ) => 0.299 * p[ 0 ] + 0.587 * p[ 1 ] + 0.114 * p[ 2 ];
 
 // Intensity: how strongly a glyph should appear at this spot. On a
 // dark ground bright zones glow; on a light ground dark zones print.
@@ -60,7 +237,7 @@ const intensityOf = ( p, background, contrast = 1 ) => {
 	return Math.max( 0, Math.min( 1, Math.pow( raw, 1 / contrast ) ) );
 };
 
-const clamp255 = ( v ) => Math.max( 0, Math.min( 255, v ) );
+export const clamp255 = ( v ) => Math.max( 0, Math.min( 255, v ) );
 const hexToRgb = ( hex ) => [
 	parseInt( hex.slice( 1, 3 ), 16 ),
 	parseInt( hex.slice( 3, 5 ), 16 ),
@@ -68,7 +245,7 @@ const hexToRgb = ( hex ) => [
 ];
 
 // Saturation-boosted image color so glyphs stay lively at small sizes.
-function boostColor( p, background ) {
+export function boostColor( p, background ) {
 	const m = ( p[ 0 ] + p[ 1 ] + p[ 2 ] ) / 3;
 	const f = 'light' === background ? 0.8 : 1.15;
 	const lift = 'light' === background ? 0 : 36;
@@ -136,8 +313,7 @@ export function renderAscii( like, source, opts = {} ) {
 		Math.round( ( cols * CW * ( source.height / source.width ) ) / CH )
 	);
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * CW, rows * CH );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * CW, rows * CH, opts );
 	g.fillStyle = BG[ background ];
 	g.fillRect( 0, 0, c.width, c.height );
 	g.font = `${ opts.bold ? 700 : 400 } ${ CW + 4 }px monospace`;
@@ -245,8 +421,7 @@ export function renderEmojiArt( like, source, tiles, opts = {} ) {
 		Math.round( cols * ( source.height / source.width ) )
 	);
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * CELL, rows * CELL );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * CELL, rows * CELL, opts );
 	g.fillStyle = BG[ background ];
 	g.fillRect( 0, 0, c.width, c.height );
 	g.font = `${ CELL - 2 }px sans-serif`;
@@ -323,8 +498,7 @@ export function renderWordArt( like, source, opts = {} ) {
 	const W = 620;
 	const H = Math.round( ( W * source.height ) / source.width );
 	const smp = makeSampler( like, source, W, H );
-	const c = makeCanvas( like, W, H );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, W, H, opts );
 	g.fillStyle = BG[ background ];
 	g.fillRect( 0, 0, W, H );
 	g.textBaseline = 'alphabetic';
@@ -388,8 +562,7 @@ export function renderTextFlow( like, source, opts = {} ) {
 	const W = 620;
 	const H = Math.round( ( W * source.height ) / source.width );
 	const smp = makeSampler( like, source, W, H );
-	const c = makeCanvas( like, W, H );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, W, H, opts );
 	g.fillStyle = BG[ background ];
 	g.fillRect( 0, 0, W, H );
 	g.textBaseline = 'middle';
@@ -511,8 +684,7 @@ export function renderSilhouetteText( like, source, opts = {} ) {
 		}
 		return opts.invert ? ! inside : inside;
 	};
-	const c = makeCanvas( like, W, H );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, W, H, opts );
 	g.fillStyle = BG[ background ];
 	g.fillRect( 0, 0, W, H );
 	g.textBaseline = 'middle';
@@ -618,8 +790,7 @@ export function renderBrickArt( like, source, opts = {} ) {
 		Math.round( ( cols * source.height ) / source.width )
 	);
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	for ( let y = 0; y < rows; y++ ) {
 		for ( let x = 0; x < cols; x++ ) {
 			const p = smp.pix( x, y );
@@ -670,7 +841,7 @@ export function renderBrickArt( like, source, opts = {} ) {
 /* --------------------------- cell-mosaic family --------------------------- */
 
 // Shared grid for the object-mosaic types (~1120px sheet width).
-const gridFor = ( source, cell ) => {
+export const gridFor = ( source, cell ) => {
 	const cols = Math.max( 8, Math.round( 1120 / cell ) );
 	const rows = Math.max(
 		8,
@@ -680,7 +851,7 @@ const gridFor = ( source, cell ) => {
 };
 
 // Deterministic per-cell jitter.
-const cellRand = ( x, y, k ) => {
+export const cellRand = ( x, y, k ) => {
 	const n = Math.sin( x * 127.1 + y * 311.7 + k * 74.7 ) * 43758.5453;
 	return n - Math.floor( n );
 };
@@ -694,7 +865,7 @@ const redmean = ( p, b ) => {
 	);
 };
 
-const nearestOf = ( p, palette ) => {
+export const nearestOf = ( p, palette ) => {
 	let best = 0;
 	let bs = Infinity;
 	for ( let i = 0; i < palette.length; i++ ) {
@@ -707,7 +878,7 @@ const nearestOf = ( p, palette ) => {
 	return palette[ best ];
 };
 
-const roundedRect = ( g, x, y, w, h, r ) => {
+export const roundedRect = ( g, x, y, w, h, r ) => {
 	g.beginPath();
 	g.moveTo( x + r, y );
 	g.arcTo( x + w, y, x + w, y + h, r );
@@ -767,8 +938,7 @@ export function renderDiceArt( like, source, opts = {} ) {
 	const cell = Math.max( 14, Math.min( 44, opts.cell || 24 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	g.fillStyle = BG[ 'light' === opts.background ? 'light' : 'dark' ];
 	g.fillRect( 0, 0, c.width, c.height );
 	const mix = opts.mix || 'both';
@@ -837,8 +1007,7 @@ export function renderCubeArt( like, source, opts = {} ) {
 	cols = Math.max( 9, Math.round( cols / 3 ) * 3 );
 	rows = Math.max( 9, Math.round( rows / 3 ) * 3 );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	g.fillStyle = '#0b0b0d';
 	g.fillRect( 0, 0, c.width, c.height );
 	for ( let y = 0; y < rows; y++ ) {
@@ -873,13 +1042,13 @@ export function renderCubeArt( like, source, opts = {} ) {
 	for ( let x = 0; x <= cols; x += 3 ) {
 		g.beginPath();
 		g.moveTo( x * cell, 0 );
-		g.lineTo( x * cell, c.height );
+		g.lineTo( x * cell, rows * cell );
 		g.stroke();
 	}
 	for ( let y = 0; y <= rows; y += 3 ) {
 		g.beginPath();
 		g.moveTo( 0, y * cell );
-		g.lineTo( c.width, y * cell );
+		g.lineTo( cols * cell, y * cell );
 		g.stroke();
 	}
 	return c;
@@ -914,8 +1083,16 @@ export function renderStickyNotes( like, source, opts = {} ) {
 	const cell = Math.max( 14, Math.min( 48, opts.cell || 26 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g, out } = outSheet( like, cols * cell, rows * cell, opts );
+	const size = cell * 0.94;
+	const drop = shadowStamp(
+		like,
+		size,
+		size,
+		out,
+		( s ) => s.rect( -size / 2, -size / 2, size, size ),
+		{ blur: cell * 0.14, dy: cell * 0.07, color: 'rgba(0,0,0,0.3)' }
+	);
 	g.fillStyle = 'light' === opts.background ? '#e8e6e1' : '#272a30';
 	g.fillRect( 0, 0, c.width, c.height );
 	for ( let y = 0; y < rows; y++ ) {
@@ -923,18 +1100,14 @@ export function renderStickyNotes( like, source, opts = {} ) {
 			const col = nearestOf( smp.pix( x, y ), NOTE_COLORS );
 			const shade = 0.92 + cellRand( x, y, 3 ) * 0.14;
 			const rot = ( cellRand( x, y, 7 ) - 0.5 ) * 0.16;
-			const size = cell * 0.94;
 			g.save();
 			g.translate( x * cell + cell / 2, y * cell + cell / 2 );
 			g.rotate( rot );
-			g.shadowColor = 'rgba(0,0,0,0.3)';
-			g.shadowBlur = cell * 0.14;
-			g.shadowOffsetY = cell * 0.07;
+			g.drawImage( drop.c, -drop.w / 2, -drop.h / 2, drop.w, drop.h );
 			g.fillStyle = `rgb(${ ( col[ 0 ] * shade ) | 0 },${
 				( col[ 1 ] * shade ) | 0
 			},${ ( col[ 2 ] * shade ) | 0 })`;
 			g.fillRect( -size / 2, -size / 2, size, size );
-			g.shadowColor = 'transparent';
 			// Slightly lighter top strip (the glue edge).
 			g.fillStyle = 'rgba(255,255,255,0.16)';
 			g.fillRect( -size / 2, -size / 2, size, size * 0.16 );
@@ -962,8 +1135,7 @@ export function renderDotMatrix( like, source, opts = {} ) {
 	const cell = Math.max( 10, Math.min( 30, opts.cell || 16 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	const style = opts.style || 'led';
 	g.fillStyle = 'flip' === style ? '#101010' : '#0a0c10';
 	g.fillRect( 0, 0, c.width, c.height );
@@ -1020,17 +1192,13 @@ export function renderDotMatrix( like, source, opts = {} ) {
 			g.arc( cx, cy, cell * 0.4, 0, Math.PI * 2 );
 			g.fill();
 			const a = 0.2 + lum * 0.8;
-			g.shadowColor = `rgb(${ col[ 0 ] | 0 },${ col[ 1 ] | 0 },${
-				col[ 2 ] | 0
-			})`;
-			g.shadowBlur = cell * 0.8 * lum;
+			glow( g, cx, cy, cell * 0.32, cell * 0.8 * lum, col, a );
 			g.fillStyle = `rgba(${ col[ 0 ] | 0 },${ col[ 1 ] | 0 },${
 				col[ 2 ] | 0
 			},${ a })`;
 			g.beginPath();
 			g.arc( cx, cy, cell * 0.32, 0, Math.PI * 2 );
 			g.fill();
-			g.shadowBlur = 0;
 		}
 	}
 	return c;
@@ -1051,8 +1219,7 @@ export function renderCeramicMosaic( like, source, opts = {} ) {
 	const cell = Math.max( 12, Math.min( 40, opts.cell || 24 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	g.fillStyle = 'light' === opts.background ? '#cfc8bc' : '#33363c';
 	g.fillRect( 0, 0, c.width, c.height );
 	// Shared jittered lattice so neighbouring tiles stay parallel.
@@ -1122,8 +1289,7 @@ export function renderMarquee( like, source, opts = {} ) {
 	const cell = Math.max( 12, Math.min( 36, opts.cell || 20 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	g.fillStyle = '#17130f';
 	g.fillRect( 0, 0, c.width, c.height );
 	for ( let y = 0; y < rows; y++ ) {
@@ -1146,17 +1312,13 @@ export function renderMarquee( like, source, opts = {} ) {
 				col = [ 90 + lum * 165, 60 + lum * 158, 30 + lum * 120 ];
 			}
 			const a = 0.16 + lum * 0.84;
-			g.shadowColor = `rgb(${ col[ 0 ] | 0 },${ col[ 1 ] | 0 },${
-				col[ 2 ] | 0
-			})`;
-			g.shadowBlur = cell * 0.9 * lum;
+			glow( g, cx, cy, cell * 0.3, cell * 0.9 * lum, col, a );
 			g.fillStyle = `rgba(${ col[ 0 ] | 0 },${ col[ 1 ] | 0 },${
 				col[ 2 ] | 0
 			},${ a })`;
 			g.beginPath();
 			g.arc( cx, cy, cell * 0.3, 0, Math.PI * 2 );
 			g.fill();
-			g.shadowBlur = 0;
 			// White-hot core on bright bulbs.
 			if ( lum > 0.45 ) {
 				g.fillStyle = `rgba(255,250,235,${ ( lum - 0.45 ) * 1.4 })`;
@@ -1183,8 +1345,16 @@ export function renderMarquee( like, source, opts = {} ) {
 export function renderStampWall( like, source, opts = {} ) {
 	const cell = Math.max( 22, Math.min( 56, opts.cell || 34 ) );
 	const { cols, rows } = gridFor( source, cell );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g, out } = outSheet( like, cols * cell, rows * cell, opts );
+	const size = cell * 0.92;
+	const drop = shadowStamp(
+		like,
+		size,
+		size,
+		out,
+		( s ) => s.rect( -size / 2, -size / 2, size, size ),
+		{ blur: cell * 0.1, dy: cell * 0.05, color: 'rgba(0,0,0,0.28)' }
+	);
 	const wall = 'light' === opts.background ? '#e9e4da' : '#23262c';
 	g.fillStyle = wall;
 	g.fillRect( 0, 0, c.width, c.height );
@@ -1193,17 +1363,13 @@ export function renderStampWall( like, source, opts = {} ) {
 	for ( let y = 0; y < rows; y++ ) {
 		for ( let x = 0; x < cols; x++ ) {
 			const rot = ( cellRand( x, y, 13 ) - 0.5 ) * 0.09;
-			const size = cell * 0.92;
 			g.save();
 			g.translate( x * cell + cell / 2, y * cell + cell / 2 );
 			g.rotate( rot );
 			// Paper with a soft shadow.
-			g.shadowColor = 'rgba(0,0,0,0.28)';
-			g.shadowBlur = cell * 0.1;
-			g.shadowOffsetY = cell * 0.05;
+			g.drawImage( drop.c, -drop.w / 2, -drop.h / 2, drop.w, drop.h );
 			g.fillStyle = '#f7f4ec';
 			g.fillRect( -size / 2, -size / 2, size, size );
-			g.shadowColor = 'transparent';
 			// Perforation: wall-colored punch holes along the edges.
 			g.fillStyle = wall;
 			const holes = 6;
@@ -1256,8 +1422,29 @@ export function renderBottleCaps( like, source, opts = {} ) {
 	const cell = Math.max( 18, Math.min( 48, opts.cell || 28 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g, out } = outSheet( like, cols * cell, rows * cell, opts );
+	const r = cell * 0.44;
+	const teeth = 21;
+	// The crimped rim: an alternating-radius polygon.
+	const rim = ( s ) => {
+		for ( let k = 0; k < teeth * 2; k++ ) {
+			const rad = k % 2 ? r : r * 0.9;
+			const a = ( k * Math.PI ) / teeth;
+			const px = Math.cos( a ) * rad;
+			const py = Math.sin( a ) * rad;
+			if ( k ) {
+				s.lineTo( px, py );
+			} else {
+				s.moveTo( px, py );
+			}
+		}
+		s.closePath();
+	};
+	const drop = shadowStamp( like, r * 2, r * 2, out, rim, {
+		blur: cell * 0.08,
+		dy: cell * 0.04,
+		color: 'rgba(0,0,0,0.35)',
+	} );
 	g.fillStyle = 'light' === opts.background ? '#ded5c6' : '#241c14';
 	g.fillRect( 0, 0, c.width, c.height );
 	for ( let y = 0; y < rows; y++ ) {
@@ -1266,34 +1453,17 @@ export function renderBottleCaps( like, source, opts = {} ) {
 			const col = boostColor( p, 'dark' );
 			const cx = x * cell + cell / 2;
 			const cy = y * cell + cell / 2;
-			const r = cell * 0.44;
 			const rot = cellRand( x, y, 17 ) * Math.PI;
 			g.save();
 			g.translate( cx, cy );
 			g.rotate( rot );
-			g.shadowColor = 'rgba(0,0,0,0.35)';
-			g.shadowBlur = cell * 0.08;
-			g.shadowOffsetY = cell * 0.04;
-			// Crimped rim: alternating radius polygon.
+			g.drawImage( drop.c, -drop.w / 2, -drop.h / 2, drop.w, drop.h );
 			g.beginPath();
-			const teeth = 21;
-			for ( let k = 0; k < teeth * 2; k++ ) {
-				const rad = k % 2 ? r : r * 0.9;
-				const a = ( k * Math.PI ) / teeth;
-				const px = Math.cos( a ) * rad;
-				const py = Math.sin( a ) * rad;
-				if ( k ) {
-					g.lineTo( px, py );
-				} else {
-					g.moveTo( px, py );
-				}
-			}
-			g.closePath();
+			rim( g );
 			g.fillStyle = `rgb(${ clamp255( col[ 0 ] * 0.7 ) | 0 },${
 				clamp255( col[ 1 ] * 0.7 ) | 0
 			},${ clamp255( col[ 2 ] * 0.7 ) | 0 })`;
 			g.fill();
-			g.shadowColor = 'transparent';
 			// Cap face.
 			g.fillStyle = `rgb(${ col[ 0 ] | 0 },${ col[ 1 ] | 0 },${
 				col[ 2 ] | 0
@@ -1343,8 +1513,16 @@ export function renderCoinMosaic( like, source, opts = {} ) {
 	const cell = Math.max( 16, Math.min( 40, opts.cell || 24 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g, out } = outSheet( like, cols * cell, rows * cell, opts );
+	const r = cell * 0.44;
+	const drop = shadowStamp(
+		like,
+		r * 2,
+		r * 2,
+		out,
+		( s ) => s.arc( 0, 0, r, 0, Math.PI * 2 ),
+		{ blur: cell * 0.07, dy: cell * 0.04, color: 'rgba(0,0,0,0.3)' }
+	);
 	g.fillStyle = 'light' === opts.background ? '#e7e2d2' : '#1d2a20';
 	g.fillRect( 0, 0, c.width, c.height );
 	for ( let y = 0; y < rows; y++ ) {
@@ -1356,15 +1534,17 @@ export function renderCoinMosaic( like, source, opts = {} ) {
 				];
 			const cx = x * cell + cell / 2;
 			const cy = y * cell + cell / 2;
-			const r = cell * 0.44;
-			g.shadowColor = 'rgba(0,0,0,0.3)';
-			g.shadowBlur = cell * 0.07;
-			g.shadowOffsetY = cell * 0.04;
+			g.drawImage(
+				drop.c,
+				cx - drop.w / 2,
+				cy - drop.h / 2,
+				drop.w,
+				drop.h
+			);
 			g.fillStyle = `rgb(${ tone[ 0 ] },${ tone[ 1 ] },${ tone[ 2 ] })`;
 			g.beginPath();
 			g.arc( cx, cy, r, 0, Math.PI * 2 );
 			g.fill();
-			g.shadowColor = 'transparent';
 			// Reeded edge.
 			g.strokeStyle = `rgba(0,0,0,0.3)`;
 			g.lineWidth = Math.max( 1, cell * 0.035 );
@@ -1403,8 +1583,16 @@ export function renderButtonMosaic( like, source, opts = {} ) {
 	const cell = Math.max( 16, Math.min( 44, opts.cell || 26 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g, out } = outSheet( like, cols * cell, rows * cell, opts );
+	const r = cell * 0.43;
+	const drop = shadowStamp(
+		like,
+		r * 2,
+		r * 2,
+		out,
+		( s ) => s.arc( 0, 0, r, 0, Math.PI * 2 ),
+		{ blur: cell * 0.07, dy: cell * 0.04, color: 'rgba(0,0,0,0.25)' }
+	);
 	g.fillStyle = 'light' === opts.background ? '#efe9df' : '#2a2d33';
 	g.fillRect( 0, 0, c.width, c.height );
 	for ( let y = 0; y < rows; y++ ) {
@@ -1416,15 +1604,17 @@ export function renderButtonMosaic( like, source, opts = {} ) {
 				.map( ( v ) => clamp255( m + ( v - m ) * 0.85 ) | 0 );
 			const cx = x * cell + cell / 2;
 			const cy = y * cell + cell / 2;
-			const r = cell * 0.43;
-			g.shadowColor = 'rgba(0,0,0,0.25)';
-			g.shadowBlur = cell * 0.07;
-			g.shadowOffsetY = cell * 0.04;
+			g.drawImage(
+				drop.c,
+				cx - drop.w / 2,
+				cy - drop.h / 2,
+				drop.w,
+				drop.h
+			);
 			g.fillStyle = `rgb(${ col[ 0 ] },${ col[ 1 ] },${ col[ 2 ] })`;
 			g.beginPath();
 			g.arc( cx, cy, r, 0, Math.PI * 2 );
 			g.fill();
-			g.shadowColor = 'transparent';
 			// Recessed center.
 			g.strokeStyle = 'rgba(0,0,0,0.2)';
 			g.lineWidth = Math.max( 1, cell * 0.04 );
@@ -1493,8 +1683,7 @@ export function renderDominoArt( like, source, opts = {} ) {
 	cols = Math.max( 8, Math.round( cols / 2 ) * 2 );
 	rows = Math.max( 8, rows );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	g.fillStyle = 'light' === opts.background ? '#ddd6c8' : '#101216';
 	g.fillRect( 0, 0, c.width, c.height );
 	const style = opts.stoneStyle || 'black';
@@ -1592,8 +1781,7 @@ export function renderTileMosaic( like, source, tile, opts = {} ) {
 	const cell = Math.max( 12, Math.min( 48, opts.cell || 24 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g, out } = outSheet( like, cols * cell, rows * cell, opts );
 	g.fillStyle = 'light' === opts.background ? '#f2efe9' : '#14161a';
 	g.fillRect( 0, 0, c.width, c.height );
 	const tint = Math.max( 0, Math.min( 100, opts.tint ?? 65 ) ) / 100;
@@ -1601,8 +1789,15 @@ export function renderTileMosaic( like, source, tile, opts = {} ) {
 	const k = Math.min( ( cell - 2 ) / tile.width, ( cell - 2 ) / tile.height );
 	const tw = Math.max( 1, Math.round( tile.width * k ) );
 	const th = Math.max( 1, Math.round( tile.height * k ) );
-	const scratch = makeCanvas( like, cell, cell );
+	// The scratch stone at OUTPUT resolution, or every tile of a large
+	// layer would be a cell-sized bitmap stretched up.
+	const scratch = makeCanvas(
+		like,
+		Math.max( 1, Math.round( cell * out ) ),
+		Math.max( 1, Math.round( cell * out ) )
+	);
 	const sg = scratch.getContext( '2d' );
+	sg.setTransform( out, 0, 0, out, 0, 0 );
 	for ( let y = 0; y < rows; y++ ) {
 		for ( let x = 0; x < cols; x++ ) {
 			const p = smp.pix( x, y );
@@ -1619,10 +1814,10 @@ export function renderTileMosaic( like, source, tile, opts = {} ) {
 				g.save();
 				g.translate( x * cell + cell / 2, y * cell + cell / 2 );
 				g.rotate( rot );
-				g.drawImage( scratch, -cell / 2, -cell / 2 );
+				g.drawImage( scratch, -cell / 2, -cell / 2, cell, cell );
 				g.restore();
 			} else {
-				g.drawImage( scratch, x * cell, y * cell );
+				g.drawImage( scratch, x * cell, y * cell, cell, cell );
 			}
 		}
 	}
@@ -1644,8 +1839,7 @@ export function renderKeycapArt( like, source, opts = {} ) {
 	const cell = Math.max( 18, Math.min( 48, opts.cell || 28 ) );
 	const { cols, rows } = gridFor( source, cell );
 	const smp = makeSampler( like, source, cols, rows );
-	const c = makeCanvas( like, cols * cell, rows * cell );
-	const g = c.getContext( '2d' );
+	const { c, g } = outSheet( like, cols * cell, rows * cell, opts );
 	g.fillStyle = '#191b20';
 	g.fillRect( 0, 0, c.width, c.height );
 	const legend = String( opts.text || '' )

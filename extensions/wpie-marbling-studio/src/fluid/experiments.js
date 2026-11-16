@@ -16,6 +16,7 @@ import {
 } from './volume-experiments.js';
 import { FluidSimulation, cleanSettings } from './simulation.js';
 import { rng } from '../marbling.js';
+import { FLOW_EXPERIMENTS, createFlowExperiment } from './flow-experiments.js';
 
 const SURFACE_EXPERIMENTS = [
 	[
@@ -328,6 +329,7 @@ const SURFACE_EXPERIMENTS = [
 );
 
 export const EXPERIMENTS = [
+	...FLOW_EXPERIMENTS,
 	...FEATURE_EXPERIMENTS,
 	...MATERIAL_EXPERIMENTS,
 	...GUIDED_EXPERIMENTS,
@@ -338,6 +340,9 @@ export const EXPERIMENTS = [
 export function createExperiment( id, aspect, seed = 17, resolution = 144 ) {
 	const recipe =
 		EXPERIMENTS.find( ( r ) => r.id === id ) || SURFACE_EXPERIMENTS[ 0 ];
+	if ( recipe.flowExperiment ) {
+		return createFlowExperiment( recipe, aspect, seed, resolution );
+	}
 	if ( recipe.volume ) {
 		return createVolumeExperiment( recipe, aspect, seed, resolution );
 	}

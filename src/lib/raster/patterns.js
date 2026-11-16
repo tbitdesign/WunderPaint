@@ -1,6 +1,8 @@
+import { expandedGradientStops } from '../gradient-ramp';
 import { createCanvas } from './env';
+import { extraPatternTile } from './pattern-catalog';
 
-// Procedural 8px fill patterns (F10, v0.5), cached per kind+color.
+// Procedural fill patterns, cached per kind+color. Original tiles stay 8px.
 export const shapePatternCache = new Map();
 
 /* Decoded user pattern tiles (v1.1): dataUrl → canvas, filled ahead of
@@ -84,11 +86,14 @@ export function patternTile( kind, color ) {
 	const key = kind + '|' + color;
 	let tile = shapePatternCache.get( key );
 	if ( ! tile ) {
-		tile = createCanvas( 8, 8 );
+		const extra = extraPatternTile( kind, color );
+		tile = extra || createCanvas( 8, 8 );
 		const p = tile.getContext( '2d' );
 		p.fillStyle = color;
 		p.strokeStyle = color;
-		if ( 'dots' === kind ) {
+		if ( extra ) {
+			// The extended catalog already painted the tile.
+		} else if ( 'dots' === kind ) {
 			p.beginPath();
 			p.arc( 2, 2, 1.6, 0, 2 * Math.PI );
 			p.fill();
@@ -179,8 +184,9 @@ export function patternTile( kind, color ) {
 			p.arc( 8, 4, 4, Math.PI / 2, Math.PI );
 			p.stroke();
 		}
-		if ( shapePatternCache.size > 24 ) {
-			shapePatternCache.clear();
+		// Keep full preview grids in both themes without flushing all tiles.
+		if ( shapePatternCache.size >= 192 ) {
+			shapePatternCache.delete( shapePatternCache.keys().next().value );
 		}
 		shapePatternCache.set( key, tile );
 	}
@@ -192,24 +198,60 @@ export function patternTile( kind, color ) {
  * v1.23; kinds v1.24). `kind` = linear | radial | angle; `angle` in degrees
  * drives linear direction / conic start angle.
  */
-export function gradientFillFor( ctx, w, h, stops, angle, kind ) {
+export function strokePaintStyle( ctx, layer, transform = null ) {
+	const gradient = layer.strokeGradient;
+	return gradient?.stops?.length
+		? gradientFillFor(
+				ctx,
+				layer.w,
+				layer.h,
+				gradient.stops,
+				gradient.angle,
+				gradient.kind,
+				transform
+		  )
+		: layer.type === 'text'
+		? layer.outlineColor
+		: layer.shape === 'line'
+		? layer.fill || layer.stroke
+		: layer.stroke;
+}
+
+export function gradientFillFor(
+	ctx,
+	w,
+	h,
+	stops,
+	angle,
+	kind,
+	transform = null
+) {
 	const ww = Math.max( 1, w || 1 );
 	const hh = Math.max( 1, h || 1 );
+	// Text glyphs translate/rotate individually. Map the paint back into each
+	// glyph's space so all letters share one object-local gradient.
+	const point = ( x, y ) =>
+		transform
+			? [
+					transform.a * x + transform.c * y + transform.e,
+					transform.b * x + transform.d * y + transform.f,
+			  ]
+			: [ x, y ];
+	const centre = point( ww / 2, hh / 2 );
 	let grad;
 	if ( 'radial' === kind ) {
 		grad = ctx.createRadialGradient(
-			ww / 2,
-			hh / 2,
+			...centre,
 			0,
-			ww / 2,
-			hh / 2,
-			Math.max( ww, hh ) / 2
+			...centre,
+			( Math.max( ww, hh ) / 2 ) *
+				( transform ? Math.hypot( transform.a, transform.b ) : 1 )
 		);
 	} else if ( 'angle' === kind && ctx.createConicGradient ) {
 		grad = ctx.createConicGradient(
-			( ( angle || 0 ) * Math.PI ) / 180,
-			ww / 2,
-			hh / 2
+			( ( angle || 0 ) * Math.PI ) / 180 +
+				( transform ? Math.atan2( transform.b, transform.a ) : 0 ),
+			...centre
 		);
 	} else {
 		// Linear (and the fallback when conic gradients are unavailable).
@@ -218,13 +260,11 @@ export function gradientFillFor( ctx, w, h, stops, angle, kind ) {
 		const dy = Math.sin( rad );
 		const len = ( Math.abs( dx ) * ww + Math.abs( dy ) * hh ) / 2;
 		grad = ctx.createLinearGradient(
-			ww / 2 - dx * len,
-			hh / 2 - dy * len,
-			ww / 2 + dx * len,
-			hh / 2 + dy * len
+			...point( ww / 2 - dx * len, hh / 2 - dy * len ),
+			...point( ww / 2 + dx * len, hh / 2 + dy * len )
 		);
 	}
-	for ( const stop of stops ) {
+	for ( const stop of expandedGradientStops( stops ) ) {
 		grad.addColorStop( Math.max( 0, Math.min( 1, stop.at ) ), stop.color );
 	}
 	return grad;

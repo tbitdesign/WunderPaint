@@ -8,21 +8,45 @@
  * Adjust keeps the tonal sliders + colour; Props keeps intrinsic geometry.
  */
 
-import { useState, useEffect, useRef, Fragment } from '@wordpress/element';
+import {
+	useState,
+	useEffect,
+	useRef,
+	useCallback,
+	useMemo,
+	useId,
+	Fragment,
+} from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
 import {
 	renderToCanvas,
+	createCanvas,
+	contentBounds,
 	sharedImageCache,
 	measureTextWidth,
 	measureTextHeight,
+	textFxReach,
 } from '../../lib/raster';
 import { I } from '../../icons';
 import { TEXT_STYLES } from '../../lib/text-styles';
-import { TEXT_FX } from '../../lib/text-fx-defs';
+import { TEXT_FX, TEXT_FX_CATALOG } from '../../lib/text-fx-defs';
+import { activateTextEffect } from '../../lib/text-effects-collection';
+import { SnapSlider } from '../../components/snap-slider';
+import { FILTER_COLLECTION_GROUPS } from '../../lib/filter-collection';
+import { hasColorGrade } from '../../lib/filter-grades';
+import { LAYER_EFFECT_GROUPS } from '../../lib/layer-effects-collection';
+import { TextCatalog } from './text-catalog';
+import { useCatalogSource } from './use-catalog-source';
+import { useEffectPreview } from './use-effect-preview';
+import { trimTransparent } from '../../lib/mockup';
 import { FILTERS } from '../../store/constants';
 import { defaultAdjustments } from '../../store/document';
-import { EFFECTS, defaultParamsFor } from '../../lib/effects';
+import {
+	EFFECTS,
+	defaultParamsFor,
+	applyEffectToCanvas,
+} from '../../lib/effects';
 import { listExtensionEffects } from '../../lib/extensions';
 import {
 	useEditor,
@@ -32,13 +56,6 @@ import {
 import { applyEffectToLayer } from '../../store/effect-ops';
 import { applyPresetFilterOp } from '../../store/ops';
 import { PanelSection } from '../../components/panel-section';
-
-// Clean base render of the active layer (no filter/adjust), cached per layer
-// object so re-selecting is instant. Shared by the filter chips. Groups key
-// on their stable descendant list instead (a child edit swaps that identity).
-const baseCache = new WeakMap();
-// Per-layer map of effectId → preview dataURL.
-const effectCache = new WeakMap();
 
 const isRenderable = ( layer ) => layer && 'adjustment' !== layer.type;
 
@@ -90,6 +107,10 @@ const previewBounds = ( layer ) => {
 
 /** Descendant layers of a group (without the group itself). */
 const descLayersOf = ( state, layer ) => {
+	if ( layer?.type === 'repeat' ) {
+		const ids = withDescendants( state.layers, [ layer.sourceId ] );
+		return state.layers.filter( ( l ) => ids.has( l.id ) );
+	}
 	if ( 'group' !== layer?.type ) {
 		return null;
 	}
@@ -119,12 +140,15 @@ function useStableList( list ) {
 
 /** Paint list for a preview: the layer alone, or the group + children. */
 const paintListFor = ( layer, desc, overrides ) =>
-	desc
+	desc && layer.type !== 'repeat'
 		? [ { ...layer, ...overrides, parent: null }, ...desc ]
 		: [ { ...layer, ...overrides, parent: null } ];
 
 /** Preview viewport: leaf-union bounds for groups, layer bounds else. */
 const boundsFor = ( layer, desc ) => {
+	if ( layer.type === 'repeat' && desc ) {
+		return contentBounds( [ layer, ...desc ], { roots: [ layer ] } );
+	}
 	if ( ! desc ) {
 		return previewBounds( layer );
 	}
@@ -159,7 +183,15 @@ const boundsFor = ( layer, desc ) => {
  * destructive by design), text styles patch plain properties and leave
  * no marker either.
  */
-export function ActiveFxSection( { editor, layer } ) {
+export function ActiveFxSection( {
+	editor,
+	layer,
+	extraItems = [],
+	onOpenTextEffect,
+	wsKey = 'effects.active',
+	title = __( 'Active on This Layer', 'wunderpaint' ),
+	collapsible = true,
+} ) {
 	const { dispatch, commit } = editor;
 	const fx = layer.textFX || {};
 	const patchFx = ( key, label ) => {
@@ -172,10 +204,15 @@ export function ActiveFxSection( { editor, layer } ) {
 		} );
 		commit( label );
 	};
-	const openSettings = ( id ) =>
+	const openSettings = ( id ) => {
+		if ( onOpenTextEffect ) {
+			onOpenTextEffect( id );
+			return;
+		}
 		window.dispatchEvent(
 			new CustomEvent( 'wpie-fx-settings', { detail: { id } } )
 		);
+	};
 
 	const items = [];
 	if ( layer.filter && 'none' !== layer.filter ) {
@@ -259,18 +296,21 @@ export function ActiveFxSection( { editor, layer } ) {
 		} );
 	}
 
+	items.push( ...extraItems );
 	if ( ! items.length ) {
 		return null;
 	}
 	return (
 		<PanelSection
-			wsKey="effects.active"
-			title={ __( 'Active on This Layer', 'wunderpaint' ) }
+			wsKey={ wsKey }
+			title={ title }
+			collapsible={ collapsible }
 		>
 			<div className="active-fx-row">
 				{ items.map( ( item ) => (
 					<span
 						key={ item.key }
+						data-effect={ item.key }
 						className={ `active-fx-pill${
 							item.dim ? ' dim' : ''
 						}` }
@@ -279,9 +319,10 @@ export function ActiveFxSection( { editor, layer } ) {
 							type="button"
 							className="name"
 							title={
-								item.open
+								item.title ||
+								( item.open
 									? __( 'Open settings', 'wunderpaint' )
-									: undefined
+									: undefined )
 							}
 							onClick={ item.open || undefined }
 						>
@@ -307,6 +348,9 @@ export function ActiveFxSection( { editor, layer } ) {
 							type="button"
 							className="act"
 							title={ __( 'Remove', 'wunderpaint' ) }
+							aria-label={ `${ __( 'Remove', 'wunderpaint' ) }: ${
+								item.label
+							}` }
 							onClick={ item.remove }
 						>
 							{ I.close( { size: 11 } ) }
@@ -318,168 +362,180 @@ export function ActiveFxSection( { editor, layer } ) {
 	);
 }
 
+/** Layer looks and pixel effects use the same lazy card grid as the text catalogs. */
 export function FiltersSection( { editor, layer, state } ) {
-	const [ base, setBase ] = useState( null );
+	const canvasPreview = useEffectPreview( editor, layer, ( filter ) => ( {
+		filter: filter.id,
+		filterAmount: 100,
+	} ) );
+	const intensityId = useId();
+	const source = useCatalogSource( layer, state );
 	const stableDesc = useStableList( descLayersOf( state, layer ) );
-	useEffect( () => {
-		if ( ! isRenderable( layer ) ) {
-			setBase( null );
-			return;
-		}
-		if ( layer.src ) {
-			setBase( layer.src );
-			return;
-		}
-		const cacheKey = stableDesc || layer;
-		if ( baseCache.has( cacheKey ) ) {
-			setBase( baseCache.get( cacheKey ) );
-			return;
-		}
-		let cancelled = false;
-		const subj = previewSubject( layer, stableDesc, false );
-		const scale = Math.min( 120 / subj.vp.w, 90 / subj.vp.h, 1 );
-		renderToCanvas(
-			{ ...state.doc, bg: 'transparent' },
-			subj.make( {
-				visible: true,
-				filter: null,
-				adjust: null,
-				previewEffect: null,
-			} ),
-			{ viewport: subj.vp, scale, cache: sharedImageCache }
-		)
-			.then( ( canvas ) => {
-				if ( ! cancelled && canvas?.toDataURL ) {
-					const url = canvas.toDataURL();
-					baseCache.set( cacheKey, url );
-					setBase( url );
+	const renderPreview = useCallback(
+		async ( filter ) => {
+			if ( ! isRenderable( source ) ) {
+				return null;
+			}
+			const subj = previewSubject( source, stableDesc, false );
+			if ( source.type === 'repeat' ) {
+				await sharedImageCache.warm( stableDesc || [] );
+			}
+			const canvas = await renderToCanvas(
+				{ ...state.doc, ...subj.doc, bg: 'transparent' },
+				subj.make( {
+					visible: true,
+					filter: filter.id,
+					filterAmount: 100,
+					adjust: null,
+					previewEffect: null,
+				} ),
+				{
+					viewport: subj.vp,
+					scale: Math.min( 160 / subj.vp.w, 130 / subj.vp.h, 1 ),
+					cache: sharedImageCache,
+					allLayers:
+						source.type === 'repeat'
+							? [ source, ...( stableDesc || [] ) ]
+							: undefined,
 				}
-			} )
-			.catch( () => {} );
-		return () => {
-			cancelled = true;
-		};
-	}, [ layer, stableDesc, state.doc ] );
-
+			);
+			return ( trimTransparent( canvas, 3 ) || canvas ).toDataURL();
+		},
+		[ source, stableDesc, state.doc ]
+	);
+	const filters = [
+		{ ...FILTERS[ 0 ], group: 'essentials' },
+		...FILTERS.filter( ( f ) => f.collection ),
+		...FILTERS.slice( 1 )
+			.filter( ( f ) => ! f.collection )
+			.map( ( f ) => ( { ...f, group: 'essentials' } ) ),
+	];
 	return (
 		<PanelSection
 			wsKey="effects.filters"
 			title={ __( 'Filters', 'wunderpaint' ) }
 		>
-			<div
-				className="filter-grid"
-				style={ { padding: 0, margin: '-4px 0 0' } }
-			>
-				{ FILTERS.map( ( filter ) => (
-					<div
-						key={ filter.id }
-						className={ `filter-chip ${
-							layer?.filter === filter.id ? 'active' : ''
-						}` }
-						style={ { background: previewBg( layer ) } }
-						role="button"
-						tabIndex={ 0 }
-						onClick={ () =>
-							layer && applyPresetFilterOp( editor, filter.id )
-						}
-						onKeyDown={ ( e ) =>
-							'Enter' === e.key &&
-							layer &&
-							applyPresetFilterOp( editor, filter.id )
-						}
-					>
-						{ base ? (
-							<img
-								src={ base }
-								alt=""
-								style={ {
-									position: 'absolute',
-									inset: 0,
-									width: '100%',
-									height: '100%',
-									objectFit: 'cover',
-									filter: filter.css,
-								} }
-							/>
-						) : (
-							<div
-								className="preview"
-								style={ { filter: filter.css } }
-							/>
-						) }
-						<div className="label">{ filter.label }</div>
-					</div>
-				) ) }
-			</div>
+			{ hasColorGrade( layer?.filter ) && (
+				<div className="slider-row">
+					<label htmlFor={ intensityId }>
+						{ __( 'Intensity', 'wunderpaint' ) }
+					</label>
+					<SnapSlider
+						id={ intensityId }
+						min={ 0 }
+						max={ 100 }
+						value={ layer.filterAmount ?? 100 }
+						def={ 100 }
+						ariaLabel={ __( 'Filter intensity', 'wunderpaint' ) }
+						onChange={ ( value ) => {
+							editor.dispatch( {
+								type: 'UPDATE_LAYER',
+								id: layer.id,
+								patch: { filterAmount: value },
+							} );
+							editor.commit(
+								__( 'Filter intensity', 'wunderpaint' )
+							);
+						} }
+					/>
+					<output className="wpie-number-output">
+						{ layer.filterAmount ?? 100 }
+					</output>
+				</div>
+			) }
+			<TextCatalog
+				previewScope={ layer?.id }
+				items={ filters }
+				kind="filters"
+				canvasPreview={ canvasPreview }
+				categoryGroups={ FILTER_COLLECTION_GROUPS }
+				searchLabel={ __( 'Search filters', 'wunderpaint' ) }
+				emptyLabel={ __( 'No matching filters', 'wunderpaint' ) }
+				renderPreview={ renderPreview }
+				choose={ ( filter ) =>
+					layer && applyPresetFilterOp( editor, filter.id )
+				}
+				active={ { [ layer?.filter || 'none' ]: true } }
+				background={ previewBg( layer ) }
+			/>
 		</PanelSection>
 	);
 }
 
-/* ------------------------------- Effects ------------------------------- */
-
 export function EffectsSection( { editor, layer, state, extras } ) {
-	const effects = [ ...EFFECTS, ...listExtensionEffects() ].filter(
-		( e ) => ! e.hidden
-	);
-	const [ previews, setPreviews ] = useState( {} );
-
-	// Render a small thumbnail of the active layer WITH each built-in effect
-	// (default params) via the transient previewEffect path, cached per layer
-	// (groups: per stable descendant list, see useStableList).
+	const canvasPreview = useEffectPreview( editor, layer, ( effect ) => ( {
+		previewEffect: {
+			id: effect.id,
+			params: defaultParamsFor( effect.id ),
+		},
+	} ) );
+	const effects = [
+		...EFFECTS.filter( ( e ) => e.collection ),
+		...EFFECTS.filter( ( e ) => ! e.collection ).map( ( e ) => ( {
+			...e,
+			group: 'essentials',
+		} ) ),
+		...listExtensionEffects().map( ( e ) => ( {
+			...e,
+			group: 'essentials',
+		} ) ),
+	].filter( ( e ) => ! e.hidden );
+	const source = useCatalogSource( layer, state );
 	const stableDesc = useStableList( descLayersOf( state, layer ) );
-	useEffect( () => {
-		if ( ! isRenderable( layer ) ) {
-			setPreviews( {} );
-			return;
-		}
-		let cancelled = false;
-		const cacheKey = stableDesc || layer;
-		const cache = effectCache.get( cacheKey ) || new Map();
-		const subj = previewSubject( layer, stableDesc, false );
-		const scale = Math.min( 84 / subj.vp.w, 64 / subj.vp.h, 1 );
-		const renderOne = async ( eff ) => {
-			if ( cache.has( eff.id ) ) {
-				return [ eff.id, cache.get( eff.id ) ];
+	const renderPreview = useMemo( () => {
+		let base;
+		const renderBase = async () => {
+			if ( ! isRenderable( source ) ) {
+				return null;
 			}
-			try {
-				const canvas = await renderToCanvas(
-					{ ...state.doc, bg: 'transparent' },
-					subj.make( {
-						visible: true,
-						filter: null,
-						adjust: null,
-						previewEffect: {
-							id: eff.id,
-							params: defaultParamsFor( eff.id ),
-						},
-					} ),
-					{ viewport: subj.vp, scale, cache: sharedImageCache }
-				);
-				const url = canvas?.toDataURL ? canvas.toDataURL() : null;
-				if ( url ) {
-					cache.set( eff.id, url );
+			const subj = previewSubject( source, stableDesc, false );
+			if ( source.type === 'repeat' ) {
+				await sharedImageCache.warm( stableDesc || [] );
+			}
+			const canvas = await renderToCanvas(
+				{ ...state.doc, ...subj.doc, bg: 'transparent' },
+				subj.make( {
+					visible: true,
+					filter: null,
+					adjust: null,
+					previewEffect: null,
+				} ),
+				{
+					viewport: subj.vp,
+					scale: Math.min( 160 / subj.vp.w, 130 / subj.vp.h, 1 ),
+					cache: sharedImageCache,
+					allLayers:
+						source.type === 'repeat'
+							? [ source, ...( stableDesc || [] ) ]
+							: undefined,
 				}
-				return [ eff.id, url ];
-			} catch ( e ) {
-				return [ eff.id, null ];
-			}
-		};
-		Promise.all(
-			EFFECTS.filter( ( e ) => ! e.hidden ).map( renderOne )
-		).then( ( pairs ) => {
-			if ( cancelled ) {
-				return;
-			}
-			effectCache.set( cacheKey, cache );
-			setPreviews(
-				Object.fromEntries( pairs.filter( ( p ) => p[ 1 ] ) )
 			);
-		} );
-		return () => {
-			cancelled = true;
+			return canvas;
 		};
-	}, [ layer, stableDesc, state.doc ] );
+		return async ( effect ) => {
+			if ( ! base ) {
+				base = renderBase().catch( ( error ) => {
+					base = null;
+					throw error;
+				} );
+			}
+			const original = await base;
+			if ( ! original ) {
+				return null;
+			}
+			const canvas = createCanvas( original.width, original.height );
+			canvas.getContext( '2d' ).drawImage( original, 0, 0 );
 
+			// Render at card size before processing pixels: full-resolution source
+			// canvases must never be filtered separately for every thumbnail.
+			applyEffectToCanvas(
+				canvas,
+				effect.id,
+				defaultParamsFor( effect.id )
+			);
+			return ( trimTransparent( canvas, 3 ) || canvas ).toDataURL();
+		};
+	}, [ source, stableDesc, state.doc ] );
 	const run = ( effect ) => {
 		if ( ! layer ) {
 			return;
@@ -494,53 +550,30 @@ export function EffectsSection( { editor, layer, state, extras } ) {
 			);
 		}
 	};
-
 	return (
 		<PanelSection
 			wsKey="effects.effects"
 			title={ __( 'Effects', 'wunderpaint' ) }
 		>
-			<div className="effect-grid">
-				{ effects.map( ( effect ) => (
-					<button
-						key={ effect.id }
-						className="effect-chip"
-						disabled={ ! layer }
-						title={ effect.label }
-						aria-label={ effect.label }
-						onClick={ () => run( effect ) }
-					>
-						<span
-							className="effect-thumb"
-							style={ { background: previewBg( layer ) } }
-						>
-							{ previews[ effect.id ] ? (
-								<img src={ previews[ effect.id ] } alt="" />
-							) : (
-								<span className="effect-thumb-fallback" />
-							) }
-						</span>
-						<span className="effect-label">{ effect.label }</span>
-					</button>
-				) ) }
-			</div>
-			<p
-				style={ {
-					fontSize: 10,
-					color: 'var(--ed-text-muted)',
-					margin: '8px 0 0',
-				} }
-			>
-				{ 'smart' === layer?.type
-					? __(
-							'Applied as non-destructive Smart Filters.',
-							'wunderpaint'
-					  )
-					: __(
-							'Applied destructively (vector layers rasterize first).',
-							'wunderpaint'
-					  ) }
-			</p>
+			<TextCatalog
+				previewScope={ layer?.id }
+				items={ effects }
+				kind="layer-effects"
+				canvasPreview={ canvasPreview }
+				categoryGroups={ LAYER_EFFECT_GROUPS }
+				searchLabel={ __( 'Search effects', 'wunderpaint' ) }
+				renderPreview={ renderPreview }
+				choose={ run }
+				background={ previewBg( layer ) }
+			/>
+			{ 'smart' === layer?.type && (
+				<p className="text-catalog-empty">
+					{ __(
+						'Applied as non-destructive Smart Filters.',
+						'wunderpaint'
+					) }
+				</p>
+			) }
 		</PanelSection>
 	);
 }
@@ -582,7 +615,16 @@ function fillPreviewSrc() {
  * @return {{pv: Object, vp: Object}} Preview layer + padded viewport.
  */
 function glyphPreview( layer, previewFX, tall ) {
-	const sample = Array.from( String( layer.text || '' ).trim() )[ 0 ] || 'A';
+	const letters = Array.from( String( layer.text || '' ).trim() );
+	const word =
+		previewFX?.rainbow ||
+		previewFX?.jitter ||
+		previewFX?.marker ||
+		previewFX?.circleMark ||
+		previewFX?.scribbleUnder ||
+		previewFX?.strikeFx;
+	const sample =
+		letters.slice( 0, word ? 3 : 1 ).join( '' ) || ( word ? 'Abc' : 'A' );
 	const size = 128;
 	const pv = {
 		...layer,
@@ -591,6 +633,10 @@ function glyphPreview( layer, previewFX, tall ) {
 		adjust: null,
 		text: sample,
 		fontSize: size,
+		textFit: null,
+		textLook: null,
+		visible: true,
+		opacity: 1,
 		x: 0,
 		y: 0,
 		align: 'left',
@@ -609,12 +655,17 @@ function glyphPreview( layer, previewFX, tall ) {
 	const gh = Math.max( 12, measureTextHeight( { ...measured, w: gw } ) );
 	pv.w = gw;
 	pv.h = gh;
-	const pad = size * 0.42;
+	const pad =
+		Math.ceil(
+			Math.max( size * 0.2, textFxReach( pv ), ( pv.outlineW || 0 ) * 2 )
+		) + 4;
+	pv.x = pad;
+	pv.y = pad;
 	return {
 		pv,
 		vp: {
-			x: -pad,
-			y: -pad,
+			x: 0,
+			y: 0,
 			w: gw + pad * 2,
 			h: gh + ( tall ? gh * 0.7 : 0 ) + pad * 2,
 		},
@@ -633,8 +684,12 @@ function glyphPreview( layer, previewFX, tall ) {
  */
 function previewSubject( layer, desc, tall ) {
 	if ( 'text' === layer?.type && ! desc ) {
-		const { pv, vp } = glyphPreview( layer, null, tall );
-		return { vp, make: ( overrides ) => [ { ...pv, ...overrides } ] };
+		const { pv, vp } = glyphPreview( layer, layer.textFX, tall );
+		return {
+			vp,
+			doc: { w: vp.w, h: vp.h },
+			make: ( overrides ) => [ { ...pv, ...overrides } ],
+		};
 	}
 	return {
 		vp: boundsFor( layer, desc ),
@@ -649,113 +704,94 @@ function previewSubject( layer, desc, tall ) {
 export function TextEffectsSection( { editor, layer, state } ) {
 	const { dispatch, commit } = editor;
 	const fx = layer.textFX || {};
-	const [ previews, setPreviews ] = useState( {} );
-
-	useEffect( () => {
-		let cancelled = false;
-		Promise.all(
-			TEXT_FX.map( async ( t ) => {
-				try {
-					// One big glyph, tight in the tile - so the effect is
-					// always clearly visible (v1.176.0).
-					const { pv, vp } = glyphPreview(
-						layer,
-						t.fillPrev
-							? { imageFill: { src: fillPreviewSrc() } }
-							: t.prev,
-						t.tall
-					);
-					const scale = Math.min( 84 / vp.w, 64 / vp.h );
-					const canvas = await renderToCanvas(
-						{ ...state.doc, bg: 'transparent' },
-						[ pv ],
-						{ viewport: vp, scale, cache: sharedImageCache }
-					);
-					return [
-						t.id,
-						canvas?.toDataURL ? canvas.toDataURL() : null,
-					];
-				} catch ( e ) {
-					return [ t.id, null ];
-				}
-			} )
-		).then( ( pairs ) => {
-			if ( ! cancelled ) {
-				setPreviews(
-					Object.fromEntries( pairs.filter( ( p ) => p[ 1 ] ) )
-				);
+	const canvasPreview = useEffectPreview(
+		editor,
+		layer,
+		( item, current ) => {
+			const effects = current.textFX || {};
+			// The image-fill thumbnail has a sample texture; the user's canvas
+			// may only preview their own chosen source.
+			if ( item.id === 'imageFill' && ! effects.imageFill?.src ) {
+				return null;
 			}
-		} );
-		return () => {
-			cancelled = true;
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [
-		layer.id,
-		layer.text,
-		layer.fontFamily,
-		layer.fontSize,
-		layer.color,
-		state.doc,
-	] );
-
-	const set = ( patch ) => {
-		dispatch( {
-			type: 'UPDATE_LAYER',
-			id: layer.id,
-			patch: { textFX: { ...fx, ...patch } },
-		} );
-		commit( __( 'Text effect', 'wunderpaint' ) );
-	};
-	// A tile activates the effect (with defaults) and opens its settings
-	// card on the canvas (v1.142.0); an active tile re-opens the card.
-	// Removal happens in the card, not by re-clicking the tile.
-	const openSettings = ( id ) =>
-		window.dispatchEvent(
-			new CustomEvent( 'wpie-fx-settings', { detail: { id } } )
-		);
-	const toggle = ( t ) => {
-		if ( ! fx[ t.id ] ) {
-			set( { [ t.id ]: t.def } );
+			return {
+				textFX: effects[ item.id ]
+					? effects
+					: activateTextEffect( effects, item ),
+			};
 		}
-		openSettings( t.id );
+	);
+	const renderPreview = useCallback(
+		async ( item ) => {
+			const { pv, vp } = glyphPreview(
+				layer,
+				item.fillPrev
+					? { imageFill: { ...item.def, src: fillPreviewSrc() } }
+					: item.prev,
+				item.tall
+			);
+			const scale = 1;
+			const canvas = await renderToCanvas(
+				{ ...state.doc, w: vp.w, h: vp.h, bg: 'transparent' },
+				[ pv ],
+				{ viewport: vp, scale, cache: sharedImageCache }
+			);
+			const thumb = trimTransparent( canvas, 4 );
+			return thumb?.toDataURL ? thumb.toDataURL() : null;
+			// Preview geometry drops the current effect stack; editing a slider must not regenerate the entire gallery.
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[
+			layer.id,
+			layer.text,
+			layer.fontFamily,
+			layer.fontSize,
+			layer.weight,
+			layer.italic,
+			layer.color,
+			layer.fillType,
+			layer.gradientStops,
+			layer.gradientAngle,
+			layer.gradientKind,
+			layer.pattern,
+			layer.outlineW,
+			layer.outlineColor,
+			layer.strokeGradient,
+			layer.styles,
+			state.doc,
+		]
+	);
+	const choose = ( item ) => {
+		if ( ! fx[ item.id ] ) {
+			dispatch( {
+				type: 'UPDATE_LAYER',
+				id: layer.id,
+				patch: { textFX: activateTextEffect( fx, item ) },
+			} );
+			commit( __( 'Text effect', 'wunderpaint' ) );
+		}
+		window.dispatchEvent(
+			new CustomEvent( 'wpie-fx-settings', { detail: { id: item.id } } )
+		);
 	};
-
 	return (
 		<PanelSection
 			wsKey="effects.textfx"
 			title={ __( 'Text Effects', 'wunderpaint' ) }
 		>
-			<div className="effect-grid">
-				{ TEXT_FX.map( ( t ) => (
-					<button
-						key={ t.id }
-						className={
-							'effect-chip' + ( fx[ t.id ] ? ' active' : '' )
-						}
-						title={ t.label }
-						aria-pressed={ !! fx[ t.id ] }
-						onClick={ () => toggle( t ) }
-					>
-						<span
-							className="effect-thumb"
-							style={ { background: previewBg( layer ) } }
-						>
-							{ previews[ t.id ] ? (
-								<img src={ previews[ t.id ] } alt="" />
-							) : (
-								<span className="effect-thumb-fallback" />
-							) }
-						</span>
-						<span className="effect-label">{ t.label }</span>
-					</button>
-				) ) }
-			</div>
+			<TextCatalog
+				previewScope={ layer?.id }
+				items={ TEXT_FX_CATALOG }
+				kind="effects"
+				canvasPreview={ canvasPreview }
+				renderPreview={ renderPreview }
+				choose={ choose }
+				active={ fx }
+				background={ previewBg( layer ) }
+			/>
 		</PanelSection>
 	);
 }
-
-/* ------------------------------ text styles ---------------------------- */
 
 /**
  * One-click style presets: tiles rendered with the layer's own text so the
@@ -763,88 +799,70 @@ export function TextEffectsSection( { editor, layer, state } ) {
  */
 export function TextStylesSection( { editor, layer, state } ) {
 	const { dispatch, commit } = editor;
-	const [ previews, setPreviews ] = useState( {} );
-
-	useEffect( () => {
-		let cancelled = false;
-		Promise.all(
-			TEXT_STYLES.map( async ( t ) => {
-				try {
-					// Looks that extend below the box (ground shadow,
-					// reflection) get a taller preview viewport.
-					const tall =
-						!! t.patch.textFX?.groundShadow ||
-						!! t.patch.textFX?.reflection;
-					// One big glyph with the style applied (v1.176.1).
-					const { pv, vp } = glyphPreview( layer, null, tall );
-					const scale = Math.min( 84 / vp.w, 64 / vp.h, 1 );
-					const canvas = await renderToCanvas(
-						{ ...state.doc, bg: 'transparent' },
-						[ { ...pv, ...t.patch } ],
-						{ viewport: vp, scale, cache: sharedImageCache }
-					);
-					return [
-						t.id,
-						canvas?.toDataURL ? canvas.toDataURL() : null,
-					];
-				} catch ( e ) {
-					return [ t.id, null ];
-				}
-			} )
-		).then( ( pairs ) => {
-			if ( ! cancelled ) {
-				setPreviews(
-					Object.fromEntries( pairs.filter( ( p ) => p[ 1 ] ) )
-				);
-			}
-		} );
-		return () => {
-			cancelled = true;
-		};
+	const canvasPreview = useEffectPreview(
+		editor,
+		layer,
+		( item ) => item.patch
+	);
+	const renderPreview = useCallback(
+		async ( item ) => {
+			const tall =
+				!! item.patch.textFX?.groundShadow ||
+				!! item.patch.textFX?.reflection;
+			const { pv, vp } = glyphPreview( layer, item.patch.textFX, tall );
+			const scale = 1;
+			const canvas = await renderToCanvas(
+				{ ...state.doc, w: vp.w, h: vp.h, bg: 'transparent' },
+				[ { ...pv, ...item.patch } ],
+				{ viewport: vp, scale, cache: sharedImageCache }
+			);
+			const thumb = trimTransparent( canvas, 4 );
+			return thumb?.toDataURL ? thumb.toDataURL() : null;
+		},
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ layer.id, layer.text, layer.fontFamily, layer.fontSize, state.doc ] );
-
-	const apply = ( t ) => {
-		dispatch( {
-			type: 'UPDATE_LAYER',
-			id: layer.id,
-			patch: t.patch,
-		} );
+		[
+			layer.id,
+			layer.text,
+			layer.fontFamily,
+			layer.fontSize,
+			layer.weight,
+			layer.italic,
+			layer.color,
+			layer.fillType,
+			layer.gradientStops,
+			layer.gradientAngle,
+			layer.gradientKind,
+			layer.pattern,
+			layer.outlineW,
+			layer.outlineColor,
+			layer.strokeGradient,
+			layer.styles,
+			state.doc,
+		]
+	);
+	const choose = ( item ) => {
+		dispatch( { type: 'UPDATE_LAYER', id: layer.id, patch: item.patch } );
 		commit( __( 'Text style', 'wunderpaint' ) );
 	};
-
 	return (
 		<PanelSection
 			wsKey="effects.textstyles"
 			title={ __( 'Text Styles', 'wunderpaint' ) }
 		>
-			<div className="effect-grid">
-				{ TEXT_STYLES.map( ( t ) => (
-					<button
-						key={ t.id }
-						className="effect-chip"
-						title={ t.label }
-						onClick={ () => apply( t ) }
-					>
-						<span
-							className="effect-thumb"
-							style={ { background: previewBg( layer ) } }
-						>
-							{ previews[ t.id ] ? (
-								<img src={ previews[ t.id ] } alt="" />
-							) : (
-								<span className="effect-thumb-fallback" />
-							) }
-						</span>
-						<span className="effect-label">{ t.label }</span>
-					</button>
-				) ) }
-			</div>
+			<TextCatalog
+				previewScope={ layer?.id }
+				items={ TEXT_STYLES }
+				kind="styles"
+				canvasPreview={ canvasPreview }
+				renderPreview={ renderPreview }
+				choose={ choose }
+				background={ ( item ) =>
+					previewBg( { ...layer, ...item.patch } )
+				}
+			/>
 		</PanelSection>
 	);
 }
-
-/* ------------------------------- text warp ----------------------------- */
 
 const TEXT_WARPS_UI = [
 	{ id: 'none', label: __( 'None', 'wunderpaint' ), type: null },
@@ -881,6 +899,21 @@ export function TextWarpSection( { editor, layer, state } ) {
 	const warp = fx.warp || {};
 	const activeType = warp.type || null;
 	const bend = warp.bend ?? 50;
+	const canvasPreview = useEffectPreview(
+		editor,
+		layer,
+		( item, current ) => ( {
+			textFX: {
+				...current.textFX,
+				warp: item.type
+					? {
+							type: item.type,
+							bend: current.textFX?.warp?.bend ?? 50,
+					  }
+					: null,
+			},
+		} )
+	);
 	const [ previews, setPreviews ] = useState( {} );
 
 	useEffect( () => {
@@ -893,15 +926,17 @@ export function TextWarpSection( { editor, layer, state } ) {
 						t.type ? { warp: { type: t.type, bend: 60 } } : null,
 						false
 					);
-					const scale = Math.min( 84 / vp.w, 64 / vp.h );
+					const scale = 1;
 					const canvas = await renderToCanvas(
-						{ ...state.doc, bg: 'transparent' },
+						{ ...state.doc, w: vp.w, h: vp.h, bg: 'transparent' },
 						[ pv ],
 						{ viewport: vp, scale, cache: sharedImageCache }
 					);
 					return [
 						t.id,
-						canvas?.toDataURL ? canvas.toDataURL() : null,
+						canvas?.toDataURL
+							? trimTransparent( canvas, 4 ).toDataURL()
+							: null,
 					];
 				} catch ( e ) {
 					return [ t.id, null ];
@@ -966,7 +1001,11 @@ export function TextWarpSection( { editor, layer, state } ) {
 							}
 							title={ t.label }
 							aria-pressed={ on }
-							onClick={ () => pick( t ) }
+							{ ...canvasPreview.forItem( t ) }
+							onClick={ () => {
+								canvasPreview.stop();
+								pick( t );
+							} }
 						>
 							<span
 								className="effect-thumb"

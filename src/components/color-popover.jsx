@@ -17,6 +17,11 @@ import { __ } from '@wordpress/i18n';
 import { SWATCHES } from '../store/constants';
 import { I } from '../icons';
 import { HsvPicker } from './hsv-picker';
+import { useColorEditor } from './use-color-editor';
+import {
+	canPickScreenColor,
+	pickScreenColor,
+} from '../lib/screen-color-picker';
 import {
 	parseColor,
 	rgbToHex,
@@ -27,12 +32,14 @@ import {
 import { extractPalette } from '../lib/palette';
 import { renderToCanvas, sharedImageCache } from '../lib/raster';
 import { useEditorMaybe } from '../store/editor-context';
+import { useEscape } from './use-escape';
 import {
 	recentColors,
 	pushRecentColor,
 	customSwatches,
 	toggleCustomSwatch,
 	isCustomSwatch,
+	onUserSwatchesChange,
 } from '../lib/user-swatches';
 import {
 	getExtractedColors,
@@ -97,6 +104,14 @@ export function ColorPopover( {
 	const [ mode, setMode ] = useState( 'hex' );
 	const [ recents, setRecents ] = useState( recentColors );
 	const [ custom, setCustom ] = useState( customSwatches );
+	useEffect(
+		() =>
+			onUserSwatchesChange( () => {
+				setRecents( recentColors() );
+				setCustom( customSwatches() );
+			} ),
+		[]
+	);
 	const [ imagePalette, setImagePalette ] = useState( [] );
 	const [ extracted, setExtracted ] = useState( getExtractedColors );
 	useEffect(
@@ -130,8 +145,14 @@ export function ColorPopover( {
 	const [ , bumpPalettes ] = useReducer( ( x ) => x + 1, 0 );
 	useEffect( () => {
 		window.addEventListener( 'wpie:palettes-updated', bumpPalettes );
-		return () =>
+		window.addEventListener( 'wpie:brand-kits-updated', bumpPalettes );
+		return () => {
 			window.removeEventListener( 'wpie:palettes-updated', bumpPalettes );
+			window.removeEventListener(
+				'wpie:brand-kits-updated',
+				bumpPalettes
+			);
+		};
 	}, [] );
 	const paletteGroups = ( window.WPIE?.palettes || [] )
 		.map( ( p, i ) => ( {
@@ -201,19 +222,15 @@ export function ColorPopover( {
 				onClose?.();
 			}
 		};
-		const onKey = ( e ) => {
-			if ( 'Escape' === e.key ) {
-				e.stopPropagation();
-				onClose?.();
-			}
-		};
 		document.addEventListener( 'mousedown', onDown );
-		document.addEventListener( 'keydown', onKey, true );
 		return () => {
 			document.removeEventListener( 'mousedown', onDown );
-			document.removeEventListener( 'keydown', onKey, true );
 		};
 	}, [ onClose, embedded ] );
+	// Escape goes through the dialogs' shared stack (v1.431.0): opened last,
+	// the popover answers first and the dialog under it stays open. The old
+	// private capture listener ran after the dialog's and took both down.
+	useEscape( () => onClose?.(), ! embedded );
 
 	const applyHexText = ( value ) => {
 		setHexText( value );
@@ -315,7 +332,7 @@ export function ColorPopover( {
 						{ m.toUpperCase() }
 					</button>
 				) ) }
-				{ window.EyeDropper && (
+				{ canPickScreenColor() && (
 					<button
 						type="button"
 						className="cp-eyedropper"
@@ -323,10 +340,9 @@ export function ColorPopover( {
 						aria-label={ __( 'Pick from screen…', 'wunderpaint' ) }
 						onClick={ async () => {
 							try {
-								const result =
-									await new window.EyeDropper().open();
-								if ( result?.sRGBHex ) {
-									pick( result.sRGBHex );
+								const result = await pickScreenColor();
+								if ( result ) {
+									pick( result );
 								}
 							} catch ( e ) {
 								// user cancelled, fine
@@ -547,19 +563,33 @@ export function ColorPopover( {
 export function SwatchButton( {
 	color,
 	onChange,
+	onCommit,
 	title,
 	className = 'swatch',
 	size = 26,
 	tipProps = null,
+	disabled = false,
 	// Lets a <label htmlFor> point at the swatch itself (v1.348.0).
 	id,
 } ) {
-	const [ open, setOpen ] = useState( null ); // anchored style | null
+	const shared = useColorEditor( {
+		color,
+		onChange,
+		onCommit,
+		title,
+		disabled,
+	} );
+	const [ open, setOpen ] = useState( null ); // Standalone fallback without an editor host.
 	return (
-		<span style={ { position: 'relative', display: 'inline-flex' } }>
+		<span
+			className="wpie-color-swatch"
+			style={ { position: 'relative', display: 'inline-flex' } }
+		>
 			<button
 				id={ id }
 				type="button"
+				disabled={ disabled }
+				aria-expanded={ shared.open || !! open }
 				className={ className }
 				title={ tipProps ? undefined : title }
 				aria-label={ title || 'color' }
@@ -574,6 +604,10 @@ export function SwatchButton( {
 				onClick={ ( e ) => {
 					// The styled tip must not linger over the popover.
 					tipProps?.onMouseLeave?.( e );
+					if ( shared.show( e.currentTarget ) ) {
+						setOpen( null );
+						return;
+					}
 					// Read the rect synchronously, a state updater runs in a
 					// later render phase, by which point React has nulled the
 					// synthetic event's currentTarget. That only bites when the
@@ -587,7 +621,7 @@ export function SwatchButton( {
 					);
 				} }
 			/>
-			{ open && (
+			{ open && ! disabled && (
 				<ColorPopover
 					color={ color }
 					onChange={ onChange }

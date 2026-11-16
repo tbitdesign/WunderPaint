@@ -12,7 +12,7 @@ import {
 	foilStyle,
 	fillCentered,
 } from './themes.js';
-import { projectConstellation, SIGN_CODES } from './zodiaccard.js';
+import { projectConstellation, edgeFade, SIGN_CODES } from './zodiaccard.js';
 import { drawMoonDisc } from './mooncard.js';
 
 const TAU = Math.PI * 2;
@@ -45,16 +45,18 @@ function drawHalf( ctx, size, cx, side, theme, foil, opts ) {
 		}
 		ctx.fillStyle = theme.star;
 		for ( const s of proj.stars ) {
+			const r =
+				Math.max( 0.5, ( 5.8 - s.mag ) * 0.35 ) * ( size / 1000 ) * 2;
+			const fade = edgeFade( cx + s.x, size * 0.3 + s.y, r + 1, size );
+			if ( fade <= 0 ) {
+				continue;
+			}
+			ctx.globalAlpha = fade;
 			ctx.beginPath();
-			ctx.arc(
-				s.x,
-				s.y,
-				Math.max( 0.5, ( 5.8 - s.mag ) * 0.35 ) * ( size / 1000 ) * 2,
-				0,
-				TAU
-			);
+			ctx.arc( s.x, s.y, r, 0, TAU );
 			ctx.fill();
 		}
+		ctx.globalAlpha = 1;
 		ctx.restore();
 	}
 

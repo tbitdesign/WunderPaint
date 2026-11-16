@@ -1,9 +1,9 @@
 {
 	"name": "Math Figures",
 	"slug": "wpie-math-figures",
-	"version": "0.7.3",
+	"version": "1.1.0",
 	"author": "TBIT DESIGN - Thomas Breher",
-	"description": "Typeset formulas with marked parts and labels, function graphs, geometry figures, number lines, fraction pictures, text with inline math, worked solutions aligned at the equals sign and value tables, stacked into one editable vector figure with title, caption and typography, computed entirely in the browser.",
+	"description": "Build editable vector figures with linked functions, numerical analysis, interactive geometry, mathematical block types and starters. Combine graphs, formulas, tables and explanations in one to three columns. Computed entirely in the browser.",
 	"main": "extension.js",
 	"style": "style.css",
 	"requiresApi": "2.23.0",

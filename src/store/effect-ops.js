@@ -18,6 +18,7 @@ import {
 	createCanvas,
 	sharedImageCache,
 	effectReach,
+	contentBounds,
 } from '../lib/raster';
 import { activeLayerOf, withDescendants } from './editor-context';
 import { promptDialog } from '../lib/dialogs';
@@ -198,42 +199,13 @@ export async function applyEffectToLayer(
 		if ( ! leaves.length ) {
 			return false;
 		}
-		// Axis-aligned bounds of each leaf, honoring rotation.
-		const leafBox = ( l ) => {
-			if ( ! l.rot ) {
-				return { x1: l.x, y1: l.y, x2: l.x + l.w, y2: l.y + l.h };
-			}
-			const cx = l.x + l.w / 2;
-			const cy = l.y + l.h / 2;
-			const a = ( l.rot * Math.PI ) / 180;
-			const hw =
-				( l.w * Math.abs( Math.cos( a ) ) +
-					l.h * Math.abs( Math.sin( a ) ) ) /
-				2;
-			const hh =
-				( l.w * Math.abs( Math.sin( a ) ) +
-					l.h * Math.abs( Math.cos( a ) ) ) /
-				2;
-			return { x1: cx - hw, y1: cy - hh, x2: cx + hw, y2: cy + hh };
-		};
-		const boxes = leaves.map( leafBox );
-		const pad = effectReach( effectParams );
-		const x1 =
-			Math.floor( Math.min( ...boxes.map( ( b ) => b.x1 ) ) ) - pad;
-		const y1 =
-			Math.floor( Math.min( ...boxes.map( ( b ) => b.y1 ) ) ) - pad;
-		const bounds = {
-			x: x1,
-			y: y1,
-			w:
-				Math.ceil( Math.max( ...boxes.map( ( b ) => b.x2 ) ) ) +
-				pad -
-				x1,
-			h:
-				Math.ceil( Math.max( ...boxes.map( ( b ) => b.y2 ) ) ) +
-				pad -
-				y1,
-		};
+		// Existing styles/contours belong to the composite before the new filter.
+		const bounds = contentBounds(
+			subtree.map( ( l ) =>
+				l.id === layer.id ? { ...l, previewEffect: null } : l
+			),
+			{ pad: effectReach( effectParams ) }
+		);
 		await sharedImageCache.warm( subtree );
 		const rendered = await renderToCanvas(
 			{ ...state.doc, bg: 'transparent' },
@@ -366,26 +338,25 @@ export async function applyEffectToLayer(
 
 	// Everything else rasterizes first (rasterize-on-first-edit, 02.2),
 	// rendered through the shared pipeline so what you saw is what you get.
-	await sharedImageCache.warm( [ layer ] );
-	const pad = effectReach( effectParams );
-	const bounds = {
-		x: layer.x - pad,
-		y: layer.y - pad,
-		w: Math.max( 1, layer.w ) + 2 * pad,
-		h: Math.max( 1, layer.h ) + 2 * pad,
+	const flat = {
+		...layer,
+		parent: null,
+		opacity: 1,
+		blend: 'normal',
+		previewEffect: null,
 	};
+	// Repeat copies need their source in the lookup pool, without painting
+	// that source a second time into the baked result. Reuse allLayers.
+	const lookup = layer.type === 'repeat' ? state.layers : [ flat ];
+	await sharedImageCache.warm( lookup );
+	const bounds = contentBounds( lookup, {
+		roots: [ flat ],
+		pad: effectReach( effectParams ),
+	} );
 	const rendered = await renderToCanvas(
 		{ ...state.doc, bg: 'transparent' },
-		[
-			{
-				...layer,
-				parent: null,
-				opacity: 1,
-				blend: 'normal',
-				previewEffect: null,
-			},
-		],
-		{ viewport: bounds, cache: sharedImageCache }
+		[ flat ],
+		{ viewport: bounds, cache: sharedImageCache, allLayers: lookup }
 	);
 	const canvas = createCanvas( rendered.width, rendered.height );
 	canvas.getContext( '2d' ).drawImage( rendered, 0, 0 );
@@ -403,7 +374,7 @@ export async function applyEffectToLayer(
 	raster.opacity = layer.opacity;
 	raster.blend = layer.blend;
 	raster.parent = layer.parent;
-	raster.mask = layer.mask;
+	// The destructive effect render already includes the mask.
 	dispatch( {
 		type: 'SET_LAYERS',
 		layers: state.layers.map( ( l ) => ( l.id === layer.id ? raster : l ) ),
@@ -424,16 +395,25 @@ export async function rasterizeActiveLayer( editor ) {
 	) {
 		return false;
 	}
-	await sharedImageCache.warm( [ layer ] );
-	const bounds = {
-		x: layer.x,
-		y: layer.y,
-		w: Math.max( 1, layer.w ),
-		h: Math.max( 1, layer.h ),
+	// Rasterize the content, retaining the live mask and layer styles. They must
+	// not be baked and then applied a second time to an expanded pixel layer.
+	const flat = {
+		...layer,
+		parent: null,
+		opacity: 1,
+		blend: 'normal',
+		rot: 0,
+		flipX: false,
+		flipY: false,
+		mask: null,
+		styles: null,
+		previewEffect: null,
 	};
+	await sharedImageCache.warm( [ flat ] );
+	const bounds = contentBounds( [ flat ] );
 	const rendered = await renderToCanvas(
 		{ ...state.doc, bg: 'transparent' },
-		[ { ...layer, parent: null, opacity: 1, blend: 'normal', rot: 0 } ],
+		[ flat ],
 		{ viewport: bounds, cache: sharedImageCache }
 	);
 	const raster = makeRaster( {
@@ -447,9 +427,52 @@ export async function rasterizeActiveLayer( editor ) {
 	raster.id = layer.id;
 	raster.opacity = layer.opacity;
 	raster.blend = layer.blend;
-	raster.rot = layer.rot;
 	raster.parent = layer.parent;
+	raster.styles = layer.styles;
 	raster.mask = layer.mask;
+	if ( layer.quad ) {
+		// The quad is baked in document coordinates; its mask is document-based.
+		if ( raster.mask ) {
+			raster.mask = { ...raster.mask, anchor: null };
+		}
+	} else {
+		raster.rot = layer.rot;
+		raster.flipX = layer.flipX;
+		raster.flipY = layer.flipY;
+		// Integer padding can be asymmetric for fractional geometry. Keep the
+		// original rotation/flip pivot rather than rotating around the new box.
+		const cx = layer.x + layer.w / 2,
+			cy = layer.y + layer.h / 2;
+		const dx = ( bounds.x + bounds.w / 2 - cx ) * ( layer.flipX ? -1 : 1 );
+		const dy = ( bounds.y + bounds.h / 2 - cy ) * ( layer.flipY ? -1 : 1 );
+		const angle = ( ( layer.rot || 0 ) * Math.PI ) / 180;
+		raster.x =
+			cx + dx * Math.cos( angle ) - dy * Math.sin( angle ) - bounds.w / 2;
+		raster.y =
+			cy + dx * Math.sin( angle ) + dy * Math.cos( angle ) - bounds.h / 2;
+		const anchor = layer.mask?.anchor;
+		if ( anchor && 'stroke' !== layer.type ) {
+			raster.mask = {
+				...layer.mask,
+				anchor: {
+					clip: anchor.clip || {
+						x: anchor.x,
+						y: anchor.y,
+						w: anchor.w,
+						h: anchor.h,
+					},
+					x:
+						anchor.x +
+						( ( bounds.x - layer.x ) * anchor.w ) / layer.w,
+					y:
+						anchor.y +
+						( ( bounds.y - layer.y ) * anchor.h ) / layer.h,
+					w: ( anchor.w * bounds.w ) / layer.w,
+					h: ( anchor.h * bounds.h ) / layer.h,
+				},
+			};
+		}
+	}
 	dispatch( {
 		type: 'SET_LAYERS',
 		layers: state.layers.map( ( l ) => ( l.id === layer.id ? raster : l ) ),

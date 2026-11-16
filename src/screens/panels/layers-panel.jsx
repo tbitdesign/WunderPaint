@@ -17,8 +17,9 @@ import * as Ops from '../../store/ops';
 import { captureComp, applyComp } from '../../lib/comps';
 import { bindingLabel } from '../../lib/dynamic-content';
 import { promptDialog } from '../../lib/dialogs';
-import { insertImageAtRow } from '../../lib/asset-insert';
+import { insertImageAtRow, isImageAsset } from '../../lib/asset-insert';
 import { ASSET_MIME } from '../library-tray';
+import { fitMenu } from '../../lib/menu-place';
 
 /** Is this drag something an image drop could use? Types only (v1.364.0). */
 const isImageDrag = ( e ) => {
@@ -38,7 +39,7 @@ const dropImageSource = ( e ) => {
 		const asset = JSON.parse(
 			e.dataTransfer?.getData( ASSET_MIME ) || 'null'
 		);
-		if ( asset && [ 'photo', 'upload' ].includes( asset.kind ) ) {
+		if ( isImageAsset( asset ) ) {
 			return { asset };
 		}
 	} catch ( err ) {}
@@ -492,7 +493,8 @@ export function LayersPanel( { extras } ) {
 					<div>
 						<div
 							style={ {
-								fontSize: 10,
+								fontSize: 11,
+								fontWeight: 600,
 								color: 'var(--ed-text-muted)',
 								textTransform: 'uppercase',
 								letterSpacing: 0.5,
@@ -529,8 +531,10 @@ export function LayersPanel( { extras } ) {
 					</div>
 					<div>
 						<div
+							data-number-label
 							style={ {
-								fontSize: 10,
+								fontSize: 11,
+								fontWeight: 600,
 								color: 'var(--ed-text-muted)',
 								textTransform: 'uppercase',
 								letterSpacing: 0.5,
@@ -548,6 +552,7 @@ export function LayersPanel( { extras } ) {
 						>
 							<input
 								type="range"
+								aria-label={ __( 'Opacity', 'wunderpaint' ) }
 								min="0"
 								max="100"
 								value={ Math.round(
@@ -571,6 +576,7 @@ export function LayersPanel( { extras } ) {
 								} }
 							/>
 							<span
+								data-number-value
 								style={ {
 									fontSize: 11,
 									fontFamily: 'var(--font-mono)',
@@ -1114,6 +1120,10 @@ export function LayersPanel( { extras } ) {
 				<div
 					className="ctx-menu"
 					style={ { position: 'fixed', left: menu.x, top: menu.y } }
+					// Measured once mounted and kept on screen: the panel
+					// sits on the right, so the menu ran off the right edge
+					// (21.10.2026, lib/menu-place.js).
+					ref={ ( el ) => el && fitMenu( el, menu.x, menu.y ) }
 					onPointerDown={ ( e ) => e.stopPropagation() }
 				>
 					{ contextItems(

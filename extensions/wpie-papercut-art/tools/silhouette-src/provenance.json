@@ -136,5 +136,155 @@
 		"title": "Tursiops truncatus",
 		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
 		"attribution": "Amy Beauvois"
+	},
+	"elephant": {
+		"uuid": "62398ac0-f0c3-48f8-8455-53512a05fbc4",
+		"title": "Loxodonta africana africana",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Steven Traver"
+	},
+	"giraffe": {
+		"uuid": "bbce74cf-4df3-4b7d-8b1d-f5b24dd3264a",
+		"title": "Giraffa",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "An Ignorant Atheist"
+	},
+	"lion": {
+		"uuid": "b2ea5bb0-2208-4b2d-8734-0432be9b9ce8",
+		"title": "Panthera leo",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"zebra": {
+		"uuid": "a31e7527-3203-4233-b0da-c415cc7d1664",
+		"title": "Equus quagga quagga",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Zimices"
+	},
+	"rhino": {
+		"uuid": "fdfaac80-2382-4d80-888b-bca2ca3ca2e7",
+		"title": "Ceratotherium simum simum",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Oscar Sanisidro"
+	},
+	"camel": {
+		"uuid": "93c5e5b0-6606-4e10-97e8-699156c57042",
+		"title": "Camelus dromedarius",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Katy Lawler"
+	},
+	"penguin": {
+		"uuid": "21c50828-58d8-42df-9219-2c1b0fb57c99",
+		"title": "Aptenodytes patagonicus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Steven Traver"
+	},
+	"polarbear": {
+		"uuid": "a12876cb-0930-4310-8ea8-2378df8164e3",
+		"title": "Ursus maritimus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Margot Michaud"
+	},
+	"seal": {
+		"uuid": "10d73995-c697-405e-8ffd-fc9900d3a3cb",
+		"title": "Phocidae",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "An Ignorant Atheist"
+	},
+	"cow": {
+		"uuid": "8a2d5863-cd6c-4158-a164-d62e789c2210",
+		"title": "Bos primigenius taurus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"sheep": {
+		"uuid": "d9c0cddb-6f19-4570-94f4-60316d3f3051",
+		"title": "Ovis aries",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"rooster": {
+		"uuid": "2de1c95c-7e1f-429b-9c08-17f0a27d176f",
+		"title": "Gallus gallus domesticus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Steven Traver"
+	},
+	"flamingo": {
+		"uuid": "13c0e1b9-e3b2-461d-ba61-1ff8b9daee39",
+		"title": "Phoenicopterus chilensis",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"swan": {
+		"uuid": "5fa31c76-161d-4f37-91d4-57c389dee1ae",
+		"title": "Cygnus olor",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Andy Wilson"
+	},
+	"hedgehog": {
+		"uuid": "2af612b1-f081-4cd5-b6f2-8cae1ca2936c",
+		"title": "Erinaceus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Adriana K."
+	},
+	"frog": {
+		"uuid": "e73c5c1c-7727-4687-bf0b-3957343edfc3",
+		"title": "Rana temporaria",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Beth Reinke"
+	},
+	"turtle": {
+		"uuid": "d3c269f4-05cf-4c22-9a71-8d6912fe50ec",
+		"title": "Caretta caretta",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Caleb M. Gordon"
+	},
+	"octopus": {
+		"uuid": "d115b40d-efe3-487e-bed1-4f6aace5c814",
+		"title": "Octopus bimaculatus",
+		"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+		"attribution": ""
+	},
+	"jellyfish": {
+		"uuid": "dc3464f9-04ba-4757-8de1-195e05772753",
+		"title": "Chrysaora",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Levi Simons and Kurtis Wothe"
+	},
+	"seahorse": {
+		"uuid": "6cf73e55-4e10-47ad-9b7e-33645536863f",
+		"title": "Hippocampus",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"shark": {
+		"uuid": "545d45f0-0dd1-4cfd-aad6-2b835223ea0d",
+		"title": "Carcharodon carcharias",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Steven Traver"
+	},
+	"trex": {
+		"uuid": "ccb9b896-20b5-4e0b-8979-001742a884c5",
+		"title": "Tyrannosaurus rex",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Richard Rich"
+	},
+	"longneck": {
+		"uuid": "2431b273-7b21-482e-b971-70377686335d",
+		"title": "Brachiosaurus altithorax",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": "Michael P. Taylor"
+	},
+	"stegosaurus": {
+		"uuid": "429d71d8-2940-449b-838b-a5b7f1733eba",
+		"title": "Stegosaurus stenops",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
+	},
+	"bat": {
+		"uuid": "78213f34-703a-4730-87c9-fdc933a3e00b",
+		"title": "Asellia tridens",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+		"attribution": ""
 	}
 }

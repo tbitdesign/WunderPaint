@@ -5,6 +5,8 @@
  */
 
 import { __ } from '@wordpress/i18n';
+import { createLayerEffects } from './layer-effects-collection';
+import { extendLayerEffects } from './layer-effects-extended';
 import { hexToRgb } from './color';
 import { decodeLutTable, sampleLut3d, sampleLut1d } from './cube-lut';
 import { getExtensionEffect } from './extensions';
@@ -13,6 +15,7 @@ import { getExtensionEffect } from './extensions';
 
 /**
  * Separable box blur (one pass), radius in px; blurs RGBA incl. alpha.
+ * Input must be premultiplied or fully opaque; use blurWithAlpha below.
  * @param img
  * @param radius
  */
@@ -74,6 +77,53 @@ function boxBlurPass( img, radius ) {
 	return img;
 }
 
+/**
+ * Blur straight-alpha image data without pulling hidden RGB into visible edges.
+ * Keep premultiplied RGB and alpha in float precision through ALL Gaussian
+ * passes: quantizing between passes can darken faint, otherwise clean edges.
+ * @param img
+ * @param radii
+ */
+function blurWithAlpha( img, radii ) {
+	const { data, width, height } = img;
+	let opaque = true;
+	for ( let i = 3; i < data.length; i += 4 ) {
+		if ( data[ i ] !== 255 ) {
+			opaque = false;
+			break;
+		}
+	}
+	if ( opaque ) {
+		// Preserve the existing byte-for-byte result for opaque images.
+		for ( const radius of radii ) {
+			boxBlurPass( img, radius );
+		}
+		return img;
+	}
+
+	const pixels = new Float32Array( data.length );
+	for ( let i = 0; i < data.length; i += 4 ) {
+		const alpha = data[ i + 3 ];
+		pixels[ i ] = data[ i ] * alpha;
+		pixels[ i + 1 ] = data[ i + 1 ] * alpha;
+		pixels[ i + 2 ] = data[ i + 2 ] * alpha;
+		pixels[ i + 3 ] = alpha;
+	}
+	const working = { data: pixels, width, height };
+	for ( const radius of radii ) {
+		boxBlurPass( working, radius );
+	}
+	for ( let i = 0; i < data.length; i += 4 ) {
+		const alpha = pixels[ i + 3 ];
+		data[ i + 3 ] = alpha;
+		// Divide by the unrounded alpha; clear RGB if the stored pixel is invisible.
+		for ( let c = 0; c < 3; c++ ) {
+			data[ i + c ] = data[ i + 3 ] ? pixels[ i + c ] / alpha : 0;
+		}
+	}
+	return img;
+}
+
 const luma = ( d, i ) =>
 	0.2126 * d[ i ] + 0.7152 * d[ i + 1 ] + 0.0722 * d[ i + 2 ];
 
@@ -104,14 +154,16 @@ export function gaussianBlur( img, { radius = 4 } = {} ) {
 		return img;
 	}
 	const boxR = Math.max( 1, Math.round( r / 2 ) );
-	boxBlurPass( img, boxR );
-	boxBlurPass( img, boxR );
-	boxBlurPass( img, Math.max( 1, Math.round( r / 3 ) ) );
-	return img;
+	return blurWithAlpha( img, [
+		boxR,
+		boxR,
+		Math.max( 1, Math.round( r / 3 ) ),
+	] );
 }
 
 export function boxBlur( img, { radius = 4 } = {} ) {
-	return boxBlurPass( img, radius );
+	const r = Math.max( 0, Math.round( radius ) );
+	return r ? blurWithAlpha( img, [ r ] ) : img;
 }
 
 export function sharpen( img, { amount = 100 } = {} ) {
@@ -894,225 +946,233 @@ export function curves( img, { points } = {} ) {
  * `params`: { key: { min, max, default, type } }, drives the UI popovers
  * and the SmartFilter.params schema.
  */
-export const EFFECTS = [
-	{
-		id: 'gaussian-blur',
-		label: __( 'Gaussian Blur', 'wunderpaint' ),
-		apply: gaussianBlur,
-		params: { radius: { min: 0, max: 100, default: 4, unit: 'px' } },
-	},
-	{
-		id: 'sharpen',
-		label: __( 'Sharpen', 'wunderpaint' ),
-		apply: sharpen,
-		params: { amount: { min: 0, max: 300, default: 100, unit: '%' } },
-	},
-	{
-		id: 'unsharp-mask',
-		label: __( 'Unsharp Mask', 'wunderpaint' ),
-		apply: unsharpMask,
-		params: {
-			radius: { min: 0, max: 50, default: 2, unit: 'px' },
-			amount: { min: 0, max: 300, default: 100, unit: '%' },
-			threshold: { min: 0, max: 255, default: 0 },
+export const EFFECTS = extendLayerEffects(
+	[
+		{
+			id: 'gaussian-blur',
+			label: __( 'Gaussian Blur', 'wunderpaint' ),
+			apply: gaussianBlur,
+			params: { radius: { min: 0, max: 100, default: 4, unit: 'px' } },
 		},
-	},
-	{
-		id: 'box-blur',
-		label: __( 'Box Blur', 'wunderpaint' ),
-		apply: boxBlur,
-		params: { radius: { min: 0, max: 100, default: 4, unit: 'px' } },
-	},
-	{
-		id: 'add-noise',
-		label: __( 'Noise / Grain', 'wunderpaint' ),
-		apply: addNoise,
-		params: {
-			amount: { min: 0, max: 100, default: 12 },
-			size: { min: 1, max: 4, default: 1, unit: 'px' },
-			monochrome: { type: 'bool', default: false },
+		{
+			id: 'sharpen',
+			label: __( 'Sharpen', 'wunderpaint' ),
+			apply: sharpen,
+			params: { amount: { min: 0, max: 300, default: 100, unit: '%' } },
 		},
-	},
-	{
-		id: 'pixelate',
-		label: __( 'Pixelate', 'wunderpaint' ),
-		apply: pixelate,
-		params: { cell: { min: 1, max: 200, default: 8, unit: 'px' } },
-	},
-	{
-		id: 'posterize',
-		label: __( 'Posterize', 'wunderpaint' ),
-		apply: posterize,
-		params: { levels: { min: 2, max: 32, default: 6 } },
-	},
-	{
-		id: 'threshold',
-		label: __( 'Threshold', 'wunderpaint' ),
-		apply: threshold,
-		params: { level: { min: 0, max: 255, default: 128 } },
-	},
-	{
-		id: 'invert',
-		label: __( 'Invert', 'wunderpaint' ),
-		apply: invert,
-		params: {},
-	},
-	{
-		id: 'gamma',
-		label: __( 'Gamma', 'wunderpaint' ),
-		apply: gamma,
-		params: { value: { min: 0.1, max: 3.0, default: 1.0, step: 0.05 } },
-	},
-	{
-		id: 'duotone',
-		label: __( 'Duotone', 'wunderpaint' ),
-		apply: duotone,
-		params: {
-			shadow: { type: 'color', default: '#1a1d21' },
-			highlight: { type: 'color', default: '#f0f0f1' },
-		},
-	},
-	{
-		id: 'levels',
-		label: __( 'Levels', 'wunderpaint' ),
-		apply: levels,
-		params: {
-			inBlack: { min: 0, max: 254, default: 0 },
-			inWhite: { min: 1, max: 255, default: 255 },
-			gamma: { min: 0.1, max: 3, default: 1, step: 0.05 },
-			outBlack: { min: 0, max: 255, default: 0 },
-			outWhite: { min: 0, max: 255, default: 255 },
-		},
-	},
-	{
-		id: 'curves',
-		label: __( 'Curves', 'wunderpaint' ),
-		apply: curves,
-		params: {
-			points: {
-				type: 'curve',
-				default: [
-					{ x: 0, y: 0 },
-					{ x: 255, y: 255 },
-				],
+		{
+			id: 'unsharp-mask',
+			label: __( 'Unsharp Mask', 'wunderpaint' ),
+			apply: unsharpMask,
+			params: {
+				radius: { min: 0, max: 50, default: 2, unit: 'px' },
+				amount: { min: 0, max: 300, default: 100, unit: '%' },
+				threshold: { min: 0, max: 255, default: 0 },
 			},
 		},
-	},
-	{
-		id: 'vignette',
-		label: __( 'Vignette', 'wunderpaint' ),
-		apply: vignette,
-		params: {
-			amount: { min: -100, max: 100, default: 40 },
-			size: { min: 0, max: 100, default: 55 },
-			softness: { min: 5, max: 100, default: 50 },
+		{
+			id: 'box-blur',
+			label: __( 'Box Blur', 'wunderpaint' ),
+			apply: boxBlur,
+			params: { radius: { min: 0, max: 100, default: 4, unit: 'px' } },
 		},
-	},
-	{
-		id: 'tilt-shift',
-		label: __( 'Tilt-Shift', 'wunderpaint' ),
-		apply: tiltShift,
-		params: {
-			center: { min: 0, max: 100, default: 50, unit: '%' },
-			band: { min: 5, max: 100, default: 30, unit: '%' },
-			radius: { min: 1, max: 60, default: 12, unit: 'px' },
+		{
+			id: 'add-noise',
+			label: __( 'Noise / Grain', 'wunderpaint' ),
+			apply: addNoise,
+			params: {
+				amount: { min: 0, max: 100, default: 12 },
+				size: { min: 1, max: 4, default: 1, unit: 'px' },
+				monochrome: { type: 'bool', default: false },
+			},
 		},
-	},
-	{
-		id: 'color-splash',
-		label: __( 'Color Splash', 'wunderpaint' ),
-		apply: colorSplash,
-		params: {
-			hue: { min: 0, max: 360, default: 0, unit: '°' },
-			range: { min: 5, max: 120, default: 30, unit: '°' },
+		{
+			id: 'pixelate',
+			label: __( 'Pixelate', 'wunderpaint' ),
+			apply: pixelate,
+			params: { cell: { min: 1, max: 200, default: 8, unit: 'px' } },
 		},
-	},
-	{
-		id: 'halftone',
-		label: __( 'Halftone', 'wunderpaint' ),
-		apply: halftone,
-		params: {
-			cell: { min: 3, max: 40, default: 8, unit: 'px' },
-			angle: { min: 0, max: 90, default: 45, unit: '°' },
+		{
+			id: 'posterize',
+			label: __( 'Posterize', 'wunderpaint' ),
+			apply: posterize,
+			params: { levels: { min: 2, max: 32, default: 6 } },
 		},
-	},
-	{
-		id: 'glitch',
-		label: __( 'Glitch', 'wunderpaint' ),
-		apply: glitch,
-		params: {
-			shift: { min: 0, max: 50, default: 6, unit: 'px' },
-			scanlines: { min: 0, max: 100, default: 30 },
-			blocks: { min: 0, max: 100, default: 30 },
-			seed: { min: 1, max: 99, default: 7 },
+		{
+			id: 'threshold',
+			label: __( 'Threshold', 'wunderpaint' ),
+			apply: threshold,
+			params: { level: { min: 0, max: 255, default: 128 } },
 		},
-	},
-	{
-		id: 'glow',
-		label: __( 'Glow', 'wunderpaint' ),
-		apply: glow,
-		params: {
-			radius: { min: 1, max: 80, default: 12, unit: 'px' },
-			intensity: { min: 0, max: 100, default: 60, unit: '%' },
+		{
+			id: 'invert',
+			label: __( 'Invert', 'wunderpaint' ),
+			apply: invert,
+			params: {},
 		},
-	},
-	{
-		id: 'emboss',
-		label: __( 'Emboss', 'wunderpaint' ),
-		apply: emboss,
-		params: { strength: { min: 10, max: 300, default: 100, unit: '%' } },
-	},
-	{
-		id: 'edge-detect',
-		label: __( 'Edge Detect', 'wunderpaint' ),
-		apply: edgeDetect,
-		params: { strength: { min: 10, max: 300, default: 100, unit: '%' } },
-	},
-	{
-		id: 'shadows-highlights',
-		label: __( 'Shadows / Highlights', 'wunderpaint' ),
-		apply: shadowsHighlights,
-		params: {
-			shadows: { min: -100, max: 100, default: 30 },
-			highlights: { min: -100, max: 100, default: -30 },
+		{
+			id: 'gamma',
+			label: __( 'Gamma', 'wunderpaint' ),
+			apply: gamma,
+			params: { value: { min: 0.1, max: 3.0, default: 1.0, step: 0.05 } },
 		},
-	},
-	{
-		id: 'denoise',
-		label: __( 'Denoise', 'wunderpaint' ),
-		apply: denoise,
-		params: { strength: { min: 1, max: 3, default: 1 } },
-	},
-	{
-		id: 'auto-levels',
-		label: __( 'Auto Levels', 'wunderpaint' ),
-		apply: autoLevels,
-		params: {},
-	},
-	{
-		id: 'auto-contrast',
-		label: __( 'Auto Contrast', 'wunderpaint' ),
-		apply: autoContrast,
-		params: {},
-	},
-	{
-		id: 'auto-color',
-		label: __( 'Auto Color', 'wunderpaint' ),
-		apply: autoColor,
-		params: {},
-	},
-	{
-		id: 'lut-3d',
-		label: __( 'Color LUT', 'wunderpaint' ),
-		hidden: true, // applied via “Load LUT (.cube)…”, not the generic lists
-		apply: lut3d,
-		// `table` is set by the “Load LUT (.cube)…” import, not by the UI.
-		params: {
-			table: { type: 'data', default: null },
-			intensity: { min: 0, max: 100, default: 100, unit: '%' },
+		{
+			id: 'duotone',
+			label: __( 'Duotone', 'wunderpaint' ),
+			apply: duotone,
+			params: {
+				shadow: { type: 'color', default: '#1a1d21' },
+				highlight: { type: 'color', default: '#f0f0f1' },
+			},
 		},
-	},
-];
+		{
+			id: 'levels',
+			label: __( 'Levels', 'wunderpaint' ),
+			apply: levels,
+			params: {
+				inBlack: { min: 0, max: 254, default: 0 },
+				inWhite: { min: 1, max: 255, default: 255 },
+				gamma: { min: 0.1, max: 3, default: 1, step: 0.05 },
+				outBlack: { min: 0, max: 255, default: 0 },
+				outWhite: { min: 0, max: 255, default: 255 },
+			},
+		},
+		{
+			id: 'curves',
+			label: __( 'Curves', 'wunderpaint' ),
+			apply: curves,
+			params: {
+				points: {
+					type: 'curve',
+					default: [
+						{ x: 0, y: 0 },
+						{ x: 255, y: 255 },
+					],
+				},
+			},
+		},
+		{
+			id: 'vignette',
+			label: __( 'Vignette', 'wunderpaint' ),
+			apply: vignette,
+			params: {
+				amount: { min: -100, max: 100, default: 40 },
+				size: { min: 0, max: 100, default: 55 },
+				softness: { min: 5, max: 100, default: 50 },
+			},
+		},
+		{
+			id: 'tilt-shift',
+			label: __( 'Tilt-Shift', 'wunderpaint' ),
+			apply: tiltShift,
+			params: {
+				center: { min: 0, max: 100, default: 50, unit: '%' },
+				band: { min: 5, max: 100, default: 30, unit: '%' },
+				radius: { min: 1, max: 60, default: 12, unit: 'px' },
+			},
+		},
+		{
+			id: 'color-splash',
+			label: __( 'Color Splash', 'wunderpaint' ),
+			apply: colorSplash,
+			params: {
+				hue: { min: 0, max: 360, default: 0, unit: '°' },
+				range: { min: 5, max: 120, default: 30, unit: '°' },
+			},
+		},
+		{
+			id: 'halftone',
+			label: __( 'Halftone', 'wunderpaint' ),
+			apply: halftone,
+			params: {
+				cell: { min: 3, max: 40, default: 8, unit: 'px' },
+				angle: { min: 0, max: 90, default: 45, unit: '°' },
+			},
+		},
+		{
+			id: 'glitch',
+			label: __( 'Glitch', 'wunderpaint' ),
+			apply: glitch,
+			params: {
+				shift: { min: 0, max: 50, default: 6, unit: 'px' },
+				scanlines: { min: 0, max: 100, default: 30 },
+				blocks: { min: 0, max: 100, default: 30 },
+				seed: { min: 1, max: 99, default: 7 },
+			},
+		},
+		{
+			id: 'glow',
+			label: __( 'Glow', 'wunderpaint' ),
+			apply: glow,
+			params: {
+				radius: { min: 1, max: 80, default: 12, unit: 'px' },
+				intensity: { min: 0, max: 100, default: 60, unit: '%' },
+			},
+		},
+		{
+			id: 'emboss',
+			label: __( 'Emboss', 'wunderpaint' ),
+			apply: emboss,
+			params: {
+				strength: { min: 10, max: 300, default: 100, unit: '%' },
+			},
+		},
+		{
+			id: 'edge-detect',
+			label: __( 'Edge Detect', 'wunderpaint' ),
+			apply: edgeDetect,
+			params: {
+				strength: { min: 10, max: 300, default: 100, unit: '%' },
+			},
+		},
+		{
+			id: 'shadows-highlights',
+			label: __( 'Shadows / Highlights', 'wunderpaint' ),
+			apply: shadowsHighlights,
+			params: {
+				shadows: { min: -100, max: 100, default: 30 },
+				highlights: { min: -100, max: 100, default: -30 },
+			},
+		},
+		{
+			id: 'denoise',
+			label: __( 'Denoise', 'wunderpaint' ),
+			apply: denoise,
+			params: { strength: { min: 1, max: 3, default: 1 } },
+		},
+		{
+			id: 'auto-levels',
+			label: __( 'Auto Levels', 'wunderpaint' ),
+			apply: autoLevels,
+			params: {},
+		},
+		{
+			id: 'auto-contrast',
+			label: __( 'Auto Contrast', 'wunderpaint' ),
+			apply: autoContrast,
+			params: {},
+		},
+		{
+			id: 'auto-color',
+			label: __( 'Auto Color', 'wunderpaint' ),
+			apply: autoColor,
+			params: {},
+		},
+		{
+			id: 'lut-3d',
+			label: __( 'Color LUT', 'wunderpaint' ),
+			hidden: true, // applied via “Load LUT (.cube)…”, not the generic lists
+			apply: lut3d,
+			// `table` is set by the “Load LUT (.cube)…” import, not by the UI.
+			params: {
+				table: { type: 'data', default: null },
+				intensity: { min: 0, max: 100, default: 100, unit: '%' },
+			},
+		},
+		...createLayerEffects( { gaussianBlur } ),
+	],
+	{ gaussianBlur }
+);
 
 export const effectById = ( id ) =>
 	EFFECTS.find( ( e ) => e.id === id ) || getExtensionEffect( id );

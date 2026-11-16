@@ -1,0 +1,346 @@
+/* Compact selection types beside the panel opener in the menu row. */
+#wpie-root .ed-tool-opts .selp-tool-options {
+	flex-shrink: 0;
+}
+
+#wpie-root .ed-tool-opts .selp-tool-types {
+	flex-shrink: 0;
+	padding: 1px;
+}
+
+#wpie-root .ed-tool-opts .selp-tool-types button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 22px;
+	padding: 0;
+}
+
+#wpie-root .selp {
+	container-type: inline-size;
+	container-name: selection-panel;
+	display: grid;
+	grid-template-columns: 106px minmax( 0, 1fr );
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	font-size: 12px;
+}
+
+#wpie-root .selp-types {
+	padding: 10px;
+	border-right: 1px solid var( --border-hairline );
+	overflow: auto;
+	min-height: 0;
+}
+
+#wpie-root .selp-modes {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr );
+	gap: 6px;
+}
+
+#wpie-root .selp-main {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+
+#wpie-root .selp-current {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-shrink: 0;
+	gap: 8px;
+	padding: 10px;
+	border-bottom: 1px solid var( --border-hairline );
+}
+
+#wpie-root .selp-size {
+	min-width: 0;
+	font-size: 11px;
+	color: var( --text-secondary );
+}
+
+#wpie-root .selp-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+#wpie-root .selp-section + .selp-section {
+	padding-top: 10px;
+	border-top: 1px solid var( --border-hairline );
+}
+
+#wpie-root .selp-section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+
+#wpie-root .selp-choices {
+	display: grid;
+	gap: 5px;
+}
+
+#wpie-root .selp-combine {
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+}
+
+#wpie-root .selp-pair {
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+#wpie-root .selp-saved-card[aria-pressed='true'] {
+	border-color: var( --accent );
+	color: var( --text-primary );
+}
+
+#wpie-root .selp .dsm-seg button {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .selp .ai-btn {
+	min-width: 0;
+}
+
+#wpie-root .selp button:focus-visible {
+	outline: 2px solid var( --accent );
+	outline-offset: -2px;
+}
+
+#wpie-root .selp-hint,
+#wpie-root .selp-empty {
+	margin: 0;
+	color: var( --ed-text-muted );
+	font-size: 11px;
+	line-height: 1.5;
+}
+
+#wpie-root .selp-saved-grid {
+	display: grid;
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	gap: 6px;
+}
+
+#wpie-root .selp-saved-item {
+	position: relative;
+	min-width: 0;
+}
+
+#wpie-root .selp-saved-card {
+	width: 100%;
+	padding: 5px;
+	border: 1px solid var( --border-hairline );
+	border-radius: var( --r-md );
+	background: var( --surface-panel );
+	color: var( --ed-text-muted );
+	font: inherit;
+	cursor: pointer;
+}
+
+#wpie-root .selp-saved-preview {
+	display: grid;
+	place-items: center;
+	height: 64px;
+	background: var( --ed-bg );
+	border-radius: var( --r-md );
+}
+
+#wpie-root .selp-saved-preview img {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	background: #131518;
+}
+
+#wpie-root .selp-saved-name {
+	display: block;
+	padding-top: 5px;
+	overflow-wrap: anywhere;
+	font-size: 11px;
+}
+
+#wpie-root .selp-remove {
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 1px solid var( --border-hairline );
+	border-radius: var( --r-md );
+	background: var( --surface-panel );
+	color: var( --ed-text-muted );
+	cursor: pointer;
+}
+
+#wpie-root .selp-settings {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+	min-height: 0;
+	overflow: auto;
+	padding: 10px;
+}
+
+#wpie-root .selp-setting-head,
+#wpie-root .selp-number {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+#wpie-root .selp-setting-head {
+	justify-content: space-between;
+	margin-bottom: 3px;
+}
+
+#wpie-root .selp-number {
+	color: var( --ed-text-muted );
+}
+
+#wpie-root .selp-number input {
+	width: 64px;
+	min-width: 0;
+	text-align: right;
+}
+
+#wpie-root .selp-number > span {
+	min-width: 16px;
+}
+
+#wpie-root .selp-setting input[type='range'] {
+	width: 100%;
+	margin: 0;
+}
+
+#wpie-root .selp-dimensions {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: 6px 10px;
+}
+
+#wpie-root .selp-pixel-field {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+#wpie-root .selp-pixel-field input {
+	width: 64px;
+	min-width: 0;
+	flex: 1;
+	text-align: right;
+}
+
+#wpie-root .selp-pixel-field > span {
+	font-size: 11px;
+}
+
+#wpie-root .selection-transform {
+	pointer-events: auto;
+	cursor: move;
+	touch-action: none;
+}
+
+#wpie-root .selp-settings > * {
+	flex-shrink: 0;
+}
+
+@container selection-panel (max-width: 360px) {
+
+	#wpie-root .selp .selp-field,
+	#wpie-root .selp .selp-pair,
+	#wpie-root .selp .selp-dimensions,
+	#wpie-root .selp .selp-saved-grid {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	#wpie-root .selp .dsm-seg {
+		flex-direction: column;
+	}
+
+	#wpie-root .selp-current {
+		flex-direction: column;
+		align-items: stretch;
+	}
+}
+
+#wpie-root .selp-section-title {
+	margin: 0;
+	font-size: 12px;
+	font-weight: 600;
+	color: var( --text-primary );
+}
+
+#wpie-root .selp-field {
+	display: grid;
+	grid-template-columns: auto minmax( 0, 1fr );
+	align-items: center;
+	gap: 10px;
+	font-size: 11px;
+}
+
+#wpie-root .selp-field select {
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .selp-commands {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+#wpie-root .selp .selp-action {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 2px;
+	width: 100%;
+	min-height: 44px;
+	padding: 7px 10px;
+	text-align: left;
+	white-space: normal;
+}
+
+#wpie-root .selp-action-label {
+	font-size: 12px;
+	font-weight: 500;
+}
+
+#wpie-root .selp-action-description {
+	font-size: 10px;
+	font-weight: 400;
+	line-height: 1.35;
+	opacity: 0.72;
+}
+
+#wpie-root .selp-fold {
+	border-top: 1px solid var( --border-hairline );
+	padding-top: 10px;
+}
+
+#wpie-root .selp-fold > summary {
+	cursor: pointer;
+	color: var( --text-secondary );
+	font-size: 12px;
+	font-weight: 500;
+}
+
+#wpie-root .selp-fold[open] > summary {
+	margin-bottom: 10px;
+	color: var( --text-primary );
+}

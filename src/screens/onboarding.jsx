@@ -1,144 +1,189 @@
-/**
- * First-run tour (F14, v0.5): a spotlight walk over the real UI, one
- * step per STEPS entry.
- * Shown once (localStorage), restartable via Help → Show Tour.
- */
-
-import { siteStorage } from '../lib/local-storage';
-import { useState, useEffect } from '@wordpress/element';
+/** Manual editor overview and the shared spotlight for task-specific guides. */
+import {
+	useState,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+} from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { useEscape } from '../components/use-escape';
+import { onboardingSteps } from './onboarding-steps';
 
-const STEPS = [
-	{
-		selector: '.ed-toolbar',
-		title: __( 'Tools', 'wunderpaint' ),
-		body: __(
-			'20 tools with keyboard shortcuts (V, B, T …). The options bar above the canvas adapts to the active tool.',
-			'wunderpaint'
-		),
-	},
-	{
-		selector: '.ed-canvas-area',
-		title: __( 'Canvas', 'wunderpaint' ),
-		body: __(
-			'Hold Space to pan, ⌘+/− to zoom. Everything you paint lands on layers, nothing touches your original until you save.',
-			'wunderpaint'
-		),
-	},
-	{
-		selector: '.ed-right-tabs',
-		title: __( 'Panels', 'wunderpaint' ),
-		body: __(
-			'Layers, properties, adjustments, effects, history and the AI Studio with its one-click image actions live here.',
-			'wunderpaint'
-		),
-	},
-	{
-		selector: '.ed-menubar',
-		title: __( 'Menus', 'wunderpaint' ),
-		body: __(
-			'Photoshop-style menus: Image, Layer, Select and Filter work on your document; View holds proofing, guides and the post preview.',
-			'wunderpaint'
-		),
-	},
-	{
-		selector: '[data-menu="assets"]',
-		title: __( 'Assets', 'wunderpaint' ),
-		body: __(
-			'Everything you design with: the Asset Library, stock photos, the Asset Generator, the Design Generator, your Brand Kits and the Media Library Manager.',
-			'wunderpaint'
-		),
-	},
-	{
-		selector: '.library-tray',
-		title: __( 'Asset Library tray', 'wunderpaint' ),
-		body: __(
-			'Quick access under the canvas: text lockups, shapes, icons, photos, brand-kit logos, dynamic and starter templates. Click or drag onto the canvas.',
-			'wunderpaint'
-		),
-	},
-	{
-		selector: '[data-menu="automation"]',
-		title: __( 'Automation', 'wunderpaint' ),
-		// The tour runs once, on first contact, and three of the four tools
-		// this used to promise are removed from the menu entirely without a
-		// Pro licence (proHas in editor-menubar.jsx). Describe what the
-		// reader will actually find behind the highlighted menu.
-		body: () =>
-			window.WPIE?.pro?.active
-				? __(
-						'Generate Content writes complete draft posts, Featured Images fills whole archives with branded thumbnails, and the Image Processor batch-edits your library.',
-						'wunderpaint'
-				  )
-				: __(
-						'Batch Watermark stamps many images in one run, and the Metadata Assistant fills in alt text across your library. Pro adds the bulk runs on top: featured images across a whole archive, draft posts, CSV series and the Image Processor.',
-						'wunderpaint'
-				  ),
-	},
-	{
-		selector: '.ed-titlebar button.primary',
-		title: __( 'Saving', 'wunderpaint' ),
-		body: __(
-			'Save to Media Library keeps versions of the original (restorable in History). Save as New Image creates a fresh attachment; editable work lives in Designs.',
-			'wunderpaint'
-		),
-	},
-	{
-		selector: '[data-menu="help"]',
-		title: __( 'Help', 'wunderpaint' ),
-		body: __(
-			'The Handbook explains every part of the editor with step-by-step articles, and the "?" in any dialog jumps straight to the right one. Replay this tour anytime via Help → Show Tour.',
-			'wunderpaint'
-		),
-	},
-];
+function findTarget( root, selector ) {
+	return Array.from( root?.querySelectorAll( selector ) || [] ).find(
+		( el ) => {
+			const r = el.getBoundingClientRect();
+			const style = window.getComputedStyle( el );
+			return (
+				style.visibility !== 'hidden' &&
+				style.display !== 'none' &&
+				r.width > 0 &&
+				r.height > 0 &&
+				r.right > 0 &&
+				r.bottom > 0 &&
+				r.left < window.innerWidth &&
+				r.top < window.innerHeight
+			);
+		}
+	);
+}
 
-export const tourDone = () => {
-	try {
-		return '1' === siteStorage.getItem( 'wpie-tour-done' );
-	} catch ( e ) {
-		return true;
-	}
-};
-
-/** Generic spotlight tour (v0.8), used by onboarding and help guides. */
-export function SpotlightTour( { steps, onClose, editor, extras, doneLabel } ) {
+/** Guides retain their `before` hooks; the overview only visits visible UI. */
+export function SpotlightTour( {
+	steps,
+	onClose,
+	editor,
+	extras,
+	doneLabel,
+	skipMissingTargets = false,
+} ) {
 	const [ step, setStep ] = useState( 0 );
-	const [ rect, setRect ] = useState( null );
+	const [ available, setAvailable ] = useState( steps );
+	const [ layout, setLayout ] = useState( { rect: null, left: 16, top: 16 } );
+	const tourRef = useRef( null );
+	const boxRef = useRef( null );
+	const context = useRef( { editor, extras } );
+	context.current = { editor, extras };
+	const closeRef = useRef( onClose );
+	closeRef.current = onClose;
+	const current = available[ step ];
+	useEscape( onClose );
+
+	useLayoutEffect( () => {
+		const root = tourRef.current?.closest( '.editor-root' ) || document;
+		const visible = skipMissingTargets
+			? steps.filter( ( item ) => findTarget( root, item.selector ) )
+			: steps;
+		setAvailable( visible );
+		setStep( 0 );
+		if ( ! visible.length ) {
+			closeRef.current();
+		}
+	}, [ steps, skipMissingTargets ] );
 
 	useEffect( () => {
-		try {
-			steps[ step ].before?.( editor, extras );
-		} catch ( e ) {}
-		// Wait a tick so `before` UI changes (tab switches) settle.
-		const timer = setTimeout( () => {
-			const el = document.querySelector( steps[ step ].selector );
-			if ( el ) {
-				const r = el.getBoundingClientRect();
-				setRect( { x: r.left, y: r.top, w: r.width, h: r.height } );
-			} else {
-				setRect( null );
+		const tour = tourRef.current;
+		if ( ! tour ) {
+			return undefined;
+		}
+		const previous = tour.ownerDocument.activeElement;
+		const root = tour.closest( '.editor-root' );
+		const onKey = ( event ) => {
+			// Keep editor shortcuts and focus behind the tour inactive.
+			event.stopPropagation();
+			if ( event.key === 'Tab' ) {
+				const buttons = tour.querySelectorAll( 'button' );
+				const next = event.shiftKey
+					? buttons[ buttons.length - 1 ]
+					: buttons[ 0 ];
+				const edge = event.shiftKey
+					? buttons[ 0 ]
+					: buttons[ buttons.length - 1 ];
+				if ( tour.ownerDocument.activeElement === edge ) {
+					event.preventDefault();
+					next.focus();
+				}
 			}
-		}, 120 );
-		return () => clearTimeout( timer );
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ step ] );
+		};
+		tour.addEventListener( 'keydown', onKey );
+		tour.querySelector( '.ai-btn.primary' )?.focus();
+		return () => {
+			tour.removeEventListener( 'keydown', onKey );
+			const target = previous?.isConnected
+				? previous
+				: root?.querySelector( '[data-menu="help"]' );
+			target?.focus?.( { preventScroll: true } );
+		};
+	}, [] );
 
-	const finish = onClose;
+	useLayoutEffect( () => {
+		if ( ! current ) {
+			return undefined;
+		}
+		try {
+			current.before?.( context.current.editor, context.current.extras );
+		} catch ( e ) {}
+		const root = tourRef.current?.closest( '.editor-root' ) || document;
+		let frame;
+		const measure = () => {
+			const el = findTarget( root, current.selector );
+			const r = el?.getBoundingClientRect();
+			const width = window.innerWidth;
+			const height = window.innerHeight;
+			const rect = r
+				? {
+						x: Math.max( 0, r.left ),
+						y: Math.max( 0, r.top ),
+						w: Math.min( width, r.right ) - Math.max( 0, r.left ),
+						h: Math.min( height, r.bottom ) - Math.max( 0, r.top ),
+				  }
+				: null;
+			const box = boxRef.current?.getBoundingClientRect();
+			const w = box?.width || 320;
+			const h = box?.height || 200;
+			let left = ( width - w ) / 2;
+			let top = ( height - h ) / 2;
+			if ( rect ) {
+				if ( rect.x + rect.w + w + 32 <= width ) {
+					left = rect.x + rect.w + 16;
+					top = rect.y + ( rect.h - h ) / 2;
+				} else if ( rect.x - w - 16 >= 16 ) {
+					left = rect.x - w - 16;
+					top = rect.y + ( rect.h - h ) / 2;
+				} else if ( rect.y + rect.h + h + 32 <= height ) {
+					top = rect.y + rect.h + 16;
+				} else if ( rect.y - h - 16 >= 16 ) {
+					top = rect.y - h - 16;
+				}
+			}
+			const next = {
+				rect,
+				left: Math.max( 16, Math.min( width - w - 16, left ) ),
+				top: Math.max( 16, Math.min( height - h - 16, top ) ),
+			};
+			setLayout( ( previous ) =>
+				JSON.stringify( previous ) === JSON.stringify( next )
+					? previous
+					: next
+			);
+		};
+		const schedule = () => {
+			cancelAnimationFrame( frame );
+			frame = requestAnimationFrame( measure );
+		};
+		measure();
+		// Let the existing how-to guides settle after a tool or tab switch.
+		const timer = setTimeout( measure, 120 );
+		const observer = new ResizeObserver( schedule );
+		if ( root instanceof Element ) {
+			observer.observe( root );
+		}
+		if ( boxRef.current ) {
+			observer.observe( boxRef.current );
+		}
+		const target = findTarget( root, current.selector );
+		if ( target ) {
+			observer.observe( target );
+		}
+		window.addEventListener( 'resize', schedule );
+		window.addEventListener( 'scroll', schedule, true );
+		return () => {
+			clearTimeout( timer );
+			cancelAnimationFrame( frame );
+			observer.disconnect();
+			window.removeEventListener( 'resize', schedule );
+			window.removeEventListener( 'scroll', schedule, true );
+		};
+	}, [ current ] );
 
-	const current = steps[ step ];
-	const boxTop = rect
-		? Math.min( window.innerHeight - 180, rect.y + rect.h / 2 )
-		: 200;
-	const boxLeft = rect
-		? Math.max(
-				16,
-				Math.min( window.innerWidth - 336, rect.x + rect.w + 16 )
-		  )
-		: window.innerWidth / 2 - 160;
-
+	if ( ! current ) {
+		return null;
+	}
+	const { rect, left, top } = layout;
 	return (
 		<div
+			ref={ tourRef }
 			className="wpie-tour"
 			role="dialog"
 			aria-modal="true"
@@ -157,32 +202,41 @@ export function SpotlightTour( { steps, onClose, editor, extras, doneLabel } ) {
 				/>
 			) }
 			<div
+				ref={ boxRef }
 				className="wpie-tour-box"
-				style={ { left: boxLeft, top: boxTop } }
+				style={ { left, top } }
 			>
 				<div className="wpie-tour-step">
-					{ step + 1 } / { steps.length }
+					{ step + 1 } / { available.length }
 				</div>
 				<div className="wpie-tour-title">{ current.title }</div>
-				{ /* A step may compute its text (licence-dependent wording). */ }
 				<div className="wpie-tour-body">
-					{ 'function' === typeof current.body
+					{ typeof current.body === 'function'
 						? current.body()
 						: current.body }
 				</div>
 				<div className="wpie-tour-buttons">
-					<button className="ai-btn secondary" onClick={ finish }>
-						{ __( 'Skip', 'wunderpaint' ) }
+					<button
+						type="button"
+						className="ai-btn secondary"
+						onClick={ onClose }
+					>
+						{ __( 'Close', 'wunderpaint' ) }
 					</button>
-					{ step < steps.length - 1 ? (
+					{ step < available.length - 1 ? (
 						<button
+							type="button"
 							className="ai-btn primary"
 							onClick={ () => setStep( step + 1 ) }
 						>
 							{ __( 'Next', 'wunderpaint' ) }
 						</button>
 					) : (
-						<button className="ai-btn primary" onClick={ finish }>
+						<button
+							type="button"
+							className="ai-btn primary"
+							onClick={ onClose }
+						>
 							{ doneLabel ||
 								__( 'Start editing', 'wunderpaint' ) }
 						</button>
@@ -193,16 +247,14 @@ export function SpotlightTour( { steps, onClose, editor, extras, doneLabel } ) {
 	);
 }
 
-export function OnboardingTour( { onClose } ) {
+export function OnboardingTour( { onClose, easyMode = false } ) {
+	const steps = useMemo( () => onboardingSteps( easyMode ), [ easyMode ] );
 	return (
 		<SpotlightTour
-			steps={ STEPS }
-			onClose={ () => {
-				try {
-					siteStorage.setItem( 'wpie-tour-done', '1' );
-				} catch ( e ) {}
-				onClose();
-			} }
+			steps={ steps }
+			onClose={ onClose }
+			skipMissingTargets
+			doneLabel={ __( 'Done', 'wunderpaint' ) }
 		/>
 	);
 }

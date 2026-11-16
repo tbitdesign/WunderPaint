@@ -37,11 +37,18 @@ export const listUserGradients = () => read();
  * @param {string} kind  linear|radial|angle.
  * @return {Array} Updated list.
  */
-export function saveUserGradient( name, stops, kind = 'linear' ) {
+export function saveUserGradient( name, stops, kind = 'linear', recipe = {} ) {
 	const entry = {
 		name: String( name || 'Gradient' ).slice( 0, 24 ),
 		stops: stops.map( ( s ) => ( { ...s } ) ),
 		kind,
+		...( recipe.spread ? { spread: recipe.spread } : {} ),
+		...( recipe.freeform
+			? { freeform: JSON.parse( JSON.stringify( recipe.freeform ) ) }
+			: {} ),
+		...( recipe.mesh
+			? { mesh: JSON.parse( JSON.stringify( recipe.mesh ) ) }
+			: {} ),
 	};
 	const list = [
 		...read().filter( ( item ) => item.name !== entry.name ),
@@ -50,6 +57,7 @@ export function saveUserGradient( name, stops, kind = 'linear' ) {
 	try {
 		storage?.setItem( KEY, JSON.stringify( list ) );
 	} catch ( e ) {}
+	window.dispatchEvent( new CustomEvent( 'wpie:gradients-updated' ) );
 	return list;
 }
 
@@ -62,5 +70,6 @@ export function deleteUserGradient( name ) {
 	try {
 		storage?.setItem( KEY, JSON.stringify( list ) );
 	} catch ( e ) {}
+	window.dispatchEvent( new CustomEvent( 'wpie:gradients-updated' ) );
 	return list;
 }

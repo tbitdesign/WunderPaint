@@ -11,6 +11,7 @@ import { logEvent } from './debug-log';
 // P07: main-thread timers are throttled in background tabs (down to one
 // tick a minute); the worker-backed sleep keeps long polls on pace.
 import { sleep } from './worker-timer';
+import { normalizeImageFile } from './heic';
 import { __, sprintf } from '@wordpress/i18n';
 
 let restRoot = '';
@@ -261,10 +262,16 @@ export function checkUploadSize( file, capMb = 0 ) {
  * Upload a local file into the media library via core REST (v1.135.0),
  * used for watermark/logo uploads that are not in the library yet.
  *
- * @param {File} file Image file from an <input type="file">.
+ * A HEIC photo is converted to JPEG in the browser first (20.10.2026):
+ * WordPress accepts HEIC, but turns it into something a browser can show
+ * only where the server's Imagick reads HEIC, and otherwise files it
+ * without a single thumbnail.
+ *
+ * @param {File} upload Image file from an <input type="file">.
  * @return {Promise<{id:number,url:string}>} New attachment.
  */
-export async function uploadMediaFile( file ) {
+export async function uploadMediaFile( upload ) {
+	const file = await normalizeImageFile( upload );
 	checkUploadSize( file );
 	// Host-adapter hook (v1.309): a non-WordPress host (the standalone
 	// studio) stores uploads itself and resolves the same { id, url }
@@ -550,12 +557,25 @@ export const proxyImageUrl = ( proxyUrl, src ) =>
 /* ------------------------------- templates ------------------------------ */
 
 export const templates = {
-	list: () => request( { path: '/templates', method: 'GET' } ),
-	create: ( { name, projectJson, preview } ) =>
+	list: ( { extension = '' } = {} ) =>
+		request( {
+			path:
+				'/templates' +
+				( extension
+					? '?extension=' + encodeURIComponent( extension )
+					: '' ),
+			method: 'GET',
+		} ),
+	create: ( { name, projectJson, preview, extension } ) =>
 		request( {
 			path: '/templates',
 			method: 'POST',
-			data: { name, projectJson, preview },
+			data: {
+				name,
+				projectJson,
+				preview,
+				...( extension ? { extension } : {} ),
+			},
 		} ),
 	load: ( id ) => request( { path: `/templates/${ id }`, method: 'GET' } ),
 	update: ( id, { name, projectJson, preview } = {} ) =>
@@ -915,6 +935,16 @@ const aiPost = async ( action, data ) => {
 			);
 		}
 	}
+};
+
+/**
+ * AI Studio Buttons (spec 2026-09-16): the site option behind the panel.
+ * Admins save the whole config at once, like Brand Kits.
+ */
+export const aiButtons = {
+	get: () => request( { path: '/ai-buttons' } ),
+	save: ( config ) =>
+		request( { path: '/ai-buttons', method: 'POST', data: { config } } ),
 };
 
 export const ai = {

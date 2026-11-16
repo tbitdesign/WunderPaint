@@ -15,6 +15,7 @@ import { weightOf, gesturesFor } from './signature.js';
 import { handPath, linePath } from './hand.js';
 import { vnoise } from '../core/rng.js';
 import { sampleMass, massAt, needs as readNeeds } from './composition.js';
+import { inZones, outside } from './clear.js';
 import { cellAt, cellCentre } from './motif.js';
 import { critique, inQuiet } from './critic.js';
 import { pickVocab, sizeFor, range } from './schools.js';
@@ -27,6 +28,7 @@ import {
 	toHex,
 } from './palette2d.js';
 import { lum } from './senses.js';
+import { strikeItem } from './music.js';
 
 export const PAINTER_ROLES = [
 	'opener',
@@ -67,6 +69,26 @@ const PHASE_INDEX = {
 };
 const clamp = ( v, lo, hi ) => Math.max( lo, Math.min( hi, v ) );
 
+/**
+ * Out of the page's text (flat/clear.js): a place that fell into a zone
+ * goes to a planned mass that lies outside, else anywhere free - never
+ * just past the zone's edge, or the text would get a frame of paint.
+ */
+function awayFromText( w, r ) {
+	const free = ( w.plan.masses || [] ).filter(
+		( m ) => ! inZones( w.clear, m.cx, m.cy )
+	);
+	for ( let k = 0; k < 6 && free.length; k++ ) {
+		const m = free[ Math.floor( r() * free.length ) % free.length ];
+		const p = sampleMass( m, r, 0.9 );
+		if ( ! inZones( w.clear, p[ 0 ], p[ 1 ] ) ) {
+			return { p, mass: m };
+		}
+	}
+	const p = outside( w.clear, w.aspect, r );
+	return p ? { p, mass: massAt( w.plan, p[ 0 ], p[ 1 ] ) } : null;
+}
+
 /** Keep a point inside the frame with a little bleed allowed. */
 function inFrame( w, p, bleed = 0.04 ) {
 	// A signature may keep a paper border; then nothing bleeds.
@@ -78,6 +100,26 @@ function inFrame( w, p, bleed = 0.04 ) {
 		clamp( p[ 0 ], -bleed, w.aspect + bleed ),
 		clamp( p[ 1 ], -bleed, 1 + bleed ),
 	];
+}
+
+/**
+ * The point on a grid's lines nearest to p, the line's direction there and
+ * its extent along it. Without lines, p itself.
+ */
+function onLine( lines, p ) {
+	let best = null;
+	let bd = Infinity;
+	for ( const l of lines || [] ) {
+		const v = 'v' === l.axis;
+		const along = clamp( v ? p[ 1 ] : p[ 0 ], l.from, l.to );
+		const q = v ? [ l.at, along ] : [ along, l.at ];
+		const d = Math.hypot( q[ 0 ] - p[ 0 ], q[ 1 ] - p[ 1 ] );
+		if ( d < bd ) {
+			bd = d;
+			best = { p: q, angle: v ? Math.PI / 2 : 0, span: [ l.from, l.to ] };
+		}
+	}
+	return best || { p, angle: 0, span: null };
 }
 
 export class Painter extends Actor {
@@ -120,6 +162,18 @@ export class Painter extends Actor {
 		this.motifLove = 0.35 + r() * 0.45;
 		this.dir = r() * TAU;
 		this.entry = 0;
+		// Ready to paint, waiting for the next beat of the song.
+		this.cue = false;
+	}
+
+	/** A painter who waited for the beat takes it. */
+	act( dt ) {
+		const m = this.world.music;
+		if ( this.cue && m && m.onBeat && ! m.hush && ! m.ended ) {
+			this.cue = false;
+			this.decide();
+		}
+		super.act( dt );
 	}
 
 	decide() {
@@ -127,6 +181,32 @@ export class Painter extends Actor {
 		const bursting = w.burst && w.time < w.burst.until;
 		if ( ( w.time < this.busyUntil && ! bursting ) || ! w.senses ) {
 			return;
+		}
+		const music = w.music;
+		if ( music ) {
+			// The song leads: nothing after the last note, nothing in its
+			// silences, and with a steady beat the mark waits for it.
+			if ( music.ended || ( music.hush && ! bursting ) ) {
+				return;
+			}
+			// A strong accent waits for the next free hand (a moment, no
+			// more) and leaves its own mark.
+			const strikes = music.strikes;
+			while ( strikes.length && music.t - strikes[ 0 ].at > 0.8 ) {
+				strikes.shift();
+			}
+			if ( strikes.length ) {
+				const hit = this.strike( strikes.shift() );
+				if ( hit ) {
+					this.commit( hit, this.voice || w.voice || w.school );
+				}
+				return;
+			}
+			if ( music.grid && ! music.onBeat && ! bursting ) {
+				this.cue = true;
+				return;
+			}
+			this.cue = false;
 		}
 		const phase = w.phase;
 		// In rest the picture is looked at more than touched: the finisher
@@ -233,6 +313,12 @@ export class Painter extends Actor {
 		if ( ! cmd ) {
 			return;
 		}
+		this.commit( cmd, sch );
+	}
+
+	/** A mark leaves the hand: its time, its seed, and the rest after it. */
+	commit( cmd, sch ) {
+		const w = this.world;
 		const dur =
 			range( sch.tempo.duration, w.rng, 0.8 ) *
 			( 0.7 + ( 1 - this.hand.haste ) * 0.6 );
@@ -250,6 +336,31 @@ export class Painter extends Actor {
 			( 0.2 + w.rng() * 1.2 ) / Math.max( 0.2, w.params.energy + 0.3 );
 	}
 
+	/**
+	 * A strike of the song: the school's own short word in the accent
+	 * color (see strikeItem), as big as the accent was strong, high on the
+	 * sheet for a bright sound and low for a dark one - the one place where
+	 * the song's pitch has a place. De Stijl sets it on its nearest line.
+	 */
+	strike( st ) {
+		const w = this.world;
+		const r = w.rng;
+		const item = strikeItem( this.voice || w.voice || w.school, st );
+		const at = [
+			( 0.06 + r() * 0.88 ) * w.aspect,
+			0.1 + 0.8 * ( 1 - st.bright ) + ( r() - 0.5 ) * 0.12,
+		];
+		if ( 'squares' === item.kind ) {
+			const line = onLine( w.plan.lines, at );
+			return this.mark( item, {
+				p: inFrame( w, line.p ),
+				angle: line.angle,
+				span: line.span,
+			} );
+		}
+		return this.mark( item, { p: inFrame( w, at ), angle: r() * TAU } );
+	}
+
 	/* ------------------------------- senses -------------------------------- */
 
 	/** Where this mark goes: a point, the mass there (if any), an angle. */
@@ -261,7 +372,13 @@ export class Painter extends Actor {
 		const needs = w.needs || readNeeds( plan, s );
 		if ( w.motif ) {
 			const byMotif = this.placeByMotif( item );
-			if ( byMotif ) {
+			if (
+				byMotif &&
+				! (
+					w.clear.length &&
+					inZones( w.clear, byMotif.p[ 0 ], byMotif.p[ 1 ] )
+				)
+			) {
 				return byMotif;
 			}
 		}
@@ -394,8 +511,11 @@ export class Painter extends Actor {
 			mass = m;
 		}
 		// The visitor's gestures take precedence, visibly: along a drawn
-		// stroke, around a burst, near the hand over the sheet.
+		// stroke, around a burst, near the hand over the sheet - also on
+		// the page's text, where the hand asks for it.
+		let byHand = false;
 		if ( w.call && w.time < w.call.until && r() < 0.65 ) {
+			byHand = true;
 			const cp = w.call.pts;
 			const k = Math.min(
 				cp.length - 2,
@@ -411,6 +531,7 @@ export class Painter extends Actor {
 			this.dir = Math.atan2( b[ 1 ] - a[ 1 ], b[ 0 ] - a[ 0 ] );
 			mass = massAt( plan, p[ 0 ], p[ 1 ] );
 		} else if ( w.burst && w.time < w.burst.until && r() < 0.85 ) {
+			byHand = true;
 			const sp = 0.03 + r() * 0.06;
 			const a = r() * TAU;
 			p = [
@@ -419,6 +540,7 @@ export class Painter extends Actor {
 			];
 			mass = massAt( plan, p[ 0 ], p[ 1 ] );
 		} else if ( w.cursor.active && 'off' !== w.cursor.mode && r() < 0.45 ) {
+			byHand = true;
 			const sp = 0.02 + r() * 0.09;
 			const a = r() * TAU;
 			p = [
@@ -433,6 +555,20 @@ export class Painter extends Actor {
 			p[ 0 ] + clamp( f[ 0 ], -0.1, 0.1 ),
 			p[ 1 ] + clamp( f[ 1 ], -0.1, 0.1 ),
 		] );
+		// The page's text stays readable: nothing the society chose itself
+		// lands on it (the underpainting may pass, softened, stage.js).
+		if (
+			w.clear.length &&
+			! byHand &&
+			'opening' !== w.phase &&
+			inZones( w.clear, p[ 0 ], p[ 1 ] )
+		) {
+			const away = awayFromText( w, r );
+			if ( away ) {
+				p = inFrame( w, away.p );
+				mass = away.mass;
+			}
+		}
 		if ( ! mass ) {
 			mass = massAt( plan, p[ 0 ], p[ 1 ] );
 		}
@@ -2113,9 +2249,53 @@ export class Painter extends Actor {
 		];
 	}
 
+	/**
+	 * Small squares in a row along a line, the way Broadway Boogie Woogie
+	 * keeps time: one for an accent, up to three for a strong one.
+	 */
+	squares( item, where, size, color ) {
+		const w = this.world;
+		const r = w.rng;
+		const side = clamp( size * 0.3, 0.012, 0.035 );
+		const s = Number.isFinite( item.strength ) ? item.strength : 0.6;
+		const n = s >= 0.85 ? 3 : s >= 0.7 ? 2 : 1;
+		const gap = side * ( 1.8 + r() * 0.8 );
+		const v = Math.abs( Math.sin( where.angle || 0 ) ) > 0.5;
+		const base = v ? where.p[ 1 ] : where.p[ 0 ];
+		const span = where.span;
+		const out = [];
+		for ( let k = 0; k < n; k++ ) {
+			let along = base + ( k - ( n - 1 ) / 2 ) * gap;
+			if ( span && span[ 1 ] - span[ 0 ] > side ) {
+				along = clamp(
+					along,
+					span[ 0 ] + side / 2,
+					span[ 1 ] - side / 2
+				);
+			}
+			out.push( {
+				type: 'shape',
+				kind: 'rect',
+				x: v ? where.p[ 0 ] : along,
+				y: v ? along : where.p[ 1 ],
+				w: side,
+				h: side,
+				angle: 0,
+				color,
+				alpha: 1,
+				edge: 'crisp',
+			} );
+		}
+		return 1 === out.length ? out[ 0 ] : out;
+	}
+
 	/** Build the command(s) for a vocabulary item. */
 	make( item ) {
-		const where = this.place( item );
+		return this.mark( item, this.place( item ) );
+	}
+
+	/** The command(s) for an item at a place already chosen. */
+	mark( item, where ) {
 		const color = this.colorFor( item.color || 'local', where );
 		const size = this.sizeOf( item, where );
 		switch ( item.kind ) {
@@ -2189,6 +2369,8 @@ export class Painter extends Actor {
 				return this.eye( item, where, color );
 			case 'seal':
 				return this.seal( item, color );
+			case 'squares':
+				return this.squares( item, where, size, color );
 			default:
 				return null;
 		}
@@ -2208,11 +2390,17 @@ export class Colorist extends Actor {
 
 	decide() {
 		const w = this.world;
-		this.heatT = w.rng();
-		if ( w.rng() < 0.08 + 0.2 * w.params.chaos ) {
+		// Under a song the heat follows its brightness, the accents come
+		// from its strikes and a new palette only from a lift in it.
+		const music = w.music;
+		this.heatT = music ? music.bright : w.rng();
+		if ( ! music && w.rng() < 0.08 + 0.2 * w.params.chaos ) {
 			w.accentUntil = w.time + 0.5 + w.rng() * 1.5;
 		}
-		if ( w.params.autoPalette && ( w.paletteJolt || w.rng() < 0.04 ) ) {
+		if (
+			w.params.autoPalette &&
+			( w.paletteJolt || ( ! music && w.rng() < 0.04 ) )
+		) {
 			w.paletteJolt = false;
 			w.chronicle.push( { e: 'palette', t: w.time } );
 			w.setColors( paletteFor( w.school.palette, w.rng ) );
@@ -2253,6 +2441,10 @@ export class Critic extends Actor {
 export class Disruptor extends Actor {
 	decide() {
 		const w = this.world;
+		if ( w.music ) {
+			// A song brings its own disruptions: its accents.
+			return;
+		}
 		const r = () => w.rng() * 2 - 1;
 		const dir = [ r(), r() ];
 		const len = Math.hypot( ...dir ) || 1;
@@ -2286,6 +2478,11 @@ export class Restless extends Actor {
 
 	act( dt ) {
 		const w = this.world;
+		if ( w.music ) {
+			// Under a song the upheavals are the song's own sections.
+			super.act( dt );
+			return;
+		}
 		const since = w.time - this.lastBreak;
 		const hazard = dt * ( 0.0015 + since * 0.0004 );
 		if ( since > 25 && w.rng() < hazard ) {
@@ -2322,6 +2519,10 @@ export class Restless extends Actor {
 
 	decide() {
 		const w = this.world;
+		if ( w.music ) {
+			// The song sets the dials and the cast; nobody rolls dice for it.
+			return;
+		}
 		if ( w.params.allowRecast && w.rng() < 0.4 ) {
 			w.casting.push( { type: w.rng() < 0.45 ? 'retire' : 'hire' } );
 			if ( w.casting.length > 6 ) {

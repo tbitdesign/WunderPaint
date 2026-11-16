@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { parseColor, toHexColor } from '../lib/color';
 
 const RING = 15; // ring thickness as a share of the radius, in percent
 
@@ -37,10 +38,10 @@ const toHex = ( rgb ) =>
 	'#' + rgb.map( ( c ) => c.toString( 16 ).padStart( 2, '0' ) ).join( '' );
 
 function hexToHsv( hex ) {
-	const h = /^#[0-9a-f]{6}$/i.test( hex || '' ) ? hex : '#000000';
-	const r = parseInt( h.slice( 1, 3 ), 16 ) / 255;
-	const g = parseInt( h.slice( 3, 5 ), 16 ) / 255;
-	const b = parseInt( h.slice( 5, 7 ), 16 ) / 255;
+	const parsed = parseColor( hex );
+	const r = parsed.r / 255;
+	const g = parsed.g / 255;
+	const b = parsed.b / 255;
 	const max = Math.max( r, g, b );
 	const min = Math.min( r, g, b );
 	const d = max - min;
@@ -57,7 +58,7 @@ function hexToHsv( hex ) {
 	return { h: hue, s: max ? d / max : 0, v: max };
 }
 
-export function ColorWheel( { color, onChange, size = 176 } ) {
+export function ColorWheel( { color, onChange, onCommit, size = 176 } ) {
 	const ref = useRef( null );
 	const drag = useRef( null );
 	const [ hsv, setHsv ] = useState( () => hexToHsv( color ) );
@@ -74,13 +75,17 @@ export function ColorWheel( { color, onChange, size = 176 } ) {
 	const emit = useCallback(
 		( next ) => {
 			setHsv( next );
-			const hex = toHex( hsvToRgb( next.h, next.s, next.v ) );
+			// The global panel and other pickers also provide colors with alpha.
+			const hex = toHexColor(
+				...hsvToRgb( next.h, next.s, next.v ),
+				parseColor( color ).a
+			);
 			mine.current = hex;
 			if ( onChange ) {
 				onChange( hex );
 			}
 		},
-		[ onChange ]
+		[ onChange, color ]
 	);
 
 	// The wheel itself never changes, so it is drawn once per size.
@@ -159,6 +164,7 @@ export function ColorWheel( { color, onChange, size = 176 } ) {
 		if ( ! which ) {
 			return;
 		}
+		e.preventDefault();
 		e.currentTarget.setPointerCapture( e.pointerId );
 		drag.current = which;
 		handle( p, which );
@@ -180,8 +186,18 @@ export function ColorWheel( { color, onChange, size = 176 } ) {
 					handle( at( e ), drag.current );
 				}
 			} }
-			onPointerUp={ () => ( drag.current = null ) }
-			onPointerCancel={ () => ( drag.current = null ) }
+			onPointerUp={ () => {
+				if ( drag.current ) {
+					onCommit?.( mine.current || color );
+				}
+				drag.current = null;
+			} }
+			onPointerCancel={ () => {
+				if ( drag.current ) {
+					onCommit?.( mine.current || color );
+				}
+				drag.current = null;
+			} }
 			role="application"
 			aria-label={ __( 'Color wheel', 'wunderpaint' ) }
 		>

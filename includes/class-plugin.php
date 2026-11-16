@@ -56,6 +56,7 @@ class Plugin {
 			'stock'       => Stock::class,
 			'models3d'    => Models_3D::class,
 			'meshy'       => Meshy::class,
+			'ai_buttons'  => AI_Buttons::class,
 			'ml'          => ML_Models::class,
 			'library'     => User_Library::class,
 			'palettes'    => Palettes::class,

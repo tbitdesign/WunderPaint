@@ -84,9 +84,9 @@ try {
 		'the two families are labeled'
 	);
 	check(
-		3 ===
+		4 ===
 			( await page.locator( '.wpiechaos-side .dsm-card-head' ).count() ),
-		'on the sheet the right dock holds motif, temperament and colors'
+		'on the sheet the right dock holds motif, music, temperament and colors'
 	);
 	check(
 		'none' ===
@@ -277,9 +277,9 @@ try {
 	await tile( SCHOOL.action ).click();
 	await page.waitForTimeout( 400 );
 	check(
-		3 ===
+		4 ===
 			( await page.locator( '.wpiechaos-side .dsm-card-head' ).count() ),
-		'back on the sheet the look and pointer sections are gone again'
+		'back on the sheet the look and pointer sections are gone again (motif, music, temperament, colors)'
 	);
 	await page.locator( '.wpiechaos-start' ).click();
 	await page.waitForTimeout( 4000 );
@@ -483,8 +483,101 @@ try {
 		0 === ( await page.locator( '.wpiechaos-body' ).count() ),
 		'dialog closes after insert'
 	);
+
+	/* ------------- v1.13: room for the page's text, in the real bundle ------------- */
+
+	await page.evaluate( () => {
+		window.__editor.state.layers = [
+			{ id: 'bg', type: 'image', x: 0, y: 0, w: 1600, h: 1000, visible: true },
+			{
+				id: 'head',
+				type: 'text',
+				text: 'A headline',
+				x: 200,
+				y: 300,
+				w: 700,
+				h: 160,
+				rot: 0,
+				visible: true,
+				opacity: 1,
+			},
+		];
+		window.__dispatched.length = 0;
+		window.__gen.run( {
+			editor: window.__editor,
+			extras: { toasts: { error: () => {}, success: () => {} } },
+			layer: null,
+		} );
+	} );
+	await page.waitForTimeout( 900 );
+	await tile( SCHOOL.destijl ).click();
+	await page.waitForTimeout( 400 );
+	check(
+		5 === ( await page.locator( '.wpiechaos-side .dsm-card-head' ).count() ),
+		'with text on the page the sheet shows one more section (text, motif, music, temperament, colors)'
+	);
+	const textBox = page.locator( '.wpiechaos-side input[type="checkbox"]' ).first();
+	check( await textBox.isChecked(), 'leaving room for the text is on by default' );
+	{
+		const fb2 = await page.locator( '.wpiechaos-field' ).boundingBox();
+		for ( let i = 0; i < 230; i++ ) {
+			await page.mouse.move(
+				fb2.x + 40 + ( ( i * 23 ) % Math.max( 40, fb2.width - 80 ) ),
+				fb2.y + 40 + ( ( i * 31 ) % Math.max( 40, fb2.height - 80 ) )
+			);
+		}
+	}
+	await startFresh();
+	await page.waitForTimeout( 2500 );
+	const zonesNow = () =>
+		page.evaluate( () => {
+			const w = window.__wpiechaosEngine && window.__wpiechaosEngine.world;
+			return w && w.clear ? w.clear.map( ( z ) => [ z.x0, z.y0, z.x1, z.y1 ] ) : null;
+		} );
+	{
+		const z = await zonesNow();
+		// The headline spans 200..900 x 300..460 of a 1600x1000 page.
+		check(
+			!! z &&
+				1 === z.length &&
+				z[ 0 ][ 0 ] < ( 200 / 1000 ) &&
+				z[ 0 ][ 2 ] > ( 900 / 1000 ) &&
+				z[ 0 ][ 1 ] < 0.3 &&
+				z[ 0 ][ 3 ] > 0.46,
+			`the painters know where the headline stands (${ JSON.stringify( z ) })`
+		);
+	}
+	await textBox.click();
+	await page.waitForTimeout( 200 );
+	check( 0 === ( ( await zonesNow() ) || [ 1 ] ).length, 'switched off, the whole sheet is theirs again' );
+	await textBox.click();
+	await page.waitForTimeout( 200 );
+	check( 1 === ( ( await zonesNow() ) || [] ).length, 'and switched on again, the room is back' );
+	await page.waitForTimeout( 2500 );
+	await page.locator( '.dsm-actions .ai-btn.primary' ).click();
+	await page.waitForTimeout( 2500 );
+	{
+		const add = await page.evaluate( () => {
+			const a = window.__dispatched.find( ( x ) => 'ADD_LAYER' === x.type );
+			return a
+				? {
+						index: a.index,
+						keep: !! (
+							a.layer.generator &&
+							a.layer.generator.params &&
+							a.layer.generator.params.keepText
+						),
+				  }
+				: null;
+		} );
+		check(
+			!! add && 1 === add.index,
+			`the picture goes in behind the text, above the background (${ JSON.stringify( add ) })`
+		);
+		check( !! add && add.keep, 'and remembers to leave room for it' );
+	}
 } catch ( e ) {
-	qa.failures.push( 'threw: ' + ( e && e.message ) );
+	check( false, 'threw: ' + ( e && e.message ) );
 }
 
 process.exit( await qa.finish() );

@@ -56,6 +56,41 @@ class ML_Models {
 			// it halves the download.
 			'skip'  => '#^onnx/model#',
 		),
+		'object-removal' => array(
+			// 20.10.2026: MI-GAN (Picsart AI Research, MIT, weights MIT too)
+			// as the official ONNX pipeline by the paper's first author. It
+			// crops around the hole, works at 512 px and blends back, about
+			// 1.4 s per removal on one browser thread at any picture size.
+			// A single file of a pinned commit, checked by its SHA-256: the
+			// repository is a personal one and changed in September 2026.
+			'repo'     => 'andraniksargsyan/migan',
+			'label'    => 'Object removal (MI-GAN, MIT)',
+			'mb'       => 28,
+			'revision' => '406830d0fa60666da0071c342ad2fbc8f30c5c64',
+			'files'    => array(
+				'migan_pipeline_v2.onnx' => '6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b',
+				'LICENSE'                => '13348eaaebc0b07b0faf3a92db04e0858737713a917d064b599c87cac05b571f',
+			),
+			'marker'   => 'migan_pipeline_v2.onnx',
+		),
+		'cutout'         => array(
+			// 20.10.2026: BiRefNet lite (MIT) for cutouts that find the
+			// whole subject. The published model wants 1024 px and needs
+			// about 6 GB there, more than a browser can give; this is our own
+			// export at 512 px (tools/export-birefnet.py), about 6 s and
+			// 1.7 GB on one browser thread. No model host carries that
+			// export, so it lies in the release "models-v1" of the public
+			// plugin repository, checked by its SHA-256 like MI-GAN.
+			'repo'   => 'tbitdesign/birefnet-lite-512',
+			'label'  => 'Better cutouts (BiRefNet lite, MIT)',
+			'mb'     => 95,
+			'source' => 'https://github.com/tbitdesign/WunderPaint/releases/download/models-v1/',
+			'files'  => array(
+				'birefnet-lite-512.onnx' => '3b2bf44ace9fb126f61bffd0fac2da2319a873e23885a70a65c50611ad59a993',
+				'BIREFNET-NOTICE.txt'    => '1849d870feb7d76395a377f96a37c7a0abc78a8648a492f7d1605f78889444b4',
+			),
+			'marker' => 'birefnet-lite-512.onnx',
+		),
 	);
 
 	/**
@@ -148,7 +183,9 @@ class ML_Models {
 	}
 
 	/**
-	 * A model is considered installed once its config.json is on disk.
+	 * A model is considered installed once its config.json is on disk, or
+	 * the file its entry names as 'marker' (a repo without a config.json,
+	 * such as the MI-GAN pipeline).
 	 *
 	 * @param string $id Feature id.
 	 * @return bool
@@ -158,7 +195,8 @@ class ML_Models {
 		if ( ! isset( $models[ $id ] ) ) {
 			return false;
 		}
-		return file_exists( self::dir() . '/' . $models[ $id ]['repo'] . '/config.json' );
+		$marker = isset( $models[ $id ]['marker'] ) ? $models[ $id ]['marker'] : 'config.json';
+		return file_exists( self::dir() . '/' . $models[ $id ]['repo'] . '/' . $marker );
 	}
 
 	// runtime_dir() and runtime_installed() stood here until 2026-07-25.
@@ -239,9 +277,9 @@ class ML_Models {
 	}
 
 	/**
-	 * Download one model's files (quantized ONNX + configs) from Hugging Face
-	 * into uploads, streaming each file to disk so large weights never load
-	 * into PHP memory.
+	 * Download one model's files (quantized ONNX + configs) from Hugging Face,
+	 * or from the entry's own 'source' folder, into uploads, streaming each
+	 * file to disk so large weights never load into PHP memory.
 	 *
 	 * @param \WP_REST_Request $req Request.
 	 * @return \WP_REST_Response|\WP_Error
@@ -252,8 +290,20 @@ class ML_Models {
 		if ( ! isset( $models[ $id ] ) ) {
 			return new \WP_Error( 'wpie_bad_model', __( 'Unknown model.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
-		$repo  = $models[ $id ]['repo'];
-		$files = self::fetch_tree( $repo );
+		$repo = $models[ $id ]['repo'];
+		// An entry with a fixed file list (20.10.2026) downloads exactly
+		// those files from its pinned commit and checks each by SHA-256;
+		// every other entry reads the repository's tree as before.
+		$pinned   = isset( $models[ $id ]['files'] ) ? $models[ $id ]['files'] : null;
+		$revision = isset( $models[ $id ]['revision'] ) ? $models[ $id ]['revision'] : 'main';
+		// A model that is not on Hugging Face names its own download folder
+		// ('source', e.g. a release of the plugin repository); it always
+		// comes with a pinned file list, there is no tree to read.
+		$source = isset( $models[ $id ]['source'] ) ? (string) $models[ $id ]['source'] : '';
+		if ( '' !== $source && ! $pinned ) {
+			return new \WP_Error( 'wpie_bad_model', __( 'Unknown model.', 'wunderpaint' ), array( 'status' => 400 ) );
+		}
+		$files = $pinned ? array_keys( $pinned ) : self::fetch_tree( $repo );
 		if ( is_wp_error( $files ) ) {
 			return $files;
 		}
@@ -283,8 +333,9 @@ class ML_Models {
 				continue;
 			}
 			// Only the quantized ONNX variant is used by the browser; skip the
-			// full-precision duplicates to halve the download.
-			if ( preg_match( '/\.onnx(_data)?$/', $path ) && ! preg_match( '/quantized/', $path ) ) {
+			// full-precision duplicates to halve the download. A pinned file
+			// list names exactly what is used, so it is not filtered.
+			if ( ! $pinned && preg_match( '/\.onnx(_data)?$/', $path ) && ! preg_match( '/quantized/', $path ) ) {
 				++$skipped;
 				continue;
 			}
@@ -295,9 +346,14 @@ class ML_Models {
 			}
 
 			$dest = $base . '/' . $path;
+			$want = $pinned ? strtolower( (string) $pinned[ $path ] ) : '';
 			if ( file_exists( $dest ) && filesize( $dest ) > 0 ) {
-				++$done;
-				continue;
+				if ( '' === $want || hash_equals( $want, (string) hash_file( 'sha256', $dest ) ) ) {
+					++$done;
+					continue;
+				}
+				// A pinned file that does not match is fetched again.
+				wp_delete_file( $dest );
 			}
 			if ( ! wp_mkdir_p( dirname( $dest ) ) ) {
 				$errors[] = $path . ': mkdir failed';
@@ -305,7 +361,7 @@ class ML_Models {
 			}
 
 			$res = wp_safe_remote_get(
-				'https://huggingface.co/' . $repo . '/resolve/main/' . $path,
+				'' !== $source ? $source . $path : 'https://huggingface.co/' . $repo . '/resolve/' . rawurlencode( $revision ) . '/' . $path,
 				array(
 					'timeout'  => 300,
 					'stream'   => true,
@@ -321,6 +377,12 @@ class ML_Models {
 			if ( 200 !== (int) $code ) {
 				wp_delete_file( $dest );
 				$errors[] = $path . ': HTTP ' . $code;
+				continue;
+			}
+			if ( '' !== $want && ! hash_equals( $want, (string) hash_file( 'sha256', $dest ) ) ) {
+				// Not the file this plugin was tested with: never keep it.
+				wp_delete_file( $dest );
+				$errors[] = $path . ': checksum mismatch';
 				continue;
 			}
 			++$done;

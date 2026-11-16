@@ -1,51 +1,85 @@
 /**
- * Mystic Studio: computed birth charts, moon phases and zodiac posters
- * as editable layers. Everything is calculated locally (astro.js), the
- * only network touch is the editor's own geo proxy for the one-time
- * place search. Captions, data block and keywords land as editable text
- * layers; the chart art is the generator layer and re-opens via Edit.
+ * Mystic Studio: computed birth charts, moon phases, zodiac, numerology
+ * and couple cards, composed as a full poster in the shape of the
+ * document - backdrop, frame, the card art and editable text layers.
+ *
+ * Everything is calculated locally (astro.js); the only network touch is
+ * the editor's own geo proxy for the place search. The preview renders
+ * the text layers through the editor's own renderer, so what the preview
+ * shows is what lands on the canvas. Edit Mystic Studio on the art layer
+ * re-opens the poster; text the user edited by hand survives the update
+ * (poster.js).
  */
 
-import { t, content, INTL_LOCALE } from './i18n.js';
+import { t, content } from './i18n.js';
+import { renderAround } from '../../shared/doc-preview.js';
 import {
-	computeChart,
-	signOf,
-	formatDegree,
-	BODIES,
-	geoLongitude,
-	moonPhase,
-	julianDate,
-	crossAspects,
-} from './astro.js';
-import { resolveLocal } from './tz.js';
-import { THEMES, themeByKey } from './themes.js';
-import { drawWheel, drawSynastry } from './wheel.js';
-import { drawMoonCard } from './mooncard.js';
-import { drawZodiacCard } from './zodiaccard.js';
+	CARDS,
+	GROUPS,
+	cardByKey,
+	cardData,
+	drawArt,
+	cardTexts,
+	cardStatus,
+} from './cards.js';
+import { THEMES, resolveTheme, themeByKey } from './themes.js';
+import { BACKDROPS, paintBackdrop } from './backdrop.js';
+import { FRAMES, frameMetrics, paintFrame } from './frames.js';
+import { LAYOUTS, layoutPoster, resolveLayout } from './layout.js';
 import {
-	lifePath,
-	cascade,
-	nameNumbers,
-	coupleNumber,
-	meaningIndex,
-	ANGEL_NUMBERS,
-} from './numerology.js';
-import { drawLifePathCard, drawNameCard, drawAngelCard } from './numbercard.js';
-import { drawCoupleCard, drawCoupleNumbersCard } from './couplecard.js';
-import { chineseSign } from './chinese.js';
-import { drawChineseCard } from './chinesecard.js';
+	LOOKS,
+	TITLE_FONTS,
+	lookByKey,
+	lookParams,
+	shuffleLook,
+	titleFontOf,
+} from './looks.js';
+import { WHEEL_STYLES } from './wheel.js';
 import {
-	SIGN_ELEMENT,
-	SIGN_MODALITY,
-	SIGN_RULER,
-	SIGN_DATES,
-} from './content.js';
+	TEXT_ROLES,
+	ROLE_LABELS,
+	buildBlocks,
+	keepEdits,
+	textLayerProps,
+	planUpdate,
+} from './poster.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 const SLUG = 'wpie-mystic-studio';
 const GEN_ID = 'wpie-mystic-studio/card';
-const OUT = 1600;
 
-// Display names per theme key; grows with THEMES.
+/* Families that ship with the editor; the preset faces beyond these only
+   draw where the site downloaded the font library or enabled the CDN. */
+const SHIPPED_FONTS = [
+	'Inter',
+	'Roboto',
+	'Open Sans',
+	'Montserrat',
+	'Poppins',
+	'Oswald',
+	'Bebas Neue',
+	'Anton',
+	'Playfair Display',
+	'Lora',
+	'Helvetica',
+	'Arial',
+	'Georgia',
+];
+const PRESET_FAMILIES = new Set( [
+	...TITLE_FONTS.map( ( f ) => f.family ),
+	'Inter',
+	'Lora',
+] );
+
+/** Whether a preset face can be drawn here (a picked face always can). */
+function fontUsable( family ) {
+	if ( ! PRESET_FAMILIES.has( family ) || SHIPPED_FONTS.includes( family ) ) {
+		return true;
+	}
+	const w = window.WPIE || {};
+	return !! w.fontsGoogle || ( w.fontsDownloaded || [] ).includes( family );
+}
+
 const THEME_LABELS = {
 	celestial: 'Celestial',
 	vintage: 'Vintage',
@@ -55,18 +89,71 @@ const THEME_LABELS = {
 	silver: 'Silver Night',
 	emerald: 'Emerald',
 	amethyst: 'Amethyst',
+	midnight: 'Midnight Blue',
+	terracotta: 'Terracotta',
+	sage: 'Sage',
+	noir: 'Noir',
+	cosmic: 'Cosmic Pink',
+	ocean: 'Ocean',
+	sand: 'Desert Sand',
 };
 
+const BACKDROP_LABELS = {
+	sky: 'Night sky',
+	nebula: 'Nebula',
+	aurora: 'Aurora',
+	dusk: 'Dusk',
+	paper: 'Paper',
+	plain: 'Plain',
+};
+
+const FRAME_LABELS = {
+	none: 'None',
+	line: 'Line',
+	double: 'Double',
+	deco: 'Deco',
+	stars: 'Stars',
+	moons: 'Moons',
+	zodiac: 'Zodiac',
+	arch: 'Arch',
+	celestial: 'Celestial',
+};
+
+const LAYOUT_LABELS = {
+	auto: 'Auto',
+	classic: 'Classic',
+	framed: 'Framed',
+	minimal: 'Minimal',
+	split: 'Side by side',
+	art: 'No text',
+};
+
+const GROUP_LABELS = {
+	all: 'All',
+	astro: 'Astrology',
+	moon: 'Moon',
+	numbers: 'Numbers',
+	couples: 'Couples',
+};
+
+const ANGEL_PRESETS = [
+	'111',
+	'222',
+	'333',
+	'444',
+	'555',
+	'777',
+	'888',
+	'999',
+	'1111',
+	'1212',
+];
+
 const DEFAULTS = {
-	// birthchart | moonphase | zodiac | lifepath | namechart |
-	// angelnumber | couple | couplenumbers
 	card: 'birthchart',
+	// Person A.
 	name: '',
 	dateStr: '',
-	name2: '',
-	dateStr2: '',
-	timeStr2: '12:00',
-	angelNum: '444',
 	timeStr: '12:00',
 	timeKnown: true,
 	place: null, // { name, region }
@@ -74,61 +161,131 @@ const DEFAULTS = {
 	lon: null,
 	offsetMode: 'auto', // auto | manual
 	offsetMin: 0,
-	theme: 'celestial',
-	font: 'Playfair Display',
-	// Birth chart
+	// Person B.
+	name2: '',
+	dateStr2: '',
+	timeStr2: '12:00',
+	// Card options.
+	angelNum: '444',
+	year: 0, // personal year; 0 = the current year
+	signMode: 'sun', // sun | '0'..'11'
+	zodiacLayout: 'constellation',
+	moonLayout: 'single',
+	wheelStyle: 'elegant',
 	showHouses: true,
 	showAspects: true,
 	strictOrbs: false,
 	showDegrees: true,
-	// Moon
 	southern: false,
-	// Zodiac
-	signMode: 'auto', // auto | 0..11 as string
-	layout: 'constellation', // constellation | glyph | split
-	// Captions
-	withCaption: true,
-	withData: true,
+	// Look.
+	look: 'midnight-gold',
+	theme: 'celestial',
+	custom: null, // { bg, ink, accent }
+	backdrop: 'sky',
+	stars: 60,
+	seed: 7,
+	frame: 'double',
+	layout: 'auto',
+	artScale: 1,
+	titleFont: 'Cinzel',
+	textFont: 'Inter',
+	titleFoil: true,
+	titleScale: 1,
+	textScale: 1,
+	// Text.
+	titleText: '',
+	message: '',
+	withTitle: true,
+	withSubtitle: true,
 	withKeywords: true,
 	withMeaning: true,
+	withData: false,
+	// poster | art
+	output: 'poster',
 };
 
+/** Parameters that change the card art (the rest is poster or text). */
+const ART_KEYS = [
+	'card',
+	'dateStr',
+	'timeStr',
+	'timeKnown',
+	'lat',
+	'lon',
+	'offsetMode',
+	'offsetMin',
+	'dateStr2',
+	'timeStr2',
+	'angelNum',
+	'year',
+	'signMode',
+	'zodiacLayout',
+	'moonLayout',
+	'wheelStyle',
+	'showHouses',
+	'showAspects',
+	'strictOrbs',
+	'showDegrees',
+	'southern',
+	'theme',
+	'custom',
+	'titleFont',
+];
+
+const svg = ( body, size = 16 ) =>
+	`<svg width="${ size }" height="${ size }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ body }</svg>`;
+
 const ICONS = {
-	cards: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
-	person: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
-	location:
-		'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
-	options:
-		'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-	look: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2-1.5 3-3 3h-3a3 3 0 0 0-2 5.2c.6.5.3 1.8-2 1.8z"/></svg>',
-	caption:
-		'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/></svg>',
-	eye: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
-	birthchart:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M7.5 9.5l7 4M9 15l5-6.5"/></svg>',
-	moonphase:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/><path d="M12 3a9 9 0 0 1 0 18c3-2 4.5-5 4.5-9S15 5 12 3z" fill="currentColor" fill-opacity=".25"/></svg>',
-	zodiac: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l4-11 4 7 4-9 4 13"/><circle cx="4" cy="18" r="1.4" fill="currentColor"/><circle cx="8" cy="7" r="1.4" fill="currentColor"/><circle cx="12" cy="14" r="1.4" fill="currentColor"/><circle cx="16" cy="5" r="1.4" fill="currentColor"/><circle cx="20" cy="18" r="1.4" fill="currentColor"/></svg>',
-	lifepath:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="14" r="7"/><path d="M10.5 12.5l2-1.5v6"/><path d="M6 4h3M11 4h3M16 4h3M7.5 4v3M12.5 4v3M17.5 4v2"/></svg>',
-	namechart:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16l3.5-9L12 16M6.2 13h4.6"/><path d="M15 7h5M15 11h5M15 15h3"/><circle cx="8.5" cy="20" r="1.2" fill="currentColor"/><circle cx="17" cy="20" r="1.2" fill="currentColor"/></svg>',
-	angelnumber:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/><circle cx="12" cy="12" r="3.4"/></svg>',
-	couple: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/></svg>',
-	couplenumbers:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="16" r="4.5"/><path d="M7.5 8.5l3 4M16.5 8.5l-3 4"/></svg>',
-	synastry:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.7"/><circle cx="12" cy="12" r="2.6"/><path d="M9.8 10l4.4 4M14.2 10l-4.4 4"/></svg>',
-	chinesezodiac:
-		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18 4.5 4.5 0 0 1 0-9 4.5 4.5 0 0 0 0-9z" fill="currentColor" fill-opacity=".28" stroke="none"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="16.5" r="1.3"/></svg>',
+	cards: svg(
+		'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'
+	),
+	looks: svg(
+		'<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>'
+	),
+	person: svg(
+		'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'
+	),
+	partner: svg(
+		'<circle cx="9" cy="8" r="3.5"/><circle cx="16.5" cy="9.5" r="2.8"/><path d="M2.5 20c0-3.6 3-5.5 6.5-5.5s6.5 1.9 6.5 5.5M15 14.6c3.4-.4 6.5 1.2 6.5 4.6"/>'
+	),
+	location: svg(
+		'<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>'
+	),
+	options: svg(
+		'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'
+	),
+	colors: svg(
+		'<circle cx="13.5" cy="6.5" r="2.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2-1.5 3-3 3h-3a3 3 0 0 0-2 5.2c.6.5.3 1.8-2 1.8z"/>'
+	),
+	backdrop: svg(
+		'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h.01M16 7h.01M11 12h.01M8 16h.01M17 15h.01"/>'
+	),
+	layout: svg(
+		'<rect x="4" y="3" width="16" height="18" rx="1.5"/><circle cx="12" cy="10" r="3.5"/><path d="M8 17h8"/>'
+	),
+	text: svg(
+		'<path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/>'
+	),
+	output: svg(
+		'<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/>'
+	),
+	dice: svg(
+		'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="16" cy="16" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="16" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="16" r="1.2" fill="currentColor"/>'
+	),
+	sparkle: svg(
+		'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/>',
+		14
+	),
+	clock: svg( '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' ),
+	eye: svg(
+		'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
+		14
+	),
 };
 
 /** Directory URL of this extension's bundle for the moon texture. */
 function assetUrl( file ) {
 	try {
-		// The host exposes the list at WPIE.extensions (the Solar System
-		// Studio pattern); older builds nested it under WPIE.boot.
 		const root = window.WPIE || {};
 		const list =
 			root.extensions || ( root.boot && root.boot.extensions ) || [];
@@ -146,45 +303,46 @@ function assetUrl( file ) {
 	return null;
 }
 
-const fmtDate = ( dateStr ) => {
-	try {
-		const [ y, m, d ] = dateStr.split( '-' ).map( Number );
-		return new Intl.DateTimeFormat( INTL_LOCALE, {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric',
-		} ).format( new Date( Date.UTC( y, ( m || 1 ) - 1, d || 1, 12 ) ) );
-	} catch ( e ) {
-		return dateStr;
+const todayStr = () => {
+	const now = new Date();
+	return `${ now.getFullYear() }-${ String( now.getMonth() + 1 ).padStart(
+		2,
+		'0'
+	) }-${ String( now.getDate() ).padStart( 2, '0' ) }`;
+};
+
+/** Parameters from storage or an older layer, made safe for this build. */
+function sanitize( p ) {
+	const out = { ...DEFAULTS, ...p };
+	if ( ! CARDS.some( ( c ) => c.key === out.card ) ) {
+		out.card = DEFAULTS.card;
 	}
-};
-
-const fmtSpan = ( sign ) => {
-	const f = ( [ m, d ] ) => {
-		try {
-			return new Intl.DateTimeFormat( INTL_LOCALE, {
-				day: 'numeric',
-				month: 'short',
-			} ).format( new Date( Date.UTC( 2001, m - 1, d, 12 ) ) );
-		} catch ( e ) {
-			return m + '/' + d;
-		}
-	};
-	const [ from, to ] = SIGN_DATES[ sign ];
-	return f( from ) + ' - ' + f( to );
-};
-
-const fmtOffset = ( min ) => {
-	const sign = min < 0 ? '-' : '+';
-	const abs = Math.abs( min );
-	return (
-		'UTC' +
-		sign +
-		String( Math.floor( abs / 60 ) ).padStart( 2, '0' ) +
-		':' +
-		String( abs % 60 ).padStart( 2, '0' )
-	);
-};
+	if ( ! LAYOUTS.includes( out.layout ) ) {
+		out.layout = 'auto';
+	}
+	if ( ! THEMES.some( ( th ) => th.key === out.theme ) ) {
+		out.theme = DEFAULTS.theme;
+	}
+	if ( ! BACKDROPS.includes( out.backdrop ) ) {
+		out.backdrop = DEFAULTS.backdrop;
+	}
+	if ( ! FRAMES.includes( out.frame ) ) {
+		out.frame = DEFAULTS.frame;
+	}
+	if ( ! WHEEL_STYLES.includes( out.wheelStyle ) ) {
+		out.wheelStyle = DEFAULTS.wheelStyle;
+	}
+	if ( ! /^(sun|\d{1,2})$/.test( String( out.signMode ) ) ) {
+		out.signMode = 'sun';
+	}
+	if ( ! out.dateStr ) {
+		out.dateStr = todayStr();
+	}
+	if ( 'art' !== out.output ) {
+		out.output = 'poster';
+	}
+	return out;
+}
 
 /* --------------------------------- studio -------------------------------- */
 
@@ -192,21 +350,20 @@ async function openStudio( { editor, extras, layer } ) {
 	const bridge = window.WPIE.bridge;
 	const ui = bridge.ui;
 	const geo = bridge && bridge.api && bridge.api.geo;
-	if ( ! ui || ! geo ) {
+	if ( ! ui || ! ui.opts || ! geo ) {
 		if ( extras && extras.toasts ) {
 			extras.toasts.error(
-				t( 'Mystic Studio needs WunderPaint 1.144 or newer.' )
+				t( 'Mystic Studio needs WunderPaint 1.430 or newer.' )
 			);
 		}
 		return;
 	}
+	const { makeImage, makeText, makeGroup } = bridge.documents;
 
 	let store = {};
 	try {
 		store = ( await bridge.storage.get( SLUG ) ) || {};
 	} catch ( e ) {}
-	// A promise: the old try/catch caught nothing, a failed write vanished
-	// (BRIDGE-03, EXTFEHLER-09).
 	const storeSave = () =>
 		bridge.storage.set( SLUG, store ).catch( () => {
 			if ( extras && extras.toasts ) {
@@ -214,20 +371,37 @@ async function openStudio( { editor, extras, layer } ) {
 			}
 		} );
 
+	/* ------------------------- what we are editing ------------------------ */
+
 	const editing = !! (
 		layer &&
 		layer.generator &&
 		layer.generator.id === GEN_ID
 	);
-	const params = {
-		...DEFAULTS,
-		...( editing ? layer.generator.params : {} ),
-	};
-	if ( ! params.dateStr ) {
-		const now = new Date();
-		params.dateStr = `${ now.getFullYear() }-${ String(
-			now.getMonth() + 1
-		).padStart( 2, '0' ) }-${ String( now.getDate() ).padStart( 2, '0' ) }`;
+	const allLayers = ( editor.state && editor.state.layers ) || [];
+	const siblings =
+		editing && layer.parent
+			? allLayers.filter(
+					( l ) => l.parent === layer.parent && l.id !== layer.id
+			  )
+			: [];
+	const backdropLayer =
+		siblings.find( ( l ) => l.mystic && 'backdrop' === l.mystic.role ) ||
+		null;
+	const managedTexts = siblings.filter(
+		( l ) =>
+			'text' === l.type &&
+			l.mystic &&
+			TEXT_ROLES.includes( l.mystic.role )
+	);
+
+	const params = sanitize(
+		editing
+			? layer.generator.params
+			: { ...( store.lastLook || {} ), ...( store.lastPerson || {} ) }
+	);
+	if ( editing ) {
+		params.output = backdropLayer ? 'poster' : 'art';
 	}
 	if ( ! editing && null === params.lat && store.lastPlace ) {
 		const last = store.lastPlace;
@@ -238,105 +412,150 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 	}
 
+	const doc = ( editor.state && editor.state.doc ) || { w: 1600, h: 2000 };
+	/** The poster sheet: the whole document, or the edited backdrop box. */
+	const sheet = backdropLayer
+		? {
+				x: backdropLayer.x,
+				y: backdropLayer.y,
+				w: Math.max( 50, backdropLayer.w ),
+				h: Math.max( 50, backdropLayer.h ),
+		  }
+		: { x: 0, y: 0, w: Math.max( 50, doc.w ), h: Math.max( 50, doc.h ) };
+
+	/* ------------------------------- shell -------------------------------- */
+
 	let mounts = [];
 	const unmountAll = () => {
 		mounts.forEach( ( m ) => m && m.unmount && m.unmount() );
 		mounts = [];
 	};
+	let alive = true;
+	let resizeObs = null;
+	let history = null;
+	const shutdown = () => {
+		alive = false;
+		history?.dispose();
+		unmountAll();
+		if ( resizeObs ) {
+			resizeObs.disconnect();
+		}
+	};
 
 	const modal = ui.dialog( {
 		title: 'Mystic Studio',
 		subtitle: editing
-			? t( 'Adjust the chart, the layer updates in place.' )
+			? t( 'Adjust the poster, the layers update in place.' )
 			: t(
-					'Computed birth charts, moon phases and zodiac art, as editable layers.'
+					'Birth charts, moon phases, zodiac and numerology posters, computed and set for your document.'
 			  ),
-		width: 1280,
-		onClose: unmountAll,
+		width: 1320,
+		onClose: shutdown,
 	} );
-	// Die Marke kommt aus dem Kit (bridge.ui), nicht aus dem Paket.
 	ui.badge( modal );
 	modal.dialog.classList.add( 'wpiemys-dialog' );
 
 	const body = ui.el( 'div', 'wpiemys-body', modal.body );
 	const left = ui.el( 'div', 'wpiemys-left', body );
 	const view = ui.el( 'div', 'wpiemys-view', body );
-	const canvas = ui.el( 'canvas', null, view );
-	canvas.width = 1000;
+	const stage = ui.el( 'div', 'wpiemys-stage', view );
+	const canvas = ui.el( 'canvas', 'wpiemys-canvas', stage );
+	canvas.width = 800;
 	canvas.height = 1000;
 	const side = ui.el( 'div', 'wpiemys-side', body );
 
-	/* Show document (per studio CI). */
+	/* Show document: only meaningful for art without a poster behind it. */
 	const docBtn = ui.el( 'button', 'dsm-viewbtn wpiemys-doc', view );
 	docBtn.type = 'button';
-	docBtn.innerHTML = ICONS.eye + ' ' + t( 'Show document' );
-	docBtn.setAttribute( 'aria-pressed', 'false' );
+	docBtn.innerHTML = ICONS.eye;
+	docBtn.append( ' ' + t( 'Show document' ) );
+	ui.pressed( docBtn, false );
 	let showDoc = false;
-	// Core signature: renderToCanvas( doc, layers, opts ) RETURNS a canvas
-	// (async); the document background goes underneath by hand.
-	const syncDocBackdrop = async () => {
-		if (
-			! showDoc ||
-			! bridge.raster ||
-			! bridge.raster.renderToCanvas ||
-			! editor.state ||
-			! editor.state.doc
-		) {
-			view.classList.remove( 'is-doc' );
-			view.style.backgroundImage = '';
+	let docImage = null;
+	let docAbove = null;
+	const canShowDoc = !! (
+		bridge.raster &&
+		bridge.raster.renderToCanvas &&
+		editor.state &&
+		editor.state.doc
+	);
+	// v1.0.3 (shared doc-preview): the document split at the edited art,
+	// what lies above it is painted over the preview.
+	const loadDocImage = async () => {
+		if ( docImage || ! canShowDoc ) {
 			return;
 		}
 		try {
-			const doc = editor.state.doc;
-			const full = await bridge.raster.renderToCanvas(
-				doc,
-				( editor.state.layers || [] ).filter(
-					( l ) => ! ( editing && layer && l.id === layer.id )
-				),
-				{
-					scale: Math.min(
-						1,
-						1400 / Math.max( doc.w || 1, doc.h || 1 )
-					),
-					cache: bridge.raster.sharedImageCache,
-				}
-			);
-			const c = document.createElement( 'canvas' );
-			c.width = Math.max( 2, full.width );
-			c.height = Math.max( 2, full.height );
-			const cctx = c.getContext( '2d' );
-			if (
-				'string' === typeof doc.bg &&
-				doc.bg &&
-				'transparent' !== doc.bg
-			) {
-				cctx.fillStyle = doc.bg;
-				cctx.fillRect( 0, 0, c.width, c.height );
-			}
-			cctx.drawImage( full, 0, 0 );
-			if ( showDoc ) {
-				view.classList.add( 'is-doc' );
-				view.style.backgroundImage = `url(${ c.toDataURL() })`;
-			}
+			const around = await renderAround( bridge.raster, editor.state, {
+				editId: editing ? layer.id : null,
+				scale: Math.min( 1, 1400 / Math.max( doc.w, doc.h ) ),
+			} );
+			docImage = around.below;
+			docAbove = around.above;
 		} catch ( e ) {}
 	};
-	docBtn.onclick = () => {
+	docBtn.onclick = async () => {
 		showDoc = ! showDoc;
-		docBtn.setAttribute( 'aria-pressed', showDoc ? 'true' : 'false' );
-		syncDocBackdrop();
+		ui.pressed( docBtn, showDoc );
+		if ( showDoc ) {
+			await loadDocImage();
+		}
+		paint();
 	};
-	if (
-		! (
-			bridge.raster &&
-			bridge.raster.renderToCanvas &&
-			editor.state &&
-			editor.state.doc
-		)
-	) {
-		docBtn.style.display = 'none';
-	}
 
-	/* ------------------------------ compute ------------------------------ */
+	const statusLine = ui.el( 'div', 'dsm-hint wpiemys-status', modal.foot );
+
+	/* ---------------------------- measuring ------------------------------ */
+
+	const mctx = document.createElement( 'canvas' ).getContext( '2d' );
+	/** The editor's own measure: font string and per-glyph tracking. */
+	const measure = ( s, b ) => {
+		mctx.font = `${ b.italic ? 'italic ' : '' }${ b.weight || 400 } ${
+			b.size
+		}px "${ b.family }", sans-serif`;
+		if ( b.spacing ) {
+			let w = 0;
+			for ( const ch of s ) {
+				w += mctx.measureText( ch ).width;
+			}
+			return w;
+		}
+		return mctx.measureText( s ).width;
+	};
+
+	const titleFace = () =>
+		fontUsable( params.titleFont ) ? params.titleFont : 'Playfair Display';
+	const textFace = () =>
+		fontUsable( params.textFont ) ? params.textFont : 'Inter';
+
+	const ensureFonts = () => {
+		if ( ! bridge.fonts || ! bridge.fonts.ensureFont ) {
+			return Promise.resolve();
+		}
+		const title = titleFontOf( titleFace() );
+		const tf = textFace();
+		const jobs = [
+			bridge.fonts.ensureFont( title.family, title.weight ),
+			bridge.fonts.ensureFont( tf, 400 ),
+			bridge.fonts.ensureFont( tf, 500 ),
+			bridge.fonts.ensureFont( tf, 600 ),
+		];
+		for ( const l of managedTexts ) {
+			jobs.push(
+				bridge.fonts.ensureFont( l.fontFamily, l.weight || 400 )
+			);
+		}
+		// Numbers in the art are set in the title face too: once it has
+		// loaded, the cached art (drawn with a fallback) is stale.
+		return Promise.all( jobs.map( ( j ) => j.catch( () => {} ) ) ).then(
+			() => {
+				artCache.key = '';
+				scheduleThumbs();
+			}
+		);
+	};
+
+	/* ----------------------------- compose ------------------------------- */
 
 	let moonImg = null;
 	const moonSrc = assetUrl( 'textures/moon.jpg' );
@@ -344,828 +563,1269 @@ async function openStudio( { editor, extras, layer } ) {
 		const img = new Image();
 		img.onload = () => {
 			moonImg = img;
+			artCache.key = '';
 			paint();
+			scheduleThumbs();
 		};
 		img.src = moonSrc;
 	}
 
-	const resolveMoment = () => {
-		const timeStr = params.timeKnown ? params.timeStr : '12:00';
-		return resolveLocal( {
-			dateStr: params.dateStr,
-			timeStr,
-			lat: null === params.lat ? NaN : params.lat,
-			lon: null === params.lon ? NaN : params.lon,
-			overrideMinutes:
-				'manual' === params.offsetMode ? params.offsetMin : null,
-		} );
-	};
+	const theme = () => resolveTheme( params.theme, params.custom );
+	const lookFor = ( th ) => ( {
+		theme: th,
+		moonImg,
+		titleFont: titleFace(),
+	} );
 
-	const jdOf = ( utcMs ) => utcMs / 86400000 + 2440587.5;
-
-	const chartData = ( card = params.card ) => {
-		const moment = resolveMoment();
-		const jd = jdOf( moment.utcMs );
-		const withHouses =
-			params.showHouses &&
-			params.timeKnown &&
-			null !== params.lat &&
-			( 'birthchart' === card || 'synastry' === card );
-		const chart = computeChart( {
-			jd,
-			lat: null === params.lat ? NaN : params.lat,
-			lon: null === params.lon ? NaN : params.lon,
-			withHouses,
-		} );
-		if ( params.strictOrbs ) {
-			chart.aspects = chart.aspects.filter( ( a ) => a.exact <= 3 );
-		}
-		return { chart, moment, jd };
-	};
-
-	/** Person B's chart for the synastry wheel (same place, own moment). */
-	const chartB = () => {
-		const momentB = resolveLocal( {
-			dateStr: params.dateStr2 || params.dateStr,
-			timeStr: params.timeStr2,
-			lat: null === params.lat ? NaN : params.lat,
-			lon: null === params.lon ? NaN : params.lon,
-			overrideMinutes:
-				'manual' === params.offsetMode ? params.offsetMin : null,
-		} );
-		return computeChart( {
-			jd: jdOf( momentB.utcMs ),
-			lat: NaN,
-			lon: NaN,
-			withHouses: false,
-		} );
-	};
-
-	const sunSignOf = ( chart ) =>
-		signOf( chart.positions.find( ( p ) => 'sun' === p.body ).lon ).index;
-
-	const zodiacSign = ( chart ) =>
-		'auto' === params.signMode
-			? sunSignOf( chart )
-			: parseInt( params.signMode, 10 ) || 0;
-
-	// Which inputs a card needs.
-	const HAS_TIME = [ 'birthchart', 'moonphase', 'synastry' ];
-	const NO_DATE = [ 'namechart', 'angelnumber' ];
-	const PARTNER = [ 'couple', 'couplenumbers', 'synastry' ];
-	const HAS_MEANING = [
-		'lifepath',
-		'namechart',
-		'angelnumber',
-		'couplenumbers',
-		'chinesezodiac',
-	];
-
-	const firstName = ( s ) =>
-		String( s || '' )
-			.trim()
-			.split( /\s+/ )[ 0 ] || '';
-
-	/** Sun sign and moon phase for a plain date (noon UTC is plenty). */
-	const personAt = ( dateStr ) => {
-		const [ y, m, d ] = String( dateStr || '' )
-			.split( '-' )
-			.map( ( v ) => parseInt( v, 10 ) );
-		const jd = julianDate( y || 2000, m || 1, d || 1, 12, 0 );
-		return {
-			sign: signOf( geoLongitude( 'sun', jd ) ).index,
-			phase: moonPhase( jd ),
+	/**
+	 * The full poster for a sheet of w x h: layout, texts and layer props,
+	 * with coordinates relative to the sheet.
+	 */
+	const compose = ( w, h ) => {
+		const th = theme();
+		const data = cardData( params );
+		const texts = cardTexts( params.card, data );
+		const mode =
+			'art' === params.output
+				? 'art'
+				: resolveLayout( params.layout, w, h );
+		const faces = {
+			...params,
+			titleFont: titleFace(),
+			textFont: textFace(),
 		};
-	};
-
-	/** "7 + 6 + 1 = 14 · 1 + 4 = 5" for the life path art. */
-	const cascadeLine = ( lp ) => {
-		const bits = [ lp.parts.join( ' + ' ) + ' = ' + lp.sum ];
-		const steps = cascade( lp.sum );
-		for ( let i = 0; i < steps.length - 1; i++ ) {
-			bits.push(
-				String( steps[ i ] ).split( '' ).join( ' + ' ) +
-					' = ' +
-					steps[ i + 1 ]
-			);
+		let blocks = buildBlocks( texts, faces, Math.min( w, h ), mode );
+		if ( editing && managedTexts.length ) {
+			blocks = keepEdits( blocks, managedTexts );
 		}
-		return bits.join( '   ·   ' );
-	};
-
-	const angelIdx = () =>
-		ANGEL_NUMBERS.indexOf(
-			String( params.angelNum || '' ).replace( /\D/g, '' )
+		const frame =
+			'art' === params.output
+				? { inset: 0, top: 0, bottom: 0, line: 0 }
+				: frameMetrics( params.frame, w, h );
+		const lay = layoutPoster( {
+			w,
+			h,
+			mode,
+			frame,
+			artScale: params.artScale,
+			blocks,
+			measure,
+		} );
+		if ( 'art' === params.output ) {
+			const s = Math.min( w, h ) * 0.8 * params.artScale;
+			lay.art = { x: ( w - s ) / 2, y: ( h - s ) / 2, s };
+		}
+		const props = lay.blocks.map( ( b ) =>
+			textLayerProps( b, th, params, t( ROLE_LABELS[ b.role ] ) )
 		);
-
-	/* ------------------------------- paint -------------------------------- */
-
-	const statusLine = ui.el( 'div', 'dsm-hint wpiemys-status', modal.foot );
-
-	const renderStatus = ( moment, chart ) => {
-		const bits = [];
-		if ( moment && HAS_TIME.includes( params.card ) ) {
-			if ( params.place && params.place.name ) {
-				bits.push( params.place.name );
-			}
-			if ( 'override' === moment.source ) {
-				bits.push(
-					t( 'Manual offset' ) +
-						' ' +
-						fmtOffset( moment.offsetMinutes )
-				);
-			} else if ( 'zone' === moment.source ) {
-				bits.push(
-					moment.zone + ' ' + fmtOffset( moment.offsetMinutes )
-				);
-			} else if ( null !== params.lat ) {
-				bits.push( t( 'Mean solar time (no zone found)' ) );
-			}
-			if ( 'birthchart' === params.card ) {
-				if ( ! params.timeKnown ) {
-					bits.push( t( 'Houses need a birth time.' ) );
-				} else if (
-					chart &&
-					chart.houses &&
-					'whole' === chart.houses.system
-				) {
-					bits.push( t( 'Whole Sign houses (polar latitude)' ) );
-				}
-			}
-		} else if ( 'lifepath' === params.card ) {
-			bits.push(
-				t( 'Life Path' ) + ' ' + lifePath( params.dateStr ).value
-			);
-		} else if ( 'namechart' === params.card ) {
-			const nn = nameNumbers( params.name );
-			if ( nn.destiny ) {
-				bits.push(
-					t( 'Destiny' ) +
-						' ' +
-						nn.destiny +
-						' · ' +
-						t( 'Soul Urge' ) +
-						' ' +
-						nn.soulUrge +
-						' · ' +
-						t( 'Personality' ) +
-						' ' +
-						nn.personality
-				);
-			}
-		} else if ( 'chinesezodiac' === params.card ) {
-			const cc = content();
-			const cs = chineseSign( params.dateStr );
-			bits.push(
-				cc.cnElements[ cs.element ] +
-					' ' +
-					cc.cnAnimals[ cs.animal ] +
-					' · ' +
-					cs.year
-			);
-		} else if ( PARTNER.includes( params.card ) ) {
-			const cn = coupleNumber(
-				params.dateStr,
-				params.dateStr2 || params.dateStr
-			);
-			bits.push( cn.a.value + ' & ' + cn.b.value + ' · ' + cn.value );
-		}
-		statusLine.textContent = bits.join( ' · ' );
+		return { theme: th, data, texts, mode, lay, props };
 	};
 
-	/** One renderer for the main preview, picker thumbnails and export. */
-	const renderCard = ( ctx, size, card = params.card ) => {
-		const theme = themeByKey( params.theme );
-		if ( 'chinesezodiac' === card ) {
-			drawChineseCard( ctx, size, chineseSign( params.dateStr ), {
-				theme,
-			} );
-			return {};
+	const artCache = { key: '', canvas: null };
+	const artKey = ( size ) =>
+		JSON.stringify( [
+			ART_KEYS.map( ( k ) => params[ k ] ),
+			'namechart' === params.card ? params.name : '',
+			!! moonImg,
+			size,
+		] );
+	/** The art at a pixel size, cached between paints. */
+	const artCanvas = ( size, data, th ) => {
+		const key = artKey( size );
+		if ( artCache.key === key && artCache.canvas ) {
+			return artCache.canvas;
 		}
-		if (
-			'birthchart' === card ||
-			'moonphase' === card ||
-			'zodiac' === card ||
-			'synastry' === card
-		) {
-			const { chart, moment } = chartData( card );
-			if ( 'synastry' === card ) {
-				const other = chartB();
-				drawSynastry( ctx, size, chart, other, {
-					theme,
-					aspects: params.showAspects
-						? crossAspects(
-								chart.positions,
-								other.positions,
-								params.strictOrbs ? 0.5 : 1
-						  )
-						: [],
-					showHouses: !! chart.houses,
-					fontFamily: 'Inter',
-				} );
-			} else if ( 'birthchart' === card ) {
-				drawWheel( ctx, size, chart, {
-					theme,
-					showHouses: !! chart.houses,
-					showAspects: params.showAspects,
-					showDegrees: params.showDegrees,
-					fontFamily: 'Inter',
-				} );
-			} else if ( 'moonphase' === card ) {
-				drawMoonCard( ctx, size, chart.phase, {
-					theme,
-					southern: params.southern,
-					moonImg,
-				} );
-			} else {
-				drawZodiacCard( ctx, size, zodiacSign( chart ), {
-					theme,
-					layout: params.layout,
-				} );
+		const c = document.createElement( 'canvas' );
+		c.width = size;
+		c.height = size;
+		drawArt( c.getContext( '2d' ), size, params.card, data, lookFor( th ) );
+		artCache.key = key;
+		artCache.canvas = c;
+		return c;
+	};
+
+	const backCache = { key: '', canvas: null };
+	/** Backdrop and frame at a pixel size, cached between paints. */
+	const backCanvas = ( w, h, th ) => {
+		const key = JSON.stringify( [
+			w,
+			h,
+			params.theme,
+			params.custom,
+			params.backdrop,
+			params.stars,
+			params.seed,
+			params.frame,
+		] );
+		if ( backCache.key === key && backCache.canvas ) {
+			return backCache.canvas;
+		}
+		const c = document.createElement( 'canvas' );
+		c.width = w;
+		c.height = h;
+		const ctx = c.getContext( '2d' );
+		paintBackdrop( ctx, w, h, th, {
+			style: params.backdrop,
+			stars: params.stars,
+			seed: params.seed,
+		} );
+		paintFrame( ctx, w, h, th, params.frame );
+		backCache.key = key;
+		backCache.canvas = c;
+		return c;
+	};
+
+	/** Text layers onto a context, through the editor's own renderer. */
+	const renderTexts = async ( props, w, h, scale ) => {
+		if ( ! props.length ) {
+			return null;
+		}
+		const layers = props.map( ( p ) => makeText( p ) );
+		if ( bridge.raster && bridge.raster.renderToCanvas ) {
+			try {
+				return await bridge.raster.renderToCanvas(
+					{ w, h, bg: 'transparent' },
+					layers,
+					{ scale }
+				);
+			} catch ( e ) {}
+		}
+		// Fallback: plain lines, close enough for an old core.
+		const c = document.createElement( 'canvas' );
+		c.width = Math.max( 1, Math.round( w * scale ) );
+		c.height = Math.max( 1, Math.round( h * scale ) );
+		const ctx = c.getContext( '2d' );
+		ctx.scale( scale, scale );
+		for ( const l of layers ) {
+			ctx.font = `${ l.weight } ${ l.fontSize }px "${ l.fontFamily }", sans-serif`;
+			ctx.fillStyle = l.color || '#fff';
+			ctx.textBaseline = 'top';
+			ctx.textAlign = 'center';
+			String( l.text )
+				.split( '\n' )
+				.forEach( ( line, i ) =>
+					ctx.fillText(
+						line,
+						l.x + l.w / 2,
+						l.y + i * l.fontSize * l.lineHeight,
+						l.w
+					)
+				);
+		}
+		return c;
+	};
+
+	/* ------------------------------ preview ------------------------------ */
+
+	const fitCanvas = () => {
+		const r = view.getBoundingClientRect();
+		const availW = Math.max( 120, r.width - 40 );
+		const availH = Math.max( 120, r.height - 40 );
+		const aspect = sheet.w / sheet.h;
+		let cssW = Math.min( availW, availH * aspect );
+		let cssH = cssW / aspect;
+		if ( cssH > availH ) {
+			cssH = availH;
+			cssW = cssH * aspect;
+		}
+		const dpr = Math.min( 2, window.devicePixelRatio || 1 );
+		const scale = Math.min( dpr, 1500 / Math.max( cssW, cssH ) );
+		const pw = Math.max( 60, Math.round( cssW * scale ) );
+		const ph = Math.max( 60, Math.round( cssH * scale ) );
+		stage.style.width = Math.round( cssW ) + 'px';
+		stage.style.height = Math.round( cssH ) + 'px';
+		if ( canvas.width !== pw || canvas.height !== ph ) {
+			canvas.width = pw;
+			canvas.height = ph;
+		}
+	};
+
+	let paintSeq = 0;
+	let lastComp = null;
+	const titleInputs = [];
+
+	async function paint() {
+		if ( ! alive ) {
+			return;
+		}
+		const seq = ++paintSeq;
+		const W = canvas.width;
+		const H = canvas.height;
+		const k = W / sheet.w;
+		let comp;
+		try {
+			comp = compose( sheet.w, sheet.h );
+		} catch ( e ) {
+			statusLine.textContent = t( 'Check the date and time.' );
+			return;
+		}
+		lastComp = comp;
+		const base = document.createElement( 'canvas' );
+		base.width = W;
+		base.height = H;
+		const ctx = base.getContext( '2d' );
+		if ( 'art' === params.output ) {
+			if ( showDoc && docImage ) {
+				ctx.drawImage( docImage, 0, 0, W, H );
 			}
-			return { chart, moment };
-		}
-		if ( 'lifepath' === card ) {
-			const lp = lifePath( params.dateStr );
-			drawLifePathCard( ctx, size, lp, {
-				theme,
-				fontFamily: params.font,
-				cascadeText: cascadeLine( lp ),
-				label: t( 'Life Path' ),
-			} );
-		} else if ( 'namechart' === card ) {
-			const nn = nameNumbers( params.name );
-			drawNameCard( ctx, size, nn, {
-				theme,
-				fontFamily: params.font,
-				medallions: [
-					{ label: t( 'Destiny' ), value: nn.destiny },
-					{ label: t( 'Soul Urge' ), value: nn.soulUrge },
-					{ label: t( 'Personality' ), value: nn.personality },
-				],
-			} );
-		} else if ( 'angelnumber' === card ) {
-			drawAngelCard( ctx, size, params.angelNum, {
-				theme,
-				fontFamily: params.font,
-			} );
-		} else if ( 'couple' === card ) {
-			const c = content();
-			const a = personAt( params.dateStr );
-			const b = personAt( params.dateStr2 || params.dateStr );
-			drawCoupleCard(
-				ctx,
-				size,
-				{ a, b },
-				{
-					theme,
-					fontFamily: params.font,
-					moonImg,
-					southern: params.southern,
-					elementsText:
-						c.elements[ SIGN_ELEMENT[ a.sign ] ] +
-						' · ' +
-						c.elements[ SIGN_ELEMENT[ b.sign ] ],
-				}
-			);
+			stage.classList.toggle( 'is-art', ! ( showDoc && docImage ) );
 		} else {
-			const cn = coupleNumber(
-				params.dateStr,
-				params.dateStr2 || params.dateStr
-			);
-			drawCoupleNumbersCard( ctx, size, cn, {
-				theme,
-				fontFamily: params.font,
-				leftText: firstName( params.name ),
-				rightText: firstName( params.name2 ),
-			} );
+			stage.classList.remove( 'is-art' );
+			ctx.drawImage( backCanvas( W, H, comp.theme ), 0, 0 );
 		}
-		return {};
-	};
-
-	function paint() {
-		const ctx = canvas.getContext( '2d' );
-		ctx.clearRect( 0, 0, canvas.width, canvas.height );
-		const { chart, moment } = renderCard( ctx, canvas.width );
-		renderStatus( moment || null, chart || null );
-		// Render each card without changing the selected card or its settings.
-		for ( const [ key, thumb ] of cardThumbs ) {
-			const thumbCtx = thumb.getContext( '2d' );
-			thumbCtx.clearRect( 0, 0, thumb.width, thumb.height );
-			renderCard( thumbCtx, thumb.width, key );
+		const a = comp.lay.art;
+		// Over the document an edited art stays where its layer sits.
+		const inDoc = 'art' === params.output && showDoc && docImage;
+		const at =
+			inDoc && editing
+				? { x: layer.x, y: layer.y, w: layer.w, h: layer.h }
+				: { x: a.x, y: a.y, w: a.s, h: a.s };
+		const px = Math.max(
+			24,
+			Math.min( 1400, Math.round( Math.max( at.w, at.h ) * k ) )
+		);
+		try {
+			const art = artCanvas( px, comp.data, comp.theme );
+			ctx.save();
+			if ( inDoc && editing ) {
+				ctx.translate( ( at.x + at.w / 2 ) * k, ( at.y + at.h / 2 ) * k );
+				ctx.rotate( ( ( layer.rot || 0 ) * Math.PI ) / 180 );
+				ctx.scale( layer.flipX ? -1 : 1, layer.flipY ? -1 : 1 );
+				ctx.translate( ( -at.w / 2 ) * k, ( -at.h / 2 ) * k );
+				ctx.drawImage( art, 0, 0, at.w * k, at.h * k );
+			} else {
+				ctx.drawImage( art, at.x * k, at.y * k, at.w * k, at.h * k );
+			}
+			ctx.restore();
+		} catch ( e ) {
+			statusLine.textContent = t( 'Check the date and time.' );
+		}
+		if ( inDoc && docAbove ) {
+			ctx.drawImage( docAbove, 0, 0, W, H );
+		}
+		const textCanvas = await renderTexts( comp.props, sheet.w, sheet.h, k );
+		if ( seq !== paintSeq || ! alive ) {
+			return;
+		}
+		const out = canvas.getContext( '2d' );
+		out.clearRect( 0, 0, W, H );
+		out.drawImage( base, 0, 0 );
+		if ( textCanvas ) {
+			out.drawImage( textCanvas, 0, 0, W, H );
+		}
+		try {
+			statusLine.textContent = cardStatus( params.card, comp.data );
+		} catch ( e ) {
+			statusLine.textContent = '';
+		}
+		for ( const input of titleInputs ) {
+			input.placeholder = comp.texts.title || t( 'Title' );
 		}
 	}
 
-	/* ------------------------------ left rail ----------------------------- */
+	let rafId = 0;
+	const schedule = () => {
+		if ( rafId ) {
+			return;
+		}
+		rafId = window.requestAnimationFrame( () => {
+			rafId = 0;
+			paint();
+		} );
+	};
 
-	const CARDS = [
-		{
-			key: 'birthchart',
-			label: t( 'Birth Chart' ),
-			icon: ICONS.birthchart,
-		},
-		{ key: 'moonphase', label: t( 'Moon Phase' ), icon: ICONS.moonphase },
-		{ key: 'zodiac', label: t( 'Zodiac Poster' ), icon: ICONS.zodiac },
-		{
-			key: 'chinesezodiac',
-			label: t( 'Chinese Zodiac' ),
-			icon: ICONS.chinesezodiac,
-		},
-		{ key: 'lifepath', label: t( 'Life Path' ), icon: ICONS.lifepath },
-		{ key: 'namechart', label: t( 'Name Chart' ), icon: ICONS.namechart },
-		{
-			key: 'angelnumber',
-			label: t( 'Angel Number' ),
-			icon: ICONS.angelnumber,
-		},
-		{ key: 'couple', label: t( 'Couple Chart' ), icon: ICONS.couple },
-		{
-			key: 'synastry',
-			label: t( 'Synastry Chart' ),
-			icon: ICONS.synastry,
-		},
-		{
-			key: 'couplenumbers',
-			label: t( 'Couple Numbers' ),
-			icon: ICONS.couplenumbers,
-		},
-	];
+	/* ---------------------------- thumbnails ----------------------------- */
+
+	const cardThumbs = new Map();
+	const lookThumbs = new Map();
+	let thumbTimer = 0;
+	let thumbSeq = 0;
+
+	/** Card thumbs in the current look, look thumbs with the current card. */
+	function renderThumbs() {
+		const seq = ++thumbSeq;
+		let data;
+		try {
+			data = cardData( params );
+		} catch ( e ) {
+			return;
+		}
+		const th = theme();
+		const jobs = [];
+		for ( const [ key, c ] of cardThumbs ) {
+			jobs.push( () => {
+				const ctx = c.getContext( '2d' );
+				const S = c.width;
+				paintBackdrop( ctx, S, S, th, {
+					style: 'plain' === params.backdrop ? 'plain' : 'sky',
+					stars: Math.min( 45, params.stars ),
+					seed: 3,
+				} );
+				const s = S * 0.86;
+				ctx.save();
+				ctx.translate( ( S - s ) / 2, ( S - s ) / 2 );
+				try {
+					drawArt( ctx, s, key, data, lookFor( th ) );
+				} catch ( e ) {}
+				ctx.restore();
+			} );
+		}
+		for ( const [ key, c ] of lookThumbs ) {
+			jobs.push( () => {
+				const look = lookByKey( key );
+				const lt = resolveTheme( look.theme, null );
+				const ctx = c.getContext( '2d' );
+				const W = c.width;
+				const H = c.height;
+				paintBackdrop( ctx, W, H, lt, {
+					style: look.backdrop,
+					stars: look.stars,
+					seed: 5,
+				} );
+				paintFrame( ctx, W, H, lt, look.frame );
+				const s = W * 0.62;
+				ctx.save();
+				ctx.translate( ( W - s ) / 2, H * 0.2 );
+				try {
+					drawArt( ctx, s, params.card, data, {
+						theme: lt,
+						moonImg,
+						titleFont: look.titleFont,
+					} );
+				} catch ( e ) {}
+				ctx.restore();
+				// Two hairlines where the title and caption will sit.
+				ctx.fillStyle = lt.accent;
+				ctx.fillRect(
+					W * 0.3,
+					H * 0.2 + s + H * 0.05,
+					W * 0.4,
+					H * 0.018
+				);
+				ctx.fillStyle = lt.muted;
+				ctx.fillRect(
+					W * 0.36,
+					H * 0.2 + s + H * 0.1,
+					W * 0.28,
+					H * 0.01
+				);
+			} );
+		}
+		const step = () => {
+			if ( seq !== thumbSeq || ! alive ) {
+				return;
+			}
+			const until = performance.now() + 12;
+			while ( jobs.length && performance.now() < until ) {
+				jobs.shift()();
+			}
+			if ( jobs.length ) {
+				window.requestAnimationFrame( step );
+			}
+		};
+		window.requestAnimationFrame( step );
+	}
+	const scheduleThumbs = () => {
+		window.clearTimeout( thumbTimer );
+		thumbTimer = window.setTimeout( renderThumbs, 260 );
+	};
+
+	/* ----------------------------- left rail ----------------------------- */
+
 	const cardsSec = ui.section( left, {
 		icon: ICONS.cards,
 		title: t( 'Cards' ),
 	} );
-	const cardGrid = ui.picks( cardsSec, { cell: 110 } );
+	let group = cardByKey( params.card ).group;
+	const chipRow = ui.pills( cardsSec, 'wpiemys-chips' );
+	const chipBtns = {};
+	const cardGrid = ui.picks( cardsSec, { cell: 74, cls: 'wpiemys-cards' } );
 	const cardBtns = {};
-	const cardThumbs = new Map();
+	for ( const g of GROUPS ) {
+		chipBtns[ g ] = ui.pill( chipRow, {
+			label: t( GROUP_LABELS[ g ] ),
+			on: g === group,
+			onClick: () => {
+				group = g;
+				for ( const k in chipBtns ) {
+					ui.pressed( chipBtns[ k ], k === g );
+				}
+				filterCards();
+			},
+		} );
+	}
 	for ( const c of CARDS ) {
 		const thumb = document.createElement( 'canvas' );
-		thumb.width = 220;
-		thumb.height = 220;
+		thumb.width = 148;
+		thumb.height = 148;
 		thumb.setAttribute( 'aria-hidden', 'true' );
 		const { node } = ui.pick( cardGrid, {
-			label: c.label,
+			label: t( c.label ),
 			thumb,
 			cls: 'wpiemys-card',
 			on: params.card === c.key,
-			onClick: () => {
-				params.card = c.key;
-				for ( const k in cardBtns ) {
-					cardBtns[ k ].setAttribute(
-						'aria-pressed',
-						k === c.key ? 'true' : 'false'
-					);
-				}
-				rebuildSide();
-				paint();
-			},
+			onClick: () => selectCard( c.key ),
 		} );
 		node.dataset.card = c.key;
 		cardBtns[ c.key ] = node;
 		cardThumbs.set( c.key, thumb );
 	}
+	function filterCards() {
+		for ( const c of CARDS ) {
+			cardBtns[ c.key ].style.display =
+				'all' === group || c.group === group ? '' : 'none';
+		}
+	}
+	filterCards();
 
-	/* ------------------------------ side rail ----------------------------- */
+	function selectCard( key ) {
+		params.card = key;
+		for ( const k in cardBtns ) {
+			ui.pressed( cardBtns[ k ], k === key );
+		}
+		// A new card starts with its own automatic title.
+		params.titleText = '';
+		rebuildSide();
+		schedule();
+		scheduleThumbs();
+	}
+
+	const looksSec = ui.section( left, {
+		icon: ICONS.looks,
+		title: t( 'Looks' ),
+	} );
+	const shuffleBtn = ui.btn( looksSec, {
+		label: t( 'Surprise me' ),
+		onClick: () => {
+			const rolled = shuffleLook( Date.now() & 0xffffff );
+			if ( ! fontUsable( rolled.titleFont ) ) {
+				const usable = TITLE_FONTS.filter( ( f ) =>
+					fontUsable( f.family )
+				);
+				rolled.titleFont =
+					usable[
+						Math.floor( Math.random() * usable.length )
+					].family;
+			}
+			Object.assign( params, rolled );
+			markLooks();
+			ensureFonts().then( schedule );
+			rebuildSide();
+			schedule();
+			scheduleThumbs();
+		},
+	} );
+	shuffleBtn.classList.add( 'wpiemys-shuffle' );
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: card, look,
+	// colours, layout and texts, the way a Surprise comes in.
+	history = studioUndo( {
+		backdrop: modal.backdrop,
+		read: () => params,
+		write: ( data ) => {
+			Object.assign( params, data );
+			for ( const k in cardBtns ) {
+				ui.pressed( cardBtns[ k ], k === params.card );
+			}
+			markLooks();
+			ensureFonts().then( schedule );
+			rebuildSide();
+			schedule();
+			scheduleThumbs();
+		},
+	} );
+	shuffleBtn.insertAdjacentHTML( 'afterbegin', ICONS.dice );
+	const lookGrid = ui.picks( looksSec, { cell: 74, cls: 'wpiemys-looks' } );
+	const lookBtns = {};
+	for ( const look of LOOKS ) {
+		const thumb = document.createElement( 'canvas' );
+		thumb.width = 148;
+		thumb.height = 185;
+		thumb.setAttribute( 'aria-hidden', 'true' );
+		const { node } = ui.pick( lookGrid, {
+			label: t( look.label ),
+			thumb,
+			cls: 'wpiemys-look',
+			on: params.look === look.key,
+			onClick: () => {
+				Object.assign( params, lookParams( look ) );
+				if ( ! fontUsable( params.titleFont ) ) {
+					params.titleFont = 'Playfair Display';
+				}
+				markLooks();
+				ensureFonts().then( schedule );
+				rebuildSide();
+				schedule();
+				scheduleThumbs();
+			},
+		} );
+		lookBtns[ look.key ] = node;
+		lookThumbs.set( look.key, thumb );
+	}
+	function markLooks() {
+		for ( const k in lookBtns ) {
+			ui.pressed( lookBtns[ k ], k === params.look );
+		}
+	}
+	/** Any manual look change leaves the preset. */
+	const touchLook = () => {
+		if ( params.look ) {
+			params.look = '';
+			markLooks();
+		}
+	};
+
+	/* ----------------------------- side rail ----------------------------- */
+
+	const inputRow = ( parent, label, type, value, onChange, opts = {} ) => {
+		const input = ui.el( 'input', 'dsm-input', ui.row( parent, label ) );
+		input.type = type;
+		input.value = value;
+		if ( opts.placeholder ) {
+			input.placeholder = opts.placeholder;
+		}
+		if ( opts.min !== undefined ) {
+			input.min = String( opts.min );
+			input.max = String( opts.max );
+		}
+		const fire = () => onChange( input.value, input );
+		if ( 'text' === type ) {
+			input.oninput = fire;
+		} else {
+			input.onchange = fire;
+		}
+		return input;
+	};
+
+	/** A two- or three-way segmented control. */
+	const seg = ( parent, options, value, onChange ) => {
+		const wrap = ui.el( 'div', 'dsm-seg wpiemys-seg', parent );
+		const btns = options.map( ( o ) => {
+			const b = ui.el( 'button', null, wrap, o.label );
+			b.type = 'button';
+			ui.pressed( b, o.value === value );
+			b.onclick = () => {
+				btns.forEach( ( x ) => ui.pressed( x, x === b ) );
+				onChange( o.value );
+			};
+			return b;
+		} );
+		return wrap;
+	};
+
+	/** An option grid for four or more choices. */
+	const optGrid = ( parent, options, value, onChange, cols = 3 ) => {
+		const grid = ui.opts( parent, { cols } );
+		const btns = options.map( ( o ) =>
+			ui.opt( grid, {
+				label: o.label,
+				on: o.value === value,
+				onClick: ( b ) => {
+					btns.forEach( ( x ) => ui.pressed( x, x === b ) );
+					onChange( o.value );
+				},
+			} )
+		);
+		return grid;
+	};
+
+	const artChanged = () => {
+		schedule();
+		scheduleThumbs();
+	};
 
 	function rebuildSide() {
 		unmountAll();
+		titleInputs.length = 0;
+		const keepScroll = side.scrollTop;
 		side.textContent = '';
+		const card = cardByKey( params.card );
 
 		/* Person. */
-		if ( 'angelnumber' !== params.card ) {
+		if ( ! card.noPerson ) {
 			const person = ui.section( side, {
 				icon: ICONS.person,
-				title: t( 'Person' ),
+				title: card.partner ? t( 'First person' ) : t( 'Person' ),
 			} );
-			const nameIn = ui.el(
-				'input',
-				'dsm-input',
-				ui.row( person, t( 'Name' ) )
-			);
-			nameIn.type = 'text';
-			nameIn.value = params.name || '';
-			nameIn.oninput = () => {
-				params.name = nameIn.value;
-				paint();
-			};
-			if ( ! NO_DATE.includes( params.card ) ) {
-				const dateIn = ui.el(
-					'input',
-					'dsm-input',
-					ui.row( person, t( 'Date' ) )
-				);
-				dateIn.type = 'date';
-				dateIn.value = params.dateStr;
-				dateIn.onchange = () => {
-					if ( dateIn.value ) {
-						params.dateStr = dateIn.value;
+			inputRow( person, t( 'Name' ), 'text', params.name || '', ( v ) => {
+				params.name = v;
+				schedule();
+				if ( 'namechart' === params.card ) {
+					scheduleThumbs();
+				}
+			} ).placeholder = t( 'Optional' );
+			if ( card.date ) {
+				inputRow(
+					person,
+					t( 'Birthday' ),
+					'date',
+					params.dateStr,
+					( v ) => {
+						if ( v ) {
+							params.dateStr = v;
+						}
+						artChanged();
 					}
-					paint();
-				};
+				);
 			}
-			if ( HAS_TIME.includes( params.card ) ) {
-				const timeIn = ui.el(
-					'input',
-					'dsm-input',
-					ui.row( person, t( 'Time' ) )
-				);
-				timeIn.type = 'time';
-				timeIn.value = params.timeStr;
-				timeIn.disabled = ! params.timeKnown;
-				timeIn.onchange = () => {
-					if ( timeIn.value ) {
-						params.timeStr = timeIn.value;
+			if ( card.time ) {
+				const timeIn = inputRow(
+					person,
+					t( 'Time' ),
+					'time',
+					params.timeStr,
+					( v ) => {
+						if ( v ) {
+							params.timeStr = v;
+						}
+						artChanged();
 					}
-					paint();
-				};
+				);
+				timeIn.disabled = ! params.timeKnown;
+				// The sky right now: tonight's moon, today's chart.
+				ui.mini( timeIn.parentNode, {
+					icon: ICONS.clock,
+					title: t( 'Now' ),
+					cls: 'wpiemys-now',
+					onClick: () => {
+						const now = new Date();
+						params.dateStr = todayStr();
+						params.timeStr =
+							String( now.getHours() ).padStart( 2, '0' ) +
+							':' +
+							String( now.getMinutes() ).padStart( 2, '0' );
+						params.timeKnown = true;
+						rebuildSide();
+						artChanged();
+					},
+				} );
 				ui.check( person, {
 					label: t( 'Time unknown' ),
 					checked: ! params.timeKnown,
 					onChange: ( on ) => {
 						params.timeKnown = ! on;
 						timeIn.disabled = on;
-						paint();
-					},
-				} );
-			}
-			if ( 'zodiac' === params.card ) {
-				const c = content();
-				ui.select( ui.row( person, t( 'Sign' ) ), {
-					options: [
-						{ value: 'auto', label: t( 'From the birthday' ) },
-						...c.signs.map( ( s, i ) => ( {
-							value: String( i ),
-							label: s,
-						} ) ),
-					],
-					value: params.signMode,
-					onChange: ( v ) => {
-						params.signMode = v;
-						paint();
+						artChanged();
 					},
 				} );
 			}
 		}
 
-		/* Partner (couple cards). */
-		if ( PARTNER.includes( params.card ) ) {
-			const partner = ui.section( side, {
-				icon: ICONS.person,
-				title: t( 'Partner' ),
+		/* Angel number. */
+		if ( 'angelnumber' === params.card ) {
+			const sec = ui.section( side, {
+				icon: ICONS.sparkle,
+				title: t( 'Angel Number' ),
 			} );
-			const name2In = ui.el(
-				'input',
-				'dsm-input',
-				ui.row( partner, t( 'Name' ) )
-			);
-			name2In.type = 'text';
-			name2In.value = params.name2 || '';
-			name2In.oninput = () => {
-				params.name2 = name2In.value;
-				paint();
-			};
-			const date2In = ui.el(
-				'input',
-				'dsm-input',
-				ui.row( partner, t( 'Date' ) )
-			);
-			date2In.type = 'date';
-			date2In.value = params.dateStr2;
-			date2In.onchange = () => {
-				if ( date2In.value ) {
-					params.dateStr2 = date2In.value;
+			const numIn = inputRow(
+				sec,
+				t( 'Number' ),
+				'text',
+				params.angelNum || '',
+				( v ) => {
+					params.angelNum = v;
+					artChanged();
 				}
-				paint();
-			};
-			if ( 'synastry' === params.card ) {
-				const time2In = ui.el(
-					'input',
-					'dsm-input',
-					ui.row( partner, t( 'Time' ) )
-				);
-				time2In.type = 'time';
-				time2In.value = params.timeStr2;
-				time2In.onchange = () => {
-					if ( time2In.value ) {
-						params.timeStr2 = time2In.value;
+			);
+			const chips = ui.pills( sec, 'wpiemys-angels' );
+			const btns = ANGEL_PRESETS.map( ( n ) =>
+				ui.pill( chips, {
+					label: n,
+					on: n === String( params.angelNum ),
+					onClick: ( b ) => {
+						params.angelNum = n;
+						numIn.value = n;
+						btns.forEach( ( x ) => ui.pressed( x, x === b ) );
+						artChanged();
+					},
+				} )
+			);
+		}
+
+		/* Partner. */
+		if ( card.partner ) {
+			const partner = ui.section( side, {
+				icon: ICONS.partner,
+				title: t( 'Second person' ),
+			} );
+			inputRow(
+				partner,
+				t( 'Name' ),
+				'text',
+				params.name2 || '',
+				( v ) => {
+					params.name2 = v;
+					schedule();
+				}
+			).placeholder = t( 'Optional' );
+			inputRow(
+				partner,
+				t( 'Birthday' ),
+				'date',
+				params.dateStr2 || params.dateStr,
+				( v ) => {
+					if ( v ) {
+						params.dateStr2 = v;
 					}
-					paint();
-				};
+					artChanged();
+				}
+			);
+			if ( card.partnerTime ) {
+				inputRow(
+					partner,
+					t( 'Time' ),
+					'time',
+					params.timeStr2,
+					( v ) => {
+						if ( v ) {
+							params.timeStr2 = v;
+						}
+						artChanged();
+					}
+				);
 			}
 		}
 
-		/* Location (drives houses and the time zone). */
-		if ( HAS_TIME.includes( params.card ) ) {
-			const loc = ui.section( side, {
-				icon: ICONS.location,
-				title: t( 'Location' ),
-			} );
-			const searchWrap = ui.el( 'div', 'wpiemys-search', loc );
-			const searchIn = ui.search( searchWrap, {
-				placeholder: t( 'Search for a city' ),
-			} ).input;
-			searchIn.value = ( params.place && params.place.name ) || '';
-			const hits = ui.el( 'div', 'wpiemys-hits', searchWrap );
-			let searchSeq = 0;
-			const runSearch = async () => {
-				const q = searchIn.value.trim();
-				hits.textContent = '';
-				if ( q.length < 2 ) {
+		/* Place (houses, ascendant, time zone). */
+		if ( card.place ) {
+			buildPlace();
+		}
+
+		/* Card options. */
+		buildCardOptions( card );
+
+		/* Look. */
+		buildColors();
+		if ( 'poster' === params.output ) {
+			buildBackdrop();
+			buildLayout();
+			buildText( card );
+		}
+		if ( ! editing ) {
+			buildOutput();
+		}
+		side.scrollTop = keepScroll;
+	}
+
+	function buildPlace() {
+		const loc = ui.section( side, {
+			icon: ICONS.location,
+			title: t( 'Birthplace' ),
+		} );
+		const searchWrap = ui.el( 'div', 'wpiemys-search', loc );
+		const searchIn = ui.search( searchWrap, {
+			placeholder: t( 'Search for a city' ),
+		} ).input;
+		searchIn.value = ( params.place && params.place.name ) || '';
+		const hits = ui.el( 'div', 'wpiemys-hits', searchWrap );
+		let searchSeq = 0;
+		const runSearch = async () => {
+			const q = searchIn.value.trim();
+			hits.textContent = '';
+			if ( q.length < 2 ) {
+				return;
+			}
+			const seq = ++searchSeq;
+			try {
+				const { results } = await geo.search( q, 6 );
+				if ( seq !== searchSeq ) {
 					return;
 				}
-				const seq = ++searchSeq;
-				try {
-					const { results } = await geo.search( q, 6 );
-					if ( seq !== searchSeq ) {
-						return;
-					}
-					hits.textContent = '';
-					if ( ! results || ! results.length ) {
-						ui.el(
-							'div',
-							'dsm-listrow wpiemys-hit is-empty',
-							hits,
-							t( 'No results.' )
-						);
-						return;
-					}
-					for ( const r of results ) {
-						const item = ui.el(
-							'button',
-							'dsm-listrow wpiemys-hit',
-							hits
-						);
-						item.type = 'button';
-						item.textContent =
-							r.name + ( r.region ? ', ' + r.region : '' );
-						item.onclick = () => {
-							params.lat = r.lat;
-							params.lon = r.lon;
-							params.place = {
-								name: r.name,
-								region: r.region || '',
-							};
-							searchIn.value = r.name;
-							hits.textContent = '';
-							store.lastPlace = {
-								lat: r.lat,
-								lon: r.lon,
-								place: params.place,
-							};
-							storeSave();
-							paint();
-						};
-					}
-				} catch ( e ) {
-					if ( seq !== searchSeq ) {
-						return;
-					}
-					// Say that the search failed: an empty list used to show
-					// LESS than a search with no hits (EXTFEHLER-05).
-					hits.textContent = '';
+				hits.textContent = '';
+				if ( ! results || ! results.length ) {
 					ui.el(
 						'div',
 						'dsm-listrow wpiemys-hit is-empty',
 						hits,
-						t( 'The search failed. Try again.' )
+						t( 'No results.' )
 					);
+					return;
 				}
-			};
-			let debounce = 0;
-			searchIn.oninput = () => {
-				window.clearTimeout( debounce );
-				debounce = window.setTimeout( runSearch, 280 );
-			};
-			searchIn.onkeydown = ( e ) => {
-				if ( 'Enter' === e.key ) {
-					e.preventDefault();
-					runSearch();
+				for ( const r of results ) {
+					const item = ui.el(
+						'button',
+						'dsm-listrow wpiemys-hit',
+						hits
+					);
+					item.type = 'button';
+					item.textContent =
+						r.name + ( r.region ? ', ' + r.region : '' );
+					item.onclick = () => {
+						params.lat = r.lat;
+						params.lon = r.lon;
+						params.place = { name: r.name, region: r.region || '' };
+						searchIn.value = r.name;
+						hits.textContent = '';
+						store.lastPlace = {
+							lat: r.lat,
+							lon: r.lon,
+							place: params.place,
+						};
+						storeSave();
+						artChanged();
+					};
 				}
-			};
+			} catch ( e ) {
+				if ( seq !== searchSeq ) {
+					return;
+				}
+				hits.textContent = '';
+				ui.el(
+					'div',
+					'dsm-listrow wpiemys-hit is-empty',
+					hits,
+					t( 'The search failed. Try again.' )
+				);
+			}
+		};
+		let debounce = 0;
+		searchIn.oninput = () => {
+			window.clearTimeout( debounce );
+			debounce = window.setTimeout( runSearch, 280 );
+		};
+		searchIn.onkeydown = ( e ) => {
+			if ( 'Enter' === e.key ) {
+				e.preventDefault();
+				runSearch();
+			}
+		};
 
-			const offRow = ui.row( loc, t( 'UTC offset (advanced)' ) );
-			const offSel = ui.select( offRow, {
-				options: [
-					{ value: 'auto', label: t( 'Auto' ) },
-					{ value: 'manual', label: t( 'Manual offset' ) },
-				],
-				value: params.offsetMode,
-				onChange: ( v ) => {
-					params.offsetMode = v;
-					offIn.style.display = 'manual' === v ? '' : 'none';
-					paint();
-				},
-			} );
-			offSel.classList.add( 'wpiemys-offsel' );
-			const offIn = ui.el( 'input', 'dsm-input wpiemys-offin', offRow );
-			offIn.type = 'text';
-			offIn.placeholder = '+02:00';
-			offIn.style.display = 'manual' === params.offsetMode ? '' : 'none';
-			const offToStr = ( min ) =>
-				( min < 0 ? '-' : '+' ) +
-				String( Math.floor( Math.abs( min ) / 60 ) ).padStart(
-					2,
-					'0'
-				) +
-				':' +
-				String( Math.abs( min ) % 60 ).padStart( 2, '0' );
+		const offRow = ui.row( loc, t( 'UTC offset' ) );
+		const offSel = ui.select( offRow, {
+			options: [
+				{ value: 'auto', label: t( 'Auto' ) },
+				{ value: 'manual', label: t( 'Manual offset' ) },
+			],
+			value: params.offsetMode,
+			onChange: ( v ) => {
+				params.offsetMode = v;
+				offIn.style.display = 'manual' === v ? '' : 'none';
+				artChanged();
+			},
+		} );
+		offSel.classList.add( 'wpiemys-offsel' );
+		const offIn = ui.el( 'input', 'dsm-input wpiemys-offin', offRow );
+		offIn.type = 'text';
+		offIn.placeholder = '+02:00';
+		offIn.style.display = 'manual' === params.offsetMode ? '' : 'none';
+		const offToStr = ( min ) =>
+			( min < 0 ? '-' : '+' ) +
+			String( Math.floor( Math.abs( min ) / 60 ) ).padStart( 2, '0' ) +
+			':' +
+			String( Math.abs( min ) % 60 ).padStart( 2, '0' );
+		offIn.value = offToStr( params.offsetMin || 0 );
+		offIn.onchange = () => {
+			const m = offIn.value
+				.trim()
+				.match( /^([+-]?)(\d{1,2})(?::(\d{2}))?$/ );
+			if ( m ) {
+				const sign = '-' === m[ 1 ] ? -1 : 1;
+				params.offsetMin =
+					sign *
+					( parseInt( m[ 2 ], 10 ) * 60 +
+						( m[ 3 ] ? parseInt( m[ 3 ], 10 ) : 0 ) );
+			}
 			offIn.value = offToStr( params.offsetMin || 0 );
-			offIn.onchange = () => {
-				const m = offIn.value
-					.trim()
-					.match( /^([+-]?)(\d{1,2})(?::(\d{2}))?$/ );
-				if ( m ) {
-					const sign = '-' === m[ 1 ] ? -1 : 1;
-					params.offsetMin =
-						sign *
-						( parseInt( m[ 2 ], 10 ) * 60 +
-							( m[ 3 ] ? parseInt( m[ 3 ], 10 ) : 0 ) );
-				}
-				offIn.value = offToStr( params.offsetMin || 0 );
-				paint();
-			};
-		}
+			artChanged();
+		};
+	}
 
-		/* Options per card. */
-		const OPT_CARDS = [
+	function buildCardOptions( card ) {
+		const key = card.key;
+		const wants = [
 			'birthchart',
 			'synastry',
 			'moonphase',
 			'zodiac',
 			'couple',
-			'angelnumber',
+			'personalyear',
 		];
-		const opt = OPT_CARDS.includes( params.card )
-			? ui.section( side, {
-					icon: ICONS.options,
-					title: t( 'Options' ),
-			  } )
-			: null;
-		if ( 'angelnumber' === params.card ) {
-			const numIn = ui.el(
-				'input',
-				'dsm-input',
-				ui.row( opt, t( 'Number' ) )
+		if ( ! wants.includes( key ) ) {
+			return;
+		}
+		const opt = ui.section( side, {
+			icon: ICONS.options,
+			title: t( 'Card options' ),
+		} );
+		const toggle = ( label, field ) =>
+			ui.check( opt, {
+				label,
+				checked: !! params[ field ],
+				onChange: ( on ) => {
+					params[ field ] = on;
+					artChanged();
+				},
+			} );
+		if ( 'birthchart' === key ) {
+			seg(
+				opt,
+				WHEEL_STYLES.map( ( s ) => ( {
+					value: s,
+					label: t( s.charAt( 0 ).toUpperCase() + s.slice( 1 ) ),
+				} ) ),
+				params.wheelStyle,
+				( v ) => {
+					params.wheelStyle = v;
+					artChanged();
+				}
 			);
-			numIn.type = 'text';
-			numIn.value = params.angelNum || '';
-			numIn.oninput = () => {
-				params.angelNum = numIn.value;
-				paint();
-			};
-		} else if ( 'couple' === params.card ) {
-			ui.check( opt, {
-				label: t( 'Southern sky' ),
-				checked: params.southern,
-				onChange: ( on ) => {
-					params.southern = on;
-					paint();
-				},
-			} );
-		} else if (
-			'birthchart' === params.card ||
-			'synastry' === params.card
-		) {
-			ui.check( opt, {
-				label: t( 'Show houses' ),
-				checked: params.showHouses,
-				onChange: ( on ) => {
-					params.showHouses = on;
-					paint();
-				},
-			} );
-			ui.check( opt, {
-				label: t( 'Show aspects' ),
-				checked: params.showAspects,
-				onChange: ( on ) => {
-					params.showAspects = on;
-					paint();
-				},
-			} );
-			ui.check( opt, {
-				label: t( 'Strict orbs' ),
-				checked: params.strictOrbs,
-				onChange: ( on ) => {
-					params.strictOrbs = on;
-					paint();
-				},
-			} );
-			if ( 'birthchart' === params.card ) {
-				ui.check( opt, {
-					label: t( 'Show degrees' ),
-					checked: params.showDegrees,
-					onChange: ( on ) => {
-						params.showDegrees = on;
-						paint();
-					},
-				} );
-			}
-		} else if ( 'moonphase' === params.card ) {
-			ui.check( opt, {
-				label: t( 'Southern sky' ),
-				checked: params.southern,
-				onChange: ( on ) => {
-					params.southern = on;
-					paint();
-				},
-			} );
-		} else if ( 'zodiac' === params.card ) {
-			ui.select( ui.row( opt, t( 'Layout' ) ), {
+			toggle( t( 'Show houses' ), 'showHouses' );
+			toggle( t( 'Show aspects' ), 'showAspects' );
+			toggle( t( 'Show degrees' ), 'showDegrees' );
+			toggle( t( 'Strict orbs' ), 'strictOrbs' );
+		} else if ( 'synastry' === key ) {
+			toggle( t( 'Show houses' ), 'showHouses' );
+			toggle( t( 'Show aspects' ), 'showAspects' );
+			toggle( t( 'Strict orbs' ), 'strictOrbs' );
+		} else if ( 'moonphase' === key ) {
+			seg(
+				opt,
+				[
+					{ value: 'single', label: t( 'Single' ) },
+					{ value: 'cycle', label: t( 'Cycle' ) },
+					{ value: 'week', label: t( 'Week' ) },
+				],
+				params.moonLayout,
+				( v ) => {
+					params.moonLayout = v;
+					artChanged();
+				}
+			);
+			toggle( t( 'Southern sky' ), 'southern' );
+		} else if ( 'zodiac' === key ) {
+			const c = content();
+			ui.select( ui.row( opt, t( 'Sign' ) ), {
 				options: [
+					{ value: 'sun', label: t( 'From the birthday' ) },
+					...c.signs.map( ( s, i ) => ( {
+						value: String( i ),
+						label: s,
+					} ) ),
+				],
+				value: String( params.signMode ),
+				onChange: ( v ) => {
+					params.signMode = v;
+					artChanged();
+				},
+			} );
+			optGrid(
+				opt,
+				[
 					{ value: 'constellation', label: t( 'Constellation' ) },
+					{ value: 'medallion', label: t( 'Medallion' ) },
 					{ value: 'glyph', label: t( 'Glyph' ) },
 					{ value: 'split', label: t( 'Split' ) },
 				],
-				value: params.layout,
-				onChange: ( v ) => {
-					params.layout = v;
-					paint();
+				params.zodiacLayout,
+				( v ) => {
+					params.zodiacLayout = v;
+					artChanged();
 				},
-			} );
-		}
-
-		/* Look. */
-		const look = ui.section( side, {
-			icon: ICONS.look,
-			title: t( 'Look' ),
-		} );
-		ui.select( ui.row( look, t( 'Theme' ) ), {
-			options: THEMES.map( ( th ) => ( {
-				value: th.key,
-				label: t( THEME_LABELS[ th.key ] || th.key ),
-			} ) ),
-			value: params.theme,
-			onChange: ( v ) => {
-				params.theme = v;
-				paint();
-			},
-		} );
-
-		/* Caption layers. */
-		const cap = ui.section( side, {
-			icon: ICONS.caption,
-			title: t( 'Caption' ),
-		} );
-		ui.check( cap, {
-			label: t( 'Include caption' ),
-			checked: params.withCaption,
-			onChange: ( on ) => {
-				params.withCaption = on;
-			},
-		} );
-		if ( 'birthchart' === params.card ) {
-			ui.check( cap, {
-				label: t( 'Include data block' ),
-				checked: params.withData,
-				onChange: ( on ) => {
-					params.withData = on;
+				2
+			);
+		} else if ( 'couple' === key ) {
+			toggle( t( 'Southern sky' ), 'southern' );
+		} else if ( 'personalyear' === key ) {
+			const year = params.year || new Date().getFullYear();
+			inputRow(
+				opt,
+				t( 'Year' ),
+				'number',
+				String( year ),
+				( v ) => {
+					const n = parseInt( v, 10 );
+					params.year = n >= 1000 && n <= 3000 ? n : 0;
+					artChanged();
 				},
-			} );
-		}
-		if ( 'angelnumber' !== params.card ) {
-			ui.check( cap, {
-				label: t( 'Include keywords' ),
-				checked: params.withKeywords,
-				onChange: ( on ) => {
-					params.withKeywords = on;
-				},
-			} );
-		}
-		if ( HAS_MEANING.includes( params.card ) ) {
-			ui.check( cap, {
-				label: t( 'Include meaning' ),
-				checked: params.withMeaning,
-				onChange: ( on ) => {
-					params.withMeaning = on;
-				},
-			} );
-		}
-		const fontRow = ui.row( cap, t( 'Title font' ) );
-		if ( bridge.components && bridge.components.mountFontPicker ) {
-			const holder = ui.el( 'div', 'wpiemys-font', fontRow );
-			mounts.push(
-				bridge.components.mountFontPicker( holder, {
-					value: params.font,
-					onChange: ( fam ) => {
-						params.font = fam;
-						if ( bridge.fonts && bridge.fonts.ensureFont ) {
-							bridge.fonts
-								.ensureFont( fam )
-								.then( paint )
-								.catch( () => {} );
-						}
-						paint();
-					},
-				} )
+				{ min: 1900, max: 2200 }
 			);
 		}
 	}
 
-	/* ------------------------------- footer ------------------------------- */
+	function buildColors() {
+		const sec = ui.section( side, {
+			icon: ICONS.colors,
+			title: t( 'Colors' ),
+		} );
+		const grid = ui.el( 'div', 'wpiemys-swatches', sec );
+		const swatches = THEMES.map( ( th ) => {
+			const b = ui.el( 'button', 'wpiemys-swatch', grid );
+			b.type = 'button';
+			b.title = t( THEME_LABELS[ th.key ] || th.key );
+			b.setAttribute( 'aria-label', b.title );
+			b.style.setProperty( '--a', th.bg[ 0 ] );
+			b.style.setProperty( '--b', th.bg[ 1 ] );
+			b.style.setProperty( '--c', th.accent );
+			ui.pressed( b, ! params.custom && th.key === params.theme );
+			b.onclick = () => {
+				params.theme = th.key;
+				params.custom = null;
+				touchLook();
+				swatches.forEach( ( x ) => ui.pressed( x, x === b ) );
+				rebuildSide();
+				artChanged();
+			};
+			return b;
+		} );
+		ui.check( sec, {
+			label: t( 'Own colors' ),
+			checked: !! params.custom,
+			onChange: ( on ) => {
+				const base = themeByKey( params.theme );
+				params.custom = on
+					? { bg: base.bg[ 0 ], ink: base.ink, accent: base.accent }
+					: null;
+				touchLook();
+				rebuildSide();
+				artChanged();
+			},
+		} );
+		if (
+			params.custom &&
+			bridge.components &&
+			bridge.components.mountColorButton
+		) {
+			const colorRow = ( label, field ) => {
+				const holder = ui.el(
+					'div',
+					'wpiemys-color',
+					ui.row( sec, label )
+				);
+				mounts.push(
+					bridge.components.mountColorButton( holder, {
+						color: params.custom[ field ],
+						title: label,
+						onChange: ( c ) => {
+							params.custom = { ...params.custom, [ field ]: c };
+							artChanged();
+						},
+					} )
+				);
+			};
+			colorRow( t( 'Background' ), 'bg' );
+			colorRow( t( 'Text' ), 'ink' );
+			colorRow( t( 'Accent' ), 'accent' );
+		}
+	}
+
+	function buildBackdrop() {
+		const sec = ui.section( side, {
+			icon: ICONS.backdrop,
+			title: t( 'Background & frame' ),
+		} );
+		optGrid(
+			sec,
+			BACKDROPS.map( ( b ) => ( {
+				value: b,
+				label: t( BACKDROP_LABELS[ b ] ),
+			} ) ),
+			params.backdrop,
+			( v ) => {
+				params.backdrop = v;
+				touchLook();
+				schedule();
+			}
+		);
+		const starRow = ui.el( 'div', 'wpiemys-starrow', sec );
+		ui.slider( starRow, {
+			label: t( 'Stars' ),
+			min: 0,
+			max: 100,
+			value: params.stars,
+			format: ( v ) => v + '%',
+			onInput: ( v ) => {
+				params.stars = v;
+				touchLook();
+				schedule();
+			},
+		} );
+		ui.mini( starRow, {
+			icon: ICONS.dice,
+			title: t( 'New star field' ),
+			onClick: () => {
+				params.seed = 1 + Math.floor( Math.random() * 9999 );
+				schedule();
+			},
+		} );
+		ui.el( 'div', 'wpiemys-sublabel', sec, t( 'Frame' ) );
+		optGrid(
+			sec,
+			FRAMES.map( ( f ) => ( {
+				value: f,
+				label: t( FRAME_LABELS[ f ] ),
+			} ) ),
+			params.frame,
+			( v ) => {
+				params.frame = v;
+				touchLook();
+				schedule();
+			}
+		);
+	}
+
+	function buildLayout() {
+		const sec = ui.section( side, {
+			icon: ICONS.layout,
+			title: t( 'Layout' ),
+		} );
+		optGrid(
+			sec,
+			LAYOUTS.map( ( l ) => ( {
+				value: l,
+				label: t( LAYOUT_LABELS[ l ] ),
+			} ) ),
+			params.layout,
+			( v ) => {
+				params.layout = v;
+				schedule();
+			}
+		);
+		ui.slider( sec, {
+			label: t( 'Art size' ),
+			min: 40,
+			max: 100,
+			value: Math.round( params.artScale * 100 ),
+			format: ( v ) => v + '%',
+			onInput: ( v ) => {
+				params.artScale = v / 100;
+				schedule();
+			},
+		} );
+		ui.slider( sec, {
+			label: t( 'Title size' ),
+			min: 50,
+			max: 180,
+			value: Math.round( params.titleScale * 100 ),
+			format: ( v ) => v + '%',
+			onInput: ( v ) => {
+				params.titleScale = v / 100;
+				schedule();
+			},
+		} );
+		ui.slider( sec, {
+			label: t( 'Text size' ),
+			min: 60,
+			max: 160,
+			value: Math.round( params.textScale * 100 ),
+			format: ( v ) => v + '%',
+			onInput: ( v ) => {
+				params.textScale = v / 100;
+				schedule();
+			},
+		} );
+	}
+
+	function buildText( card ) {
+		const sec = ui.section( side, {
+			icon: ICONS.text,
+			title: t( 'Text' ),
+		} );
+		const titleIn = inputRow(
+			sec,
+			t( 'Title' ),
+			'text',
+			params.titleText || '',
+			( v ) => {
+				params.titleText = v;
+				schedule();
+			}
+		);
+		titleIn.placeholder = ( lastComp && lastComp.texts.title ) || '';
+		titleInputs.push( titleIn );
+		ui.el( 'div', 'wpiemys-sublabel', sec, t( 'Personal message' ) );
+		ui.textarea( sec, {
+			value: params.message || '',
+			rows: 2,
+			placeholder: t( 'Welcome to the world, little star.' ),
+			onInput: ( v ) => {
+				params.message = v;
+				schedule();
+			},
+		} );
+		const toggle = ( label, field ) =>
+			ui.check( sec, {
+				label,
+				checked: !! params[ field ],
+				onChange: ( on ) => {
+					params[ field ] = on;
+					schedule();
+				},
+			} );
+		toggle( t( 'Title' ), 'withTitle' );
+		toggle( t( 'Date and place' ), 'withSubtitle' );
+		toggle( t( 'Keywords' ), 'withKeywords' );
+		toggle( t( 'Meaning' ), 'withMeaning' );
+		if ( 'birthchart' === card.key ) {
+			toggle( t( 'Chart data' ), 'withData' );
+		}
+		ui.check( sec, {
+			label: t( 'Foil title' ),
+			checked: !! params.titleFoil,
+			onChange: ( on ) => {
+				params.titleFoil = on;
+				touchLook();
+				schedule();
+			},
+		} );
+		if ( bridge.components && bridge.components.mountFontPicker ) {
+			const fontRow = ( label, field ) => {
+				const holder = ui.el(
+					'div',
+					'wpiemys-font',
+					ui.row( sec, label )
+				);
+				mounts.push(
+					bridge.components.mountFontPicker( holder, {
+						value: 'titleFont' === field ? titleFace() : textFace(),
+						onChange: ( fam ) => {
+							params[ field ] = fam;
+							touchLook();
+							ensureFonts().then( schedule );
+							schedule();
+						},
+					} )
+				);
+			};
+			fontRow( t( 'Title font' ), 'titleFont' );
+			fontRow( t( 'Text font' ), 'textFont' );
+		}
+	}
+
+	function buildOutput() {
+		const sec = ui.section( side, {
+			icon: ICONS.output,
+			title: t( 'Insert as' ),
+		} );
+		seg(
+			sec,
+			[
+				{ value: 'poster', label: t( 'Poster' ) },
+				{ value: 'art', label: t( 'Art only' ) },
+			],
+			params.output,
+			( v ) => {
+				params.output = v;
+				docBtn.style.display = 'art' === v && canShowDoc ? '' : 'none';
+				rebuildSide();
+				schedule();
+			}
+		);
+		ui.note(
+			sec,
+			'art' === params.output
+				? t( 'Only the chart art, transparent, as one layer.' )
+				: t(
+						'Background, frame, art and editable text layers, grouped and sized to the document.'
+				  )
+		);
+	}
+
+	/* ------------------------------ footer ------------------------------- */
 
 	const actions = ui.el( 'div', 'dsm-actions', modal.foot );
 	ui.btn( actions, {
 		label: t( 'Cancel' ),
 		onClick: () => {
-			unmountAll();
+			shutdown();
 			modal.close();
 		},
 	} );
@@ -1177,7 +1837,7 @@ async function openStudio( { editor, extras, layer } ) {
 			statusLine.textContent = t( 'Rendering' );
 			try {
 				await insertOrUpdate();
-				unmountAll();
+				shutdown();
 				modal.close();
 			} catch ( e ) {
 				statusLine.textContent =
@@ -1187,323 +1847,172 @@ async function openStudio( { editor, extras, layer } ) {
 		},
 	} );
 
-	/* ------------------------------- insert ------------------------------- */
+	/* ------------------------------ insert ------------------------------- */
 
-	const bakeArt = () => {
-		const bake = document.createElement( 'canvas' );
-		bake.width = OUT;
-		bake.height = OUT;
-		const info = renderCard( bake.getContext( '2d' ), OUT );
-		return {
-			url: bake.toDataURL( 'image/png' ),
-			chart: info.chart || null,
-		};
+	/** Render the final art and backdrop at output size. */
+	const renderOutput = ( comp ) => {
+		const a = comp.lay.art;
+		const size = Math.max( 800, Math.min( 2000, Math.round( a.s ) ) );
+		const art = document.createElement( 'canvas' );
+		art.width = size;
+		art.height = size;
+		drawArt(
+			art.getContext( '2d' ),
+			size,
+			params.card,
+			comp.data,
+			lookFor( comp.theme )
+		);
+		let back = null;
+		if ( 'poster' === params.output ) {
+			const f = Math.min( 1, 3000 / Math.max( sheet.w, sheet.h ) );
+			const bw = Math.max( 2, Math.round( sheet.w * f ) );
+			const bh = Math.max( 2, Math.round( sheet.h * f ) );
+			const c = document.createElement( 'canvas' );
+			c.width = bw;
+			c.height = bh;
+			const ctx = c.getContext( '2d' );
+			paintBackdrop( ctx, bw, bh, comp.theme, {
+				style: params.backdrop,
+				stars: params.stars,
+				seed: params.seed,
+			} );
+			paintFrame( ctx, bw, bh, comp.theme, params.frame );
+			back = { url: c.toDataURL( 'image/jpeg', 0.92 ), w: bw, h: bh };
+		}
+		return { art: { url: art.toDataURL( 'image/png' ), size }, back };
 	};
 
-	/** The caption lines per card, ready for text layers. */
-	const captionTexts = ( chart ) => {
-		const c = content();
-		const out = {
-			title: '',
-			detail: [],
-			keywords: '',
-			data: '',
-			meaning: '',
+	const rememberLook = () => {
+		store.lastLook = {
+			look: params.look,
+			theme: params.theme,
+			custom: params.custom,
+			backdrop: params.backdrop,
+			stars: params.stars,
+			frame: params.frame,
+			layout: params.layout,
+			titleFont: params.titleFont,
+			textFont: params.textFont,
+			titleFoil: params.titleFoil,
 		};
-		const dateLine = () => {
-			const bits = [ fmtDate( params.dateStr ) ];
-			if ( params.timeKnown && 'zodiac' !== params.card ) {
-				bits.push( params.timeStr );
-			}
-			if (
-				params.place &&
-				params.place.name &&
-				'zodiac' !== params.card
-			) {
-				bits.push( params.place.name );
-			}
-			return bits.join( ' · ' );
+		store.lastPerson = {
+			card: params.card,
+			name: params.name,
+			dateStr: params.dateStr,
+			timeStr: params.timeStr,
+			timeKnown: params.timeKnown,
 		};
-		if ( 'birthchart' === params.card ) {
-			const sun = sunSignOf( chart );
-			out.title = params.name || c.signs[ sun ];
-			out.detail.push( dateLine() );
-			const moonSign = signOf(
-				chart.positions.find( ( p ) => 'moon' === p.body ).lon
-			).index;
-			const big = [
-				c.planets[ 0 ] + ' ' + c.signs[ sun ],
-				c.planets[ 1 ] + ' ' + c.signs[ moonSign ],
-			];
-			if ( chart.houses ) {
-				big.push(
-					t( 'Ascendant' ) +
-						' ' +
-						c.signs[ signOf( chart.houses.asc ).index ]
-				);
-			}
-			out.keywords = big.join( '  ·  ' );
-			out.data = chart.positions
-				.map( ( p, i ) => {
-					const f = formatDegree( p.lon );
-					return (
-						c.planets[ i ] +
-						'  ' +
-						f.text +
-						' ' +
-						c.signs[ f.sign ] +
-						( p.retro ? '  R' : '' )
-					);
-				} )
-				.join( '\n' );
-		} else if ( 'moonphase' === params.card ) {
-			const ph = chart.phase;
-			const moonSign = signOf(
-				chart.positions.find( ( p ) => 'moon' === p.body ).lon
-			).index;
-			out.title = params.name || c.phases[ ph.index ];
-			out.detail.push( dateLine() );
-			out.keywords = [
-				c.phases[ ph.index ],
-				Math.round( ph.illum * 100 ) + '% ' + t( 'illuminated' ),
-				t( 'Moon in' ) + ' ' + c.signs[ moonSign ],
-			].join( '  ·  ' );
-		} else if ( 'zodiac' === params.card ) {
-			const s = zodiacSign( chart );
-			out.title = params.name || c.signs[ s ];
-			out.detail.push( c.signs[ s ] + '  ·  ' + fmtSpan( s ) );
-			out.detail.push(
-				c.elements[ SIGN_ELEMENT[ s ] ] +
-					'  ·  ' +
-					c.modalities[ SIGN_MODALITY[ s ] ] +
-					'  ·  ' +
-					c.planets[ BODIES.indexOf( SIGN_RULER[ s ] ) ]
-			);
-			out.keywords = c.keywords[ s ].join( '  ·  ' ).toUpperCase();
-		} else if ( 'lifepath' === params.card ) {
-			const lp = lifePath( params.dateStr );
-			out.title = params.name || t( 'Life Path' );
-			out.detail.push( fmtDate( params.dateStr ) );
-			out.keywords = (
-				t( 'Life Path' ) +
-				'  ·  ' +
-				lp.value
-			).toUpperCase();
-			out.meaning = c.numbers[ meaningIndex( lp.value ) ] || '';
-		} else if ( 'namechart' === params.card ) {
-			const nn = nameNumbers( params.name );
-			out.title = params.name || t( 'Name Chart' );
-			if ( nn.destiny ) {
-				out.keywords =
-					t( 'Destiny' ) +
-					' ' +
-					nn.destiny +
-					'  ·  ' +
-					t( 'Soul Urge' ) +
-					' ' +
-					nn.soulUrge +
-					'  ·  ' +
-					t( 'Personality' ) +
-					' ' +
-					nn.personality;
-				out.meaning = c.numbers[ meaningIndex( nn.destiny ) ] || '';
-			}
-		} else if ( 'angelnumber' === params.card ) {
-			out.title = String( params.angelNum || '' ).trim();
-			out.meaning = angelIdx() >= 0 ? c.angels[ angelIdx() ] : '';
-		} else if ( 'couple' === params.card ) {
-			const a = personAt( params.dateStr );
-			const b = personAt( params.dateStr2 || params.dateStr );
-			out.title =
-				[ firstName( params.name ), firstName( params.name2 ) ]
-					.filter( Boolean )
-					.join( ' & ' ) ||
-				c.signs[ a.sign ] + ' & ' + c.signs[ b.sign ];
-			out.detail.push(
-				fmtDate( params.dateStr ) +
-					'  ·  ' +
-					fmtDate( params.dateStr2 || params.dateStr )
-			);
-			out.keywords = (
-				c.signs[ a.sign ] +
-				' & ' +
-				c.signs[ b.sign ]
-			).toUpperCase();
-		} else if ( 'couplenumbers' === params.card ) {
-			const cn = coupleNumber(
-				params.dateStr,
-				params.dateStr2 || params.dateStr
-			);
-			out.title =
-				[ firstName( params.name ), firstName( params.name2 ) ]
-					.filter( Boolean )
-					.join( ' & ' ) || t( 'Couple Numbers' );
-			out.detail.push(
-				fmtDate( params.dateStr ) +
-					'  ·  ' +
-					fmtDate( params.dateStr2 || params.dateStr )
-			);
-			out.keywords = cn.a.value + ' & ' + cn.b.value + '  ·  ' + cn.value;
-			out.meaning = c.numbers[ meaningIndex( cn.value ) ] || '';
-		} else if ( 'synastry' === params.card ) {
-			const other = chartB();
-			const sunA = sunSignOf( chart );
-			const sunB = sunSignOf( other );
-			out.title =
-				[ firstName( params.name ), firstName( params.name2 ) ]
-					.filter( Boolean )
-					.join( ' & ' ) || c.signs[ sunA ] + ' & ' + c.signs[ sunB ];
-			out.detail.push(
-				fmtDate( params.dateStr ) +
-					'  ·  ' +
-					fmtDate( params.dateStr2 || params.dateStr )
-			);
-			if ( params.place && params.place.name ) {
-				out.detail.push( params.place.name );
-			}
-			out.keywords = (
-				c.signs[ sunA ] +
-				' & ' +
-				c.signs[ sunB ]
-			).toUpperCase();
-		} else if ( 'chinesezodiac' === params.card ) {
-			const cs = chineseSign( params.dateStr );
-			out.title = params.name || c.cnAnimals[ cs.animal ];
-			out.detail.push(
-				c.cnElements[ cs.element ] +
-					' ' +
-					c.cnAnimals[ cs.animal ] +
-					'  ·  ' +
-					cs.year +
-					'  ·  ' +
-					( cs.yang ? 'Yang' : 'Yin' )
-			);
-			out.detail.push( fmtDate( params.dateStr ) );
-			out.keywords = (
-				c.cnAnimals[ cs.animal ] +
-				'  ·  ' +
-				c.cnElements[ cs.element ]
-			).toUpperCase();
-			out.meaning = c.cnMeanings[ cs.animal ] || '';
-		}
-		return out;
+		storeSave();
 	};
 
 	async function insertOrUpdate() {
-		const { url, chart } = bakeArt();
+		await ensureFonts();
+		const comp = compose( sheet.w, sheet.h );
+		const out = renderOutput( comp );
 		const stored = { ...params };
+		const cardLabel = t( cardByKey( params.card ).label );
+		const offset = ( p ) => ( {
+			...p,
+			x: p.x + sheet.x,
+			y: p.y + sheet.y,
+		} );
+		const a = comp.lay.art;
+		rememberLook();
 
 		if ( editing ) {
+			if ( 'art' === params.output ) {
+				editor.dispatch( {
+					type: 'UPDATE_LAYER',
+					id: layer.id,
+					patch: {
+						src: out.art.url,
+						naturalW: out.art.size,
+						naturalH: out.art.size,
+						generator: { id: GEN_ID, params: stored },
+					},
+				} );
+				editor.commit( t( 'Update Mystic Studio' ) );
+				return;
+			}
 			editor.dispatch( {
 				type: 'UPDATE_LAYER',
 				id: layer.id,
 				patch: {
-					src: url,
-					naturalW: OUT,
-					naturalH: OUT,
+					src: out.art.url,
+					naturalW: out.art.size,
+					naturalH: out.art.size,
+					x: sheet.x + a.x,
+					y: sheet.y + a.y,
+					w: a.s,
+					h: a.s,
 					generator: { id: GEN_ID, params: stored },
 				},
 			} );
+			editor.dispatch( {
+				type: 'UPDATE_LAYER',
+				id: backdropLayer.id,
+				patch: {
+					src: out.back.url,
+					naturalW: out.back.w,
+					naturalH: out.back.h,
+				},
+			} );
+			const plan = planUpdate( managedTexts, comp.props.map( offset ) );
+			for ( const { id, patch } of plan.patches ) {
+				editor.dispatch( { type: 'UPDATE_LAYER', id, patch } );
+			}
+			for ( const props of plan.adds ) {
+				const l = makeText( props );
+				l.mystic = props.mystic;
+				l.parent = layer.parent;
+				editor.dispatch( { type: 'ADD_LAYER', layer: l } );
+			}
+			if ( plan.removes.length ) {
+				editor.dispatch( { type: 'REMOVE_LAYERS', ids: plan.removes } );
+			}
 			editor.commit( t( 'Update Mystic Studio' ) );
 			return;
 		}
 
-		const { makeImage, makeText, makeShape, makeGroup } = bridge.documents;
-		const doc = editor.state.doc;
-		const theme = themeByKey( params.theme );
-		const texts = captionTexts( chart );
-		const cardLabel = CARDS.find( ( x ) => x.key === params.card ).label;
-
-		const children = [];
-		const wantCaption = params.withCaption;
-		const margin = doc.h * 0.05;
-		const art = Math.min(
-			doc.w * 0.86,
-			doc.h * ( wantCaption ? 0.58 : 0.86 )
-		);
-		const artX = ( doc.w - art ) / 2;
-		const artY = wantCaption ? margin : ( doc.h - art ) / 2;
-
-		children.push(
-			makeShape( {
-				name: cardLabel,
-				x: 0,
-				y: 0,
-				w: doc.w,
-				h: doc.h,
-				shape: 'rect',
-				fill: theme.bg[ 0 ],
-			} )
-		);
 		const artLayer = makeImage( {
 			name: cardLabel,
-			x: artX,
-			y: artY,
-			w: art,
-			h: art,
-			src: url,
-			naturalW: OUT,
-			naturalH: OUT,
+			x: sheet.x + a.x,
+			y: sheet.y + a.y,
+			w: a.s,
+			h: a.s,
+			src: out.art.url,
+			naturalW: out.art.size,
+			naturalH: out.art.size,
 		} );
 		artLayer.generator = { id: GEN_ID, params: stored };
-		children.push( artLayer );
+		artLayer.mystic = { role: 'art' };
 
-		if ( wantCaption ) {
-			let y = artY + art + doc.h * 0.03;
-			const addText = ( name, text, size, opts = {} ) => {
-				children.push(
-					makeText( {
-						name,
-						text,
-						x: doc.w * 0.07,
-						y,
-						w: doc.w * 0.86,
-						h: size * 1.5 * text.split( '\n' ).length,
-						fontSize: size,
-						fontFamily: opts.font || 'Inter',
-						weight: opts.weight || 400,
-						color: opts.color || theme.ink,
-						align: 'center',
-						letterSpacing: opts.ls || 0,
-						fixedWidth: true,
-					} )
-				);
-				y += size * 1.5 * text.split( '\n' ).length + doc.h * 0.012;
-			};
-			if ( texts.title ) {
-				addText( t( 'Title' ), texts.title, doc.h * 0.045, {
-					font: params.font,
-					weight: 600,
-					ls: 1,
-				} );
-			}
-			for ( const line of texts.detail ) {
-				addText( t( 'Caption' ), line, doc.h * 0.02, {
-					color: theme.dim,
-				} );
-			}
-			if ( params.withKeywords && texts.keywords ) {
-				addText( t( 'Keywords' ), texts.keywords, doc.h * 0.018, {
-					color: theme.accent,
-					ls: 2,
-				} );
-			}
-			if ( params.withMeaning && texts.meaning ) {
-				addText( t( 'Caption' ), texts.meaning, doc.h * 0.018, {
-					color: theme.dim,
-				} );
-			}
-			if (
-				params.withData &&
-				texts.data &&
-				'birthchart' === params.card
-			) {
-				addText( t( 'Data block' ), texts.data, doc.h * 0.015, {
-					color: theme.dim,
-				} );
-			}
+		if ( 'art' === params.output ) {
+			editor.dispatch( { type: 'ADD_LAYER', layer: artLayer } );
+			editor.dispatch( { type: 'SET_ACTIVE', id: artLayer.id } );
+			editor.commit( t( 'Insert Mystic Studio' ) );
+			return;
 		}
 
+		const children = [];
+		const back = makeImage( {
+			name: t( 'Background' ),
+			x: sheet.x,
+			y: sheet.y,
+			w: sheet.w,
+			h: sheet.h,
+			src: out.back.url,
+			naturalW: out.back.w,
+			naturalH: out.back.h,
+		} );
+		back.mystic = { role: 'backdrop' };
+		children.push( back, artLayer );
+		for ( const props of comp.props ) {
+			const l = makeText( offset( props ) );
+			l.mystic = props.mystic;
+			children.push( l );
+		}
 		try {
 			await bridge.fonts.ensureFontsForLayers(
 				children.filter( ( ch ) => 'text' === ch.type )
@@ -1511,30 +2020,34 @@ async function openStudio( { editor, extras, layer } ) {
 		} catch ( e ) {
 			// Fonts fall back; never block the insert.
 		}
-
-		const group = makeGroup( {
-			name: 'Mystic Studio: ' + ( texts.title || cardLabel ),
-		} );
-		editor.dispatch( { type: 'ADD_LAYER', layer: group } );
+		const title =
+			( comp.props.find( ( p ) => 'title' === p.mystic.role ) || {} )
+				.text || cardLabel;
+		const grp = makeGroup( { name: 'Mystic Studio: ' + title } );
+		editor.dispatch( { type: 'ADD_LAYER', layer: grp } );
 		for ( const child of children ) {
-			child.parent = group.id;
+			child.parent = grp.id;
 			editor.dispatch( { type: 'ADD_LAYER', layer: child } );
 		}
-		editor.dispatch( { type: 'SET_ACTIVE', id: group.id } );
+		editor.dispatch( { type: 'SET_ACTIVE', id: grp.id } );
 		editor.commit( t( 'Insert Mystic Studio' ) );
 	}
 
-	/* -------------------------------- boot -------------------------------- */
+	/* ------------------------------- boot -------------------------------- */
 
+	docBtn.style.display = 'art' === params.output && canShowDoc ? '' : 'none';
 	rebuildSide();
-
-	if ( bridge.fonts && bridge.fonts.ensureFont && params.font ) {
-		bridge.fonts
-			.ensureFont( params.font )
-			.then( () => paint() )
-			.catch( () => {} );
+	fitCanvas();
+	if ( window.ResizeObserver ) {
+		resizeObs = new window.ResizeObserver( () => {
+			fitCanvas();
+			schedule();
+		} );
+		resizeObs.observe( view );
 	}
 	paint();
+	ensureFonts().then( schedule );
+	scheduleThumbs();
 }
 
 /* -------------------------------- register ------------------------------- */

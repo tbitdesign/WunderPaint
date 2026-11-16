@@ -571,6 +571,11 @@ export class Timekeeper extends Actor {
 
 	decide() {
 		const w = this.world;
+		if ( w.music ) {
+			// A piece painted to a song keeps the song's time: no held
+			// breath while it plays (the conductor sets the target).
+			return;
+		}
 		const chaos = w.params.chaos;
 		const r = w.rng();
 		if ( r < 0.1 + 0.18 * chaos ) {

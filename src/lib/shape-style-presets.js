@@ -23,6 +23,7 @@ export const SHAPE_STYLE_RESET = {
 	pattern: 'none',
 	patternData: null,
 	stroke: null,
+	strokeGradient: null,
 	strokeW: 0,
 	strokeAlign: null,
 	strokeDash: null,

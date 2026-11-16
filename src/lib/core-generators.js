@@ -11,6 +11,8 @@ import { __ } from '@wordpress/i18n';
 
 import { registerBuiltinGenerator } from './extensions';
 import { renderFilmOverlay } from './film-overlay';
+import { COLLAGE_GENERATOR_ID } from './collage';
+import { BEAUTIFY_GENERATOR_ID } from './beautify';
 
 let registered = false;
 
@@ -37,5 +39,23 @@ export function registerCoreGenerators() {
 				naturalH: h,
 			};
 		},
+	} );
+	// Collage & Photo Grid (19.10.2026): the inserted group keeps its
+	// recipe, so "Edit Collage & Photo Grid" reopens it - another layout,
+	// other gaps - and replaces it in place.
+	registerBuiltinGenerator( {
+		id: COLLAGE_GENERATOR_ID,
+		label: __( 'Collage & Photo Grid', 'wunderpaint' ),
+		run: ( { extras } ) => extras?.openCollage?.(),
+		edit: ( { extras, layer } ) => extras?.openCollage?.( layer.id ),
+	} );
+	// Screenshot Beautifier (20.10.2026): the "Screenshot" group keeps its
+	// recipe; Edit reopens the dialog on the shot inside it and replaces
+	// the frame and its backdrop in place.
+	registerBuiltinGenerator( {
+		id: BEAUTIFY_GENERATOR_ID,
+		label: __( 'Screenshot Beautifier', 'wunderpaint' ),
+		run: ( { extras } ) => extras?.openBeautify?.(),
+		edit: ( { extras, layer } ) => extras?.openBeautify?.( layer.id ),
 	} );
 }

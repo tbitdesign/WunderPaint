@@ -4,6 +4,12 @@
  * selected block's own settings). Rebuilt whenever the selected block
  * changes, so every control shows the values of what is selected.
  */
+import {
+	premiumControls,
+	layoutControls,
+	sharedControls,
+} from './math-tools.js';
+import { COORDINATE_TYPES } from '../figure.js';
 import { ICONS } from './icons.js';
 import {
 	BLOCKS,
@@ -24,7 +30,7 @@ import {
 	WIDE,
 } from '../figure.js';
 
-export function buildSide( side, { S, ui, bridge, t, onChange } ) {
+export function buildSide( side, { S, ui, bridge, t, onChange, onStructure } ) {
 	const mounts = [];
 	let typoEl = 'title';
 
@@ -143,11 +149,41 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 		const block = selected();
 		const def = BLOCKS[ block.type ];
 
+		const tools = ui.section( side, {
+			title: t( def.label ),
+			icon: ICONS[ block.type ] || ICONS.graph,
+		} );
+		premiumControls( tools, {
+			S,
+			ui,
+			t,
+			onChange: ( refresh ) => {
+				if ( refresh ) onStructure();
+				onChange();
+			},
+		} );
+		if ( ! tools.children.length ) tools.parentElement.hidden = true;
+		sharedControls( side, {
+			S,
+			ui,
+			t,
+			onChange,
+			colorFor,
+			onStructure: ( full ) => {
+				onStructure();
+				if ( full ) {
+					rebuild();
+					side.querySelector( '.wpiemf-shared' ).open = true;
+				}
+			},
+		} );
+
 		/* Figure */
 		const figure = ui.section( side, {
 			icon: ICONS.figure,
 			title: t( 'Figure' ),
 		} );
+		layoutControls( figure, p, { ui, t, onChange } );
 		selectFor( figure, t( 'Format' ), 'format', {
 			options: opts( FORMATS ),
 			value: fig.format,
@@ -335,6 +371,26 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 		const bl = ui.section( side, {
 			icon: ICONS[ block.type ] || ICONS.formula,
 			title: t( 'Block' ) + ': ' + t( def.label ),
+		} );
+		textFor(
+			bl,
+			t( 'Panel title' ),
+			'heading',
+			() => block.heading,
+			( v ) => {
+				block.heading = v;
+			}
+		);
+		selectFor( bl, t( 'Column span' ), 'span', {
+			options: [ 1, 2, 3 ].map( ( n ) => ( {
+				value: String( n ),
+				label: String( n ),
+			} ) ),
+			value: String( block.span ),
+			onChange: ( v ) => {
+				block.span = Number( v );
+				onChange();
+			},
 		} );
 		selectFor( bl, t( 'Alignment' ), 'block-align', {
 			options: opts( ALIGN_OPTIONS ),
@@ -644,7 +700,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 				},
 			} );
 		}
-		if ( 'graph' === block.type ) {
+		if ( COORDINATE_TYPES.includes( block.type ) ) {
 			numberFor(
 				bl,
 				t( 'x from' ),
@@ -707,7 +763,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 				bl,
 				t( 'Axis labels' ),
 				'axis-labels',
-				() => block.xLabel + ' ' + block.yLabel,
+				() => ( block.xLabel || 'x' ) + ' ' + ( block.yLabel || 'y' ),
 				( v ) => {
 					const parts = v.trim().split( /\s+/ );
 					block.xLabel = parts[ 0 ] || 'x';

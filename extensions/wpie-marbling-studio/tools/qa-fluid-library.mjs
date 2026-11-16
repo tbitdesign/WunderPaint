@@ -35,6 +35,8 @@ await build( {
 		sourcefile: 'actual-wheel-entry.js',
 	},
 	bundle: true,
+	// The core's HEIC decoder (Node glue + .wasm) is never used here.
+	external: [ 'libheif-js/*' ],
 	format: 'iife',
 	jsx: 'automatic',
 	outfile: path.join( stage, 'actual-wheel.js' ),

@@ -13,6 +13,47 @@
    of the base editor styles; unscoped rules would lose to them.
    ============================================================ */
 
+/* Column count belongs to the workspace, independent of icon size. */
+#wpie-root[data-ws-columns="2"] {
+	--wpie-toolbar-width: 96px;
+	--wpie-toolbar-columns: 2;
+}
+
+#wpie-root .ed-toolbar {
+	min-height: 0;
+}
+
+#wpie-root .ed-tool-group {
+	display: grid;
+	flex: none;
+	grid-template-columns: repeat(var(--wpie-toolbar-columns, 1), 40px);
+	gap: 2px;
+	padding-top: 6px;
+	margin-top: 4px;
+	border-top: 1px solid var(--ed-border);
+}
+
+/* Hidden groups leave no separators behind; the picker still shows them. */
+#wpie-root:not(.wpie-ws-picking) .ed-tool-group[data-ws-empty] {
+	display: none;
+}
+
+#wpie-root:not(.wpie-ws-picking) .ed-tool-group[data-ws-first],
+#wpie-root.wpie-ws-picking .ed-toolbar > .ed-tool-group:first-child {
+	padding-top: 0;
+	margin-top: 0;
+	border-top: 0;
+}
+
+#wpie-root .ed-toolbar-spacer {
+	flex: 1;
+}
+
+#wpie-root .ed-toolbar > .color-block {
+	flex: none;
+	width: 100%;
+}
+
 /* Toolbar icon size (default md = the built-in 18px). */
 #wpie-root[data-ws-tools="sm"] .ed-toolbar .ed-tool svg { width: 15px; height: 15px; }
 

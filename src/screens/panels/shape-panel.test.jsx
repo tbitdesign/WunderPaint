@@ -9,12 +9,14 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { installNumericControls } from '../../lib/numeric-controls';
 import { EditorProvider, useEditor } from '../../store/editor-context';
 import { ShapePanel } from './shape-panel';
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 let editorRef = null;
+let dispose = null;
 
 function Host() {
 	editorRef = useEditor();
@@ -23,6 +25,9 @@ function Host() {
 
 function mount( layers = [] ) {
 	const host = document.createElement( 'div' );
+	// The dials commit through the shared numeric interaction, which only
+	// serves controls inside the editor root.
+	host.id = 'wpie-root';
 	document.body.appendChild( host );
 	act( () =>
 		createRoot( host ).render(
@@ -35,6 +40,7 @@ function mount( layers = [] ) {
 			</EditorProvider>
 		)
 	);
+	dispose = installNumericControls();
 	return document.querySelector( '.sp' );
 }
 
@@ -70,6 +76,8 @@ const SHAPE_LAYER = {
 
 describe( 'ShapePanel', () => {
 	afterEach( () => {
+		dispose?.();
+		dispose = null;
 		document.body.replaceChildren();
 		editorRef = null;
 	} );
@@ -87,7 +95,7 @@ describe( 'ShapePanel', () => {
 			( n ) => n.textContent
 		);
 		expect( heads ).toEqual(
-			expect.arrayContaining( [ 'Basics', 'Badges', 'Patterns' ] )
+			expect.arrayContaining( [ 'Geometry', 'Badges', 'Patterns' ] )
 		);
 	} );
 
@@ -160,7 +168,7 @@ describe( 'ShapePanel', () => {
 		expect( editorRef.state.layers ).toHaveLength( 1 );
 	} );
 
-	it( 'a dial drag reaches the layer and commits on release', () => {
+	it( 'a dial drag reaches the layer and commits on release', async () => {
 		const panel = mount( [ SHAPE_LAYER ] );
 		act( () => editorRef.dispatch( { type: 'SET_ACTIVE', id: 's1' } ) );
 		const depth = editorRef.state.history.past.length;
@@ -173,11 +181,25 @@ describe( 'ShapePanel', () => {
 		typeInto( slider, '24' );
 		expect( editorRef.state.layers[ 0 ].radius ).toBe( 24 );
 
-		act( () =>
-			slider.dispatchEvent(
-				new MouseEvent( 'mouseup', { bubbles: true } )
-			)
-		);
+		// One gesture through the shared interaction: Alt-drag four pixels
+		// is one step, and the release is the history boundary.
+		const pointer = ( type, clientX ) =>
+			act( () =>
+				slider.dispatchEvent(
+					new MouseEvent( type, {
+						clientX,
+						altKey: true,
+						bubbles: true,
+						cancelable: true,
+					} )
+				)
+			);
+		pointer( 'pointerdown', 50 );
+		pointer( 'pointermove', 54 );
+		expect( editorRef.state.layers[ 0 ].radius ).toBe( 25 );
+		pointer( 'pointerup', 54 );
+		// The transaction closes in a microtask after the native handlers.
+		await act( async () => {} );
 		expect( editorRef.state.history.past.length ).toBeGreaterThan( depth );
 	} );
 } );

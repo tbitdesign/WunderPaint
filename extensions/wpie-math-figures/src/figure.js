@@ -1,5 +1,5 @@
 /**
- * The figure model (0.2): head (title, subtitle), blocks stacked on the
+ * The figure model (1.0): shared math, head (title, subtitle), block panels on the
  * paper, foot (caption, note), typography per element and the paper.
  * One figure is ONE vector group in the editor; its params live in
  * layer.generator.params. 0.1 params (one card, one picture) migrate
@@ -8,6 +8,14 @@
 
 export const FIGURE_DEFAULTS = {
 	format: 'line',
+	columns: 1,
+	gutter: 32,
+	panels: false,
+	sharedAxes: false,
+	xmin: -5,
+	xmax: 5,
+	ymin: -5,
+	ymax: 5,
 	scale: 1,
 	margin: 40,
 	paper: 'white',
@@ -24,6 +32,12 @@ export const TYPO_DEFAULTS = {
 		weight: 700,
 		italic: false,
 		align: 'center',
+		span: 1,
+		heading: '',
+		source: '',
+		tableFrom: -3,
+		tableTo: 3,
+		tableStep: 1,
 		gap: 24,
 	},
 	subtitle: {
@@ -79,7 +93,7 @@ export const BLOCK_DEFAULTS = {
 		pb: 1,
 		pc: 1,
 	},
-	geometry: { geometry: '' },
+	geometry: { geometry: '', labelOffsets: {}, viewRange: null, snap: 0.1 },
 	numberline: { numberline: '' },
 	fractions: { fractions: '', fractionMode: 'circle' },
 	text: { text: '' },
@@ -117,8 +131,54 @@ export const BLOCK_DEFAULTS = {
 	solids: { solids: '', hidden: true, dims: true, net: false },
 };
 
+export const COORDINATE_TYPES = [
+	'graph',
+	'analysis',
+	'implicit',
+	'inequality',
+	'vectorfield',
+	'slopefield',
+	'contours',
+	'complex',
+];
+BLOCK_DEFAULTS.analysis = {
+	...BLOCK_DEFAULTS.graph,
+	from: -4,
+	to: 4,
+	at: 1,
+	other: '',
+	roots: true,
+	extrema: true,
+	intersections: false,
+	tangent: false,
+	normal: false,
+	area: false,
+};
+for ( const type of COORDINATE_TYPES.slice( 2 ) )
+	BLOCK_DEFAULTS[ type ] = {
+		content: '',
+		xmin: -5,
+		xmax: 5,
+		ymin: -5,
+		ymax: 5,
+		equal: true,
+		grid: 'major',
+		resolution: 64,
+		density: 17,
+		normalize: false,
+		levels: '0,1,2,4,8',
+		measurements: true,
+	};
+
 /** The user's text per block type, for dynamic content and the block list snippet. */
 const TEXT_FIELDS = {
+	analysis: [ 'functions' ],
+	implicit: [ 'content' ],
+	inequality: [ 'content' ],
+	vectorfield: [ 'content' ],
+	slopefield: [ 'content' ],
+	contours: [ 'content' ],
+	complex: [ 'content' ],
 	formula: [ 'latex', 'notes' ],
 	graph: [ 'functions', 'xLabel', 'yLabel' ],
 	geometry: [ 'geometry' ],
@@ -142,6 +202,7 @@ const TEXT_FIELDS = {
 
 /** Blocks that take the figure's width (a percentage) instead of their natural width. */
 export const WIDE = new Set( [
+	...COORDINATE_TYPES,
 	'graph',
 	'geometry',
 	'text',
@@ -210,6 +271,12 @@ export function newBlock( type, over = {} ) {
 		id: newId(),
 		type: t,
 		align: 'center',
+		span: 1,
+		heading: '',
+		source: '',
+		tableFrom: -3,
+		tableTo: 3,
+		tableStep: 1,
 		gap: 24,
 		width: 100,
 		...BLOCK_DEFAULTS[ t ],
@@ -262,12 +329,33 @@ export function normalizeParams( p ) {
 	}
 	const blocks = ( Array.isArray( src.blocks ) ? src.blocks : [] )
 		.filter( ( b ) => b && BLOCK_DEFAULTS[ b.type ] )
-		.map( ( b ) => ( { ...newBlock( b.type ), ...defined( b ) } ) );
+		.map( ( b ) => ( {
+			...newBlock( b.type ),
+			...defined( b ),
+			...( b.type === 'geometry'
+				? {
+						labelOffsets: structuredClone( b.labelOffsets || {} ),
+						viewRange: b.viewRange ? { ...b.viewRange } : null,
+				  }
+				: {} ),
+		} ) );
 	if ( ! blocks.length ) {
 		blocks.push( newBlock( 'formula' ) );
 	}
 	return {
-		v: 2,
+		v: 3,
+		math: {
+			a: 1,
+			b: 1,
+			c: 1,
+			...src.math,
+			definitions: (
+				src.math?.definitions || [
+					{ name: 'f', expression: 'x^2 - 2x - 3', color: '#2563eb' },
+					{ name: 'g', expression: 'x - 3', color: '#dc2626' },
+				]
+			).map( ( d ) => ( { ...d } ) ),
+		},
 		figure: { ...FIGURE_DEFAULTS, ...defined( src.figure ) },
 		head: { title: '', subtitle: '', ...defined( src.head ) },
 		blocks,

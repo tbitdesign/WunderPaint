@@ -5,17 +5,58 @@
  * no Math.random in engines - identical seed, identical collage.
  */
 
-import { __ } from '@wordpress/i18n';
+import { __, _x } from '@wordpress/i18n';
 
 import { rng } from './seeded';
+import { faceAnchor } from './face-detect';
+
+/** The generator id an inserted collage group carries (19.10.2026). */
+export const COLLAGE_GENERATOR_ID = 'wpie-core/collage';
 
 export const LAYOUTS = [
 	{ id: 'grid', label: __( 'Grid', 'wunderpaint' ) },
 	{ id: 'mosaic', label: __( 'Mosaic', 'wunderpaint' ) },
+	{ id: 'bento', label: __( 'Bento', 'wunderpaint' ) },
+	{ id: 'hero', label: __( 'Hero', 'wunderpaint' ) },
+	{ id: 'strips', label: __( 'Strips', 'wunderpaint' ) },
+	{ id: 'circles', label: __( 'Circles', 'wunderpaint' ) },
 	{ id: 'polaroid', label: __( 'Polaroid', 'wunderpaint' ) },
 	{ id: 'filmstrip', label: __( 'Filmstrip', 'wunderpaint' ) },
 	{ id: 'contact', label: __( 'Contact sheet', 'wunderpaint' ) },
+	{ id: 'beforeafter', label: __( 'Before / After', 'wunderpaint' ) },
+	// 20.10.2026. Own context: "Split" and "Inset" already mean other
+	// things in the editor (a text effect, a stroke position).
+	{ id: 'masonry', label: _x( 'Masonry', 'collage layout', 'wunderpaint' ) },
+	{
+		id: 'diagonal',
+		label: _x( 'Diagonal', 'collage layout', 'wunderpaint' ),
+	},
+	{ id: 'hexagon', label: _x( 'Hexagon', 'collage layout', 'wunderpaint' ) },
+	{ id: 'split', label: _x( 'Split', 'collage layout', 'wunderpaint' ) },
+	{ id: 'inset', label: _x( 'Inset', 'collage layout', 'wunderpaint' ) },
 ];
+
+/** Layouts that honor a column count. */
+export const LAYOUTS_WITH_COLUMNS = [
+	'grid',
+	'contact',
+	'polaroid',
+	'circles',
+	'masonry',
+	'hexagon',
+	'split',
+];
+
+/** Layouts that use only some of the photos, and how many. */
+export const LAYOUT_PHOTO_LIMIT = {
+	beforeafter: 2,
+	diagonal: 4,
+	split: 1,
+	inset: 5,
+};
+
+/** Layouts that write captions (file names, or Before / After). */
+export const LAYOUTS_WITH_CAPTIONS = [ 'polaroid', 'contact', 'beforeafter' ];
 
 const clamp = ( v, lo, hi ) => Math.min( hi, Math.max( lo, v ) );
 
@@ -270,6 +311,556 @@ function filmstripLayout( images, opts ) {
 	return { cells, extras: { strip, holes } };
 }
 
+/** One cell from an outer block: optional matte frame, photo inset by it. */
+function blockCell( index, block, frame ) {
+	const inner = frame > 0 ? inset( block, frame ) : block;
+	return {
+		index,
+		rot: 0,
+		...( frame > 0 ? { frame: { ...block } } : {} ),
+		x: inner.x,
+		y: inner.y,
+		w: inner.w,
+		h: inner.h,
+	};
+}
+
+const shiftRect = ( r, dx, dy ) => ( { ...r, x: r.x + dx, y: r.y + dy } );
+
+/** Move a cell (and its frame and caption) and renumber it. */
+const shiftCell = ( c, dx, dy, di ) => ( {
+	...c,
+	index: c.index + di,
+	x: c.x + dx,
+	y: c.y + dy,
+	...( c.frame ? { frame: shiftRect( c.frame, dx, dy ) } : {} ),
+	...( c.caption ? { caption: shiftRect( c.caption, dx, dy ) } : {} ),
+} );
+
+/**
+ * Hero (v1.433): the first photo large, the others as a grid beside it on
+ * a landscape area, below it on a portrait one.
+ */
+function heroCells( images, opts ) {
+	const { width, height, gap, frame } = opts;
+	const n = images.length;
+	if ( n < 2 ) {
+		return gridCells( images, { ...opts, cols: 1 }, false );
+	}
+	const share = n > 4 ? 0.62 : 0.6;
+	let hero;
+	let area;
+	if ( width >= height ) {
+		const heroW = ( width - 3 * gap ) * share;
+		hero = { x: gap, y: gap, w: heroW, h: height - 2 * gap };
+		area = { x: gap + heroW, y: 0, w: width - gap - heroW, h: height };
+	} else {
+		const heroH = ( height - 3 * gap ) * share;
+		hero = { x: gap, y: gap, w: width - 2 * gap, h: heroH };
+		area = { x: 0, y: gap + heroH, w: width, h: height - gap - heroH };
+	}
+	const rest = gridCells(
+		images.slice( 1 ),
+		{ ...opts, width: area.w, height: area.h, cols: 0 },
+		false
+	).map( ( c ) => shiftCell( c, area.x, area.y, 1 ) );
+	return [ blockCell( 0, hero, frame ), ...rest ];
+}
+
+/**
+ * Bento (v1.433): the area split again and again, always the biggest
+ * tile, across or down by its shape, at a seeded ratio. The biggest tile
+ * takes the first photo. Shuffle deals new splits.
+ */
+function bentoCells( images, opts ) {
+	const { width, height, gap, frame, seed } = opts;
+	const r = rng( ( ( seed || 1 ) * 2246822519 ) >>> 0 || 1 );
+	const half = gap / 2;
+	const rects = [ { x: half, y: half, w: width - gap, h: height - gap } ];
+	const byArea = ( a, b ) => b.w * b.h - a.w * a.h || a.y - b.y || a.x - b.x;
+	while ( rects.length < images.length ) {
+		rects.sort( byArea );
+		const big = rects.shift();
+		const shape = big.w / big.h;
+		let across = r() < 0.5;
+		if ( shape > 1.25 ) {
+			across = true;
+		} else if ( shape < 0.8 ) {
+			across = false;
+		}
+		const t = 0.4 + r() * 0.2;
+		if ( across ) {
+			const w1 = big.w * t;
+			rects.push(
+				{ ...big, w: w1 },
+				{ ...big, x: big.x + w1, w: big.w - w1 }
+			);
+		} else {
+			const h1 = big.h * t;
+			rects.push(
+				{ ...big, h: h1 },
+				{ ...big, y: big.y + h1, h: big.h - h1 }
+			);
+		}
+	}
+	rects.sort( byArea );
+	return rects.map( ( rc, i ) => blockCell( i, inset( rc, half ), frame ) );
+}
+
+/** Strips (v1.433): full-height columns on a wide area, rows on a tall one. */
+function stripCells( images, opts ) {
+	const { width, height, gap, frame } = opts;
+	const n = images.length;
+	const across = width >= height;
+	const size = ( ( across ? width : height ) - gap * ( n + 1 ) ) / n;
+	return images.map( ( _, i ) =>
+		blockCell(
+			i,
+			across
+				? {
+						x: gap + i * ( size + gap ),
+						y: gap,
+						w: size,
+						h: height - 2 * gap,
+				  }
+				: {
+						x: gap,
+						y: gap + i * ( size + gap ),
+						w: width - 2 * gap,
+						h: size,
+				  },
+			frame
+		)
+	);
+}
+
+/**
+ * Circles (v1.433): round photos packed like a honeycomb, every second
+ * row half a step to the right, the block centered on the area.
+ */
+function circleCells( images, opts ) {
+	const { width, height, gap, frame } = opts;
+	const n = images.length;
+	const cols =
+		opts.cols > 0 ? Math.min( opts.cols, n ) : autoCols( n, width, height );
+	const rows = rowCounts( n, cols );
+	const shifted = rows.length > 1;
+	const pack = 0.866;
+	const byW =
+		( width - 2 * gap - ( cols - 1 ) * gap - ( shifted ? gap / 2 : 0 ) ) /
+		( cols + ( shifted ? 0.5 : 0 ) );
+	const byH =
+		( height - 2 * gap - ( rows.length - 1 ) * gap * pack ) /
+		( 1 + ( rows.length - 1 ) * pack );
+	const d = Math.max( 2, Math.min( byW, byH ) );
+	const step = d + gap;
+	const fullW = cols * d + ( cols - 1 ) * gap + ( shifted ? step / 2 : 0 );
+	const y0 = ( height - ( d + ( rows.length - 1 ) * step * pack ) ) / 2;
+	const cells = [];
+	let index = 0;
+	const baseX = ( width - fullW ) / 2;
+	rows.forEach( ( count, row ) => {
+		// A short last row is centered on the honeycomb itself: snapped to
+		// the nearest lattice position of its row, never between two, so it
+		// keeps a full step from the row above.
+		const lattice = baseX + ( shifted && row % 2 ? step / 2 : 0 );
+		const ideal = ( width - ( count * d + ( count - 1 ) * gap ) ) / 2;
+		const x0 = lattice + Math.round( ( ideal - lattice ) / step ) * step;
+		for ( let col = 0; col < count; col++ ) {
+			const block = {
+				x: x0 + col * step,
+				y: y0 + row * step * pack,
+				w: d,
+				h: d,
+			};
+			cells.push( { ...blockCell( index, block, frame ), round: true } );
+			index++;
+		}
+	} );
+	return cells;
+}
+
+/**
+ * Before / After (v1.433): the first two photos edge to edge, the spacing
+ * becomes the divider, a knob on its middle and a badge on each side.
+ */
+function beforeAfterLayout( images, opts ) {
+	const { width, height, gap, frame } = opts;
+	if ( images.length < 2 ) {
+		return {
+			cells: [
+				blockCell( 0, { x: 0, y: 0, w: width, h: height }, frame ),
+			],
+			extras: {},
+		};
+	}
+	const across = width >= height;
+	const line = Math.max( 2, gap );
+	const halfW = across ? ( width - line ) / 2 : width;
+	const halfH = across ? height : ( height - line ) / 2;
+	const cells = [
+		blockCell( 0, { x: 0, y: 0, w: halfW, h: halfH }, frame ),
+		blockCell(
+			1,
+			across
+				? { x: halfW + line, y: 0, w: halfW, h: halfH }
+				: { x: 0, y: halfH + line, w: halfW, h: halfH },
+			frame
+		),
+	];
+	const unit = Math.min( width, height );
+	const knob = unit * 0.075;
+	const bh = unit * 0.06;
+	const bw = bh * 3.6;
+	const pad = unit * 0.035;
+	return {
+		cells,
+		extras: {
+			divider: across
+				? { x: halfW, y: 0, w: line, h: height }
+				: { x: 0, y: halfH, w: width, h: line },
+			knob: {
+				x: width / 2 - knob / 2,
+				y: height / 2 - knob / 2,
+				w: knob,
+				h: knob,
+			},
+			badges: [
+				{ which: 'before', x: pad, y: pad, w: bw, h: bh },
+				across
+					? {
+							which: 'after',
+							x: width - pad - bw,
+							y: pad,
+							w: bw,
+							h: bh,
+					  }
+					: {
+							which: 'after',
+							x: pad,
+							y: halfH + line + pad,
+							w: bw,
+							h: bh,
+					  },
+			],
+		},
+	};
+}
+
+/* ---------------- v20.10.2026: masonry, diagonal, hexagon, split, inset ---------------- */
+
+/** Points -> closed path data, relative to an origin, two decimals. */
+const polyPath = ( pts, ox = 0, oy = 0 ) =>
+	pts
+		.map(
+			( [ x, y ], i ) =>
+				( i ? 'L ' : 'M ' ) + pn( x - ox ) + ' ' + pn( y - oy )
+		)
+		.join( ' ' ) + ' Z';
+
+/** The bounding box of points. */
+const bbox = ( pts ) => {
+	const xs = pts.map( ( p ) => p[ 0 ] );
+	const ys = pts.map( ( p ) => p[ 1 ] );
+	const x = Math.min( ...xs );
+	const y = Math.min( ...ys );
+	return { x, y, w: Math.max( ...xs ) - x, h: Math.max( ...ys ) - y };
+};
+
+/**
+ * Masonry: columns of photos in their own proportion, each placed in the
+ * column that is shortest so far, every column then stretched to the full
+ * height (the photo crop absorbs the difference) - the column-wise sibling
+ * of the justified rows of Mosaic.
+ */
+function masonryCells( images, opts ) {
+	const { width, height, gap, frame } = opts;
+	const n = images.length;
+	const cols =
+		opts.cols > 0
+			? Math.min( opts.cols, n )
+			: clamp(
+					Math.round( Math.sqrt( n * ( width / height ) * 0.8 ) ),
+					1,
+					n
+			  );
+	const colW = ( width - gap * ( cols + 1 ) ) / cols;
+	const columns = Array.from( { length: cols }, () => ( {
+		items: [],
+		sum: 0,
+	} ) );
+	images.forEach( ( im, index ) => {
+		const target = columns.reduce(
+			( best, c ) => ( c.sum < best.sum ? c : best ),
+			columns[ 0 ]
+		);
+		const hh = colW / clamp( im.aspect || 1, 0.4, 2.5 );
+		target.items.push( { index, h: hh } );
+		target.sum += hh;
+	} );
+	const cells = [];
+	columns.forEach( ( c, ci ) => {
+		if ( ! c.items.length ) {
+			return;
+		}
+		const room = height - gap * ( c.items.length + 1 );
+		const k = room / c.sum;
+		let y = gap;
+		for ( const it of c.items ) {
+			const h = it.h * k;
+			cells.push(
+				blockCell(
+					it.index,
+					{ x: gap + ci * ( colW + gap ), y, w: colW, h },
+					frame
+				)
+			);
+			y += h + gap;
+		}
+	} );
+	return cells.sort( ( a, b ) => a.index - b.index );
+}
+
+/**
+ * Diagonal: up to four photos side by side, cut apart by slanted lines
+ * with the spacing between them. Across on a landscape area, down on a
+ * portrait one; the seed flips the slant.
+ */
+function diagonalCells( images, opts ) {
+	const { width, height, gap } = opts;
+	const k = Math.min( 4, images.length );
+	const across = width >= height;
+	const along = across ? width : height;
+	const cross = across ? height : width;
+	const dir = opts.seed > 1 && 0 === opts.seed % 2 ? -1 : 1;
+	// The slant: a tenth of the long side over the full short side, so the
+	// cut stays clearly diagonal on a wide banner and on a square.
+	const slant = dir * Math.min( along / k / 2, along * 0.1 );
+	const half = gap / 2;
+	// Line i runs from (b + slant/2) at the top to (b - slant/2) at the bottom.
+	const at = ( i, t ) =>
+		0 === i ? 0 : i === k ? along : ( i / k ) * along + slant * ( 0.5 - t );
+	const cells = [];
+	for ( let i = 0; i < k; i++ ) {
+		const l0 = at( i, 0 ) + ( i ? half : 0 );
+		const l1 = at( i, 1 ) + ( i ? half : 0 );
+		const r0 = at( i + 1, 0 ) - ( i < k - 1 ? half : 0 );
+		const r1 = at( i + 1, 1 ) - ( i < k - 1 ? half : 0 );
+		const pts = across
+			? [
+					[ l0, 0 ],
+					[ r0, 0 ],
+					[ r1, cross ],
+					[ l1, cross ],
+			  ]
+			: [
+					[ 0, l0 ],
+					[ cross, l0 + ( l1 - l0 ) ],
+					[ cross, r1 ],
+					[ 0, r0 ],
+			  ];
+		const box = bbox( pts );
+		cells.push( {
+			index: i,
+			rot: 0,
+			...box,
+			clip: polyPath( pts, box.x, box.y ),
+		} );
+	}
+	return cells;
+}
+
+/**
+ * Hexagon: the honeycomb of Circles with six-sided cells that interlock,
+ * pointy side up; every cell is the photo cut to a hexagon.
+ */
+function hexagonCells( images, opts ) {
+	const { height, frame } = opts;
+	// A pointy-top hexagon of width d is 1.155 d tall; leave the honeycomb
+	// that room above and below.
+	const grown = circleCells( images, {
+		...opts,
+		height: height / 1.12,
+		frame: 0,
+	} );
+	const dy = ( height - height / 1.12 ) / 2;
+	const hex = ( r ) => {
+		const hh = r.w * 1.1547;
+		const y = r.y + r.h / 2 - hh / 2;
+		return {
+			x: r.x,
+			y,
+			w: r.w,
+			h: hh,
+			pts: [
+				[ r.x + r.w / 2, y ],
+				[ r.x + r.w, y + hh / 4 ],
+				[ r.x + r.w, y + ( 3 * hh ) / 4 ],
+				[ r.x + r.w / 2, y + hh ],
+				[ r.x, y + ( 3 * hh ) / 4 ],
+				[ r.x, y + hh / 4 ],
+			],
+		};
+	};
+	return grown.map( ( c ) => {
+		const outer = hex( { x: c.x, y: c.y + dy, w: c.w, h: c.h } );
+		const inner =
+			frame > 0
+				? hex( {
+						x: c.x + frame,
+						y: c.y + dy + frame,
+						w: c.w - 2 * frame,
+						h: c.h - 2 * frame,
+				  } )
+				: outer;
+		return {
+			index: c.index,
+			rot: 0,
+			x: inner.x,
+			y: inner.y,
+			w: inner.w,
+			h: inner.h,
+			clip: polyPath( inner.pts, inner.x, inner.y ),
+			...( frame > 0
+				? {
+						frame: {
+							x: outer.x,
+							y: outer.y,
+							w: outer.w,
+							h: outer.h,
+							clip: polyPath( outer.pts, outer.x, outer.y ),
+						},
+				  }
+				: {} ),
+		};
+	} );
+}
+
+/**
+ * Split: ONE photo across two to six panels (Columns sets how many, three
+ * by default) with the spacing between them - a triptych. Panels run across
+ * the long side; from the second shuffle on they step up and down a little.
+ * It is one photo layer clipped to one shape holding every panel, so the
+ * picture moves inside all panels at once.
+ */
+function splitLayout( images, opts ) {
+	const { width, height, gap } = opts;
+	const k = clamp( opts.cols > 0 ? opts.cols : 3, 2, 6 );
+	const across = width >= height;
+	const along = across ? width : height;
+	const cross = across ? height : width;
+	const panel = ( along - gap * ( k + 1 ) ) / k;
+	const r = rng( ( ( opts.seed || 1 ) * 374761393 ) >>> 0 || 1 );
+	const stagger = opts.seed > 1 ? cross * 0.08 : 0;
+	const rects = [];
+	for ( let i = 0; i < k; i++ ) {
+		const off = stagger ? ( r() * 2 - 1 ) * stagger : 0;
+		const a = gap + i * ( panel + gap );
+		const b0 = gap + Math.max( 0, off );
+		const b1 = cross - gap - Math.max( 0, -off );
+		rects.push(
+			across
+				? { x: a, y: b0, w: panel, h: b1 - b0 }
+				: { x: b0, y: a, w: b1 - b0, h: panel }
+		);
+	}
+	const box = bbox(
+		rects.flatMap( ( q ) => [
+			[ q.x, q.y ],
+			[ q.x + q.w, q.y + q.h ],
+		] )
+	);
+	const clip = rects
+		.map( ( q ) =>
+			polyPath(
+				[
+					[ q.x, q.y ],
+					[ q.x + q.w, q.y ],
+					[ q.x + q.w, q.y + q.h ],
+					[ q.x, q.y + q.h ],
+				],
+				box.x,
+				box.y
+			)
+		)
+		.join( ' ' );
+	return {
+		cells: [ { index: 0, rot: 0, ...box, clip } ],
+		extras: { panels: rects },
+	};
+}
+
+/**
+ * Inset: the first photo fills the area, up to four more sit on it as
+ * framed prints in a row along one edge (the shuffle walks the edges:
+ * bottom, right, top).
+ */
+function insetCells( images, opts ) {
+	const { width, height, gap } = opts;
+	const cells = [
+		{ index: 0, rot: 0, x: 0, y: 0, w: width, h: height, back: true },
+	];
+	const rest = images.slice( 1, 5 );
+	if ( ! rest.length ) {
+		return cells;
+	}
+	const unit = Math.min( width, height );
+	const margin = Math.max( gap, unit * 0.045 );
+	const mat = Math.max( opts.frame || 0, unit * 0.012 );
+	const side = [ 'bottom', 'right', 'top' ][ ( ( opts.seed || 1 ) - 1 ) % 3 ];
+	const rowLike = 'right' !== side;
+	const size = unit * ( rest.length > 2 ? 0.27 : 0.34 );
+	let boxes = rest.map( ( im ) => {
+		const a = clamp( im.aspect || 1, 0.66, 1.5 );
+		return a >= 1 ? { w: size, h: size / a } : { w: size * a, h: size };
+	} );
+	const runOf = ( list ) =>
+		list.reduce(
+			( sum, b ) => sum + ( rowLike ? b.w : b.h ) + 2 * mat,
+			0
+		) +
+		gap * ( list.length - 1 );
+	// Four tall prints down the right edge of a wide picture do not fit at
+	// that size: shrink them until the row fits between the margins.
+	const room = ( rowLike ? width : height ) - 2 * margin;
+	const fixed = 2 * mat * boxes.length + gap * ( boxes.length - 1 );
+	if ( runOf( boxes ) > room ) {
+		const k = Math.max(
+			0.1,
+			( room - fixed ) / ( runOf( boxes ) - fixed )
+		);
+		boxes = boxes.map( ( b ) => ( { w: b.w * k, h: b.h * k } ) );
+	}
+	const run = runOf( boxes );
+	let pos = rowLike ? width - margin - run : height - margin - run;
+	boxes.forEach( ( b, i ) => {
+		const outerW = b.w + 2 * mat;
+		const outerH = b.h + 2 * mat;
+		let x;
+		let y;
+		if ( rowLike ) {
+			x = pos;
+			y = 'bottom' === side ? height - margin - outerH : margin;
+			pos += outerW + gap;
+		} else {
+			x = width - margin - outerW;
+			y = pos;
+			pos += outerH + gap;
+		}
+		cells.push( {
+			index: i + 1,
+			rot: 0,
+			frame: { x, y, w: outerW, h: outerH },
+			x: x + mat,
+			y: y + mat,
+			w: b.w,
+			h: b.h,
+			inset: true,
+		} );
+	} );
+	return cells;
+}
+
 /** Apply a matte frame to plain photo cells (grid handles it inline). */
 function applyFrame( cells, frame ) {
 	if ( ! ( frame > 0 ) ) {
@@ -326,7 +917,7 @@ const pn = ( v ) => Math.round( v * 100 ) / 100;
  *
  * @param {Array}  items [{ src, name, width, height }].
  * @param {Object} opts  collageLayout opts + { radius, frameColor,
- *                       captions }.
+ *                       captions, shadow 0-100, backdrop color|'' }.
  * @return {Array} Specs [{ kind, x, y, w, h, rot, ... }].
  */
 export function collageLayerSpecs( items, opts ) {
@@ -339,6 +930,18 @@ export function collageLayerSpecs( items, opts ) {
 	const radius = opts.radius ?? 0;
 	const frameColor = opts.frameColor || '#ffffff';
 	const withCaptions = opts.captions !== false;
+	const shadow = Math.max( 0, Math.min( 100, opts.shadow || 0 ) );
+	if ( opts.backdrop ) {
+		specs.push( {
+			kind: 'backdrop',
+			x: 0,
+			y: 0,
+			w: opts.width,
+			h: opts.height,
+			rot: 0,
+			fill: opts.backdrop,
+		} );
+	}
 	if ( extras.strip ) {
 		const strip = extras.strip;
 		specs.push( {
@@ -374,25 +977,57 @@ export function collageLayerSpecs( items, opts ) {
 		const card = cell.frame;
 		const cx = card ? card.x + card.w / 2 : cell.x + cell.w / 2;
 		const cy = card ? card.y + card.h / 2 : cell.y + cell.h / 2;
+		let cardRadius = isPolaroid ? 2 : radius;
+		let photoRadius = isPolaroid ? 0 : radius;
+		if ( cell.round ) {
+			cardRadius = card ? Math.min( card.w, card.h ) / 2 : 0;
+			photoRadius = Math.min( cell.w, cell.h ) / 2;
+		}
+		// A print on a background photo always lifts off it a little.
+		const lift = cell.inset ? Math.max( shadow, 30 ) : shadow;
 		if ( card ) {
+			const { clip: cardClip, ...cardRect } = card;
 			specs.push( {
 				kind: 'card',
-				...card,
+				...cardRect,
 				rot: tilt,
 				fill: frameColor,
-				radius: isPolaroid ? 2 : radius,
+				radius: cardClip ? 0 : pn( cardRadius ),
 				index: cell.index,
+				...( cardClip ? { pathD: cardClip } : {} ),
+				...( lift ? { shadow: lift } : {} ),
 			} );
 		}
+		// A photo cut to a shape (Diagonal, Hexagon, Split, 20.10.2026):
+		// the shape as a layer, the photo clipped to it above - both stay
+		// editable, and the photo can still be moved inside its shape.
+		if ( cell.clip ) {
+			specs.push( {
+				kind: 'mask',
+				x: cell.x,
+				y: cell.y,
+				w: cell.w,
+				h: cell.h,
+				rot: tilt,
+				fill: frameColor,
+				pathD: cell.clip,
+				index: cell.index,
+				...( lift && ! card ? { shadow: lift } : {} ),
+			} );
+		}
+		const { clip, back, inset: isInset, ...photoCell } = cell;
 		specs.push( {
 			kind: 'photo',
-			...pivotRect( cell, cx, cy, tilt ),
+			...pivotRect( photoCell, cx, cy, tilt ),
 			rot: tilt,
 			src: item.src,
 			natW: item.width || cell.w,
 			natH: item.height || cell.h,
-			radius: isPolaroid ? 0 : radius,
+			radius: clip || back ? 0 : pn( photoRadius ),
 			index: cell.index,
+			...photoFocus( item, cell, opts ),
+			...( clip ? { clip, clipped: true } : {} ),
+			...( lift && ! card && ! clip && ! back ? { shadow: lift } : {} ),
 		} );
 		if ( cell.caption && withCaptions ) {
 			specs.push( {
@@ -404,6 +1039,43 @@ export function collageLayerSpecs( items, opts ) {
 			} );
 		}
 	} );
+	if ( extras.divider ) {
+		specs.push( {
+			kind: 'divider',
+			...extras.divider,
+			rot: 0,
+			fill: '#ffffff',
+		} );
+		specs.push( {
+			kind: 'knob',
+			...extras.knob,
+			rot: 0,
+			fill: '#ffffff',
+			radius: pn( extras.knob.w / 2 ),
+			shadow: 40,
+		} );
+	}
+	if ( extras.badges && withCaptions ) {
+		for ( const badge of extras.badges ) {
+			const { which, ...rect } = badge;
+			specs.push( {
+				kind: 'badge',
+				...rect,
+				rot: 0,
+				fill: '#0c0e129e',
+				radius: pn( rect.h / 2 ),
+			} );
+			specs.push( {
+				kind: 'badgeText',
+				...rect,
+				rot: 0,
+				text:
+					'before' === which
+						? __( 'Before', 'wunderpaint' )
+						: __( 'After', 'wunderpaint' ),
+			} );
+		}
+	}
 	return specs;
 }
 
@@ -466,8 +1138,129 @@ function layoutCells( images, o ) {
 		}
 		case 'contact':
 			return { cells: gridCells( images, o, true ), extras: {} };
+		case 'hero':
+			return { cells: heroCells( images, o ), extras: {} };
+		case 'bento':
+			return { cells: bentoCells( images, o ), extras: {} };
+		case 'strips':
+			return { cells: stripCells( images, o ), extras: {} };
+		case 'circles':
+			return { cells: circleCells( images, o ), extras: {} };
+		case 'beforeafter':
+			return beforeAfterLayout( images, o );
+		case 'masonry':
+			return { cells: masonryCells( images, o ), extras: {} };
+		case 'diagonal':
+			return { cells: diagonalCells( images, o ), extras: {} };
+		case 'hexagon':
+			return { cells: hexagonCells( images, o ), extras: {} };
+		case 'split':
+			return splitLayout( images, o );
+		case 'inset':
+			return { cells: insetCells( images, o ), extras: {} };
 		case 'grid':
 		default:
 			return { cells: gridCells( images, o, false ), extras: {} };
 	}
+}
+
+/**
+ * The crop of one photo in its cell (20.10.2026): a crop chosen by hand
+ * wins; otherwise, with `opts.faces` not off, the faces found in it stay
+ * in frame - worked out for this cell, so they stay in frame in every
+ * layout; otherwise the middle (no focus).
+ *
+ * @param {Object} item A pick ({ focus, faces, width, height }).
+ * @param {Object} cell Its cell ({ w, h }).
+ * @param {Object} opts collageLayerSpecs options.
+ * @return {Object} { focus } or nothing.
+ */
+function photoFocus( item, cell, opts ) {
+	if ( item.focus ) {
+		return { focus: item.focus };
+	}
+	if ( false !== opts.faces && item.faces && item.faces.length ) {
+		const focus = faceAnchor(
+			item.faces,
+			cell.w,
+			cell.h,
+			item.width || cell.w,
+			item.height || cell.h
+		);
+		if ( focus ) {
+			return { focus, faceFocus: true };
+		}
+	}
+	return {};
+}
+
+/**
+ * Where a photo's crop sits after a drag inside its frame (20.10.2026).
+ * A photo fills its frame the way an image layer on "cover" does; a drag
+ * moves the picture under the frame, so the focus moves against the
+ * pointer by the share of the picture that is cropped away. An axis with
+ * nothing cropped away keeps its focus.
+ *
+ * @param {Object|null} focus { x, y } from 0 to 1, or null for the middle.
+ * @param {Object}      spec  The photo spec ({ w, h, natW, natH }).
+ * @param {number}      dx    Drag in document pixels along the photo's width.
+ * @param {number}      dy    Drag along its height.
+ * @return {Object} The new { x, y }.
+ */
+export function panFocus( focus, spec, dx, dy ) {
+	const fx = focus && 'number' === typeof focus.x ? focus.x : 0.5;
+	const fy = focus && 'number' === typeof focus.y ? focus.y : 0.5;
+	const iw = spec.natW || spec.w;
+	const ih = spec.natH || spec.h;
+	if ( ! iw || ! ih || ! spec.w || ! spec.h ) {
+		return { x: fx, y: fy };
+	}
+	const s = Math.max( spec.w / iw, spec.h / ih );
+	const spareX = iw * s - spec.w;
+	const spareY = ih * s - spec.h;
+	return {
+		x: spareX > 0.5 ? clamp( fx - dx / spareX, 0, 1 ) : fx,
+		y: spareY > 0.5 ? clamp( fy - dy / spareY, 0, 1 ) : fy,
+	};
+}
+
+/**
+ * The layer list with a collage group in it (19.10.2026): a new one on top
+ * of the stack, an edited one in place of the old - its children and any
+ * nested layers removed, the new parts and the group (which keeps the old
+ * id, so a parent's child list and the selection stay valid) where the old
+ * ones began.
+ *
+ * @param {Array}  layers  The document's flat layer list.
+ * @param {Array}  parts   The new child layers.
+ * @param {Object} group   The new group.
+ * @param {string} oldId   The group being replaced, if any.
+ * @return {Array} The new layer list.
+ */
+export function placeCollage( layers, parts, group, oldId = null ) {
+	if ( ! oldId || ! layers.some( ( l ) => l.id === oldId ) ) {
+		return [ ...layers, ...parts, group ];
+	}
+	const removed = new Set( [ oldId ] );
+	let grew = true;
+	while ( grew ) {
+		grew = false;
+		for ( const l of layers ) {
+			if (
+				l.parent &&
+				removed.has( l.parent ) &&
+				! removed.has( l.id )
+			) {
+				removed.add( l.id );
+				grew = true;
+			}
+		}
+	}
+	const first = layers.findIndex( ( l ) => removed.has( l.id ) );
+	const at = layers
+		.slice( 0, first )
+		.filter( ( l ) => ! removed.has( l.id ) ).length;
+	const next = layers.filter( ( l ) => ! removed.has( l.id ) );
+	next.splice( at, 0, ...parts, group );
+	return next;
 }

@@ -15,7 +15,12 @@ import { HelpLink } from './help-dialog';
 import { loadImage } from '../store/document';
 import { saveAsNew, buildFormData } from '../lib/api';
 import { wpMediaPick } from '../lib/media-pick';
-import { fixSeam, panoramaAspectOk, applyNadirCap } from '../lib/panorama';
+import {
+	fixSeamOnCanvas,
+	panoramaAspectOk,
+	applyNadirCapOnCanvas,
+} from '../lib/panorama';
+import { encodeCanvas } from '../lib/canvas-encode';
 import {
 	panoramaEmbedHtml,
 	HOTSPOT_DEFAULT_COLOR,
@@ -95,6 +100,10 @@ export function PanoramaDialog( { onClose, extras } ) {
 	const [ horizon, setHorizon ] = useState( 0 );
 	const [ arStart, setArStart ] = useState( false );
 	const pristineRef = useRef( null );
+	// Every change to the working picture counts up, so an upload for the
+	// embed is reused only for the very version it was made from.
+	const editRev = useRef( 0 );
+	const uploadRef = useRef( null );
 	const hostRef = useRef( null );
 	const viewerRef = useRef( null );
 	const placingRef = useRef( null );
@@ -200,24 +209,23 @@ export function PanoramaDialog( { onClose, extras } ) {
 		if ( ! working ) {
 			return;
 		}
-		const ctx = working.getContext( '2d' );
-		const px = ctx.getImageData( 0, 0, working.width, working.height );
-		fixSeam( px.data, working.width, working.height );
-		ctx.putImageData( px, 0, 0 );
+		fixSeamOnCanvas( working );
 		viewerRef.current?.setImage( working );
 		// Face the wrap edge so the repair is immediately judgeable.
 		viewerRef.current?.lookAt( 180 );
+		editRev.current++;
 		setFixed( true );
 		extras?.toasts?.success?.(
 			__( 'Seam blended - check the horizon line.', 'wunderpaint' )
 		);
 	};
 
-	const applyToLayer = () => {
+	const applyToLayer = async () => {
 		if ( ! working || libSrc || ! layerId ) {
 			return;
 		}
-		const dataUrl = working.toDataURL( 'image/jpeg', 0.92 );
+		// Off the main thread: an 8K panorama took a second to encode.
+		const dataUrl = await encodeCanvas( working, 'image/jpeg', 0.92 );
 		dispatch( {
 			type: 'UPDATE_LAYER',
 			id: layerId,
@@ -254,6 +262,7 @@ export function PanoramaDialog( { onClose, extras } ) {
 			ctx.drawImage( pristine, 0, h - 1, w, 1, 0, h + off, w, -off );
 		}
 		viewerRef.current?.setImage( working );
+		editRev.current++;
 		setFixed( true );
 	};
 
@@ -282,19 +291,15 @@ export function PanoramaDialog( { onClose, extras } ) {
 				logoImg.naturalWidth * scale,
 				logoImg.naturalHeight * scale
 			);
-			const ctx = working.getContext( '2d' );
-			const px = ctx.getImageData( 0, 0, working.width, working.height );
-			applyNadirCap(
-				px.data,
-				working.width,
-				working.height,
+			applyNadirCapOnCanvas(
+				working,
 				tctx.getImageData( 0, 0, 512, 512 ).data,
 				512,
 				512
 			);
-			ctx.putImageData( px, 0, 0 );
 			viewerRef.current?.setImage( working );
 			viewerRef.current?.lookAt( viewerRef.current?.viewYaw() || 0, -80 );
+			editRev.current++;
 			setFixed( true );
 			extras?.toasts?.success?.(
 				__( 'Logo placed over the floor zone.', 'wunderpaint' )
@@ -328,7 +333,17 @@ export function PanoramaDialog( { onClose, extras } ) {
 			let url = src;
 			// The embed needs a public URL; edited or data-URL sources are
 			// saved to the library first (JPEG - panoramas are photos).
-			if ( fixed || ! /^https?:/.test( url ) ) {
+			// Once per version of the picture (19.10.2026): copying the
+			// embed again uploaded the same panorama again, a new file in
+			// the library every time.
+			const saved = uploadRef.current;
+			if (
+				saved &&
+				saved.canvas === working &&
+				saved.rev === editRev.current
+			) {
+				url = saved.url;
+			} else if ( fixed || ! /^https?:/.test( url ) ) {
 				const blob = await new Promise( ( resolve ) =>
 					working.toBlob( resolve, 'image/jpeg', 0.92 )
 				);
@@ -339,6 +354,11 @@ export function PanoramaDialog( { onClose, extras } ) {
 					)
 				);
 				url = response.url;
+				uploadRef.current = {
+					canvas: working,
+					rev: editRev.current,
+					url,
+				};
 			}
 			const posterCanvas = document.createElement( 'canvas' );
 			posterCanvas.width = 480;
@@ -663,6 +683,7 @@ export function PanoramaDialog( { onClose, extras } ) {
 								<span>
 									{ __( 'Horizon', 'wunderpaint' ) }
 									<span
+										data-number-value
 										style={ {
 											color: 'var(--ed-text-muted)',
 											marginLeft: 6,

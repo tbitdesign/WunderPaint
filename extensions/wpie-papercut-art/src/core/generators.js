@@ -175,6 +175,25 @@ export const GROUND_ANIMALS = [
 	'ibex',
 	'robin',
 	'gull',
+	// v3.8: farm, savanna, ice, garden and the dinosaurs.
+	'cow',
+	'sheep',
+	'rooster',
+	'elephant',
+	'giraffe',
+	'lion',
+	'zebra',
+	'rhino',
+	'camel',
+	'flamingo',
+	'penguin',
+	'polarbear',
+	'seal',
+	'hedgehog',
+	'frog',
+	'trex',
+	'longneck',
+	'stegosaurus',
 ];
 export const SKY_ANIMALS = [
 	'eagle',
@@ -183,8 +202,18 @@ export const SKY_ANIMALS = [
 	'birdfly',
 	'butterfly',
 	'owlfly',
+	'bat',
 ];
-export const WATER_ANIMALS = [ 'whale', 'dolphin' ];
+export const WATER_ANIMALS = [
+	'whale',
+	'dolphin',
+	'swan',
+	'turtle',
+	'octopus',
+	'jellyfish',
+	'seahorse',
+	'shark',
+];
 
 // Traced poses face whichever way the original artist drew them; these
 // are mirrored on bake-out so the whole cast faces left by default.

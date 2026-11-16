@@ -314,7 +314,7 @@ class Media_Credits {
 		if ( ! empty( $out['missingUnknown'] ) ) {
 			return new \WP_Error(
 				'wpie_credits_query_failed',
-				__( 'The licence overview could not be read.', 'wunderpaint' ),
+				__( 'The license overview could not be read.', 'wunderpaint' ),
 				array( 'status' => 500 )
 			);
 		}

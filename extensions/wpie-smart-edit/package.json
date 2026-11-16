@@ -1,0 +1,13 @@
+{
+	"name": "wpie-smart-edit",
+	"version": "1.2.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
+		"test": "node tools/test.mjs"
+	},
+	"devDependencies": {
+		"esbuild": "^0.28.1"
+	}
+}

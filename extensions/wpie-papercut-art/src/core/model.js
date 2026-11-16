@@ -23,7 +23,12 @@ import {
 	LANDFORMS,
 	DECORATIONS,
 } from './library.js';
+import { isFormId } from './forms.js';
+import { createCollectionPresets } from './collection-scenes.js';
 import { createExtraPresets } from './extra-scenes.js';
+import { FINISH_DEFAULTS, PREMIUM_LOOKS, isPaperSurface } from './finishes.js';
+import { createPremiumPresets } from './premium-scenes.js';
+import { createWorldPresets } from './world-scenes.js';
 import { GROUND_ANIMALS, SKY_ANIMALS, WATER_ANIMALS } from './generators.js';
 
 let uid = 0;
@@ -98,6 +103,8 @@ export const OBJECT_KINDS = [
 	'flock',
 	'branch',
 	'text',
+	// v3.8: one of the editor's own shapes, cut from paper.
+	'form',
 ];
 
 /**
@@ -114,6 +121,7 @@ const CUT_BY_DEFAULT = [];
 /* --------------------------------- looks -------------------------------- */
 
 export const LOOKS = [
+	...PREMIUM_LOOKS,
 	{
 		id: 'lightbox',
 		label: 'Lightbox',
@@ -201,11 +209,17 @@ export function lerpHex( a, b, t ) {
 /** The look's paper colour for sheet i of n - i=0 is the BACK sheet. */
 export function sheetColor( look, i, n ) {
 	const t = n <= 1 ? 1 : i / ( n - 1 );
+	if ( look.colors?.length > 1 ) {
+		const at = t * ( look.colors.length - 1 );
+		const k = Math.min( look.colors.length - 2, Math.floor( at ) );
+		return lerpHex( look.colors[ k ], look.colors[ k + 1 ], at - k );
+	}
 	return lerpHex( look.back, look.front, t );
 }
 
 export const lookById = ( id ) =>
-	LOOKS.find( ( l ) => l.id === id ) || LOOKS[ 0 ];
+	LOOKS.find( ( l ) => l.id === id ) ||
+	LOOKS.find( ( l ) => l.id === 'lightbox' );
 
 /* -------------------------------- factories ------------------------------ */
 
@@ -362,6 +376,16 @@ export function defaultObject( kind, extra = {} ) {
 			...extra,
 		};
 	}
+	if ( 'form' === kind ) {
+		return {
+			...base,
+			shape: 'heart',
+			x: 0.5,
+			y: 0.5,
+			scale: 30,
+			...extra,
+		};
+	}
 	// text - paper letters by default, `cut: true` punches them out
 	return {
 		...base,
@@ -422,6 +446,8 @@ export function defaultLayer( extra = {} ) {
 		dx: 0,
 		dy: 0,
 		shadow: 100,
+		paper: '',
+		elevation: 100,
 		objects: [],
 		...extra,
 	};
@@ -471,6 +497,7 @@ export function baseToObject( base, s = {} ) {
 
 export function defaultParams() {
 	return {
+		...FINISH_DEFAULTS,
 		look: 'lightbox',
 		lightX: 30,
 		shadow: 55,
@@ -568,6 +595,7 @@ function cleanObject( raw ) {
 	} else if ( 'frame' === raw.kind ) {
 		o.window = WINDOWS.includes( raw.window ) ? raw.window : 'circle';
 		o.inset = num( raw.inset, d.inset, 0, 30 );
+		o.windowAngle = num( raw.windowAngle, 0, -180, 180 );
 		o.letter = String( raw.letter || 'A' ).slice( 0, 1 ) || 'A';
 		o.points = Math.round( num( raw.points, d.points, 3, 24 ) );
 		o.sharp = num( raw.sharp, d.sharp, 0, 100 );
@@ -626,6 +654,8 @@ function cleanObject( raw ) {
 	} else if ( 'branch' === raw.kind ) {
 		o.corner = CORNERS.includes( raw.corner ) ? raw.corner : 'tl';
 		o.reach = num( raw.reach, d.reach, 15, 100 );
+	} else if ( 'form' === raw.kind ) {
+		o.shape = isFormId( raw.shape ) ? raw.shape : 'heart';
 	} else if ( 'text' === raw.kind ) {
 		// Newlines survive: several words under each other are one block.
 		o.value = String( raw.value ?? d.value ).slice( 0, 80 );
@@ -670,6 +700,8 @@ function cleanLayer( raw ) {
 		dx: num( raw.dx, 0, -1, 1 ),
 		dy: num( raw.dy, 0, -1, 1 ),
 		shadow: num( raw.shadow, d.shadow, 0, 200 ),
+		paper: isPaperSurface( raw.paper ) ? raw.paper : '',
+		elevation: num( raw.elevation, 100, 0, 200 ),
 		objects: ( lead ? [ cleanObject( lead ), ...objects ] : objects )
 			.filter( Boolean )
 			.slice( 0, 32 ),
@@ -874,12 +906,17 @@ export function cleanParams( raw ) {
 	return {
 		look: LOOKS.some( ( l ) => l.id === raw.look ) ? raw.look : d.look,
 		lightX: num( raw.lightX, d.lightX, -100, 100 ),
+		lightY: num( raw.lightY, d.lightY, -100, 100 ),
+		thickness: num( raw.thickness, d.thickness, 0, 100 ),
+		edgeLight: num( raw.edgeLight, d.edgeLight, 0, 100 ),
+		sheen: num( raw.sheen, d.sheen, 0, 100 ),
+		textureScale: num( raw.textureScale, d.textureScale, 0, 100 ),
 		shadow: num( raw.shadow, d.shadow, 0, 100 ),
 		soft: num( raw.soft, d.soft, 0, 100 ),
 		grain: num( raw.grain, d.grain, 0, 100 ),
 		glow: num( raw.glow, d.glow, 0, 100 ),
 		colorSource: 'photo' === raw.colorSource ? 'photo' : 'palette',
-		paper: 'fibre' === raw.paper ? 'fibre' : 'smooth',
+		paper: isPaperSurface( raw.paper ) ? raw.paper : d.paper,
 		edge: 'rim' === raw.edge ? 'rim' : 'shadow',
 		detail: num( raw.detail, d.detail, 0, 100 ),
 		photo: {
@@ -922,6 +959,9 @@ const S = ( base, extra = {}, objects = [] ) =>
 const O = defaultObject;
 
 export const PRESETS = [
+	...createCollectionPresets( defaultObject, defaultLayer, lookById ),
+	...createPremiumPresets( defaultObject, defaultLayer, lookById ),
+	...createWorldPresets( defaultObject, defaultLayer, lookById ),
 	{
 		id: 'alps',
 		label: 'Misty Alps',

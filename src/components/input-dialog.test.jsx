@@ -65,6 +65,29 @@ describe( 'DialogHost', () => {
 		act( () => root.unmount() );
 	} );
 
+	it( 'moves confirmation focus inside so Escape can cancel it', async () => {
+		const root = mountEditorLike();
+		const opener = document.createElement( 'button' );
+		document.getElementById( 'wpie-root' ).appendChild( opener );
+		opener.focus();
+		let answer;
+		act( () => {
+			answer = confirmDialog( { title: 'Delete preset', danger: true } );
+		} );
+		const cancel = document.querySelector(
+			'.wpie-input-dialog .secondary'
+		);
+		expect( cancel.ownerDocument.activeElement ).toBe( cancel );
+		act( () => {
+			cancel.ownerDocument.activeElement.dispatchEvent(
+				new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } )
+			);
+		} );
+		await expect( answer ).resolves.toBe( false );
+		expect( document.querySelector( '.wpie-input-dialog' ) ).toBeNull();
+		act( () => root.unmount() );
+	} );
+
 	it( 'covers a dialog that an extension hung at the usual level', async () => {
 		const root = mountEditorLike();
 		// What ui.dialog() does: a plain backdrop appended to #wpie-root.

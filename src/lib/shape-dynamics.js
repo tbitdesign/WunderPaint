@@ -20,6 +20,7 @@
  */
 
 import { __ } from '@wordpress/i18n';
+import { CATALOG_SHAPES } from './shape-catalog';
 
 import { cornerRadii } from './corner-radii';
 import { normalizePathD } from './path';
@@ -1786,7 +1787,10 @@ export const DYNAMIC_SHAPES = [
 		commands: ( w, h, p ) => {
 			const d = Math.min( h, w * ( 1 - p.length * 0.8 ) );
 			const star = polygonVertices( 'star', d, d, 5, 0.45 ).map(
-				( v ) => ( { x: v.x + ( w - d ), y: v.y + ( h - d ) / 2 } )
+				( v ) => ( {
+					x: v.x + ( w - d ),
+					y: v.y + ( h - d ) / 2,
+				} )
 			);
 			const cmds = roundedPolyCommands( star, 0, 0 );
 			const t = Math.round( p.tails );
@@ -8328,6 +8332,7 @@ export const DYNAMIC_SHAPES = [
 			return cmds;
 		},
 	},
+	...CATALOG_SHAPES,
 ];
 
 // Prototype-free: a document's `shape` is data, and `"constructor"` or
@@ -8389,6 +8394,8 @@ export function resolvedParams( id, stored ) {
  * @param {Object} layer Shape layer.
  * @return {?Array} corner-geometry commands.
  */
+// Keep one thumbnail per registered family plus a bounded set of live previews.
+const COMMAND_CACHE_LIMIT = Math.max( 320, DYNAMIC_SHAPES.length + 64 );
 const commandCache = new Map();
 
 export function dynamicShapeCommands( layer ) {
@@ -8421,8 +8428,8 @@ export function dynamicShapeCommands( layer ) {
 		return commandCache.get( key );
 	}
 	const out = def.commands( w, h, params, corner );
-	if ( commandCache.size > 160 ) {
-		commandCache.clear();
+	if ( commandCache.size >= COMMAND_CACHE_LIMIT ) {
+		commandCache.delete( commandCache.keys().next().value );
 	}
 	commandCache.set( key, out );
 	return out;

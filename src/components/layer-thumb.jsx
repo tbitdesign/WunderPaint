@@ -74,6 +74,10 @@ export function LayerThumb( { layer, doc } ) {
 	if ( 'group' === layer.type ) {
 		return I.folder( { size: 14 } );
 	}
+	if ( 'repeat' === layer.type ) {
+		// The toolbar's Repeat icon (v1.431): the layer has no pixels of its own.
+		return I.repeat( { size: 14 } );
+	}
 	if ( 'adjustment' === layer.type ) {
 		return I.sliders( { size: 14 } );
 	}

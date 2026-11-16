@@ -9,9 +9,11 @@
  * work is in, and a sense map of what is actually on the surface.
  */
 
+import { composeAround } from './clear.js';
 import { drawPlan, ARCHETYPES } from './composition.js';
 import { roles, pickPalette, shade, mix } from './palette2d.js';
 import { drawSignature, refreshSignature } from './signature.js';
+import { Conductor, bendSignature, LEAN } from './music.js';
 import { planFromMotif, paletteFromMotif, adaptPalette } from './motif.js';
 import { ensembleSchools } from './ensemble.js';
 
@@ -21,8 +23,24 @@ import { ensembleSchools } from './ensemble.js';
 const SPAN_MUL = 3;
 // World seconds without a new mark that end the opening.
 const OPENING_STALL = 5;
+// Under a song a finish ends after this many world seconds even when its
+// budget of marks has not come: a sparse school on a slow beat would
+// otherwise sit in it for the rest of the song.
+const FINISH_LINGER = 40;
 import { hexRgb } from '../core/palette.js';
 import { SenseMap, lum } from './senses.js';
+
+/**
+ * A song's progress as the time share of a sitting: the start of the
+ * outro lands where the school begins to finish (`d`), the last note at 1.
+ */
+function songShare( music, d ) {
+	const fin = music.arc.finishing;
+	const p = music.progress;
+	return p <= fin
+		? ( p / Math.max( 1e-6, fin ) ) * d
+		: d + ( ( p - fin ) / Math.max( 1e-6, 1 - fin ) ) * ( 1 - d );
+}
 
 export const PHASES = [
 	'opening',
@@ -70,8 +88,17 @@ export class FlatWorld {
 		pigment = null,
 		mixed = false,
 		ensemble = [],
+		song = null,
+		clear = [],
 	} ) {
 		this.rng = rng;
+		// Where the page's own text sits (flat/clear.js): quiet zones in
+		// frame units. Empty, nothing in the society changes.
+		this.clear = Array.isArray( clear ) ? clear : [];
+		// A song, when the piece is painted to one: the conductor (made at
+		// the end, once the plan exists) writes `music` for the painters.
+		this.music = null;
+		this.conductor = null;
 		// An ensemble on the sheet: every painter speaks another school;
 		// the anchor school gives plan, palette and ground.
 		this.mixed = !! mixed;
@@ -115,6 +142,7 @@ export class FlatWorld {
 		this.segments = 0;
 		this.phase = 'opening';
 		this.phaseMarks = 0;
+		this.phaseStart = 0;
 		// World time of the last mark that landed: the opening ends when
 		// the opener falls silent, not only by the clock.
 		this.lastMarkAt = 0;
@@ -122,6 +150,10 @@ export class FlatWorld {
 		this.phaseFloorUntil = -1;
 		// The piece's own hand, before anything else is drawn from it.
 		this.signature = drawSignature( rng, school, params.chaos );
+		if ( song && song.character ) {
+			// The song bends the hand before anything is drawn from it.
+			bendSignature( this.signature, song.character, school );
+		}
 		const sig = this.signature;
 		this.voice = school;
 		this.shifted = false;
@@ -215,6 +247,8 @@ export class FlatWorld {
 				this.plan.coverage * ( this.motif ? 1 : sig.coverage )
 			)
 		);
+		// The page's text: the plan's weight moves next to it, not under.
+		composeAround( this.plan, this.clear, aspect );
 		if ( sig.margin ) {
 			this.plan.frameMargin = sig.margin;
 		}
@@ -256,6 +290,9 @@ export class FlatWorld {
 		this.scaleMul = sig.scaleMul;
 		this.mixedScale = sig.mixedScale;
 		this.style = {};
+		if ( song ) {
+			this.conductor = new Conductor( this, song );
+		}
 	}
 
 	/**
@@ -580,18 +617,21 @@ export class FlatWorld {
 		const s = this.senses;
 		const cov = s.coverage();
 		const target = Math.max( 0.05, this.plan.coverage );
+		const music = this.music;
 		// Coverage OR time: a picture of thin lines never covers much, and
 		// a picture must still mature. `span` is the school's idea of a
-		// full sitting in world seconds.
+		// full sitting in world seconds. Painted to a song, the song's
+		// progress is a floor besides: the finish comes with the outro.
 		const span = ( this.school.span || 110 ) * SPAN_MUL;
-		const f = Math.max(
-			cov / target,
-			( this.time - this.sittingStart ) / span
-		);
 		const ph = this.school.phases || {};
 		const o = ph.opening === undefined ? 0.3 : ph.opening;
 		const b = ph.building === undefined ? 0.65 : ph.building;
 		const d = ph.developing === undefined ? 0.9 : ph.developing;
+		const f = Math.max(
+			cov / target,
+			( this.time - this.sittingStart ) / span,
+			music ? songShare( music, d ) : 0
+		);
 		let next;
 		if ( f < o || ( this.phaseMarks < 2 && 'opening' === this.phase ) ) {
 			next = 'opening';
@@ -621,7 +661,12 @@ export class FlatWorld {
 			next = 'building';
 		}
 		// An upheaval holds the piece in the building phase for a while.
-		if ( this.time < this.phaseFloorUntil && PHASES.indexOf( next ) > 1 ) {
+		// (Not under a song: its strikes would hold the piece there forever.)
+		if (
+			! music &&
+			this.time < this.phaseFloorUntil &&
+			PHASES.indexOf( next ) > 1
+		) {
 			next = 'building';
 		}
 		// The developing phase has a budget of marks: past it, only the
@@ -633,9 +678,11 @@ export class FlatWorld {
 				( 0.6 + ( this.params.density || 0.5 ) ) ) /
 				Math.min( 3, this.sitting )
 		);
+		// (Under a song a phase does not fall back, so a dip in coverage
+		// must not stop the budgets from moving it on.)
 		if (
 			'developing' === this.phase &&
-			'developing' === next &&
+			( 'developing' === next || music ) &&
 			this.phaseMarks >= developBudget
 		) {
 			next = 'finishing';
@@ -645,17 +692,41 @@ export class FlatWorld {
 		// The critic can end the finishing early: a resolved picture
 		// takes no more marks than it needs.
 		const resolved = this.critique && this.critique.resolved;
+		const lingering =
+			music &&
+			'finishing' === this.phase &&
+			this.time - this.phaseStart > FINISH_LINGER;
 		if (
 			'finishing' === this.phase &&
 			( this.phaseMarks >= this.finishBudget ||
-				( resolved && this.phaseMarks >= 2 ) ) &&
-			'finishing' === next
+				( resolved && this.phaseMarks >= 2 ) ||
+				lingering ) &&
+			( 'finishing' === next || music )
 		) {
 			next = 'resting';
 		}
-		if ( 'resting' === this.phase && 'finishing' === next ) {
+		let sat = false;
+		if (
+			'resting' === this.phase &&
+			( 'finishing' === next || ( music && 'resting' !== next ) )
+		) {
 			next = 'resting';
-			if ( this.restUntil < 0 ) {
+			if ( music && music.ended ) {
+				// After the last note the piece rests for good.
+			} else if ( music && music.wake ) {
+				// A lift in the music wakes the piece at once.
+				this.newSitting();
+				sat = true;
+				next = 'developing';
+			} else if ( this.restUntil < 0 && music ) {
+				// Under a song the rest follows its fullness: a sparse song
+				// leaves the sheet alone longer.
+				const late = Math.min( 3, this.sitting - 1 );
+				this.restUntil =
+					this.time +
+					( 20 + this.rng() * 30 + late * ( 25 + this.rng() * 25 ) ) *
+						music.restMul;
+			} else if ( this.restUntil < 0 ) {
 				// Later sittings rest longer: a picture that has found its
 				// form is looked at more than touched.
 				const late = Math.min( 3, this.sitting - 1 );
@@ -665,52 +736,82 @@ export class FlatWorld {
 					this.rng() * 30 +
 					late * ( 25 + this.rng() * 25 );
 			} else if ( this.time >= this.restUntil ) {
-				// The next sitting: back to the picture with a slightly
-				// different hand, a little more to cover, a fresh finish.
-				this.sitting++;
-				this.sittingStart = this.time;
-				this.openingDone = false;
-				this.restUntil = -1;
-				this.plan.coverage = Math.min( 1, this.plan.coverage + 0.04 );
-				this.finishBudget = Math.max(
-					3,
-					Math.floor(
-						( 6 + this.rng() * 9 ) / Math.min( 3, this.sitting )
-					)
-				);
-				refreshSignature( this.signature, this.rng, this.school );
-				this.limitVoices();
-				this.chronicle.push( {
-					e: 'sitting',
-					t: this.time,
-					n: this.sitting,
-				} );
+				this.newSitting();
+				sat = true;
 				next = 'developing';
 			}
 		}
-		if ( next !== this.phase ) {
-			this.chronicle.push( { e: 'phase', t: this.time, phase: next } );
-			this.phase = next;
-			this.phaseMarks = 0;
-			// A piece that changes its mind: from the developing phase on
-			// it speaks another school's words, on the same plan and palette.
-			const sig = this.signature;
+		if ( music ) {
+			// A lift is news once; a piece still at work does not hoard it.
+			music.wake = false;
+			// Within a sitting a piece painted to a song only moves on: the
+			// sheet's coverage breathes, the music does not go back.
 			if (
-				sig &&
-				sig.shift &&
-				! this.shifted &&
-				PHASES.indexOf( next ) >= 2
+				! sat &&
+				PHASES.indexOf( next ) < PHASES.indexOf( this.phase )
 			) {
-				this.shifted = true;
-				this.voice = sig.shift;
-				this.chronicle.push( {
-					e: 'school',
-					t: this.time,
-					id: sig.shift.id,
-				} );
+				next = this.phase;
+			}
+			if ( music.ended ) {
+				next = 'resting';
 			}
 		}
+		this.enterPhase( next );
 		this.coverage = cov;
+	}
+
+	/**
+	 * The next sitting: back to the picture with a slightly different
+	 * hand, a little more to cover, a fresh finish. Under a song the hand
+	 * stays the song's.
+	 */
+	newSitting() {
+		this.sitting++;
+		this.sittingStart = this.time;
+		this.openingDone = false;
+		this.restUntil = -1;
+		this.plan.coverage = Math.min( 1, this.plan.coverage + 0.04 );
+		this.finishBudget = Math.max(
+			3,
+			Math.floor( ( 6 + this.rng() * 9 ) / Math.min( 3, this.sitting ) )
+		);
+		if ( ! this.music ) {
+			refreshSignature( this.signature, this.rng, this.school );
+		}
+		this.limitVoices();
+		this.chronicle.push( {
+			e: 'sitting',
+			t: this.time,
+			n: this.sitting,
+		} );
+	}
+
+	/** Step into a phase (nothing happens when it is the current one). */
+	enterPhase( next ) {
+		if ( next === this.phase ) {
+			return;
+		}
+		this.chronicle.push( { e: 'phase', t: this.time, phase: next } );
+		this.phase = next;
+		this.phaseMarks = 0;
+		this.phaseStart = this.time;
+		// A piece that changes its mind: from the developing phase on
+		// it speaks another school's words, on the same plan and palette.
+		const sig = this.signature;
+		if (
+			sig &&
+			sig.shift &&
+			! this.shifted &&
+			PHASES.indexOf( next ) >= 2
+		) {
+			this.shifted = true;
+			this.voice = sig.shift;
+			this.chronicle.push( {
+				e: 'school',
+				t: this.time,
+				id: sig.shift.id,
+			} );
+		}
 	}
 
 	/** One frame: wall time in, warped time to the actors. */
@@ -755,12 +856,41 @@ const TONE_VARIANTS = {
 	mid: [ 'tinted', 'palette-dark' ],
 };
 
+// Ground tones from the lightest to the darkest.
+const TONE_ORDER = [
+	'white',
+	'light',
+	'palette-light',
+	'tinted',
+	'mid',
+	'palette-dark',
+	'dark',
+];
+
 /** The ground spec for the stage from a school and a world. */
 export function groundSpec( world ) {
 	const own = world.school.ground || {};
 	let g = own;
 	const alts = own.tones || TONE_VARIANTS[ own.tone || 'light' ] || [];
-	if ( alts.length && world.rng() < 0.3 ) {
+	const music = world.music;
+	if ( music ) {
+		// Under a song no dice: a bright song takes the lightest tone the
+		// school allows, a dark one the darkest, the rest the school's own.
+		const bright =
+			music.character && Number.isFinite( music.character.bright )
+				? music.character.bright
+				: 0.5;
+		const tones = [ own.tone || 'light', ...alts ].sort(
+			( a, b ) => TONE_ORDER.indexOf( a ) - TONE_ORDER.indexOf( b )
+		);
+		const tone =
+			bright >= LEAN.bright
+				? tones[ 0 ]
+				: bright <= LEAN.dark
+				? tones[ tones.length - 1 ]
+				: own.tone || 'light';
+		g = { ...own, tone };
+	} else if ( alts.length && world.rng() < 0.3 ) {
 		g = { ...own, tone: alts[ Math.floor( world.rng() * alts.length ) ] };
 	}
 	const color = groundColor( g, world.palette, world.rng );

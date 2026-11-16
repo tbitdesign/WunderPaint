@@ -10,7 +10,24 @@
  * and node tests.
  */
 
-import { createCanvas } from './raster';
+import { __ } from '@wordpress/i18n';
+
+import { createCanvas } from './raster/env';
+
+export const FILM_GENERATOR_ID = 'wpie-core/vignette';
+
+/**
+ * The overlay's unit (19.10.2026). Grain cells, dust specks, scratch
+ * widths and the smallest frame and stamp strokes used to be fixed pixel
+ * sizes: on a twelve-megapixel picture everything came out about three
+ * times finer than on Full HD, dust shrank to dots, and the dialog hid it
+ * only by painting every preview at full document size. They are measured
+ * against the short side now, with 1080 px as the reference - so a short
+ * side of 1080 px (Full HD, the square and story formats) paints exactly
+ * as before, and every other size shows the same look, the small preview
+ * included.
+ */
+export const REFERENCE_SIDE = 1080;
 
 /** Deterministic PRNG (the effects.js LCG pattern). */
 const lcg = ( seed ) => {
@@ -32,7 +49,7 @@ export const DEFAULT_FILM_PARAMS = {
 		cx: 50,
 		cy: 50,
 	},
-	grain: { on: false, amount: 30, size: 2, seed: 7 },
+	grain: { on: false, amount: 30, size: 2, seed: 7, color: false },
 	dust: { on: false, density: 30, size: 30, light: true, seed: 11 },
 	scratches: { on: false, count: 8, strength: 40, light: true, seed: 5 },
 	leaks: {
@@ -264,14 +281,28 @@ function paintVignette( ctx, v, w, h ) {
 	ctx.fillRect( 0, 0, w, h );
 }
 
-function paintGrain( ctx, gConf, w, h ) {
-	const cell = Math.max( 1, Math.min( 6, Math.round( gConf.size ) ) );
+/** Hue to an RGB triple in 0..1 (full saturation and value). */
+const hueRgb = ( t ) => {
+	const x = ( ( t % 1 ) + 1 ) % 1;
+	return [ 0, 2, 4 ].map( ( n ) => {
+		const k = ( n + x * 6 ) % 6;
+		return 1 - Math.max( 0, Math.min( k, 4 - k, 1 ) );
+	} );
+};
+
+function paintGrain( ctx, gConf, w, h, unit = 1 ) {
+	const cell = Math.max( 1, Math.min( 6, Math.round( gConf.size ) ) ) * unit;
 	const gw = Math.ceil( w / cell );
 	const gh = Math.ceil( h / cell );
 	const tiny = createCanvas( gw, gh );
 	const tctx = tiny.getContext( '2d' );
 	const img = tctx.createImageData( gw, gh );
 	const rnd = lcg( ( gConf.seed || 7 ) * 7919 );
+	// Color grain (19.10.2026) tints the same grains from a stream of its
+	// own, so switching it on moves none of them.
+	const tint = gConf.color
+		? lcg( ( ( gConf.seed || 7 ) * 7919 ) ^ 0x2f6b )
+		: null;
 	const amount = Math.max( 0, Math.min( 100, gConf.amount ) ) / 100;
 	for ( let i = 0; i < img.data.length; i += 4 ) {
 		const v = rnd() * 2 - 1;
@@ -282,28 +313,59 @@ function paintGrain( ctx, gConf, w, h ) {
 			continue;
 		}
 		const light = v > 0;
-		img.data[ i ] = light ? 255 : 0;
-		img.data[ i + 1 ] = light ? 255 : 0;
-		img.data[ i + 2 ] = light ? 255 : 0;
+		if ( tint ) {
+			// Dyes, not silver: light grains lean to a hue, dark ones
+			// are that hue deepened.
+			const hue = hueRgb( tint() );
+			for ( let c = 0; c < 3; c++ ) {
+				img.data[ i + c ] = Math.round(
+					light ? 255 * ( 0.45 + 0.55 * hue[ c ] ) : 120 * hue[ c ]
+				);
+			}
+		} else {
+			img.data[ i ] = light ? 255 : 0;
+			img.data[ i + 1 ] = light ? 255 : 0;
+			img.data[ i + 2 ] = light ? 255 : 0;
+		}
 		img.data[ i + 3 ] = Math.round(
 			( ( mag - 0.6 ) / 0.4 ) * amount * 150
 		);
 	}
 	tctx.putImageData( img, 0, 0 );
 	ctx.save();
-	ctx.imageSmoothingEnabled = false;
-	ctx.drawImage( tiny, 0, 0, gw, gh, 0, 0, gw * cell, gh * cell );
+	if ( cell >= 1 ) {
+		ctx.imageSmoothingEnabled = false;
+		ctx.drawImage( tiny, 0, 0, gw, gh, 0, 0, gw * cell, gh * cell );
+	} else {
+		// Grains finer than a pixel (a small preview of a large picture):
+		// halve the field until it fits, which averages the grains the
+		// way the scaled-down picture does.
+		let field = tiny;
+		while ( field.width >= 2 * w && field.height >= 2 * h ) {
+			const half = createCanvas(
+				Math.ceil( field.width / 2 ),
+				Math.ceil( field.height / 2 )
+			);
+			const hctx = half.getContext( '2d' );
+			hctx.imageSmoothingEnabled = true;
+			hctx.drawImage( field, 0, 0, half.width, half.height );
+			field = half;
+		}
+		ctx.imageSmoothingEnabled = true;
+		ctx.drawImage( field, 0, 0, gw * cell, gh * cell );
+	}
 	ctx.restore();
 }
 
-function paintDust( ctx, dConf, w, h ) {
+function paintDust( ctx, dConf, w, h, unit = 1 ) {
 	const rnd = lcg( ( dConf.seed || 11 ) * 104729 );
+	// As many specks as the picture would carry at the reference size.
 	const count = Math.round(
-		( ( w * h ) / 1000000 ) *
+		( ( w * h ) / 1000000 / ( unit * unit ) ) *
 			Math.max( 0, Math.min( 100, dConf.density ) ) *
 			3.2
 	);
-	const scale = 0.4 + ( dConf.size / 100 ) * 2.4;
+	const scale = ( 0.4 + ( dConf.size / 100 ) * 2.4 ) * unit;
 	ctx.save();
 	ctx.strokeStyle = ctx.fillStyle = dConf.light ? '#ffffff' : '#000000';
 	ctx.lineCap = 'round';
@@ -314,7 +376,7 @@ function paintDust( ctx, dConf, w, h ) {
 		if ( rnd() < 0.16 ) {
 			// A curled fiber instead of a speck.
 			const len = ( 3 + rnd() * 9 ) * scale;
-			ctx.lineWidth = Math.max( 0.6, 0.5 * scale );
+			ctx.lineWidth = Math.max( 0.6 * unit, 0.5 * scale );
 			ctx.beginPath();
 			ctx.moveTo( x, y );
 			ctx.quadraticCurveTo(
@@ -387,7 +449,7 @@ function paintLeaks( ctx, lConf, w, h ) {
 	ctx.restore();
 }
 
-function paintFrame( ctx, fConf, w, h ) {
+function paintFrame( ctx, fConf, w, h, unit = 1 ) {
 	const minSide = Math.min( w, h );
 	const size = Math.max( 0.5, Math.min( 20, fConf.size ) );
 	const color = fConf.color || '#ffffff';
@@ -404,17 +466,17 @@ function paintFrame( ctx, fConf, w, h ) {
 	} else if ( 'double' === fConf.style ) {
 		// Elegant double keyline.
 		const inset = ( size / 100 ) * minSide;
-		const lw = Math.max( 2, minSide * 0.006 );
+		const lw = Math.max( 2 * unit, minSide * 0.006 );
 		ctx.strokeStyle = color;
 		ctx.lineWidth = lw;
 		ctx.strokeRect( inset, inset, w - inset * 2, h - inset * 2 );
-		ctx.lineWidth = Math.max( 1, lw * 0.5 );
+		ctx.lineWidth = Math.max( unit, lw * 0.5 );
 		const inner = inset + lw * 3;
 		ctx.strokeRect( inner, inner, w - inner * 2, h - inner * 2 );
 	} else if ( 'slide' === fConf.style ) {
 		// 35mm slide mount: thick mount, rounded window.
 		const t = ( size / 100 ) * minSide * 2.2;
-		const radius = Math.max( 3, t * 0.22 );
+		const radius = Math.max( 3 * unit, t * 0.22 );
 		ctx.fillStyle = color;
 		ctx.beginPath();
 		ctx.rect( 0, 0, w, h );
@@ -427,7 +489,7 @@ function paintFrame( ctx, fConf, w, h ) {
 	} else if ( 'painted' === fConf.style ) {
 		// Hand-painted border: each edge is a band whose inner side
 		// wobbles like a loaded brush.
-		const t = Math.max( 4, ( size / 100 ) * minSide );
+		const t = Math.max( 4 * unit, ( size / 100 ) * minSide );
 		const wob = () => ( rnd() - 0.5 ) * t * 0.7;
 		ctx.fillStyle = color;
 		const band = ( points ) => {
@@ -499,11 +561,11 @@ function paintFrame( ctx, fConf, w, h ) {
 	} else if ( 'thin' === fConf.style ) {
 		const inset = ( size / 100 ) * minSide;
 		ctx.strokeStyle = color;
-		ctx.lineWidth = Math.max( 2, minSide * 0.004 );
+		ctx.lineWidth = Math.max( 2 * unit, minSide * 0.004 );
 		ctx.strokeRect( inset, inset, w - inset * 2, h - inset * 2 );
 	} else if ( 'film' === fConf.style ) {
 		// Filmstrip: bars top and bottom, perforation holes punched out.
-		const bar = Math.max( 10, ( size / 100 ) * h * 1.6 );
+		const bar = Math.max( 10 * unit, ( size / 100 ) * h * 1.6 );
 		ctx.fillStyle = color;
 		ctx.fillRect( 0, 0, w, bar );
 		ctx.fillRect( 0, h - bar, w, bar );
@@ -527,7 +589,10 @@ function paintFrame( ctx, fConf, w, h ) {
 	} else if ( 'rounded' === fConf.style ) {
 		// A matte with a rounded window: everything outside the radius
 		// takes the frame color.
-		const radius = Math.max( 2, ( ( fConf.radius ?? 6 ) / 100 ) * minSide );
+		const radius = Math.max(
+			2 * unit,
+			( ( fConf.radius ?? 6 ) / 100 ) * minSide
+		);
 		const inset = ( size / 100 ) * minSide * 0.5;
 		ctx.fillStyle = color;
 		ctx.beginPath();
@@ -570,15 +635,18 @@ const SEGMENTS = {
 	9: 'abcdfg',
 };
 
-function paintStamp( ctx, sConf, w, h ) {
+function paintStamp( ctx, sConf, w, h, unit = 1 ) {
 	const text = String( sConf.text || '' );
 	if ( ! text ) {
 		return;
 	}
 	const minSide = Math.min( w, h );
-	const dh = Math.max( 10, ( Math.max( 1, sConf.size ) / 100 ) * minSide );
+	const dh = Math.max(
+		10 * unit,
+		( Math.max( 1, sConf.size ) / 100 ) * minSide
+	);
 	const dw = dh * 0.58;
-	const lw = Math.max( 1.5, dh * 0.13 );
+	const lw = Math.max( 1.5 * unit, dh * 0.13 );
 	const advance = dw + dh * 0.28;
 	const width =
 		Array.from( text ).reduce(
@@ -657,7 +725,7 @@ function paintStamp( ctx, sConf, w, h ) {
 	ctx.restore();
 }
 
-function paintScratches( ctx, sConf, w, h ) {
+function paintScratches( ctx, sConf, w, h, unit = 1 ) {
 	const rnd = lcg( ( sConf.seed || 5 ) * 15485863 );
 	const count = Math.max( 0, Math.min( 40, Math.round( sConf.count ) ) );
 	const strength = Math.max( 0, Math.min( 100, sConf.strength ) ) / 100;
@@ -671,12 +739,15 @@ function paintScratches( ctx, sConf, w, h ) {
 		const y0 = rnd() * ( h - len );
 		const segs = 3 + Math.round( rnd() * 3 );
 		ctx.globalAlpha = ( 0.08 + rnd() * 0.3 ) * strength;
-		ctx.lineWidth = 0.5 + rnd() * 0.9;
+		ctx.lineWidth = ( 0.5 + rnd() * 0.9 ) * unit;
 		ctx.beginPath();
 		ctx.moveTo( x, y0 );
 		for ( let sIdx = 1; sIdx <= segs; sIdx++ ) {
 			const t = sIdx / segs;
-			ctx.lineTo( x + drift * t + ( rnd() - 0.5 ) * 1.5, y0 + len * t );
+			ctx.lineTo(
+				x + drift * t + ( rnd() - 0.5 ) * 1.5 * unit,
+				y0 + len * t
+			);
 		}
 		ctx.stroke();
 	}
@@ -697,6 +768,7 @@ export function renderFilmOverlay( params, w, h ) {
 	const height = Math.max( 1, Math.round( h ) );
 	const canvas = createCanvas( width, height );
 	const ctx = canvas.getContext( '2d' );
+	const unit = Math.min( width, height ) / REFERENCE_SIDE;
 	if ( p.vignette.on ) {
 		paintVignette( ctx, p.vignette, width, height );
 	}
@@ -704,32 +776,36 @@ export function renderFilmOverlay( params, w, h ) {
 		paintLeaks( ctx, p.leaks, width, height );
 	}
 	if ( p.grain.on ) {
-		paintGrain( ctx, p.grain, width, height );
+		paintGrain( ctx, p.grain, width, height, unit );
 	}
 	if ( p.dust.on ) {
-		paintDust( ctx, p.dust, width, height );
+		paintDust( ctx, p.dust, width, height, unit );
 	}
 	if ( p.scratches.on ) {
-		paintScratches( ctx, p.scratches, width, height );
+		paintScratches( ctx, p.scratches, width, height, unit );
 	}
 	// Frame and stamp sit ON TOP of everything.
 	if ( p.frame.on ) {
-		paintFrame( ctx, p.frame, width, height );
+		paintFrame( ctx, p.frame, width, height, unit );
 	}
 	if ( p.stamp.on ) {
-		paintStamp( ctx, p.stamp, width, height );
+		paintStamp( ctx, p.stamp, width, height, unit );
 	}
 	return canvas;
 }
 
 /**
  * Curated looks for the dialog's preset row. `blend` (optional) is
- * the layer blend mode the preset suggests.
+ * the layer blend mode the preset suggests. The names are read when they
+ * are shown, in the editor's language (they were plain English strings
+ * until 19.10.2026 and never got translated).
  */
 export const FILM_PRESETS = [
 	{
 		id: 'subtle',
-		label: 'Subtle',
+		get label() {
+			return __( 'Subtle', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -742,7 +818,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'classic',
-		label: 'Classic',
+		get label() {
+			return __( 'Classic', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -755,7 +833,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'noir',
-		label: 'Film Noir',
+		get label() {
+			return __( 'Film Noir', 'wunderpaint' );
+		},
 		blend: 'multiply',
 		params: {
 			vignette: {
@@ -770,7 +850,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'cinema',
-		label: 'Cinema',
+		get label() {
+			return __( 'Cinema', 'wunderpaint' );
+		},
 		params: {
 			vignette: { on: true, shape: 'top', strength: 55, size: 42 },
 			grain: { on: true, amount: 22, size: 2, seed: 7 },
@@ -778,7 +860,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'retro',
-		label: 'Retro Film',
+		get label() {
+			return __( 'Retro Film', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -807,7 +891,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'golden-leak',
-		label: 'Golden Leak',
+		get label() {
+			return __( 'Golden Leak', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -828,7 +914,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'old-photo',
-		label: 'Old Photo',
+		get label() {
+			return __( 'Old Photo', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -844,7 +932,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'polaroid',
-		label: 'Instant Photo',
+		get label() {
+			return __( 'Instant Photo', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -859,7 +949,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'filmstrip',
-		label: 'Filmstrip',
+		get label() {
+			return __( 'Filmstrip', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -881,7 +973,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'snapshot',
-		label: '90s Snapshot',
+		get label() {
+			return __( '90s Snapshot', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -904,7 +998,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'rounded-matte',
-		label: 'Rounded Matte',
+		get label() {
+			return __( 'Rounded Matte', 'wunderpaint' );
+		},
 		params: {
 			vignette: {
 				on: true,
@@ -924,7 +1020,9 @@ export const FILM_PRESETS = [
 	},
 	{
 		id: 'dusty',
-		label: 'Dusty Print',
+		get label() {
+			return __( 'Dusty Print', 'wunderpaint' );
+		},
 		params: {
 			vignette: { on: true, shape: 'rect', strength: 40, size: 46 },
 			dust: { on: true, density: 55, size: 35, light: true, seed: 21 },

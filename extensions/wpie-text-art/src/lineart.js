@@ -1,3 +1,10 @@
+import { continuousLine } from './continuous-line.js';
+import {
+	stringArt,
+	stringArtColors,
+	threadColorsFrom,
+} from '../../shared/string-art.js';
+
 /**
  * Text Art, drawn with lines: the picture rebuilt from ink instead of
  * from glyphs or tiles. Four pens - an engraving whose lines swell
@@ -766,6 +773,156 @@ function bounds( points ) {
 	return { x0, y0, x1, y1, area: ( x1 - x0 ) * ( y1 - y0 ) };
 }
 
+/* --------------------------- thread and morse ---------------------------- */
+
+// String art lives in extensions/shared/string-art.js since 3.6: Stitch
+// Patterns winds its buildable boards with the very same engine.
+export { stringArt };
+
+/** International Morse, plus the German letters. */
+export const MORSE = {
+	A: '.-',
+	B: '-...',
+	C: '-.-.',
+	D: '-..',
+	E: '.',
+	F: '..-.',
+	G: '--.',
+	H: '....',
+	I: '..',
+	J: '.---',
+	K: '-.-',
+	L: '.-..',
+	M: '--',
+	N: '-.',
+	O: '---',
+	P: '.--.',
+	Q: '--.-',
+	R: '.-.',
+	S: '...',
+	T: '-',
+	U: '..-',
+	V: '...-',
+	W: '.--',
+	X: '-..-',
+	Y: '-.--',
+	Z: '--..',
+	0: '-----',
+	1: '.----',
+	2: '..---',
+	3: '...--',
+	4: '....-',
+	5: '.....',
+	6: '-....',
+	7: '--...',
+	8: '---..',
+	9: '----.',
+	'.': '.-.-.-',
+	',': '--..--',
+	'?': '..--..',
+	'!': '-.-.--',
+	'&': '.-...',
+	'@': '.--.-.',
+	'-': '-....-',
+	'/': '-..-.',
+	Ä: '.-.-',
+	Ö: '---.',
+	Ü: '..--',
+	ẞ: '...--..',
+};
+
+/**
+ * A message as Morse tokens: '.' and '-' are marks, ' ' ends a letter,
+ * '/' ends a word. Characters Morse has no sign for are left out.
+ *
+ * @param {string} text Any text.
+ * @return {Array<string>} Tokens, never empty.
+ */
+export function morseTokens( text ) {
+	const out = [];
+	// The sharp s has a sign of its own; upper-casing first would turn it
+	// into two letters.
+	for ( const word of String( text || '' )
+		.replace( /ß/g, 'ẞ' )
+		.toUpperCase()
+		.split( /\s+/ )
+		.filter( Boolean ) ) {
+		let any = false;
+		for ( const ch of word ) {
+			const code = MORSE[ ch ];
+			if ( ! code ) {
+				continue;
+			}
+			out.push( ...code, ' ' );
+			any = true;
+		}
+		if ( any ) {
+			out[ out.length - 1 ] = '/';
+		}
+	}
+	return out.length
+		? out
+		: [ ...MORSE.S, ' ', ...MORSE.O, ' ', ...MORSE.S, '/' ];
+}
+
+/**
+ * Morse portrait: rows of dots and dashes that spell a message over and
+ * over, and swell with the ink under them, so the code IS the picture.
+ * Marks get round ends: a dot reads as a dot, not as a short brick.
+ *
+ * @param {Object} field A tone field.
+ * @param {Object} o     spacing, weight, text, gamma.
+ * @return {Array} Lines { pts, width } for a ribbon drawing.
+ */
+export function morseLines( field, o = {} ) {
+	const spacing = clamp( o.spacing || 7, 4, 18 );
+	const weight = clamp( o.weight || 1, 0.2, 2 );
+	const gamma = o.gamma || 0.9;
+	const tokens = morseTokens( o.text );
+	const u = spacing * 0.55;
+	const maxHalf = spacing * 0.44 * weight;
+	const step = Math.max( 0.5, u / 6 );
+	const lines = [];
+	let ti = 0;
+	for ( let y = spacing / 2; y < field.h; y += spacing ) {
+		let x = u * 0.5;
+		for ( let guard = 0; guard < 4000; guard++ ) {
+			const tok = tokens[ ti % tokens.length ];
+			if ( '.' === tok || '-' === tok ) {
+				const len = '.' === tok ? u : 3 * u;
+				if ( x + len > field.w - u * 0.5 ) {
+					break;
+				}
+				const pts = [];
+				const width = [];
+				for ( let s = 0; s <= len + 1e-6; s += step ) {
+					const px = x + Math.min( s, len );
+					const ink = Math.max( 0, inkAt( field, px, y ) );
+					// The end of a mark rounds off over half a unit.
+					const e = Math.min( s, len - s );
+					const round = Math.sqrt(
+						Math.max( 0, Math.min( 1, e / ( u * 0.5 ) ) )
+					);
+					pts.push( [ px, y ] );
+					width.push(
+						Math.max( 0.1, maxHalf * Math.pow( ink, gamma ) ) *
+							Math.max( 0.18, round )
+					);
+				}
+				lines.push( { pts, width } );
+				x += len + u;
+			} else {
+				x += ' ' === tok ? 2 * u : 6 * u;
+			}
+			ti++;
+			if ( x >= field.w - u * 0.5 ) {
+				break;
+			}
+		}
+	}
+	return lines;
+}
+
 /* ------------------------------- path data ------------------------------- */
 
 const r2 = ( v ) => Math.round( v * 100 ) / 100;
@@ -874,6 +1031,54 @@ export function fieldFrom( source, like, width = 620 ) {
 }
 
 /**
+ * The picture in colour at the same working size as fieldFrom, levelled
+ * by its brightness (3.6): what the coloured string art winds from.
+ */
+export function colorFieldFrom( source, like, width = 620 ) {
+	const sw = source.width || source.w;
+	const sh = source.height || source.h;
+	const w = Math.max( 80, Math.min( width, sw ) );
+	const h = Math.max( 60, Math.round( ( w * sh ) / sw ) );
+	const c = makeCanvas( like, w, h );
+	const g = c.getContext( '2d' );
+	g.fillStyle = '#ffffff';
+	g.fillRect( 0, 0, w, h );
+	g.drawImage( source, 0, 0, w, h );
+	const d = g.getImageData( 0, 0, w, h ).data;
+	const n = w * h;
+	const r = new Float32Array( n );
+	const gg = new Float32Array( n );
+	const b = new Float32Array( n );
+	const lum = new Float32Array( n );
+	for ( let i = 0; i < n; i++ ) {
+		r[ i ] = d[ i * 4 ];
+		gg[ i ] = d[ i * 4 + 1 ];
+		b[ i ] = d[ i * 4 + 2 ];
+		lum[ i ] = 0.299 * r[ i ] + 0.587 * gg[ i ] + 0.114 * b[ i ];
+	}
+	const sorted = Float32Array.from( lum ).sort();
+	const lo = sorted[ Math.floor( n * 0.02 ) ];
+	const hi = sorted[ Math.floor( n * 0.98 ) ];
+	if ( hi - lo > 5 ) {
+		const k = 255 / ( hi - lo );
+		for ( const ch of [ r, gg, b ] ) {
+			for ( let i = 0; i < n; i++ ) {
+				ch[ i ] = Math.min( 255, Math.max( 0, ( ch[ i ] - lo ) * k ) );
+			}
+		}
+	}
+	return { w, h, r, g: gg, b };
+}
+
+const segmentsOf = ( pts ) => {
+	const lines = [];
+	for ( let i = 1; i < pts.length; i++ ) {
+		lines.push( { pts: [ pts[ i - 1 ], pts[ i ] ] } );
+	}
+	return lines;
+};
+
+/**
  * The geometry of one drawing: polylines and their swelling, ready to be
  * painted or handed over as paths. Everything a pen needs to decide it
  * has already happened in the field.
@@ -888,6 +1093,79 @@ export function lineArtGeometry( field, o = {} ) {
 		gamma: clamp( 1 / Math.max( 0.2, o.contrast || 1 ), 0.4, 2.5 ),
 	} );
 	const soft = blur( base, 3 );
+	if ( 'string' === mode && ( o.threadColors || 1 ) >= 2 && o.colorField ) {
+		// 3.6: several threads, each in its own colour, on the same nails.
+		const paper = 'dark' === o.background ? [ 14, 16, 19 ] : [ 255, 255, 255 ];
+		const k = Math.max( 2, Math.min( 4, o.threadColors ) );
+		const colors =
+			o.threadList && o.threadList.length >= 2
+				? o.threadList.slice( 0, k )
+				: threadColorsFrom( o.colorField, k, paper );
+		const art = stringArtColors( o.colorField, colors, {
+			nails: o.nails || 288,
+			threads: o.threads || 4000,
+			weight: ( o.threadWeight || 7 ) / 100,
+			seed: o.seed || 3,
+			paper,
+		} );
+		const layers = art.layers.map( ( l ) => ( { color: l.color, lines: segmentsOf( l.pts ) } ) );
+		const side = Math.min( base.w, base.h );
+		return {
+			lines: layers.flatMap( ( l ) => l.lines ),
+			layers,
+			width: art.width,
+			minWidth: Math.min( 0.12, art.width ),
+			pins: art.nails,
+			pinR: Math.max( 0.35, side / 520 ),
+			crop: {
+				x: ( base.w - side ) / 2,
+				y: ( base.h - side ) / 2,
+				w: side,
+				h: side,
+			},
+		};
+	}
+	if ( 'string' === mode ) {
+		const art = stringArt( base, {
+			nails: o.nails || 288,
+			threads: o.threads || 4000,
+			weight: ( o.threadWeight || 7 ) / 100,
+			dark: 'dark' === o.background,
+			seed: o.seed || 3,
+		} );
+		const lines = [];
+		for ( let i = 1; i < art.pts.length; i++ ) {
+			lines.push( { pts: [ art.pts[ i - 1 ], art.pts[ i ] ] } );
+		}
+		// A string art board is round: the drawing is the square around
+		// its ring, with the nails the thread was wound on.
+		const side = Math.min( base.w, base.h );
+		const pinR = Math.max( 0.35, side / 520 );
+		return {
+			lines,
+			width: art.width,
+			minWidth: Math.min( 0.12, art.width ),
+			pins: art.nails,
+			pinR,
+			crop: {
+				x: ( base.w - side ) / 2,
+				y: ( base.h - side ) / 2,
+				w: side,
+				h: side,
+			},
+		};
+	}
+	if ( 'morse' === mode ) {
+		return {
+			lines: morseLines( base, {
+				spacing: clamp( o.spacing || 7, 4, 18 ),
+				weight: clamp( ( o.weight || 100 ) / 100, 0.2, 2 ),
+				text: o.morseText,
+			} ),
+			ribbon: true,
+			minWidth: 0.06,
+		};
+	}
 	if ( 'contour' === mode ) {
 		const lines = contourLines( soft, {
 			levels: clamp( Math.round( o.levels || 16 ), 3, 40 ),
@@ -907,6 +1185,9 @@ export function lineArtGeometry( field, o = {} ) {
 		return { dots: pts, field: base, size: ( o.dotSize || 100 ) / 100 };
 	}
 	if ( 'oneline' === mode ) {
+		if ( o.oneLine && o.oneLine !== 'tour' ) {
+			return continuousLine( base, o );
+		}
 		// Empty paper gets no dots: without that floor the line spreads
 		// evenly over the background and the face stops reading.
 		const pts = stipple( base, {
@@ -990,29 +1271,41 @@ export function lineArtPathData( geo, scale = 1 ) {
 	// Even a line of one width leaves as an OUTLINE, not a stroke: a path
 	// layer carries a fill, and an outline is the only shape that can hold
 	// a swelling line anyway.
-	return geo.lines
-		.map( ( line ) =>
-			ribbonPath(
-				line.pts,
-				line.width || line.pts.map( () => geo.width || 0.5 ),
-				0.12
+	const pins = geo.pins
+		? dotsPath(
+				geo.pins.map( ( p ) => [ p[ 0 ] * scale, p[ 1 ] * scale ] ),
+				geo.pinR * scale
+		  )
+		: '';
+	return (
+		pins +
+		geo.lines
+			.map( ( line ) =>
+				ribbonPath(
+					line.pts,
+					line.width || line.pts.map( () => geo.width || 0.5 ),
+					geo.minWidth ?? 0.12
+				)
 			)
-		)
-		.join( '' );
+			.join( '' )
+	);
 }
 
 /** The card, drawn: ink on ground, exactly the geometry the paths carry. */
 export function renderLineArt( like, source, opts = {} ) {
 	const field = fieldFrom( source, like, opts.detail || 620 );
-	const geo = lineArtGeometry( field, opts );
-	const scale = Math.max(
-		1,
-		Math.min( 3, ( opts.scale || 1600 ) / field.w )
+	const { geo, w, h } = cropped( lineArtGeometry( field, withColor( source, like, opts ) ), field );
+	// The preview width, then `outScale` on top of it for a layer at the
+	// document's own size (3.5) - never past a side of 4096.
+	const scale = Math.min(
+		4096 / Math.max( w, h ),
+		Math.max( 1, Math.min( 3, ( opts.scale || 1600 ) / w ) ) *
+			( opts.outScale || 1 )
 	);
 	const c = makeCanvas(
 		like,
-		Math.round( field.w * scale ),
-		Math.round( field.h * scale )
+		Math.round( w * scale ),
+		Math.round( h * scale )
 	);
 	const g = c.getContext( '2d' );
 	const dark = 'dark' === opts.background;
@@ -1021,12 +1314,37 @@ export function renderLineArt( like, source, opts = {} ) {
 	g.save();
 	g.scale( scale, scale );
 	g.fillStyle = opts.ink || ( dark ? '#ffffff' : '#14161a' );
+	if ( geo.layers && 'undefined' !== typeof Path2D ) {
+		// 3.6: thread after thread, each in its colour, the nails on top.
+		for ( const layer of geo.layers ) {
+			const d = lineArtPathData( { ...geo, lines: layer.lines, pins: null } );
+			if ( d ) {
+				g.fillStyle = `rgb(${ layer.color.map( Math.round ).join( ',' ) })`;
+				g.fill( new Path2D( d ) );
+			}
+		}
+		g.fillStyle = dark ? '#cfd3da' : '#31353b';
+		const pins = lineArtPathData( { ...geo, lines: [] } );
+		if ( pins ) {
+			g.fill( new Path2D( pins ) );
+		}
+		g.restore();
+		return c;
+	}
 	const d = lineArtPathData( geo );
 	if ( d && 'undefined' !== typeof Path2D ) {
 		g.fill( new Path2D( d ) );
 	}
 	g.restore();
 	return c;
+}
+
+/** The colour field rides along when coloured threads are asked for. */
+function withColor( source, like, opts ) {
+	if ( 'string' === opts.mode && ( opts.threadColors || 1 ) >= 2 ) {
+		return { ...opts, colorField: colorFieldFrom( source, like, opts.detail || 620 ) };
+	}
+	return opts;
 }
 
 /**
@@ -1039,8 +1357,12 @@ export function renderLineArt( like, source, opts = {} ) {
  */
 export function lineArtPaths( source, like, opts = {} ) {
 	const field = fieldFrom( source, like, opts.detail || 620 );
-	const geo = lineArtGeometry( field, opts );
-	const k = opts.scaleTo ? opts.scaleTo / field.w : 1;
+	const {
+		geo,
+		w: fw,
+		h: fh,
+	} = cropped( lineArtGeometry( field, withColor( source, like, opts ) ), field );
+	const k = opts.scaleTo ? opts.scaleTo / fw : 1;
 	if ( 1 !== k ) {
 		if ( geo.dots ) {
 			geo.dots = geo.dots.map( ( p ) => [ p[ 0 ] * k, p[ 1 ] * k ] );
@@ -1050,16 +1372,62 @@ export function lineArtPaths( source, like, opts = {} ) {
 			geo.field = { w: field0.w, h: field0.h, v: field0.v, scale: k };
 			geo.size *= k;
 		} else {
-			geo.lines = geo.lines.map( ( line ) => ( {
-				pts: line.pts.map( ( p ) => [ p[ 0 ] * k, p[ 1 ] * k ] ),
-				width: line.width ? line.width.map( ( v ) => v * k ) : null,
-			} ) );
+			const scaleLines = ( lines ) =>
+				lines.map( ( line ) => ( {
+					pts: line.pts.map( ( p ) => [ p[ 0 ] * k, p[ 1 ] * k ] ),
+					width: line.width ? line.width.map( ( v ) => v * k ) : null,
+				} ) );
+			geo.lines = scaleLines( geo.lines );
+			if ( geo.layers ) {
+				geo.layers = geo.layers.map( ( l ) => ( { ...l, lines: scaleLines( l.lines ) } ) );
+			}
 			geo.width = ( geo.width || 0.5 ) * k;
 		}
 	}
 	return {
-		w: Math.round( field.w * k ),
-		h: Math.round( field.h * k ),
+		w: Math.round( fw * k ),
+		h: Math.round( fh * k ),
 		d: lineArtPathData( geo, k ),
+		// 3.6: one path per thread colour, for whoever can place several.
+		layers: geo.layers
+			? geo.layers.map( ( l ) => ( {
+					color: l.color,
+					d: lineArtPathData( { ...geo, lines: l.lines, pins: null }, k ),
+			  } ) )
+			: null,
+	};
+}
+
+/**
+ * A drawing that is only part of its field (the round string art board)
+ * moved to its own origin, with its own size.
+ *
+ * @param {Object} geo   lineArtGeometry().
+ * @param {Object} field The field it was drawn on.
+ * @return {Object} { geo, w, h }.
+ */
+function cropped( geo, field ) {
+	const box = geo.crop;
+	if ( ! box ) {
+		return { geo, w: field.w, h: field.h };
+	}
+	const move = ( p ) => [ p[ 0 ] - box.x, p[ 1 ] - box.y ];
+	return {
+		geo: {
+			...geo,
+			lines: geo.lines.map( ( line ) => ( {
+				...line,
+				pts: line.pts.map( move ),
+			} ) ),
+			layers: geo.layers
+				? geo.layers.map( ( l ) => ( {
+						...l,
+						lines: l.lines.map( ( line ) => ( { ...line, pts: line.pts.map( move ) } ) ),
+				  } ) )
+				: null,
+			pins: geo.pins ? geo.pins.map( move ) : null,
+		},
+		w: box.w,
+		h: box.h,
 	};
 }

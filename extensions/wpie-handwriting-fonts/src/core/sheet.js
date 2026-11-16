@@ -277,9 +277,29 @@ export function cellGuides( metrics ) {
  * @param {Object}   opts.metrics    Font metrics for the guide lines.
  * @param {Function} opts.labelFor   Key to printed label.
  * @param {string}   opts.title      Line printed at the top.
+ * @param {string}   opts.labelColor Label colour (the paper sheet prints
+ *                                   them in the guide pink).
+ * @param {number}   opts.labelSize  Label size in millimetres.
+ * @param {string}   opts.labelAlign 'left' (paper) or 'center'.
+ * @param {number}   opts.labelGap   Millimetres between a label and its box.
+ * @param {string}   opts.boxColor   Box outline colour. Any colour with a
+ *                                   full red channel stays invisible to
+ *                                   the reader.
+ * @param {number}   opts.boxWidth   Box outline width in millimetres.
  */
 export function drawSheet( ctx, page, opts = {} ) {
-	const { dpi = 300, metrics, labelFor = ( k ) => k, title = '' } = opts;
+	const {
+		dpi = 300,
+		metrics,
+		labelFor = ( k ) => k,
+		title = '',
+		labelColor = GUIDE_COLOR,
+		labelSize = 3.2,
+		labelAlign = 'left',
+		labelGap = 0.8,
+		boxColor = GUIDE_FAINT,
+		boxWidth = 0.25,
+	} = opts;
 	const s = dpi / 25.4;
 	const g = page.geom;
 	ctx.fillStyle = '#ffffff';
@@ -306,8 +326,8 @@ export function drawSheet( ctx, page, opts = {} ) {
 		const w = cell.w * s;
 		const h = cell.h * s;
 
-		ctx.strokeStyle = GUIDE_FAINT;
-		ctx.lineWidth = Math.max( 1, 0.25 * s );
+		ctx.strokeStyle = boxColor;
+		ctx.lineWidth = Math.max( 1, boxWidth * s );
 		ctx.strokeRect( x, y, w, h );
 
 		for ( const [ name, frac ] of Object.entries( guides ) ) {
@@ -320,11 +340,15 @@ export function drawSheet( ctx, page, opts = {} ) {
 			ctx.stroke();
 		}
 
-		ctx.fillStyle = GUIDE_COLOR;
-		ctx.font = `${ Math.round( 3.2 * s ) }px sans-serif`;
-		ctx.textAlign = 'left';
+		ctx.fillStyle = labelColor;
+		ctx.font = `${ Math.round( labelSize * s ) }px sans-serif`;
+		ctx.textAlign = 'center' === labelAlign ? 'center' : 'left';
 		ctx.textBaseline = 'bottom';
-		ctx.fillText( labelFor( cell.key ), x, y - 0.8 * s );
+		ctx.fillText(
+			labelFor( cell.key ),
+			'center' === labelAlign ? x + w / 2 : x,
+			y - labelGap * s
+		);
 	}
 }
 
@@ -606,19 +630,32 @@ export function applyH( H, x, y ) {
  * @param {Object} opts  Options.
  * @param {number} opts.size    Output resolution of the cell, in pixels.
  * @param {number} opts.inset   Millimetres trimmed off each edge.
+ * @param {Uint8Array} opts.gray The image's red channel, when the caller
+ *                               reads many cells and has it already.
+ * @param {number} opts.above   Millimetres read above the box's top edge;
+ *                              by default the inset, inside the box.
+ * @param {number} opts.below   The same below the bottom edge. A taller
+ *                              window gives a taller bitmap at the same
+ *                              scale, `size` pixels across.
  * @return {Object} `{ w, h, data }` bitmap, ink set to 1.
  */
 export function extractCell( img, H, cell, opts = {} ) {
 	const { size = 320, inset = 0.8 } = opts;
-	const gray = redChannel( img );
+	const above = opts.above ?? -inset;
+	const below = opts.below ?? -inset;
+	const gray = opts.gray || redChannel( img );
 	const w = img.width;
 	const h = img.height;
-	const out = new Uint8Array( size * size );
-	const samples = new Uint8Array( size * size );
 	const x0 = cell.x + inset;
-	const y0 = cell.y + inset;
+	const y0 = cell.y - above;
 	const span = cell.w - inset * 2;
-	for ( let py = 0; py < size; py++ ) {
+	const rows = Math.max(
+		1,
+		Math.round( ( size * ( cell.h + above + below ) ) / span )
+	);
+	const out = new Uint8Array( size * rows );
+	const samples = new Uint8Array( size * rows );
+	for ( let py = 0; py < rows; py++ ) {
 		for ( let px = 0; px < size; px++ ) {
 			const p = applyH( H, x0 + ( span * ( px + 0.5 ) ) / size, y0 + ( span * ( py + 0.5 ) ) / size );
 			samples[ py * size + px ] = sampleBilinear( gray, w, h, p.x, p.y );
@@ -639,12 +676,12 @@ export function extractCell( img, H, cell, opts = {} ) {
 		}
 	}
 	if ( max - min < 45 ) {
-		return { w: size, h: size, data: out, empty: true };
+		return { w: size, h: rows, data: out, empty: true };
 	}
 	for ( let i = 0; i < samples.length; i++ ) {
 		out[ i ] = samples[ i ] <= limit ? 1 : 0;
 	}
-	return dropPrintedRules( { w: size, h: size, data: out, empty: false } );
+	return dropPrintedRules( { w: size, h: rows, data: out, empty: false } );
 }
 
 /**
@@ -713,7 +750,7 @@ export function dropPrintedRules( bmp ) {
 			}
 		}
 		const wide = x1 - x0 >= w * 0.85;
-		const flat = y1 - y0 <= h * 0.04;
+		const flat = y1 - y0 <= w * 0.04;
 		if ( wide && flat ) {
 			for ( const i of blob ) {
 				data[ i ] = 0;
@@ -817,16 +854,18 @@ export function despeckle( bmp, minArea ) {
  * @param {Object} opts    Options.
  * @param {number} opts.inset  Millimetres trimmed by `extractCell`.
  * @param {number} opts.cellMm Cell size in millimetres.
+ * @param {number} opts.above  The window `extractCell` read above the box.
  * @return {Object} Bitmap with free-standing rules removed.
  */
 export function removeRules( bmp, metrics, opts = {} ) {
 	const { inset = 0.8, cellMm = SHEET.cell } = opts;
+	const above = opts.above ?? -inset;
 	if ( ! bmp || bmp.empty ) {
 		return bmp;
 	}
 	const { w, h, data } = bmp;
 	const span = cellMm - inset * 2;
-	const perMm = h / span;
+	const perMm = w / span;
 	// Comfortably under any pen, comfortably over the printed rule.
 	const maxThin = Math.max( 2, Math.round( perMm * 0.62 ) );
 	// And it has to actually run across the box. A stroke that merely
@@ -835,7 +874,7 @@ export function removeRules( bmp, metrics, opts = {} ) {
 	const guides = cellGuides( metrics );
 	const rows = new Set();
 	for ( const frac of Object.values( guides ) ) {
-		const row = Math.round( ( ( frac * cellMm - inset ) / span ) * h );
+		const row = Math.round( ( frac * cellMm + above ) * perMm );
 		for ( let d = -maxThin; d <= maxThin; d++ ) {
 			const r = row + d;
 			if ( r >= 0 && r < h ) {
@@ -942,10 +981,12 @@ export function removeRules( bmp, metrics, opts = {} ) {
  * @param {Object} opts    Options.
  * @param {number} opts.inset  Millimetres trimmed by `extractCell`.
  * @param {number} opts.cellMm Cell size in millimetres.
+ * @param {number} opts.above  The window `extractCell` read above the box.
  * @return {Array} Contours in font units.
  */
 export function cellToContours( bmp, metrics, opts = {} ) {
 	const { inset = 0.8, cellMm = SHEET.cell } = opts;
+	const above = opts.above ?? -inset;
 	if ( ! bmp || bmp.empty ) {
 		return [];
 	}
@@ -953,10 +994,11 @@ export function cellToContours( bmp, metrics, opts = {} ) {
 	const perMm = span / cellMm;
 	const unitsAcross = ( cellMm - inset * 2 ) * perMm;
 	const left = inset * perMm;
-	const top = metrics.ascender - inset * perMm;
+	const top = metrics.ascender + above * perMm;
+	// One scale both ways: a window taller than the box is only longer.
 	const toUnits = ( p ) => ( {
 		x: left + ( p.x / bmp.w ) * unitsAcross,
-		y: top - ( p.y / bmp.h ) * unitsAcross,
+		y: top - ( p.y / bmp.w ) * unitsAcross,
 	} );
 	const scale = unitsAcross / bmp.w;
 	return traceToContours( bmp, {

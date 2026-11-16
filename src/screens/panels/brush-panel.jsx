@@ -24,12 +24,13 @@ import { __, _x, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from '@wordpress/element';
 
 import { groupedTips, getTip } from '../../lib/brush-tips';
-import { STYLE_BRUSHES } from '../../lib/media-tips';
-import { ScrubLabel } from '../../components/scrub-label';
+import { STYLE_BRUSHES, mediaPreviewStyle } from '../../lib/media-tips';
 import { tipPreview, TIP_TILE } from '../../lib/brush-preview';
 import { PAINT_STYLES } from '../../lib/paint-engine';
 import { WET_TUNING_DEFS } from '../canvas/wet-controller';
+import { FAMILY_OF } from '../../lib/wet-styles';
 import { ColorWheel } from '../../components/color-wheel';
+import { pushRecentColor } from '../../lib/user-swatches';
 import { GradientBar } from '../../components/gradient-bar';
 import {
 	editDrawnTip,
@@ -45,6 +46,13 @@ const COLOUR_MODES = [
 	[ 'solid', () => __( 'Solid', 'wunderpaint' ) ],
 	[ 'jitter', () => __( 'Jitter', 'wunderpaint' ) ],
 	[ 'gradient', () => __( 'Gradient', 'wunderpaint' ) ],
+];
+
+const METAL_COLORS = [
+	[ '#d7aa46', () => __( 'Gold', 'wunderpaint' ) ],
+	[ '#c4c9d0', () => __( 'Silver', 'wunderpaint' ) ],
+	[ '#bf754d', () => __( 'Copper', 'wunderpaint' ) ],
+	[ '#d29b91', () => __( 'Rose gold', 'wunderpaint' ) ],
 ];
 
 const JITTER_ROWS = [
@@ -69,8 +77,12 @@ const SHAPE_ROWS = [
  * The wet dials' labels, one vocabulary across the styles. Kept here so
  * i18n stays in the UI layer; the controller only knows the ids.
  */
-function wetDialLabel( id ) {
+function wetDialLabel( id, style ) {
 	switch ( id ) {
+		case 'sheen':
+			return __( 'Shine', 'wunderpaint' );
+		case 'rate':
+			return __( 'Spray rate', 'wunderpaint' );
 		case 'dry':
 			return __( 'Drying speed', 'wunderpaint' );
 		case 'grain':
@@ -88,7 +100,9 @@ function wetDialLabel( id ) {
 		case 'open':
 			return __( 'Open time', 'wunderpaint' );
 		case 'tooth':
-			return __( 'Tooth', 'wunderpaint' );
+			return style === 'metal-leaf'
+				? __( 'Texture', 'wunderpaint' )
+				: __( 'Tooth', 'wunderpaint' );
 		case 'press':
 			return _x( 'Pressure', 'charcoal dial', 'wunderpaint' );
 		case 'pickup':
@@ -97,50 +111,29 @@ function wetDialLabel( id ) {
 	return id;
 }
 
-/**
- * One labelled slider, the shape the whole panel repeats. Label and value
- * are SCRUBBABLE (drag = 1 unit per pixel, Shift = 10x): the narrow track
- * cannot land on exact numbers - 500 units across ~110px jumps in fours -
- * and painting needs point-exact sizes (Thomas).
- */
+/** Label and numeric readout share the editor-wide precision interaction. */
 function Row( { label, value, min, max, onChange, suffix } ) {
 	return (
 		<label className="bp-row">
-			<ScrubLabel
-				as="span"
-				className="bp-row-label"
-				value={ value }
-				min={ min }
-				max={ max }
-				onScrub={ onChange }
-			>
-				{ label }
-			</ScrubLabel>
+			<span className="bp-row-label">{ label }</span>
 			<input
 				type="range"
 				min={ min }
 				max={ max }
 				value={ value }
+				aria-label={ label }
 				onChange={ ( e ) => onChange( +e.target.value ) }
 			/>
-			<ScrubLabel
-				as="b"
-				className="bp-row-val"
-				value={ value }
-				min={ min }
-				max={ max }
-				onScrub={ onChange }
-			>
+			<output className="bp-row-val">
 				{ value }
 				{ suffix || '' }
-			</ScrubLabel>
+			</output>
 		</label>
 	);
 }
 
-export function BrushPanel( { editor } ) {
+export function BrushPanel( { editor, tool = editor.state.tool } ) {
 	const { state, dispatch } = editor;
-	const tool = state.tool;
 	const opts = state.toolOpts[ tool ] || {};
 	const set = ( patch ) => dispatch( { type: 'SET_TOOL_OPTS', tool, patch } );
 	const tipId = opts.tip || 'round';
@@ -210,29 +203,65 @@ export function BrushPanel( { editor } ) {
 									)?.name || ''
 								) }
 							</span>
-							<div className="bp-tipgrid">
-								{ STYLE_BRUSHES[ opts.paintStyle ].map(
-									( id ) => (
-										<button
-											key={ id }
-											type="button"
-											aria-pressed={ id === tipId }
-											className={
-												'bp-tip' +
-												( id === tipId ? ' is-on' : '' )
-											}
-											title={ getTip( id ).label }
-											onClick={ () => set( { tip: id } ) }
-										>
-											<img
-												src={ tipPreview(
-													id,
-													TIP_TILE
-												) }
-												alt=""
-											/>
-										</button>
+							{ /* The style's own brushes show their MEDIUM: a
+							     real stroke of it, rendered by the engine
+							     into one sprite (media-tips.js), one fixed
+							     row each - the grey tip shape could not
+							     tell wax from pencil. Without the sprite
+							     the shapes stay. */ }
+							<div
+								className={
+									'bp-tipgrid' +
+									( mediaPreviewStyle(
+										opts.paintStyle,
+										STYLE_BRUSHES[ opts.paintStyle ][ 0 ]
 									)
+										? ' is-media'
+										: '' )
+								}
+							>
+								{ STYLE_BRUSHES[ opts.paintStyle ].map(
+									( id ) => {
+										const media = mediaPreviewStyle(
+											opts.paintStyle,
+											id
+										);
+										return (
+											<button
+												key={ id }
+												type="button"
+												aria-pressed={ id === tipId }
+												className={
+													'bp-tip' +
+													( media
+														? ' is-media'
+														: '' ) +
+													( id === tipId
+														? ' is-on'
+														: '' )
+												}
+												title={ getTip( id ).label }
+												onClick={ () =>
+													set( { tip: id } )
+												}
+											>
+												{ media ? (
+													<span
+														className="bp-media"
+														style={ media }
+													/>
+												) : (
+													<img
+														src={ tipPreview(
+															id,
+															TIP_TILE
+														) }
+														alt=""
+													/>
+												) }
+											</button>
+										);
+									}
 								) }
 							</div>
 						</div>
@@ -322,6 +351,10 @@ export function BrushPanel( { editor } ) {
 							{ PAINT_STYLES.map( ( st ) => (
 								<button
 									key={ st.id }
+									aria-pressed={
+										st.id ===
+										( opts.paintStyle || 'normal' )
+									}
 									type="button"
 									className={
 										'bp-style' +
@@ -380,6 +413,19 @@ export function BrushPanel( { editor } ) {
 							onChange={ ( v ) => set( { smoothing: v } ) }
 						/>
 					) }
+					{ /* How the pen's pressure reaches the stroke: 50 is the
+					     tablet as it comes, lower answers a light hand
+					     sooner, higher wants a firmer one. A mouse has no
+					     pressure and ignores it. */ }
+					{ Number.isFinite( opts.pressCurve ) && (
+						<Row
+							label={ __( 'Pressure curve', 'wunderpaint' ) }
+							value={ opts.pressCurve }
+							min={ 0 }
+							max={ 100 }
+							onChange={ ( v ) => set( { pressCurve: v } ) }
+						/>
+					) }
 					{ Number.isFinite( opts.opacity ) && (
 						<Row
 							label={ __( 'Opacity', 'wunderpaint' ) }
@@ -416,7 +462,10 @@ export function BrushPanel( { editor } ) {
 							( [ dialId, dialDef ] ) => (
 								<Row
 									key={ dialId }
-									label={ wetDialLabel( dialId ) }
+									label={ wetDialLabel(
+										dialId,
+										opts.paintStyle
+									) }
 									value={
 										opts.wetTuning?.[ opts.paintStyle ]?.[
 											dialId
@@ -440,6 +489,31 @@ export function BrushPanel( { editor } ) {
 								/>
 							)
 						) }
+						{ /* The virtual pen: how far a mouse or touch
+						     stroke swells in and lifts off. A real pen
+						     brings its own pressure; the airbrush trigger
+						     meters paint, so it has none. */ }
+						{ 'airbrush' !== opts.paintStyle && (
+							<Row
+								label={ __( 'Taper', 'wunderpaint' ) }
+								value={ opts.taper ?? 35 }
+								min={ 0 }
+								max={ 100 }
+								onChange={ ( v ) => set( { taper: v } ) }
+							/>
+						) }
+						{ /* The wet brush's charge: a dry stick never runs
+						     out, and the smudger lays nothing of its own. */ }
+						{ 'dry' !== FAMILY_OF[ opts.paintStyle ] &&
+							'smudge' !== opts.paintStyle && (
+								<Row
+									label={ __( 'Paint load', 'wunderpaint' ) }
+									value={ opts.load ?? 65 }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) => set( { load: v } ) }
+								/>
+							) }
 					</div>
 				) }
 
@@ -514,7 +588,37 @@ export function BrushPanel( { editor } ) {
 							{ __( 'Color', 'wunderpaint' ) }
 						</span>
 						<div className="bp-colour">
+							{ opts.paintStyle === 'metal-leaf' && (
+								<div className="swatches bp-metal-swatches">
+									{ METAL_COLORS.map(
+										( [ color, label ] ) => (
+											<button
+												key={ color }
+												type="button"
+												className="sw"
+												style={ {
+													backgroundColor: color,
+												} }
+												title={ label() }
+												aria-label={ label() }
+												aria-pressed={
+													state.fgColor?.toLowerCase() ===
+													color
+												}
+												onClick={ () => {
+													dispatch( {
+														type: 'SET_FG',
+														color,
+													} );
+													pushRecentColor( color );
+												} }
+											/>
+										)
+									) }
+								</div>
+							) }
 							<ColorWheel
+								onCommit={ pushRecentColor }
 								color={ state.fgColor }
 								onChange={ ( c ) =>
 									dispatch( { type: 'SET_FG', color: c } )

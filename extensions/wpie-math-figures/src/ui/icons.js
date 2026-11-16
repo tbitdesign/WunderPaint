@@ -3,6 +3,25 @@ const stroke = ( d, size = 16 ) =>
 	`<svg width="${ size }" height="${ size }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ d }</svg>`;
 
 export const ICONS = {
+	analysis: stroke(
+		'<path d="M3 20V4M3 20h18M5 15Q12 25 20 5M6 14l13-7"/><circle cx="12" cy="11" r="2"/>'
+	),
+	implicit: stroke(
+		'<path d="M4 12C4 2 20 2 20 12S4 22 4 12ZM2 12h20M12 2v20"/>'
+	),
+	inequality: stroke( '<path d="M4 20L12 4l8 16ZM6 17h12M8 13h8M10 9h4"/>' ),
+	vectorfield: stroke(
+		'<path d="M4 8l4-4M4 4h4v4M14 8l4-4M14 4h4v4M4 18l4-4M4 14h4v4M14 18l4-4M14 14h4v4"/>'
+	),
+	slopefield: stroke(
+		'<path d="M3 7l4-2M10 7l4 2M17 9l4-4M3 16l4 2M10 18l4-4M17 18l4-2"/>'
+	),
+	contours: stroke(
+		'<path d="M3 12C3 1 21 1 21 12S3 23 3 12ZM6 12C6 5 18 5 18 12S6 19 6 12ZM9 12C9 8 15 8 15 12S9 16 9 12Z"/>'
+	),
+	complex: stroke(
+		'<path d="M3 15h18M9 3v18M9 15l8-9M17 15V6H9"/><circle cx="17" cy="6" r="2"/>'
+	),
 	formula: stroke(
 		'<path d="M4 18h3l4-12h9"/><path d="M12 12l4 6M16 12l-4 6"/>'
 	),

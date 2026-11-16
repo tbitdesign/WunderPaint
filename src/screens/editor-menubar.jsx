@@ -1,3 +1,6 @@
+import { FILTER_COLLECTION_GROUPS } from '../lib/filter-collection';
+import { LAYER_EFFECT_GROUPS } from '../lib/layer-effects-collection';
+import { PaintSwatch } from '../components/paint-controls';
 /**
  * Menu bar: real dropdowns for File/Edit/Image/Layer/Select/Filter/View/Help
  * plus the contextual tool-options block (spec 04.2).
@@ -7,27 +10,31 @@ import { useState, useEffect, useRef, useMemo } from '@wordpress/element';
 import { __, _x } from '@wordpress/i18n';
 
 import { I } from '../icons';
+import { EyedropperOptions } from '../components/eyedropper-options';
 import { tipPreview, TIP_TILE } from '../lib/brush-preview';
 import { FILTERS, FONT_WEIGHTS } from '../store/constants';
 import { BlendModeSelect } from '../components/blend-select';
 import { FontPicker } from '../components/font-picker';
-import { promptDialog } from '../lib/dialogs';
-import { SOCIAL_CROPS } from '../lib/safe-zones';
+import { connectFolder } from './library/archive-section';
+import {
+	CropFormatSelect,
+	CropActions,
+	CropPreviewActions,
+} from './panels/crop-panel';
 import { listRecentFiles } from '../lib/recent-files';
 import { listMacros, listActions, runMacro } from '../lib/macros';
 import { ACTION_CATEGORIES } from '../lib/bundled-actions';
 import { PROOF_MODES } from '../lib/proof';
-import {
-	listUserGradients,
-	saveUserGradient,
-	deleteUserGradient,
-} from '../lib/gradient-presets';
-import { useGradients } from '../content/use-content';
 import { BRUSH_TIPS, isStampTip, getTip } from '../lib/brush-tips';
 import { canFluidText, toggleFluidTextOp } from '../lib/text-fit-ops';
-import { EFFECTS } from '../lib/effects';
+import { EFFECTS, defaultParamsFor } from '../lib/effects';
 import { TextStylePicker } from './text-style-picker';
 import { ShapeStylePicker } from './shape-style-picker';
+import { useSelectionFeather } from '../components/use-selection-feather';
+import { useHoverTip } from '../components/hover-tip';
+import { SELECTION_MODES } from './panels/selection-panel';
+import { repeatLayerOf, REPEAT_MODES } from '../lib/repeat-layer';
+import { REPEAT_LIMITS } from '../lib/repeat-layout';
 import { useSelectionStyle } from '../components/use-selection-style';
 import { useEditor, activeLayerOf } from '../store/editor-context';
 import { selectionBounds } from './canvas/overlays';
@@ -36,23 +43,25 @@ import {
 	listExtensionFilterPresets,
 	listExtensionEffects,
 	listExtensionGenerators,
-	groupGenerators,
 	subscribeExtensions,
-	extensionCategoryId,
-	EXTENSION_MENU_CATEGORIES,
 } from '../lib/extensions';
+import { extensionEntries, extensionMenuSections } from '../lib/extension-menu';
 import { SwatchButton } from '../components/color-popover';
 import { ScrubLabel } from '../components/scrub-label';
-import { GradientBar } from '../components/gradient-bar';
 import * as Ops from '../store/ops';
 import { currentLocale, availableLocales } from '../lib/editor-locale';
 import { ShapePicker } from '../components/shape-picker';
+import { gradientLayerOf, gradientKindPatch } from '../lib/gradient-layer';
+import { FX_BRUSH_MODES } from './panels/fxbrush-panel';
+import { ancestorLocked } from './canvas/tool-handlers';
+import { useEffectPreview } from './panels/use-effect-preview';
 
 /**
  * Build the menu model (spec 04.2, every listed item, all functional).
- * `run` receives (editor, extras); `when` gates enabled state.
+ * `run` receives (editor, extras); `when` gates enabled state. Exported for
+ * the title-bar search, which indexes exactly what the menus offer.
  */
-function buildMenus( editor, extras ) {
+export function buildMenus( editor, extras ) {
 	const { state } = editor;
 	const hasActive = !! state.activeId;
 	const hasSelection = !! state.selection;
@@ -110,6 +119,7 @@ function buildMenus( editor, extras ) {
 			id: 'file',
 			label: __( 'File', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Open', 'wunderpaint' ) },
 				{
 					// No kbd: ⌘N belongs to the browser (new window) and no
 					// page can claim it, so the menu must not promise it.
@@ -119,6 +129,12 @@ function buildMenus( editor, extras ) {
 				{
 					label: __( 'Open/Place', 'wunderpaint' ),
 					run: () => Ops.openPlaceOp( editor, extras ),
+				},
+				{
+					// A folder on the visitor's own computer (v1.431.0),
+					// read in place; the tray opens on it once connected.
+					label: __( 'Connect Folder', 'wunderpaint' ),
+					run: () => connectFolder( extras ),
 				},
 				{
 					label: __( 'Open Recent', 'wunderpaint' ),
@@ -147,9 +163,7 @@ function buildMenus( editor, extras ) {
 					label: __( 'Open Dynamic Template', 'wunderpaint' ),
 					run: () => extras.openTemplatePicker(),
 				},
-				// Save family grouped by destination (v1.96.0): flattened image
-				// to the Media Library | editable design | reusable pieces.
-				{ divider: true },
+				{ head: __( 'Save', 'wunderpaint' ) },
 				// Demo mode hides the library destinations; Export (the pure
 				// client-side download) is the save there and takes ⌘S (v1.307).
 				{
@@ -169,6 +183,7 @@ function buildMenus( editor, extras ) {
 					kbd: window.WPIE?.demo ? '⌘S' : '⇧⌘E',
 					run: () => extras.openExport( 'export' ),
 				},
+				{ head: __( 'Share', 'wunderpaint' ) },
 				// Sharing needs a server that can hand out a public link, and
 				// the standalone studio has none: its local host knows no
 				// /designs/{id}/share, so the POST fell into the generic
@@ -194,7 +209,7 @@ function buildMenus( editor, extras ) {
 						!! state.doc.source?.designId &&
 						! window.WPIE?.standalone,
 				},
-				{ divider: true },
+				{ head: __( 'Editable', 'wunderpaint' ) },
 				{
 					label: __( 'Save Editable Design', 'wunderpaint' ),
 					run: () => Ops.saveDesignOp( editor, extras ),
@@ -206,7 +221,7 @@ function buildMenus( editor, extras ) {
 					when: () => !! editor.state.doc.source?.designId,
 					run: () => Ops.saveDesignOp( editor, extras, true ),
 				},
-				{ divider: true },
+				{ head: __( 'Reusable', 'wunderpaint' ) },
 				{
 					ws: 'mi.file.dyntemplate',
 					label: __( 'Save as Dynamic Template', 'wunderpaint' ),
@@ -223,12 +238,12 @@ function buildMenus( editor, extras ) {
 					label: __( 'Save as Pattern', 'wunderpaint' ),
 					run: () => Ops.saveAsPatternOp( editor, extras ),
 				},
-				{ divider: true },
+				{ head: __( 'Pages', 'wunderpaint' ) },
 				{
 					label: __( 'Add Page', 'wunderpaint' ),
 					run: () => Ops.addPageOp( editor ),
 				},
-				{ divider: true },
+				{ head: __( 'Project', 'wunderpaint' ) },
 				{
 					ws: 'mi.file.project',
 					label: __( 'Project (.wpie)', 'wunderpaint' ),
@@ -288,6 +303,7 @@ function buildMenus( editor, extras ) {
 			id: 'edit',
 			label: __( 'Edit', 'wunderpaint' ),
 			items: [
+				{ head: __( 'History', 'wunderpaint' ) },
 				{
 					label: __( 'Undo', 'wunderpaint' ),
 					kbd: '⌘Z',
@@ -300,7 +316,7 @@ function buildMenus( editor, extras ) {
 					run: () => editor.redo(),
 					when: () => editor.canRedo,
 				},
-				{ divider: true },
+				{ head: __( 'Clipboard', 'wunderpaint' ) },
 				{
 					label: __( 'Cut Layer', 'wunderpaint' ),
 					kbd: '⌘X',
@@ -337,7 +353,7 @@ function buildMenus( editor, extras ) {
 					run: () => Ops.deleteLayers( editor ),
 					when: () => hasActive,
 				},
-				{ divider: true },
+				{ head: __( 'Styles & Colors', 'wunderpaint' ) },
 				{
 					label: __( 'Copy Styles', 'wunderpaint' ),
 					run: () => Ops.copyLayerStyles( editor ),
@@ -348,25 +364,19 @@ function buildMenus( editor, extras ) {
 					run: () => Ops.pasteLayerStyles( editor ),
 					when: () => hasActive && !! state.styleClipboard,
 				},
-				{ divider: true },
+				{
+					// One color for another across the page (v1.431.0).
+					label: __( 'Replace Colors', 'wunderpaint' ),
+					run: () => extras.openReplaceColors(),
+				},
+				{ head: __( 'Transform', 'wunderpaint' ) },
 				{
 					ws: 'mi.edit.freetransform',
 					label: __( 'Free Transform', 'wunderpaint' ),
 					run: () => Ops.freeTransformOp( editor, extras ),
 					when: () => hasActive,
 				},
-				{
-					label: __( 'Select All', 'wunderpaint' ),
-					kbd: '⌘A',
-					run: () => Ops.selectAllOp( editor ),
-				},
-				{
-					label: __( 'Deselect', 'wunderpaint' ),
-					kbd: '⌘D',
-					run: () => Ops.deselectOp( editor ),
-					when: () => hasSelection,
-				},
-				{ divider: true },
+				{ head: __( 'Settings', 'wunderpaint' ) },
 				{
 					ws: 'mi.edit.prefs',
 					label: __( 'Preferences', 'wunderpaint' ),
@@ -378,6 +388,7 @@ function buildMenus( editor, extras ) {
 			id: 'image',
 			label: __( 'Image', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Size', 'wunderpaint' ) },
 				{
 					label: __( 'Image Size', 'wunderpaint' ),
 					run: () => extras.openResize( 'image' ),
@@ -391,7 +402,7 @@ function buildMenus( editor, extras ) {
 					label: __( 'Resize Design', 'wunderpaint' ),
 					run: () => extras.openMagicResize(),
 				},
-				{ divider: true },
+				{ head: __( 'Color', 'wunderpaint' ) },
 				// Color utilities as one family (v1.95.0), incl. the LUT
 				// loader that used to live at the end of the Filter menu.
 				{
@@ -437,7 +448,7 @@ function buildMenus( editor, extras ) {
 						},
 					],
 				},
-				{ divider: true },
+				{ head: __( 'Crop', 'wunderpaint' ) },
 				{
 					label: __( 'Crop to Selection', 'wunderpaint' ),
 					run: () => Ops.cropToSelectionOp( editor ),
@@ -459,7 +470,7 @@ function buildMenus( editor, extras ) {
 					label: __( 'Trim', 'wunderpaint' ),
 					run: () => Ops.trimOp( editor, extras ),
 				},
-				{ divider: true },
+				{ head: __( 'Rotate & Flip', 'wunderpaint' ) },
 				{
 					label: __( 'Rotate 90° CW', 'wunderpaint' ),
 					run: () => Ops.rotateDocOp( editor, true ),
@@ -482,6 +493,7 @@ function buildMenus( editor, extras ) {
 			id: 'layer',
 			label: __( 'Layer', 'wunderpaint' ),
 			items: [
+				{ head: __( 'New', 'wunderpaint' ) },
 				{
 					// No kbd: ⇧⌘N is the browser's private window (HILFE-06).
 					label: __( 'New Layer', 'wunderpaint' ),
@@ -550,32 +562,18 @@ function buildMenus( editor, extras ) {
 						},
 					],
 				},
+				{ head: __( 'Duplicate & Repeat', 'wunderpaint' ) },
 				{
 					label: __( 'Duplicate', 'wunderpaint' ),
 					run: () => Ops.duplicateLayer( editor ),
 					when: () => hasActive,
 				},
 				{
-					label: __( 'Radial Repeat…', 'wunderpaint' ),
-					run: () => Ops.radialRepeatPrompt( editor ),
-					when: () => hasActive,
-				},
-				{
-					label: __( 'Grid Repeat…', 'wunderpaint' ),
-					run: () => Ops.gridRepeatPrompt( editor ),
-					when: () => hasActive,
-				},
-				{
-					label: __( 'Delete', 'wunderpaint' ),
-					run: () => Ops.deleteLayers( editor ),
-					when: () => hasActive,
-				},
-				{ divider: true },
-				{
 					label: __( 'Layer via Copy', 'wunderpaint' ),
 					run: () => Ops.layerViaCopyOp( editor ),
 					when: () => hasActive,
 				},
+				{ head: __( 'Edit', 'wunderpaint' ) },
 				{
 					label: __( 'Trim Transparent Pixels', 'wunderpaint' ),
 					run: () => Ops.trimLayerOp( editor ),
@@ -599,7 +597,12 @@ function buildMenus( editor, extras ) {
 					label: __( 'Flatten', 'wunderpaint' ),
 					run: () => Ops.flattenOp( editor ),
 				},
-				{ divider: true },
+				{
+					label: __( 'Delete', 'wunderpaint' ),
+					run: () => Ops.deleteLayers( editor ),
+					when: () => hasActive,
+				},
+				{ head: __( 'Smart & Masks', 'wunderpaint' ) },
 				{
 					label: __( 'Convert to Smart Object', 'wunderpaint' ),
 					run: () => Ops.convertToSmartOp( editor ),
@@ -620,7 +623,7 @@ function buildMenus( editor, extras ) {
 					run: () => Ops.fitIntoFrameOp( editor, extras ),
 					when: () => hasActive,
 				},
-				{ divider: true },
+				{ head: __( 'Arrange', 'wunderpaint' ) },
 				{
 					label: __( 'Bring Forward', 'wunderpaint' ),
 					kbd: '⌘]',
@@ -645,7 +648,7 @@ function buildMenus( editor, extras ) {
 					run: () => Ops.sendToBackOp( editor ),
 					when: () => hasActive,
 				},
-				{ divider: true },
+				{ head: __( 'Properties', 'wunderpaint' ) },
 				{
 					label: __( 'Rename layer', 'wunderpaint' ),
 					run: () => Ops.renameLayerOp( editor ),
@@ -669,6 +672,7 @@ function buildMenus( editor, extras ) {
 			id: 'select',
 			label: __( 'Select', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Selection', 'wunderpaint' ) },
 				{
 					label: __( 'All', 'wunderpaint' ),
 					kbd: '⌘A',
@@ -695,7 +699,7 @@ function buildMenus( editor, extras ) {
 						when: () => hasActive,
 					} ) ),
 				},
-				{ divider: true },
+				{ head: __( 'Draw', 'wunderpaint' ) },
 				{
 					label: __( 'Select by Marquee', 'wunderpaint' ),
 					kbd: 'M',
@@ -711,7 +715,7 @@ function buildMenus( editor, extras ) {
 					run: () =>
 						editor.dispatch( { type: 'SET_TOOL', tool: 'lasso' } ),
 				},
-				{ divider: true },
+				{ head: __( 'Smart', 'wunderpaint' ) },
 				{
 					label: __( 'Smart Select', 'wunderpaint' ),
 					run: () => extras.selectSubject(),
@@ -721,7 +725,7 @@ function buildMenus( editor, extras ) {
 					run: () => extras.removeObject(),
 					when: () => hasSelection,
 				},
-				{ divider: true },
+				{ head: __( 'Refine & Store', 'wunderpaint' ) },
 				{
 					label: __( 'Feather', 'wunderpaint' ),
 					run: () => Ops.featherSelectionOp( editor, extras ),
@@ -758,16 +762,28 @@ function buildMenus( editor, extras ) {
 			items: ( () => {
 				const effectItem = ( e ) => ( {
 					label: e.label,
+					preview: () => ( {
+						previewEffect: {
+							id: e.id,
+							params: defaultParamsFor( e.id ),
+						},
+					} ),
 					run: () =>
 						Object.keys( e.params || {} ).length
 							? extras.openEffect( e.id )
 							: Ops.applyEffectOp( editor, extras, e.id ),
 					when: () => hasActive,
 				} );
+				const filterItem = ( f ) => ( {
+					label: f.label,
+					preview: () => ( { filter: f.id, filterAmount: 100 } ),
+					run: () => Ops.applyPresetFilterOp( editor, f.id ),
+					when: () => hasActive,
+				} );
 				const effectItems = ( ids ) =>
 					ids
 						.map( ( id ) => EFFECTS.find( ( e ) => e.id === id ) )
-						.filter( Boolean )
+						.filter( ( e ) => e && ! e.collection )
 						.map( effectItem );
 				const GROUPS = {
 					blur: [
@@ -805,47 +821,49 @@ function buildMenus( editor, extras ) {
 				const grouped = new Set( Object.values( GROUPS ).flat() );
 				// Future built-ins that are not grouped yet land in Stylize.
 				const rest = EFFECTS.filter(
-					( e ) => ! e.hidden && ! grouped.has( e.id )
+					( e ) =>
+						! e.hidden && ! e.collection && ! grouped.has( e.id )
 				).map( effectItem );
 				const extEffects = listExtensionEffects()
 					.filter( ( e ) => ! e.hidden )
 					.map( effectItem );
+				const collectionItem = ( group ) => ( {
+					label: group.label,
+					children: EFFECTS.filter(
+						( e ) => e.collection && e.group === group.id
+					).map( effectItem ),
+				} );
 				return [
+					{ head: __( 'Looks', 'wunderpaint' ) },
 					{
 						label: __( 'Presets', 'wunderpaint' ),
 						children: [
-							...FILTERS.filter( ( f ) => 'none' !== f.id ).map(
-								( f ) => ( {
-									label: f.label,
-									run: () =>
-										Ops.applyPresetFilterOp( editor, f.id ),
-									when: () => hasActive,
-								} )
-							),
-							...listExtensionFilterPresets().map( ( f ) => ( {
-								label: f.label,
-								run: () =>
-									Ops.applyPresetFilterOp( editor, f.id ),
-								when: () => hasActive,
+							...[
+								...FILTER_COLLECTION_GROUPS,
+								{
+									id: 'essentials',
+									label: __( 'Essentials', 'wunderpaint' ),
+								},
+							].map( ( group ) => ( {
+								label: group.label,
+								children: FILTERS.filter(
+									( f ) =>
+										f.id !== 'none' &&
+										( f.group || 'essentials' ) === group.id
+								).map( filterItem ),
 							} ) ),
+							...listExtensionFilterPresets().map( filterItem ),
 							{ divider: true },
 							{
-								label: __( 'Remove Filter', 'wunderpaint' ),
-								run: () =>
-									Ops.applyPresetFilterOp( editor, 'none' ),
+								...filterItem( {
+									id: 'none',
+									label: __( 'Remove Filter', 'wunderpaint' ),
+								} ),
 								when: () =>
 									hasActive &&
 									'none' !== activeLayerOf( state )?.filter,
 							},
 						],
-					},
-					{
-						label: __( 'Blur & Sharpen', 'wunderpaint' ),
-						children: effectItems( GROUPS.blur ),
-					},
-					{
-						label: __( 'Color', 'wunderpaint' ),
-						children: effectItems( GROUPS.color ),
 					},
 					{
 						// Own submenu (v1.130.2): the presets crowded Color.
@@ -862,21 +880,46 @@ function buildMenus( editor, extras ) {
 								[ 'Mint', '#0f3d3e', '#bff0d4' ],
 							].map( ( [ name, shadow, highlight ] ) => ( {
 								label: name,
+								preview: () => ( {
+									previewEffect: {
+										id: 'duotone',
+										params: { shadow, highlight },
+									},
+								} ),
 								run: () =>
 									Ops.applyEffectOp(
 										editor,
 										extras,
 										'duotone',
-										{ shadow, highlight }
+										{
+											shadow,
+											highlight,
+										}
 									),
 								when: () => hasActive,
 							} ) ),
 						],
 					},
+					...LAYER_EFFECT_GROUPS.filter(
+						( group ) => group.id === 'composed'
+					).map( collectionItem ),
+					{ head: __( 'Corrections', 'wunderpaint' ) },
+					{
+						label: __( 'Blur & Sharpen', 'wunderpaint' ),
+						children: effectItems( GROUPS.blur ),
+					},
+					{
+						label: __( 'Color', 'wunderpaint' ),
+						children: effectItems( GROUPS.color ),
+					},
+					{ head: __( 'Creative Effects', 'wunderpaint' ) },
 					{
 						label: __( 'Stylize', 'wunderpaint' ),
 						children: [ ...effectItems( GROUPS.stylize ), ...rest ],
 					},
+					...LAYER_EFFECT_GROUPS.filter(
+						( group ) => group.id !== 'composed'
+					).map( collectionItem ),
 					...( extEffects.length
 						? [
 								{
@@ -892,6 +935,7 @@ function buildMenus( editor, extras ) {
 			id: 'view',
 			label: __( 'View', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Zoom', 'wunderpaint' ) },
 				{
 					label: __( 'Zoom In', 'wunderpaint' ),
 					kbd: '⌘+',
@@ -935,21 +979,135 @@ function buildMenus( editor, extras ) {
 					},
 					when: () => hasSelection,
 				},
-				{ divider: true },
-				// Panels (v1.130.2): everything that shows/hides a work area.
+				{ head: __( 'Panels', 'wunderpaint' ) },
 				{
-					label: state.showBrushPanel
-						? __( 'Hide Brush Panel', 'wunderpaint' )
-						: __( 'Show Brush Panel', 'wunderpaint' ),
+					label: __( 'Color', 'wunderpaint' ),
+					checked:
+						!! state.showColorPanel &&
+						state.colorPanelMode === 'panel',
 					run: () =>
-						editor.dispatch( { type: 'TOGGLE_BRUSH_PANEL' } ),
+						editor.dispatch( {
+							type: 'TOGGLE_COLOR_PANEL',
+							show: true,
+						} ),
 				},
 				{
-					label: state.showShapePanel
-						? __( 'Hide Shape Panel', 'wunderpaint' )
-						: __( 'Show Shape Panel', 'wunderpaint' ),
+					label: __( 'History', 'wunderpaint' ),
+					checked: !! state.showHistoryPanel,
 					run: () =>
-						editor.dispatch( { type: 'TOGGLE_SHAPE_PANEL' } ),
+						editor.dispatch( { type: 'TOGGLE_HISTORY_PANEL' } ),
+				},
+				{
+					label: __( 'Tool Panels', 'wunderpaint' ),
+					children: [
+						{
+							label: __( 'Themes', 'wunderpaint' ),
+							checked: !! state.showThemePanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_THEME_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Text', 'wunderpaint' ),
+							checked: !! state.showTextPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_TEXT_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Selection', 'wunderpaint' ),
+							checked: !! state.showSelectionPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_SELECTION_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Crop', 'wunderpaint' ),
+							checked: !! state.showCropPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_CROP_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Brush', 'wunderpaint' ),
+							checked: !! state.showBrushPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_BRUSH_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Paint Bucket', 'wunderpaint' ),
+							checked: !! state.showBucketPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_BUCKET_PANEL',
+								} ),
+						},
+
+						{
+							label: __( 'Clone Stamp', 'wunderpaint' ),
+							checked: !! state.showStampPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_STAMP_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Effect Brush', 'wunderpaint' ),
+							checked: !! state.showFxBrushPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_FXBRUSH_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Shape', 'wunderpaint' ),
+							checked: !! state.showShapePanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_SHAPE_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Pen', 'wunderpaint' ),
+							checked: !! state.showPenPanel,
+							run: () =>
+								editor.dispatch( { type: 'TOGGLE_PEN_PANEL' } ),
+						},
+						{
+							label: __( 'Repeat', 'wunderpaint' ),
+							checked: !! state.showRepeatPanel,
+							run: () =>
+								editor.dispatch( {
+									type: 'TOGGLE_REPEAT_PANEL',
+								} ),
+						},
+						{
+							label: __( 'Mask', 'wunderpaint' ),
+							checked: !! (
+								state.showMaskPanel && state.maskEditId
+							),
+							run: () => {
+								if ( state.showMaskPanel && state.maskEditId ) {
+									editor.dispatch( {
+										type: 'TOGGLE_MASK_PANEL',
+										show: false,
+									} );
+								} else if ( activeLayerOf( state )?.mask ) {
+									editor.dispatch( {
+										type: 'SET_MASK_EDIT',
+										id: state.activeId,
+									} );
+								}
+							},
+							when: () => !! activeLayerOf( state )?.mask,
+						},
+					],
 				},
 				{
 					label: state.showNavigator
@@ -983,7 +1141,7 @@ function buildMenus( editor, extras ) {
 					label: __( 'Workspace', 'wunderpaint' ),
 					run: () => extras.openWorkspace(),
 				},
-				{ divider: true },
+				{ head: __( 'Guides', 'wunderpaint' ) },
 				// Rulers, grid, guides and snapping in one place.
 				{
 					label: state.showRulers
@@ -1032,7 +1190,7 @@ function buildMenus( editor, extras ) {
 					},
 					when: () => ( state.doc.guides || [] ).length > 0,
 				},
-				{ divider: true },
+				{ head: __( 'Proof', 'wunderpaint' ) },
 				// Proofing & previews: Check Contrast lives right under
 				// Proof Colors (user request v1.130.2).
 				{
@@ -1085,6 +1243,7 @@ function buildMenus( editor, extras ) {
 			id: 'assets',
 			label: __( 'Assets', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Find & Generate', 'wunderpaint' ) },
 				{
 					label: __( 'Asset Library', 'wunderpaint' ),
 					kbd: '⇧⌘L',
@@ -1110,7 +1269,7 @@ function buildMenus( editor, extras ) {
 					label: __( 'Design Generator', 'wunderpaint' ),
 					run: () => extras.openDesignAssistant(),
 				},
-				{ divider: true },
+				{ head: __( 'Manage', 'wunderpaint' ) },
 				{
 					label: __( 'Manage Media Library', 'wunderpaint' ),
 					run: () => extras.openMediaLibrary(),
@@ -1124,6 +1283,15 @@ function buildMenus( editor, extras ) {
 					run: () => extras.openBrandKits(),
 					when: () => !! window.WPIE?.canManageKits,
 				},
+				// AI Presets (spec 2026-09-16): site-wide like Brand Kits, so
+				// they live beside them. Admins shape the AI Studio panel for
+				// everyone; in the studio whoever owns the browser does.
+				{
+					label: __( 'AI Presets', 'wunderpaint' ),
+					run: () => extras.openAiButtons(),
+					when: () =>
+						!! window.WPIE?.canManage || !! window.WPIE?.standalone,
+				},
 			],
 		},
 		{
@@ -1133,6 +1301,7 @@ function buildMenus( editor, extras ) {
 			id: 'automation',
 			label: __( 'Automation', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Create & Process', 'wunderpaint' ) },
 				// Pro automation lives in the separate Pro plugin. In the free
 				// plugin these entries appear ONLY when Pro provides them; with
 				// Pro absent they are hidden (no disabled "Pro" teasers), and
@@ -1212,23 +1381,21 @@ function buildMenus( editor, extras ) {
 						},
 					],
 				},
+				{ head: __( 'Reuse & Repeat', 'wunderpaint' ) },
 				{
 					// Actions moved in from their own top-level menu
 					// (v1.154.0): recording and replaying is automation.
 					label: __( 'Actions', 'wunderpaint' ),
 					subId: 'actions',
-					children: [
-						{
-							label: __( 'Manage Actions', 'wunderpaint' ),
-							run: () => extras.openActions(),
-						},
-						{ divider: true },
+					children: ( () => {
+						const actions = listActions();
+						const macros = listMacros();
 						// Bundled quick access (v1.246.1): one nested
 						// submenu per starter category.
-						...Object.entries( ACTION_CATEGORIES ).map(
-							( [ key, catLabel ] ) => ( {
+						const included = Object.entries( ACTION_CATEGORIES )
+							.map( ( [ key, catLabel ] ) => ( {
 								label: catLabel(),
-								children: listActions()
+								children: actions
 									.filter(
 										( m ) => m.builtIn && m.category === key
 									)
@@ -1239,28 +1406,45 @@ function buildMenus( editor, extras ) {
 												() => {}
 											),
 									} ) ),
-							} )
-						),
-						{ divider: true },
-						...( listMacros().length
-							? listMacros().map( ( m ) => ( {
-									label: m.name,
-									run: () =>
-										runMacro( editor, m.steps ).catch(
-											() => {}
-										),
-							  } ) )
-							: [
-									{
-										label: __(
-											'No saved actions',
-											'wunderpaint'
-										),
-										run: () => {},
-										when: () => false,
-									},
-							  ] ),
-					],
+							} ) )
+							.filter( ( category ) => category.children.length );
+						return [
+							{ head: __( 'Manage', 'wunderpaint' ) },
+							{
+								label: __( 'Manage Actions', 'wunderpaint' ),
+								run: () => extras.openActions(),
+							},
+							...( included.length
+								? [
+										{
+											head: __(
+												'Included Actions',
+												'wunderpaint'
+											),
+										},
+										...included,
+								  ]
+								: [] ),
+							...( macros.length
+								? [
+										{
+											head: __(
+												'My Actions',
+												'wunderpaint'
+											),
+										},
+										...macros.map( ( m ) => ( {
+											label: m.name,
+											run: () =>
+												runMacro(
+													editor,
+													m.steps
+												).catch( () => {} ),
+										} ) ),
+								  ]
+								: [] ),
+						];
+					} )(),
 				},
 			],
 		},
@@ -1270,6 +1454,7 @@ function buildMenus( editor, extras ) {
 			id: 'tools',
 			label: __( 'Tools', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Design', 'wunderpaint' ) },
 				{
 					label: __( 'Color Schemer', 'wunderpaint' ),
 					run: () => extras.openColorSchemer(),
@@ -1279,21 +1464,27 @@ function buildMenus( editor, extras ) {
 					run: () => extras.openBackgroundStudio(),
 				},
 				{
+					label: __( 'Collage & Photo Grid', 'wunderpaint' ),
+					run: () => extras.openCollage?.(),
+				},
+				{ head: __( 'Photo & Presentation', 'wunderpaint' ) },
+				{
 					label: __( 'Screenshot Beautifier', 'wunderpaint' ),
 					run: () => extras.openBeautify(),
 				},
 				{
-					label: __( 'Collage & Photo Grid', 'wunderpaint' ),
-					run: () => extras.openCollage?.(),
+					label: __( 'Mockup Generator', 'wunderpaint' ),
+					run: () => extras.openMockup(),
 				},
 				{
 					label: __( '360° Panorama', 'wunderpaint' ),
 					run: () => extras.openPanorama?.(),
 				},
 				{
-					label: __( 'Mockup Generator', 'wunderpaint' ),
-					run: () => extras.openMockup(),
+					label: __( 'Vignette & Film', 'wunderpaint' ),
+					run: () => extras.openVignette?.(),
 				},
+				{ head: __( 'Data & Codes', 'wunderpaint' ) },
 				{
 					label: __( 'Chart & Table', 'wunderpaint' ),
 					run: () => extras.openChart(),
@@ -1302,90 +1493,30 @@ function buildMenus( editor, extras ) {
 					label: __( 'QR Code Generator', 'wunderpaint' ),
 					run: () => extras.openQr(),
 				},
-				{
-					label: __( 'Vignette & Film', 'wunderpaint' ),
-					run: () => extras.openVignette?.(),
-				},
 			],
 		},
 		// Extensions is the LAUNCHER menu (v1.154.0): one entry per
 		// installed extension (its generators, grouped when several), for
 		// every user. Managing moved to Help > Manage Extensions.
 		...( () => {
-			// Core generators (wpie-core/*, v1.256) have their own menu
-			// homes - the launcher lists real extensions only.
-			const groups = groupGenerators(
-				listExtensionGenerators().filter(
-					( gen ) => ! String( gen.id ).startsWith( 'wpie-core/' )
-				),
-				window.WPIE?.extensions || []
-			);
-			const loose = extensionMenuItems( 'extensions' );
-			if ( ! groups.length && ! loose.length ) {
+			// Curated categories (v1.310, regrouped v1.433): every extension
+			// sorts into one of the fixed, translated categories - ALWAYS a
+			// submenu - and headings name the blocks, like in every other
+			// main menu. Names and order live in lib/extension-menu.js,
+			// shared with the manager and the title-bar search.
+			const entries = extensionEntries( {
+				generators: listExtensionGenerators(),
+				menuItems: extensionMenuItems( 'extensions' ),
+				installed: window.WPIE?.extensions || [],
+			} );
+			if ( ! entries.length ) {
 				return [];
 			}
-			// Curated categories (v1.310): every extension sorts into one
-			// of the fixed, translated groups - ALWAYS a submenu, so the
-			// menu reads as tidy categories no matter what is installed.
-			// Order and labels are host-owned; ids are the stable API.
-			const CATEGORY_LABELS = {
-				photo: __( 'Photo & Effects', 'wunderpaint' ),
-				motion: __( 'Motion & Video', 'wunderpaint' ),
-				'3d': __( '3D & Scenes', 'wunderpaint' ),
-				art: __( 'Art & Illustration', 'wunderpaint' ),
-				data: __( 'Data & Diagrams', 'wunderpaint' ),
-				marketing: __( 'Marketing & Social', 'wunderpaint' ),
-				print: __( 'Print & Posters', 'wunderpaint' ),
-				tools: __( 'Tools & Workflow', 'wunderpaint' ),
-				other: __( 'Other', 'wunderpaint' ),
-			};
-			const buckets = new Map();
-			const put = ( cat, entry ) => {
-				if ( ! buckets.has( cat ) ) {
-					buckets.set( cat, [] );
-				}
-				buckets.get( cat ).push( entry );
-			};
-			groups.forEach( ( group ) =>
-				put(
-					group.category,
-					1 === group.items.length
-						? {
-								label: group.items[ 0 ].label,
-								run: () =>
-									group.items[ 0 ].run( {
-										editor,
-										extras,
-									} ),
-						  }
-						: {
-								label: group.name,
-								children: group.items.map( ( gen ) => ( {
-									label: gen.label,
-									run: () => gen.run( { editor, extras } ),
-								} ) ),
-						  }
-				)
-			);
-			// Third-party menu items declare their category on the item.
-			loose.forEach( ( item ) =>
-				put( extensionCategoryId( item.category ), {
-					label: item.label,
-					run: () => item.run( { editor, extras } ),
-					when: item.when ? () => item.when( { editor } ) : undefined,
-				} )
-			);
-			const byLabel = ( a, b ) => a.label.localeCompare( b.label );
 			return [
 				{
 					id: 'extensions',
 					label: __( 'Extensions', 'wunderpaint' ),
-					items: EXTENSION_MENU_CATEGORIES.filter( ( cat ) =>
-						buckets.has( cat )
-					).map( ( cat ) => ( {
-						label: CATEGORY_LABELS[ cat ],
-						children: buckets.get( cat ).sort( byLabel ),
-					} ) ),
+					items: extensionMenuSections( entries, { editor, extras } ),
 				},
 			];
 		} )(),
@@ -1393,6 +1524,7 @@ function buildMenus( editor, extras ) {
 			id: 'help',
 			label: __( 'Help', 'wunderpaint' ),
 			items: [
+				{ head: __( 'Learn', 'wunderpaint' ) },
 				{
 					label: __( 'Help Assistant', 'wunderpaint' ),
 					run: () => extras.openHelpBot(),
@@ -1406,6 +1538,11 @@ function buildMenus( editor, extras ) {
 					label: __( 'Keyboard Shortcuts', 'wunderpaint' ),
 					run: () => extras.openShortcutHelp(),
 				},
+				{
+					label: __( 'Show Tour', 'wunderpaint' ),
+					run: () => extras.openTour(),
+				},
+				{ head: __( 'Editor', 'wunderpaint' ) },
 				// The editor language, independent of the WordPress language.
 				// The WordPress profile only lists the locales installed on
 				// the site; this picker reads the bundled files and can
@@ -1425,10 +1562,6 @@ function buildMenus( editor, extras ) {
 							},
 					  ]
 					: [] ),
-				{
-					label: __( 'Show Tour', 'wunderpaint' ),
-					run: () => extras.openTour(),
-				},
 				// Optional beginner shell (v1.166): the full editor stays
 				// the default, this just swaps the chrome for this user.
 				{
@@ -1464,6 +1597,7 @@ function buildMenus( editor, extras ) {
 							},
 					  ]
 					: [] ),
+				{ head: __( 'About', 'wunderpaint' ) },
 				{
 					label: __( 'System Status', 'wunderpaint' ),
 					run: () => extras.openStatus(),
@@ -1477,6 +1611,37 @@ function buildMenus( editor, extras ) {
 	] );
 }
 
+/** A disappearing menu entry releases only the preview that it owns. */
+function MenuItem( { item, runItem, canvasPreview, focused = false } ) {
+	const ref = useRef( null );
+	const enabled = ! item.when || item.when();
+	const stopPreview = canvasPreview?.stop;
+	useEffect( () => {
+		const button = ref.current;
+		return () => stopPreview?.( button );
+	}, [ stopPreview, item.label ] );
+	return (
+		<button
+			ref={ ref }
+			role="menuitem"
+			data-ws={ item.ws }
+			className={ `ed-item${ focused ? ' focused' : '' }` }
+			disabled={ ! enabled }
+			{ ...( enabled && item.preview
+				? canvasPreview?.forItem( item )
+				: {} ) }
+			onClick={ () => runItem( item ) }
+		>
+			{ item.label }
+			{ item.chip && (
+				<span className="menu-chip-pro">{ item.chip }</span>
+			) }
+			{ item.checked && <span className="kbd-hint">✓</span> }
+			{ item.kbd && <span className="kbd-hint">{ item.kbd }</span> }
+		</button>
+	);
+}
+
 /**
  * Submenu entries, recursively: a child with `children` opens another
  * level on hover (v1.246.1 - the bundled-action categories under
@@ -1485,12 +1650,20 @@ function buildMenus( editor, extras ) {
  * @param {Object}   props         Props.
  * @param {Array}    props.items   Menu entries.
  * @param {Function} props.runItem Runs a leaf entry and closes the menu.
+ * @param {Object}   props.canvasPreview Optional canvas-only hover controller.
  */
-function SubItems( { items, runItem } ) {
+function SubItems( { items, runItem, canvasPreview } ) {
 	const [ openSub, setOpenSub ] = useState( null );
 	return (
 		<>
 			{ items.map( ( child, ci ) => {
+				if ( child.head ) {
+					return (
+						<div key={ ci } className="ed-head">
+							<span>{ child.head }</span>
+						</div>
+					);
+				}
 				if ( child.divider ) {
 					return <div key={ ci } className="divider" />;
 				}
@@ -1535,44 +1708,42 @@ function SubItems( { items, runItem } ) {
 									<SubItems
 										items={ child.children }
 										runItem={ runItem }
+										canvasPreview={ canvasPreview }
 									/>
 								</div>
 							) }
 						</div>
 					);
 				}
-				const childEnabled = ! child.when || child.when();
 				return (
-					<button
+					<MenuItem
 						key={ ci }
-						role="menuitem"
-						className="ed-item"
-						disabled={ ! childEnabled }
-						onClick={ () => runItem( child ) }
-					>
-						{ child.label }
-						{ child.chip && (
-							<span className="menu-chip-pro">
-								{ child.chip }
-							</span>
-						) }
-						{ child.checked && <span className="kbd-hint">✓</span> }
-						{ child.kbd && (
-							<span className="kbd-hint">{ child.kbd }</span>
-						) }
-					</button>
+						item={ child }
+						runItem={ runItem }
+						canvasPreview={ canvasPreview }
+					/>
 				);
 			} ) }
 		</>
 	);
 }
 
-function Dropdown( { menu, extras, onClose } ) {
+function FilterDropdown( { editor, ...props } ) {
+	const canvasPreview = useEffectPreview(
+		editor,
+		activeLayerOf( editor.state ),
+		( item ) => item.preview?.(),
+		{ onEscape: props.onClose }
+	);
+	return <Dropdown { ...props } canvasPreview={ canvasPreview } />;
+}
+
+export function Dropdown( { menu, extras, onClose, canvasPreview } ) {
 	const ref = useRef( null );
 	const [ focusIdx, setFocusIdx ] = useState( -1 );
 	const [ openSub, setOpenSub ] = useState( null );
 	const actionable = menu.items.filter(
-		( item ) => ! item.divider && ! item.children
+		( item ) => ! item.divider && ! item.head && ! item.children
 	);
 
 	useEffect( () => {
@@ -1608,6 +1779,7 @@ function Dropdown( { menu, extras, onClose } ) {
 	} );
 
 	const runItem = ( item ) => {
+		canvasPreview?.stop();
 		onClose();
 		try {
 			item.run();
@@ -1626,6 +1798,16 @@ function Dropdown( { menu, extras, onClose } ) {
 			{ menu.items.map( ( item, i ) => {
 				if ( item.divider ) {
 					return <div key={ i } className="divider" />;
+				}
+				if ( item.head ) {
+					// Section head (16.09.2026): the small label at the left in
+					// a thin outline, the rule running on to its right - the
+					// divider with a name, as in the context menu.
+					return (
+						<div key={ i } className="ed-head">
+							<span>{ item.head }</span>
+						</div>
+					);
 				}
 				if ( item.children ) {
 					// Grouped submenu (v0.4.1), opens on hover or click.
@@ -1670,6 +1852,7 @@ function Dropdown( { menu, extras, onClose } ) {
 									<SubItems
 										items={ item.children }
 										runItem={ runItem }
+										canvasPreview={ canvasPreview }
 									/>
 								</div>
 							) }
@@ -1677,26 +1860,15 @@ function Dropdown( { menu, extras, onClose } ) {
 					);
 				}
 				actionIdx++;
-				const enabled = ! item.when || item.when();
 				const isFocused = actionIdx === focusIdx;
 				return (
-					<button
+					<MenuItem
 						key={ i }
-						role="menuitem"
-						data-ws={ item.ws }
-						className={ `ed-item${ isFocused ? ' focused' : '' }` }
-						disabled={ ! enabled }
-						onClick={ () => runItem( item ) }
-					>
-						{ item.label }
-						{ item.chip && (
-							<span className="menu-chip-pro">{ item.chip }</span>
-						) }
-						{ item.checked && <span className="kbd-hint">✓</span> }
-						{ item.kbd && (
-							<span className="kbd-hint">{ item.kbd }</span>
-						) }
-					</button>
+						item={ item }
+						focused={ isFocused }
+						runItem={ runItem }
+						canvasPreview={ canvasPreview }
+					/>
 				);
 			} ) }
 		</div>
@@ -1705,152 +1877,16 @@ function Dropdown( { menu, extras, onClose } ) {
 
 /* --------------------------- tool options ------------------------------ */
 
-/** Photoshop-style gradient preset picker: dropdown swatch grid (v1.0.7). */
-function GradientPresetPicker( { opts, set } ) {
-	const GRADIENT_PRESETS = useGradients();
-	const [ open, setOpen ] = useState( null ); // fixed panel style | null
-	const [ userGradients, setUserGradients ] = useState( listUserGradients );
-	const panelRef = useRef( null );
-
-	useEffect( () => {
-		if ( ! open ) {
-			return;
-		}
-		const onDown = ( e ) => {
-			if ( panelRef.current && ! panelRef.current.contains( e.target ) ) {
-				setOpen( null );
-			}
-		};
-		const onKey = ( e ) => {
-			if ( 'Escape' === e.key ) {
-				e.stopPropagation();
-				setOpen( null );
-			}
-		};
-		document.addEventListener( 'mousedown', onDown );
-		document.addEventListener( 'keydown', onKey, true );
-		return () => {
-			document.removeEventListener( 'mousedown', onDown );
-			document.removeEventListener( 'keydown', onKey, true );
-		};
-	}, [ open ] );
-
-	const cssFor = ( stops ) =>
-		`linear-gradient(90deg, ${ stops
-			.map( ( stop ) => `${ stop.color } ${ stop.at * 100 }%` )
-			.join( ', ' ) })`;
-
-	const apply = ( g ) => {
-		set(
-			'stops',
-			g.stops.map( ( stop ) => ( { ...stop } ) )
-		);
-		set( 'kind', g.kind || 'linear' );
-		setOpen( null );
-	};
-
-	const swatch = ( g, removable ) => (
-		<button
-			key={ g.name }
-			className="gradient-preset-sw"
-			style={ { backgroundImage: cssFor( g.stops ) } }
-			title={
-				removable
-					? `${ g.name }, ${ __(
-							'Alt-click removes',
-							'wunderpaint'
-					  ) }`
-					: g.name
-			}
-			aria-label={ g.name }
-			onClick={ ( e ) => {
-				if ( removable && e.altKey ) {
-					setUserGradients( deleteUserGradient( g.name ) );
-				} else {
-					apply( g );
-				}
-			} }
-		/>
-	);
-
-	return (
-		<div className="group">
-			<button
-				className="gradient-preset-toggle"
-				title={ __( 'Gradient presets', 'wunderpaint' ) }
-				aria-haspopup="true"
-				aria-expanded={ !! open }
-				onClick={ ( e ) => {
-					if ( open ) {
-						setOpen( null );
-						return;
-					}
-					const rect = e.currentTarget.getBoundingClientRect();
-					setOpen( {
-						position: 'fixed',
-						left: Math.min( rect.left, window.innerWidth - 292 ),
-						top: rect.bottom + 6,
-						zIndex: 700,
-					} );
-				} }
-			>
-				<span
-					className="gradient-preset-current"
-					style={ { backgroundImage: cssFor( opts.stops || [] ) } }
-				/>
-				▾
-			</button>
-			{ open && (
-				<div
-					className="gradient-preset-panel"
-					style={ open }
-					ref={ panelRef }
-					role="listbox"
-					aria-label={ __( 'Gradient presets', 'wunderpaint' ) }
-				>
-					<div className="gradient-preset-grid">
-						{ GRADIENT_PRESETS.map( ( g ) => swatch( g, false ) ) }
-					</div>
-					{ userGradients.length > 0 && (
-						<>
-							<div className="gradient-preset-title">
-								{ __( 'My gradients', 'wunderpaint' ) }
-							</div>
-							<div className="gradient-preset-grid">
-								{ userGradients.map( ( g ) =>
-									swatch( g, true )
-								) }
-							</div>
-						</>
-					) }
-					<button
-						className="ai-btn secondary gradient-preset-save"
-						onClick={ async () => {
-							const name = await promptDialog( {
-								title: __( 'Save Gradient', 'wunderpaint' ),
-								label: __( 'Name', 'wunderpaint' ),
-								defaultValue: 'Gradient',
-							} );
-							if ( name ) {
-								setUserGradients(
-									saveUserGradient(
-										name,
-										opts.stops || [],
-										opts.kind
-									)
-								);
-							}
-						} }
-					>
-						＋ { __( 'Save current gradient', 'wunderpaint' ) }
-					</button>
-				</div>
-			) }
-		</div>
-	);
-}
-
-function NumberOpt( { label, value, onChange, width = 56, suffix, min, max } ) {
+function NumberOpt( {
+	label,
+	value,
+	onChange,
+	onCommit,
+	width = 56,
+	suffix,
+	min,
+	max,
+} ) {
 	return (
 		<div className="group">
 			{ label && (
@@ -1860,12 +1896,20 @@ function NumberOpt( { label, value, onChange, width = 56, suffix, min, max } ) {
 					min={ min ?? -Infinity }
 					max={ max ?? Infinity }
 					onScrub={ onChange }
+					onCommit={ onCommit }
 				>
 					{ label }
 				</ScrubLabel>
 			) }
 			<input
 				type="number"
+				aria-label={ label }
+				onBlur={ onCommit }
+				onKeyDown={ ( e ) => {
+					if ( onCommit && e.key === 'Enter' ) {
+						e.currentTarget.blur();
+					}
+				} }
 				value={ value }
 				min={ min }
 				max={ max }
@@ -2039,7 +2083,11 @@ function CurvePopover( { value, onChange } ) {
 						value={ value }
 						onChange={ ( e ) => onChange( +e.target.value ) }
 					/>
-					<span className="label" style={ { width: 28 } }>
+					<span
+						data-number-value
+						className="label"
+						style={ { width: 28 } }
+					>
 						{ value }
 					</span>
 				</div>
@@ -2048,9 +2096,155 @@ function CurvePopover( { value, onChange } ) {
 	);
 }
 
+/** The same six choices as the selection panel, sized for the menu row. */
+function SelectionToolChoices( { editor, extras, compact } ) {
+	const { state, dispatch } = editor;
+	const opts = state.toolOpts[ state.tool ] || {};
+	const tip = useHoverTip( 'below' );
+	const activeMode = [ 'wand', 'smartselect' ].includes( state.tool )
+		? state.tool
+		: state.tool === 'marquee'
+		? opts.shape || 'rect'
+		: opts.mode || 'freehand';
+	return (
+		<div className="group selp-tool-options">
+			{ ! compact && (
+				<span className="label">
+					{ __( 'Selection', 'wunderpaint' ) }
+				</span>
+			) }
+			<div
+				className="dsm-seg selp-tool-types"
+				role="group"
+				aria-label={ __( 'Selection tool', 'wunderpaint' ) }
+			>
+				{ SELECTION_MODES.map( ( mode ) => (
+					<button
+						type="button"
+						key={ mode.id }
+						className={ mode.id === activeMode ? 'active' : '' }
+						aria-pressed={ mode.id === activeMode }
+						aria-label={ mode.label() }
+						{ ...tip.props( mode.label() ) }
+						onClick={ () => {
+							extras?.viewApi?.current?.cancelDraft?.();
+							dispatch( {
+								type: 'SET_TOOL_OPTS',
+								tool: mode.tool,
+								patch: mode.patch,
+							} );
+							dispatch( { type: 'SET_TOOL', tool: mode.tool } );
+						} }
+					>
+						{ mode.icon( 16 ) }
+					</button>
+				) ) }
+			</div>
+			{ tip.node }
+		</div>
+	);
+}
+
+/** One trailing entry point for every toolbar panel. */
+function ToolPanelOpener( { editor, extras } ) {
+	const { state, dispatch } = editor;
+	const tool = state.tool;
+	let label, action, expanded;
+	if (
+		state.maskEditId &&
+		[ 'brush', 'pencil', 'eraser' ].includes( tool )
+	) {
+		label = __( 'Mask Panel', 'wunderpaint' );
+		action = 'TOGGLE_MASK_PANEL';
+		expanded = state.showMaskPanel;
+	} else if ( [ 'brush', 'pencil', 'eraser' ].includes( tool ) ) {
+		label = __( 'Brush Panel', 'wunderpaint' );
+		action = 'TOGGLE_BRUSH_PANEL';
+		expanded = state.showBrushPanel;
+	} else if ( tool === 'eyedropper' ) {
+		label = __( 'Color panel', 'wunderpaint' );
+		action = 'TOGGLE_COLOR_PANEL';
+		expanded = state.showColorPanel;
+	} else if ( tool === 'bucket' ) {
+		label = __( 'Paint Bucket Panel', 'wunderpaint' );
+		action = 'TOGGLE_BUCKET_PANEL';
+		expanded = state.showBucketPanel;
+	} else if (
+		tool === 'text' ||
+		( [ 'move', 'select' ].includes( tool ) &&
+			activeLayerOf( state )?.type === 'text' )
+	) {
+		label = __( 'Text Panel', 'wunderpaint' );
+		action = 'TOGGLE_TEXT_PANEL';
+		expanded = state.showTextPanel;
+	} else if ( tool === 'crop' ) {
+		label = __( 'Crop Panel', 'wunderpaint' );
+		action = 'TOGGLE_CROP_PANEL';
+		expanded = state.showCropPanel;
+	} else if ( tool === 'stamp' ) {
+		label = __( 'Clone Stamp Panel', 'wunderpaint' );
+		action = 'TOGGLE_STAMP_PANEL';
+		expanded = state.showStampPanel;
+	} else if ( tool === 'shape' ) {
+		label = __( 'Shape Studio', 'wunderpaint' );
+		expanded = state.showShapePanel;
+	} else if (
+		[ 'marquee', 'lasso', 'wand', 'smartselect' ].includes( tool )
+	) {
+		label = __( 'Selection Panel', 'wunderpaint' );
+		action = 'TOGGLE_SELECTION_PANEL';
+		expanded = state.showSelectionPanel;
+	} else if ( tool === 'pen' ) {
+		label = __( 'Show Pen Panel', 'wunderpaint' );
+		action = 'TOGGLE_PEN_PANEL';
+		expanded = state.showPenPanel;
+	} else if ( tool === 'fxbrush' ) {
+		label = __( 'Show Effect Brush Panel', 'wunderpaint' );
+		action = 'TOGGLE_FXBRUSH_PANEL';
+		expanded = state.showFxBrushPanel;
+	} else if (
+		tool === 'gradient' ||
+		( [ 'move', 'select' ].includes( tool ) && gradientLayerOf( state ) )
+	) {
+		label = __( 'Color panel', 'wunderpaint' );
+		action = 'TOGGLE_GRADIENT_PANEL';
+		expanded = state.showColorPanel;
+	} else if (
+		tool === 'repeat' ||
+		( [ 'move', 'select' ].includes( tool ) &&
+			activeLayerOf( state )?.type === 'repeat' )
+	) {
+		label = __( 'Repeat Panel', 'wunderpaint' );
+		action = 'TOGGLE_REPEAT_PANEL';
+		expanded = state.showRepeatPanel;
+	} else {
+		return null;
+	}
+	return (
+		<div className="group ed-tool-panel-opener">
+			<div className="seg">
+				<button
+					type="button"
+					title={ label }
+					aria-label={ label }
+					aria-expanded={ expanded }
+					onClick={ () =>
+						action
+							? dispatch( { type: action, show: true } )
+							: extras?.openShapeStudio?.()
+					}
+				>
+					{ I.sliders( { size: 13 } ) }
+				</button>
+			</div>
+		</div>
+	);
+}
+
 function ToolOptions( { extras, compact } ) {
 	const editor = useEditor();
 	const { state, dispatch, commit } = editor;
+	const selectionFeather = useSelectionFeather( editor );
 	const tool = state.tool;
 	const opts = state.toolOpts[ tool ] || {};
 	const set = ( key, value ) =>
@@ -2059,27 +2253,16 @@ function ToolOptions( { extras, compact } ) {
 	const selStyle = useSelectionStyle( extras );
 
 	if ( [ 'brush', 'pencil', 'eraser', 'stamp' ].includes( tool ) ) {
-		// The door to the brush panel (v1.429, user request), inside the
-		// tip picker's group the way the shape bar keeps its studio button
-		// beside the picker: who hid the panel under View found no way back.
-		const panelButton = (
-			<div className="seg">
-				<button
-					type="button"
-					title={ __( 'Brush Panel', 'wunderpaint' ) }
-					aria-label={ __( 'Brush Panel', 'wunderpaint' ) }
-					onClick={ () =>
-						dispatch( { type: 'TOGGLE_BRUSH_PANEL', show: true } )
-					}
-				>
-					{ I.sliders( { size: 13 } ) }
-				</button>
-			</div>
-		);
+		const sizeLabel = {
+			brush: __( 'Brush Size', 'wunderpaint' ),
+			pencil: __( 'Pencil Size', 'wunderpaint' ),
+			eraser: __( 'Eraser Size', 'wunderpaint' ),
+			stamp: __( 'Clone Stamp Size', 'wunderpaint' ),
+		}[ tool ];
 		return (
 			<>
 				<NumberOpt
-					label={ __( 'Size', 'wunderpaint' ) }
+					label={ sizeLabel }
 					value={ opts.size }
 					suffix="px"
 					min={ 1 }
@@ -2098,16 +2281,13 @@ function ToolOptions( { extras, compact } ) {
 								dispatch( { type: 'SET_FG', color: c } )
 							}
 						/>
-						{ 'pencil' === tool && panelButton }
 					</div>
 				) }
 				{ 'brush' === tool && (
 					<BrushTipPicker
 						value={ opts.tip || 'round' }
 						onChange={ ( v ) => set( 'tip', v ) }
-					>
-						{ panelButton }
-					</BrushTipPicker>
+					/>
 				) }
 				<div className="group">
 					<span className="label">
@@ -2121,10 +2301,13 @@ function ToolOptions( { extras, compact } ) {
 						onChange={ ( e ) => set( 'opacity', +e.target.value ) }
 						style={ { width: 80 } }
 					/>
-					<span className="label" style={ { width: 30 } }>
+					<span
+						data-number-value
+						className="label"
+						style={ { width: 30 } }
+					>
 						{ opts.opacity }%
 					</span>
-					{ 'eraser' === tool && panelButton }
 				</div>
 				{ /* Flow lives in the brush panel now (Thomas): the bar
 				     keeps colour, size, opacity, symmetry - and the paper. */ }
@@ -2221,29 +2404,6 @@ function ToolOptions( { extras, compact } ) {
 						</select>
 					</div>
 				) }
-				{ 'stamp' === tool && (
-					// Aligned (v1.429): keep the distance to the source
-					// across strokes; off, every stroke restarts at the
-					// source. Alt-click sets the source (see the handbook).
-					<div className="group">
-						<div className="seg">
-							<button
-								className={
-									false !== opts.aligned ? 'active' : ''
-								}
-								title={ __(
-									'Keep the distance to the source across strokes',
-									'wunderpaint'
-								) }
-								onClick={ () =>
-									set( 'aligned', false === opts.aligned )
-								}
-							>
-								{ __( 'Aligned', 'wunderpaint' ) }
-							</button>
-						</div>
-					</div>
-				) }
 			</>
 		);
 	}
@@ -2294,6 +2454,9 @@ function ToolOptions( { extras, compact } ) {
 		return (
 			<>
 				<div className="group">
+					<span className="label">
+						{ __( 'Text', 'wunderpaint' ) }
+					</span>
 					<FontPicker
 						value={ value( 'fontFamily' ) }
 						width={ 130 }
@@ -2590,18 +2753,31 @@ function ToolOptions( { extras, compact } ) {
 							{ __( 'Color', 'wunderpaint' ) }
 						</span>
 					) }
-					<SwatchButton
-						size={ 24 }
-						color={
-							selStyle?.color ||
-							( target ? target.color : state.fgColor )
-						}
-						onChange={ ( c ) =>
-							target
-								? update( 'color', c )
-								: dispatch( { type: 'SET_FG', color: c } )
-						}
-					/>
+					{ target ? (
+						<PaintSwatch
+							layer={ target }
+							target="fill"
+							size={ 24 }
+							title={ __( 'Text fill', 'wunderpaint' ) }
+							onChange={ ( patch ) => {
+								dispatch( {
+									type: 'UPDATE_LAYER',
+									id: target.id,
+									patch,
+								} );
+								commit( __( 'Paint', 'wunderpaint' ) );
+							} }
+						/>
+					) : (
+						<SwatchButton
+							size={ 24 }
+							title={ __( 'Foreground', 'wunderpaint' ) }
+							color={ state.fgColor }
+							onChange={ ( color ) =>
+								dispatch( { type: 'SET_FG', color } )
+							}
+						/>
+					) }
 				</div>
 				{ target && <TextStylePicker /> }
 			</>
@@ -2609,6 +2785,25 @@ function ToolOptions( { extras, compact } ) {
 	}
 
 	if ( 'shape' === tool ) {
+		const paintLayer =
+			active?.type === 'shape' && ! active.penPath
+				? active
+				: { ...opts, type: 'shape', fill: state.fgColor };
+		const paintChange = ( patch ) => {
+			if ( paintLayer.id ) {
+				dispatch( { type: 'UPDATE_LAYER', id: paintLayer.id, patch } );
+			} else {
+				if ( patch.fill !== undefined ) {
+					dispatch( { type: 'SET_FG', color: patch.fill } );
+				}
+				dispatch( { type: 'SET_TOOL_OPTS', tool: 'shape', patch } );
+			}
+		};
+		const finishPaint = () => {
+			if ( paintLayer.id ) {
+				commit( __( 'Paint', 'wunderpaint' ) );
+			}
+		};
 		// Slimmed (v1.430): pattern, stroke style, radius and sides left
 		// the bar - all of them live in the properties panel and the
 		// studio, and the bar clipped "Radius" and showed a "Pattern"
@@ -2625,42 +2820,38 @@ function ToolOptions( { extras, compact } ) {
 						onChange={ ( id ) => set( 'shape', id ) }
 						onMore={ () => extras?.openShapeStudio?.() }
 					/>
-					<div className="seg">
-						<button
-							type="button"
-							title={ __( 'Shape Studio', 'wunderpaint' ) }
-							aria-label={ __( 'Shape Studio', 'wunderpaint' ) }
-							onClick={ () => extras?.openShapeStudio?.() }
-						>
-							{ I.sliders( { size: 13 } ) }
-						</button>
-					</div>
 				</div>
 				<div className="group">
 					<span className="label">
 						{ __( 'Fill', 'wunderpaint' ) }
 					</span>
-					<SwatchButton
+					<PaintSwatch
+						layer={ paintLayer }
 						size={ 24 }
-						color={ state.fgColor }
-						onChange={ ( c ) =>
-							dispatch( { type: 'SET_FG', color: c } )
-						}
+						title={ __( 'Fill', 'wunderpaint' ) }
+						onChange={ paintChange }
+						onCommit={ finishPaint }
 					/>
 					<span className="label">
 						{ __( 'Stroke', 'wunderpaint' ) }
 					</span>
-					<SwatchButton
+					<PaintSwatch
+						layer={ paintLayer }
+						target="stroke"
 						size={ 24 }
-						color={ opts.stroke || 'transparent' }
-						onChange={ ( c ) => set( 'stroke', c ) }
+						title={ __( 'Stroke', 'wunderpaint' ) }
+						onChange={ paintChange }
+						onCommit={ finishPaint }
 					/>
 					<NumberOpt
-						value={ opts.strokeW }
+						value={ paintLayer.strokeW || 0 }
 						width={ 40 }
 						suffix="px"
 						min={ 0 }
-						onChange={ ( v ) => set( 'strokeW', v ) }
+						onChange={ ( v ) => {
+							paintChange( { strokeW: v } );
+							finishPaint();
+						} }
 					/>
 				</div>
 				<ShapeStylePicker />
@@ -2694,65 +2885,37 @@ function ToolOptions( { extras, compact } ) {
 	const featherOpt = (
 		<NumberOpt
 			label={ __( 'Feather', 'wunderpaint' ) }
-			value={ opts.feather || 0 }
+			value={ selectionFeather.value }
 			suffix="px"
 			min={ 0 }
 			max={ 250 }
 			width={ 44 }
-			onChange={ ( v ) => set( 'feather', Math.max( 0, v ) ) }
+			onChange={ selectionFeather.onChange }
+			onCommit={ selectionFeather.onCommit }
 		/>
 	);
-	if ( 'marquee' === tool ) {
-		return (
-			<>
-				<div className="group">
-					<div className="seg">
-						<button
-							className={
-								'ellipse' !== opts.shape ? 'active' : ''
-							}
-							onClick={ () => set( 'shape', 'rect' ) }
-						>
-							{ __( 'Rectangle', 'wunderpaint' ) }
-						</button>
-						<button
-							className={
-								'ellipse' === opts.shape ? 'active' : ''
-							}
-							onClick={ () => set( 'shape', 'ellipse' ) }
-						>
-							{ __( 'Ellipse', 'wunderpaint' ) }
-						</button>
-					</div>
-				</div>
-				{ combineSeg }
-				{ featherOpt }
-			</>
-		);
+	const selectionChoices = (
+		<SelectionToolChoices
+			editor={ editor }
+			extras={ extras }
+			compact={ compact }
+		/>
+	);
+	// Keep the tool choices recognizable while the panel owns the detailed
+	// settings, including the only Feather control while it is open.
+	if (
+		state.showSelectionPanel &&
+		[ 'marquee', 'lasso', 'wand', 'smartselect' ].includes( tool )
+	) {
+		return selectionChoices;
 	}
-	if ( 'lasso' === tool ) {
+	if ( 'smartselect' === tool ) {
+		return selectionChoices;
+	}
+	if ( [ 'marquee', 'lasso' ].includes( tool ) ) {
 		return (
 			<>
-				<div className="group">
-					<div className="seg">
-						<button
-							className={
-								'polygon' !== opts.mode ? 'active' : ''
-							}
-							onClick={ () => set( 'mode', 'freehand' ) }
-						>
-							{ __( 'Freehand', 'wunderpaint' ) }
-						</button>
-						<button
-							className={
-								'polygon' === opts.mode ? 'active' : ''
-							}
-							onClick={ () => set( 'mode', 'polygon' ) }
-						>
-							{ __( 'Polygon', 'wunderpaint' ) }
-						</button>
-					</div>
-				</div>
+				{ selectionChoices }
 				{ combineSeg }
 				{ featherOpt }
 			</>
@@ -2761,19 +2924,27 @@ function ToolOptions( { extras, compact } ) {
 	if ( 'eyedropper' === tool ) {
 		return (
 			<div className="group">
-				<span className="label">{ __( 'Sample', 'wunderpaint' ) }</span>
+				<span className="label">
+					{ __( 'Eyedropper', 'wunderpaint' ) }
+				</span>
+				<EyedropperOptions editor={ editor } compact />
+			</div>
+		);
+	}
+	if ( 'pen' === tool ) {
+		return (
+			<div className="group">
+				<span className="label">{ __( 'Pen', 'wunderpaint' ) }</span>
 				<div className="seg">
 					{ [
-						[ 1, __( 'Point', 'wunderpaint' ) ],
-						[ 3, '3×3' ],
-						[ 5, '5×5' ],
-					].map( ( [ n, label ] ) => (
+						[ 'pen', __( 'Bézier', 'wunderpaint' ) ],
+						[ 'curve', _x( 'Curve', 'pen tool', 'wunderpaint' ) ],
+						[ 'freehand', __( 'Freehand', 'wunderpaint' ) ],
+					].map( ( [ mode, label ] ) => (
 						<button
-							key={ n }
-							className={
-								n === ( opts.sample || 1 ) ? 'active' : ''
-							}
-							onClick={ () => set( 'sample', n ) }
+							key={ mode }
+							className={ opts.mode === mode ? 'active' : '' }
+							onClick={ () => set( 'mode', mode ) }
 						>
 							{ label }
 						</button>
@@ -2782,130 +2953,142 @@ function ToolOptions( { extras, compact } ) {
 			</div>
 		);
 	}
-	if ( 'pen' === tool ) {
-		return (
-			<>
-				<div className="group">
-					<div className="seg">
-						<button
-							className={
-								'freehand' !== opts.mode ? 'active' : ''
-							}
-							onClick={ () => set( 'mode', 'pen' ) }
-						>
-							{ __( 'Anchors', 'wunderpaint' ) }
-						</button>
-						<button
-							className={
-								'freehand' === opts.mode ? 'active' : ''
-							}
-							onClick={ () => set( 'mode', 'freehand' ) }
-						>
-							{ __( 'Freehand', 'wunderpaint' ) }
-						</button>
-					</div>
-				</div>
-				{ 'freehand' === opts.mode && (
-					<NumberOpt
-						label={ __( 'Fidelity', 'wunderpaint' ) }
-						value={ opts.fidelity ?? 50 }
-						suffix="%"
-						min={ 0 }
-						max={ 100 }
-						width={ 44 }
-						onChange={ ( v ) =>
-							set( 'fidelity', Math.min( 100, Math.max( 0, v ) ) )
-						}
-					/>
-				) }
-			</>
-		);
-	}
 	if ( 'fxbrush' === tool ) {
-		// Six modes (v1.429): the retouching classics beside blur and
-		// sharpen. Sponge carries its own direction.
-		const fxModes = [
-			[ 'blur', __( 'Blur', 'wunderpaint' ) ],
-			[ 'sharpen', __( 'Sharpen', 'wunderpaint' ) ],
-			[ 'smudge', __( 'Smudge', 'wunderpaint' ) ],
-			[ 'dodge', __( 'Dodge', 'wunderpaint' ) ],
-			[ 'burn', __( 'Burn', 'wunderpaint' ) ],
-			[ 'sponge', __( 'Sponge', 'wunderpaint' ) ],
-		];
+		// Full mode cards and effect settings live in the floating tool panel.
 		return (
 			<>
 				<div className="group">
-					<div className="seg">
-						{ fxModes.map( ( [ id, label ] ) => (
-							<button
-								key={ id }
-								className={
-									id === ( opts.mode || 'blur' )
-										? 'active'
-										: ''
-								}
-								onClick={ () => set( 'mode', id ) }
-							>
-								{ label }
-							</button>
+					<span className="label">
+						{ __( 'Effect Brush', 'wunderpaint' ) }
+					</span>
+					<select
+						className="fxbp-mode-select"
+						aria-label={ __( 'Effect Brush', 'wunderpaint' ) }
+						value={ opts.mode || 'blur' }
+						onChange={ ( e ) => set( 'mode', e.target.value ) }
+					>
+						{ FX_BRUSH_MODES.map( ( [ id, label ] ) => (
+							<option key={ id } value={ id }>
+								{ label() }
+							</option>
 						) ) }
-					</div>
+					</select>
 				</div>
-				{ 'sponge' === opts.mode && (
-					<div className="group">
-						<div className="seg">
-							<button
-								className={
-									'saturate' === opts.sponge ? 'active' : ''
-								}
-								onClick={ () => set( 'sponge', 'saturate' ) }
-							>
-								{ __( 'Saturate', 'wunderpaint' ) }
-							</button>
-							<button
-								className={
-									'saturate' !== opts.sponge ? 'active' : ''
-								}
-								onClick={ () => set( 'sponge', 'desaturate' ) }
-							>
-								{ __( 'Desaturate', 'wunderpaint' ) }
-							</button>
-						</div>
-					</div>
-				) }
 				<NumberOpt
 					label={ __( 'Size', 'wunderpaint' ) }
 					value={ opts.size }
 					suffix="px"
 					min={ 4 }
 					max={ 300 }
-					onChange={ ( v ) => set( 'size', Math.max( 4, v ) ) }
-				/>
-				<NumberOpt
-					label={ __( 'Strength', 'wunderpaint' ) }
-					value={ opts.strength }
-					suffix="%"
-					min={ 1 }
-					max={ 100 }
 					onChange={ ( v ) =>
-						set( 'strength', Math.min( 100, Math.max( 1, v ) ) )
+						set( 'size', Math.min( 300, Math.max( 4, v ) ) )
 					}
-				/>
-				<NumberOpt
-					label={ __( 'Hardness', 'wunderpaint' ) }
-					value={ opts.hardness }
-					suffix="%"
-					min={ 0 }
-					max={ 100 }
-					onChange={ ( v ) => set( 'hardness', v ) }
 				/>
 			</>
 		);
 	}
 
+	if (
+		'repeat' === tool ||
+		( [ 'move', 'select' ].includes( tool ) &&
+			activeLayerOf( state )?.type === 'repeat' )
+	) {
+		// Repeat (v1.431): the mode and the count up here, everything else
+		// in the panel, which the slider icon at the end of the bar opens.
+		const rep = repeatLayerOf( state );
+		if ( ! rep ) {
+			return (
+				<div className="group">
+					<span className="label">
+						{ __(
+							'Click a layer or group to repeat it.',
+							'wunderpaint'
+						) }
+					</span>
+				</div>
+			);
+		}
+		const modeIcons = {
+			row: 'repeat',
+			grid: 'grid',
+			circle: 'rotateCw',
+			path: 'pen',
+		};
+		const modeLabels = {
+			row: __( 'Row', 'wunderpaint' ),
+			grid: __( 'Grid', 'wunderpaint' ),
+			circle: __( 'Circle', 'wunderpaint' ),
+			path: __( 'Path', 'wunderpaint' ),
+		};
+		const mode = rep.rule?.mode || 'row';
+		const minCount = 'path' === mode ? 1 : 2;
+		return (
+			<>
+				<div className="group">
+					<span className="label">
+						{ __( 'Repeat', 'wunderpaint' ) }
+					</span>
+					<div
+						className="dsm-seg selp-tool-types"
+						role="group"
+						aria-label={ __( 'Repeat', 'wunderpaint' ) }
+					>
+						{ REPEAT_MODES.map( ( m ) => (
+							<button
+								type="button"
+								key={ m }
+								className={ m === mode ? 'active' : '' }
+								aria-pressed={ m === mode }
+								aria-label={ modeLabels[ m ] }
+								title={ modeLabels[ m ] }
+								onClick={ () =>
+									Ops.setRepeatRule(
+										editor,
+										rep.id,
+										{ mode: m },
+										__( 'Edit repeat', 'wunderpaint' )
+									)
+								}
+							>
+								{ I[ modeIcons[ m ] ]( { size: 16 } ) }
+							</button>
+						) ) }
+					</div>
+				</div>
+				{ 'grid' !== mode && (
+					<NumberOpt
+						label={ __( 'Copies', 'wunderpaint' ) }
+						value={ Math.round(
+							Number( rep.rule?.count ) || minCount
+						) }
+						width={ 52 }
+						min={ minCount }
+						max={ REPEAT_LIMITS.count }
+						onChange={ ( v ) =>
+							Ops.setRepeatRule( editor, rep.id, {
+								count: Math.min(
+									REPEAT_LIMITS.count,
+									Math.max( minCount, v )
+								),
+							} )
+						}
+						onCommit={ () =>
+							Ops.setRepeatRule(
+								editor,
+								rep.id,
+								{},
+								__( 'Edit repeat', 'wunderpaint' )
+							)
+						}
+					/>
+				) }
+			</>
+		);
+	}
 	if ( 'wand' === tool ) {
 		return (
 			<>
+				{ selectionChoices }
 				<NumberOpt
 					label={ __( 'Tolerance', 'wunderpaint' ) }
 					value={ opts.tolerance }
@@ -2933,6 +3116,7 @@ function ToolOptions( { extras, compact } ) {
 					/>
 					{ __( 'Contiguous', 'wunderpaint' ) }
 				</label>
+				{ combineSeg }
 			</>
 		);
 	}
@@ -2978,7 +3162,9 @@ function ToolOptions( { extras, compact } ) {
 						onChange={ ( e ) => set( 'opacity', +e.target.value ) }
 						style={ { width: 70 } }
 					/>
-					<span className="label">{ opts.opacity }%</span>
+					<span data-number-value className="label">
+						{ opts.opacity }%
+					</span>
 				</div>
 				<div className="group">
 					<span className="label">
@@ -3000,140 +3186,69 @@ function ToolOptions( { extras, compact } ) {
 	}
 
 	if ( 'crop' === tool ) {
-		const crop = state.crop;
 		return (
-			<>
-				<div className="group">
-					<span className="label">
-						{ __( 'Ratio', 'wunderpaint' ) }
-					</span>
-					<select
-						value={ opts.ratio }
-						style={ { width: 110 } }
-						onChange={ ( e ) => set( 'ratio', e.target.value ) }
-					>
-						<option value="free">
-							{ __( 'Free', 'wunderpaint' ) }
-						</option>
-						<option value="1:1">1:1</option>
-						<option value="4:3">4:3</option>
-						<option value="16:9">16:9</option>
-						<option value="9:16">9:16</option>
-						<option value="3:2">3:2</option>
-						<optgroup
-							label={ __( 'Social (safe zones)', 'wunderpaint' ) }
-						>
-							{ SOCIAL_CROPS.map( ( preset ) => (
-								<option
-									key={ preset.id }
-									value={ 'social:' + preset.id }
-								>
-									{ preset.label }
-								</option>
-							) ) }
-						</optgroup>
-					</select>
+			<div className="group crp-context">
+				<span className="label">{ __( 'Crop', 'wunderpaint' ) }</span>
+				{ ! state.showCropPanel && (
+					<CropFormatSelect editor={ editor } />
+				) }
+				<div className="seg">
+					<CropActions editor={ editor } toolbar />
 				</div>
-				<div className="group">
-					<input
-						type="number"
-						value={ Math.round( crop?.w ?? state.doc.w ) }
-						style={ { width: 54 } }
-						onChange={ ( e ) =>
-							crop &&
-							dispatch( {
-								type: 'SET_CROP',
-								crop: { ...crop, w: +e.target.value },
-							} )
-						}
-					/>
-					<span className="label">×</span>
-					<input
-						type="number"
-						value={ Math.round( crop?.h ?? state.doc.h ) }
-						style={ { width: 54 } }
-						onChange={ ( e ) =>
-							crop &&
-							dispatch( {
-								type: 'SET_CROP',
-								crop: { ...crop, h: +e.target.value },
-							} )
-						}
-					/>
-					<span className="label">px</span>
-				</div>
-				<div className="group">
-					<button
-						style={ {
-							padding: '3px 8px',
-							fontSize: 12,
-							background: 'var(--accent)',
-							color: '#fff',
-							borderRadius: 3,
-						} }
-						onClick={ () => extras.viewApi.current?.applyCrop?.() }
-						disabled={ ! crop }
-					>
-						{ I.check( { size: 12 } ) }{ ' ' }
-						{ __( 'Apply', 'wunderpaint' ) }
-					</button>
-					<button
-						style={ { padding: '3px 8px', fontSize: 12 } }
-						onClick={ () =>
-							dispatch( { type: 'SET_CROP', crop: null } )
-						}
-						disabled={ ! crop }
-					>
-						{ __( 'Cancel', 'wunderpaint' ) }
-					</button>
-				</div>
-			</>
+			</div>
 		);
 	}
 
-	if ( 'gradient' === tool ) {
+	if (
+		'gradient' === tool ||
+		( [ 'move', 'select' ].includes( tool ) && gradientLayerOf( state ) )
+	) {
+		const layer = gradientLayerOf( state ),
+			kind = ( layer || opts ).kind || 'linear',
+			locked =
+				!! layer &&
+				( layer.locked || ancestorLocked( state.layers, layer ) );
+		const setKind = ( next ) => {
+			if ( locked || next === kind ) {
+				return;
+			}
+			if ( layer ) {
+				dispatch( {
+					type: 'UPDATE_LAYER',
+					id: layer.id,
+					patch: gradientKindPatch( layer, next ),
+				} );
+				commit( __( 'Edit gradient', 'wunderpaint' ) );
+			} else {
+				set( 'kind', next );
+			}
+		};
 		return (
-			<>
-				<GradientPresetPicker opts={ opts } set={ set } />
-				<div className="group">
-					<span className="label">
-						{ __( 'Type', 'wunderpaint' ) }
-					</span>
-					<div className="seg">
-						{ [
-							[ 'linear', __( 'Linear', 'wunderpaint' ) ],
-							[ 'radial', __( 'Radial', 'wunderpaint' ) ],
-							[ 'angle', __( 'Angle', 'wunderpaint' ) ],
-						].map( ( [ id, label ] ) => (
-							<button
-								key={ id }
-								className={ opts.kind === id ? 'active' : '' }
-								onClick={ () => set( 'kind', id ) }
-							>
-								{ label }
-							</button>
-						) ) }
-					</div>
+			<div className="group">
+				<span className="label">
+					{ __( 'Gradient', 'wunderpaint' ) }
+				</span>
+				<div className="seg">
+					{ [
+						[ 'linear', __( 'Linear', 'wunderpaint' ) ],
+						[ 'radial', __( 'Radial', 'wunderpaint' ) ],
+						[ 'angle', __( 'Angle', 'wunderpaint' ) ],
+						[ 'freeform', __( 'Freeform', 'wunderpaint' ) ],
+						[ 'mesh', __( 'Mesh', 'wunderpaint' ) ],
+					].map( ( [ id, label ] ) => (
+						<button
+							type="button"
+							key={ id }
+							className={ kind === id ? 'active' : '' }
+							aria-pressed={ kind === id }
+							disabled={ locked }
+							onClick={ () => setKind( id ) }
+						>
+							{ label }
+						</button>
+					) ) }
 				</div>
-				<div className="group" style={ { overflow: 'visible' } }>
-					{ /* A pixel width on purpose, and one of the very few:
-					     the options bar is a horizontal row sized by what is
-					     in it, so there is no container width for a
-					     percentage to fill. */ }
-					<GradientBar
-						stops={ opts.stops || [] }
-						onChange={ ( stops ) => set( 'stops', stops ) }
-						width={ 170 }
-					/>
-					<button
-						className={ opts.reverse ? 'active' : '' }
-						style={ { padding: '2px 8px', fontSize: 11 } }
-						onClick={ () => set( 'reverse', ! opts.reverse ) }
-					>
-						{ __( 'Reverse', 'wunderpaint' ) }
-					</button>
-				</div>
-			</>
+			</div>
 		);
 	}
 
@@ -3180,20 +3295,24 @@ function ToolOptions( { extras, compact } ) {
 					<span className="label">
 						{ __( 'Fill', 'wunderpaint' ) }
 					</span>
-					<SwatchButton
+					<PaintSwatch
+						layer={ active }
+						target="fill"
 						size={ 24 }
-						color={ active.fill }
-						onChange={ ( c ) => up( { fill: c } ) }
+						title={ __( 'Fill', 'wunderpaint' ) }
+						onChange={ up }
 					/>
 				</div>
 				<div className="group">
 					<span className="label">
 						{ __( 'Stroke', 'wunderpaint' ) }
 					</span>
-					<SwatchButton
+					<PaintSwatch
+						layer={ active }
+						target="stroke"
 						size={ 24 }
-						color={ active.stroke || 'transparent' }
-						onChange={ ( c ) => up( { stroke: c } ) }
+						title={ __( 'Stroke', 'wunderpaint' ) }
+						onChange={ up }
 					/>
 				</div>
 				<NumberOpt
@@ -3206,18 +3325,6 @@ function ToolOptions( { extras, compact } ) {
 					onChange={ ( v ) => up( { strokeW: Math.max( 0, v ) } ) }
 				/>
 				<ShapeStylePicker />
-				{ ! active.quad && (
-					<div className="group">
-						<button
-							type="button"
-							onClick={ () =>
-								extras?.openShapeStudio?.( active.id )
-							}
-						>
-							{ __( 'Edit shape', 'wunderpaint' ) }
-						</button>
-					</div>
-				) }
 			</>
 		);
 	}
@@ -3256,7 +3363,11 @@ function ToolOptions( { extras, compact } ) {
 							commit( __( 'Layer opacity', 'wunderpaint' ) )
 						}
 					/>
-					<span className="label" style={ { width: 34 } }>
+					<span
+						data-number-value
+						className="label"
+						style={ { width: 34 } }
+					>
 						{ Math.round( ( active.opacity ?? 1 ) * 100 ) }%
 					</span>
 				</div>
@@ -3392,7 +3503,15 @@ export function EditorMenuBar( { extras, tabsBar = null } ) {
 					>
 						{ menu.label }
 					</div>
-					{ open === menu.id && (
+					{ open === menu.id && menu.id === 'filter' && (
+						<FilterDropdown
+							menu={ menu }
+							editor={ editor }
+							extras={ extras }
+							onClose={ () => setOpen( null ) }
+						/>
+					) }
+					{ open === menu.id && menu.id !== 'filter' && (
 						<Dropdown
 							menu={ menu }
 							editor={ editor }
@@ -3403,8 +3522,12 @@ export function EditorMenuBar( { extras, tabsBar = null } ) {
 				</div>
 			) ) }
 			<div className="ed-menu-divider" />
-			<div className="ed-tool-opts" ref={ optsRef }>
-				<ToolOptions extras={ extras } compact={ compact } />
+			<div className="ed-tool-opts">
+				<div className="ed-tool-fields" ref={ optsRef }>
+					<ToolOptions extras={ extras } compact={ compact } />
+				</div>
+				<CropPreviewActions editor={ editor } />
+				<ToolPanelOpener editor={ editor } extras={ extras } />
 			</div>
 			{ tabsBar }
 		</div>

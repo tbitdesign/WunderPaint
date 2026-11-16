@@ -29,8 +29,14 @@ import {
 	renderButtonMosaic,
 	renderDominoArt,
 	renderTileMosaic,
+	glow,
 } from './textart-engine.js';
 import { renderLineArt, lineArtPaths, fieldFrom } from './lineart.js';
+import {
+	LINE_STYLES,
+	ONE_LINE_DEFAULTS,
+	cleanOneLine,
+} from './continuous-line.js';
 import {
 	renderElementWords,
 	renderLetterGrid,
@@ -41,6 +47,8 @@ import {
 	makeShapeMask,
 } from './textart-typo.js';
 import { renderQrPortrait } from './qr.js';
+import { renderCardWall, renderPushPins } from './textart-more.js';
+import { encodeFrames, mp4Available, videoPlan } from './video.js';
 
 const GEN_ID = 'wpie-text-art/sheet';
 
@@ -120,6 +128,7 @@ const EMOJI_SETS = {
 };
 
 const DEFAULTS = {
+	...ONE_LINE_DEFAULTS,
 	image: null,
 	source: 'doc',
 	mode: 'ascii',
@@ -204,6 +213,16 @@ const DEFAULTS = {
 	btnCell: 26,
 	domCell: 22,
 	domStyle: 'black',
+	// playing cards / push pins (3.5)
+	cardCell: 22,
+	pinCell: 16,
+	// string art / morse (3.5)
+	stringNails: 288,
+	stringThreads: 4000,
+	stringWeight: 7,
+	// 3.6: thread colours (1 = the classic single thread).
+	stringColors: 1,
+	morseText: 'WUNDERPAINT',
 	// your tile
 	tmCell: 24,
 	tmTint: 65,
@@ -229,6 +248,7 @@ const DEFAULTS = {
 };
 
 import { t } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 /**
  * Upload through wp.apiFetch, which carries and refreshes the nonce; a
@@ -293,37 +313,49 @@ const ICONS = {
 	),
 };
 
+// The shelf, in the four groups the dialog shows (3.5): what the picture
+// is built FROM decides where a card stands, not when it was added.
+const GROUPS = [
+	[ 'chars', 'From characters' ],
+	[ 'things', 'Mosaics from things' ],
+	[ 'ink', 'Drawn with ink' ],
+	[ 'nophoto', 'Without a photo' ],
+];
 const MODES = [
-	{ id: 'ascii', label: 'ASCII Art' },
-	{ id: 'emoji', label: 'Emoji Art' },
-	{ id: 'brick', label: 'Brick Art' },
-	{ id: 'dice', label: 'Dice Art' },
-	{ id: 'cube', label: 'Cube Art' },
-	{ id: 'sticky', label: 'Sticky Notes' },
-	{ id: 'dots', label: 'Dot Matrix' },
-	{ id: 'marquee', label: 'Marquee Lights' },
-	{ id: 'ceramic', label: 'Ceramic Mosaic' },
-	{ id: 'keycap', label: 'Keycap Art' },
-	{ id: 'stamp', label: 'Stamp Wall' },
-	{ id: 'caps', label: 'Bottle Caps' },
-	{ id: 'coins', label: 'Coin Mosaic' },
-	{ id: 'buttons', label: 'Button Mosaic' },
-	{ id: 'domino', label: 'Domino Art' },
-	{ id: 'tile', label: 'Your Tile' },
-	{ id: 'qr', label: 'QR Portrait' },
-	{ id: 'engrave', label: 'Engraving' },
-	{ id: 'contour', label: 'Contour Lines' },
-	{ id: 'stipple', label: 'Stipple' },
-	{ id: 'oneline', label: 'One Line' },
-	{ id: 'words', label: 'Word Portrait' },
-	{ id: 'lyrics', label: 'Lyrics Art' },
-	{ id: 'post', label: 'Post Art' },
-	{ id: 'silhouette', label: 'Silhouette Text' },
-	{ id: 'elements', label: 'Element Art' },
-	{ id: 'hidden', label: 'Hidden Words' },
-	{ id: 'scrabble', label: 'Letter Tiles' },
-	{ id: 'ransom', label: 'Ransom Note' },
-	{ id: 'wordcloud', label: 'Word Cloud' },
+	{ id: 'ascii', label: 'ASCII Art', group: 'chars' },
+	{ id: 'emoji', label: 'Emoji Art', group: 'chars' },
+	{ id: 'words', label: 'Word Portrait', group: 'chars' },
+	{ id: 'lyrics', label: 'Lyrics Art', group: 'chars' },
+	{ id: 'post', label: 'Post Art', group: 'chars' },
+	{ id: 'silhouette', label: 'Silhouette Text', group: 'chars' },
+	{ id: 'brick', label: 'Brick Art', group: 'things' },
+	{ id: 'dice', label: 'Dice Art', group: 'things' },
+	{ id: 'cube', label: 'Cube Art', group: 'things' },
+	{ id: 'sticky', label: 'Sticky Notes', group: 'things' },
+	{ id: 'dots', label: 'Dot Matrix', group: 'things' },
+	{ id: 'marquee', label: 'Marquee Lights', group: 'things' },
+	{ id: 'ceramic', label: 'Ceramic Mosaic', group: 'things' },
+	{ id: 'keycap', label: 'Keycap Art', group: 'things' },
+	{ id: 'stamp', label: 'Stamp Wall', group: 'things' },
+	{ id: 'caps', label: 'Bottle Caps', group: 'things' },
+	{ id: 'coins', label: 'Coin Mosaic', group: 'things' },
+	{ id: 'buttons', label: 'Button Mosaic', group: 'things' },
+	{ id: 'domino', label: 'Domino Art', group: 'things' },
+	{ id: 'cards', label: 'Playing Cards', group: 'things' },
+	{ id: 'pins', label: 'Push Pins', group: 'things' },
+	{ id: 'tile', label: 'Your Tile', group: 'things' },
+	{ id: 'qr', label: 'QR Portrait', group: 'things' },
+	{ id: 'engrave', label: 'Engraving', group: 'ink' },
+	{ id: 'contour', label: 'Contour Lines', group: 'ink' },
+	{ id: 'stipple', label: 'Stipple', group: 'ink' },
+	{ id: 'oneline', label: 'One Line', group: 'ink' },
+	{ id: 'string', label: 'String Art', group: 'ink' },
+	{ id: 'morse', label: 'Morse Portrait', group: 'ink' },
+	{ id: 'elements', label: 'Element Art', group: 'nophoto' },
+	{ id: 'hidden', label: 'Hidden Words', group: 'nophoto' },
+	{ id: 'scrabble', label: 'Letter Tiles', group: 'nophoto' },
+	{ id: 'ransom', label: 'Ransom Note', group: 'nophoto' },
+	{ id: 'wordcloud', label: 'Word Cloud', group: 'nophoto' },
 ];
 
 // The typography types need no source image at all.
@@ -345,6 +377,8 @@ const OBJ_MOSAIC = [
 	'coins',
 	'buttons',
 	'domino',
+	'cards',
+	'pins',
 	'tile',
 	'qr',
 ];
@@ -354,7 +388,14 @@ const FIXED_BOARD = [ 'brick', 'cube', 'dots', 'keycap', 'marquee', 'qr' ];
 // palettes, no color mode) but they are TONE drawings, so the contrast
 // dial and the ground both matter - and they are the only cards here
 // that can leave as vector paths instead of pixels.
-const LINE_ART = [ 'engrave', 'contour', 'stipple', 'oneline' ];
+const LINE_ART = [
+	'engrave',
+	'contour',
+	'stipple',
+	'oneline',
+	'string',
+	'morse',
+];
 
 // Grid-revealing modes and their cell size in baked pixels - the reveal
 // animation pops these cell by cell; everything else wipes like a
@@ -374,6 +415,8 @@ const CELL_OF = {
 	caps: ( p ) => [ p.capsCell, p.capsCell ],
 	coins: ( p ) => [ p.coinCell, p.coinCell ],
 	buttons: ( p ) => [ p.btnCell, p.btnCell ],
+	cards: ( p ) => [ p.cardCell, Math.round( p.cardCell * 1.4 ) ],
+	pins: ( p ) => [ p.pinCell, p.pinCell ],
 	tile: ( p ) => [ p.tmCell, p.tmCell ],
 };
 
@@ -397,6 +440,7 @@ function openStudio( ctx ) {
 	const params = {
 		...DEFAULTS,
 		...( editing ? layer.generator.params : {} ),
+		...cleanOneLine( editing ? layer.generator.params : DEFAULTS, editing ),
 	};
 	params.customColors = ( params.customColors || [] ).slice( 0, 4 );
 
@@ -467,14 +511,21 @@ function openStudio( ctx ) {
 	const srcSec = section( library, ICONS.source, t( 'Source' ) );
 	srcSec.parentElement.classList.add( 'wpieta-source' );
 	const modeSec = section( library, ICONS.type, t( 'Type' ) );
-	const modeGrid = ui.picks( modeSec, { cell: 110, cls: 'wpieta-cards' } );
+	const modeGrids = new Map();
+	for ( const [ id, label ] of GROUPS ) {
+		el( 'div', 'dsm-subhead wpieta-subhead', modeSec, t( label ) );
+		modeGrids.set(
+			id,
+			ui.picks( modeSec, { cell: 110, cls: 'wpieta-cards' } )
+		);
+	}
 	const modeTiles = new Map();
 	for ( const m of MODES ) {
 		const thumb = document.createElement( 'canvas' );
 		thumb.className = 'wpieta-tthumb';
 		thumb.width = 132;
 		thumb.height = 92;
-		const { node: card } = ui.pick( modeGrid, {
+		const { node: card } = ui.pick( modeGrids.get( m.group ), {
 			label: t( m.label ),
 			thumb,
 			cls: 'wpieta-tcard',
@@ -508,8 +559,35 @@ function openStudio( ctx ) {
 		g.fill();
 		return c;
 	}
-	function paintCardThumbs() {
+	/**
+	 * A small copy of the source for the cards (3.5). They used to be
+	 * drawn from the full picture with the real cell sizes: thousands of
+	 * stones per stamp-sized card, about three seconds every time the
+	 * source or the ground changed.
+	 */
+	let miniOf = null;
+	let mini = null;
+	function miniSource() {
 		const src = thumbSource();
+		if ( miniOf === src && mini ) {
+			return mini;
+		}
+		const k = Math.min( 1, 220 / Math.max( src.width, src.height ) );
+		mini = document.createElement( 'canvas' );
+		mini.width = Math.max( 1, Math.round( src.width * k ) );
+		mini.height = Math.max( 1, Math.round( src.height * k ) );
+		mini.getContext( '2d' ).drawImage( src, 0, 0, mini.width, mini.height );
+		miniOf = src;
+		return mini;
+	}
+	// The cards are drawn with their biggest stones and at a quarter of
+	// their size: a thumbnail shows what the card IS, not the artwork.
+	const TS = 0.24;
+	const TT = 0.45;
+	let thumbRun = 0;
+	function paintCardThumbs() {
+		const run = ++thumbRun;
+		const src = miniSource();
 		const like = document.createElement( 'canvas' );
 		const base = {
 			colorMode: params.colorMode,
@@ -538,16 +616,22 @@ function openStudio( ctx ) {
 			contour: inkThumb( 'contour', { levels: 10, stroke: 1 } ),
 			stipple: inkThumb( 'stipple', { dots: 1400, dotSize: 110 } ),
 			oneline: inkThumb( 'oneline', {
+				oneLine: 'spiral',
+				oneDensity: 20,
 				dots: 900,
 				stroke: 1,
 				budgetMs: 120,
 			} ),
-			ascii: () => renderAscii( like, src, { ...base, cell: 6 } ),
+			ascii: () =>
+				renderAscii( like, src, { ...base, cell: 10, outScale: TT } ),
 			emoji: () => {
 				const tiles = getEmojiTiles();
 				return (
-					renderEmojiArt( like, src, tiles, { ...base, cell: 14 } ) ||
-					null
+					renderEmojiArt( like, src, tiles, {
+						...base,
+						cell: 22,
+						outScale: 0.35,
+					} ) || null
 				);
 			},
 			words: () =>
@@ -556,12 +640,14 @@ function openStudio( ctx ) {
 					words: [ 'LOVE', 'JOY' ],
 					sizeMin: 5,
 					sizeMax: 14,
+					outScale: TT,
 				} ),
 			lyrics: () =>
 				renderTextFlow( like, src, {
 					...base,
 					text: 'La la la sing along ',
 					size: 9,
+					outScale: TT,
 				} ),
 			post: () =>
 				renderTextFlow( like, src, {
@@ -569,82 +655,119 @@ function openStudio( ctx ) {
 					text: 'Lorem ipsum dolor sit amet ',
 					size: 9,
 					layout: 'diagonal',
+					outScale: TT,
 				} ),
 			silhouette: () =>
 				renderSilhouetteText( like, src, {
 					...base,
 					text: 'ART ',
 					size: 8,
+					outScale: TT,
 				} ),
 			brick: () => renderBrickArt( like, src, { cell: 14 } ),
 			dice: () =>
 				renderDiceArt( like, src, {
-					cell: 16,
+					cell: 44,
+					outScale: TS,
 					background: params.background,
 				} ),
-			cube: () => renderCubeArt( like, src, { cell: 10 } ),
+			cube: () => renderCubeArt( like, src, { cell: 26, outScale: TS } ),
 			sticky: () =>
 				renderStickyNotes( like, src, {
-					cell: 18,
+					cell: 48,
+					outScale: TS,
 					background: params.background,
 				} ),
 			dots: () =>
 				renderDotMatrix( like, src, {
-					cell: 12,
+					cell: 30,
+					outScale: TS,
 					style: params.dotStyle,
 				} ),
 			ceramic: () =>
 				renderCeramicMosaic( like, src, {
-					cell: 16,
+					cell: 40,
+					outScale: TS,
 					background: params.background,
 				} ),
 			keycap: () =>
 				renderKeycapArt( like, src, {
-					cell: 20,
+					cell: 48,
+					outScale: TS,
 					text: params.capText,
 				} ),
 			marquee: () =>
 				renderMarquee( like, src, {
-					cell: 14,
+					cell: 36,
+					outScale: TS,
 					style: params.marqStyle,
 				} ),
 			stamp: () =>
 				renderStampWall( like, src, {
-					cell: 26,
+					cell: 56,
+					outScale: TS,
 					background: params.background,
 				} ),
 			caps: () =>
 				renderBottleCaps( like, src, {
-					cell: 18,
+					cell: 48,
+					outScale: TS,
 					background: params.background,
 				} ),
 			coins: () =>
 				renderCoinMosaic( like, src, {
-					cell: 16,
+					cell: 40,
+					outScale: TS,
 					background: params.background,
 				} ),
 			buttons: () =>
 				renderButtonMosaic( like, src, {
-					cell: 18,
+					cell: 44,
+					outScale: TS,
 					background: params.background,
 				} ),
 			domino: () =>
 				renderDominoArt( like, src, {
-					cell: 14,
+					cell: 40,
+					outScale: TS,
 					stoneStyle: params.domStyle,
 					background: params.background,
 				} ),
 			tile: () =>
 				renderTileMosaic( like, src, tileCanvas || demoTile(), {
-					cell: 16,
+					cell: 48,
+					outScale: TS,
 					tint: params.tmTint,
 					jitter: params.tmJitter,
+					background: params.background,
+				} ),
+			string: inkThumb( 'string', {
+				nails: 160,
+				threads: 1400,
+				threadWeight: 12,
+			} ),
+			morse: inkThumb( 'morse', {
+				spacing: 6,
+				weight: 110,
+				morseText: params.morseText,
+			} ),
+			cards: () =>
+				renderCardWall( like, src, {
+					cell: 44,
+					outScale: TS,
+					background: params.background,
+				} ),
+			pins: () =>
+				renderPushPins( like, src, {
+					cell: 36,
+					outScale: TS,
 					background: params.background,
 				} ),
 			qr: () =>
 				renderQrPortrait( like, src, {
 					text: 'WUNDERPAINT',
 					cell: 10,
+					outScale: 0.5,
 					photo: params.qrPhoto,
 					round: params.qrRound,
 				} ),
@@ -701,10 +824,12 @@ function openStudio( ctx ) {
 					showPoints: true,
 				} ),
 		};
-		for ( const m of MODES ) {
-			const { thumb } = modeTiles.get( m.id );
+		// One card after the other, a few per frame and the chosen one first,
+		// so the dialog never stands still while the shelf fills in.
+		const paintOne = ( id ) => {
+			const { thumb } = modeTiles.get( id );
 			try {
-				const c = renders[ m.id ]();
+				const c = renders[ id ]();
 				const g = thumb.getContext( '2d' );
 				g.fillStyle = '#14171c';
 				g.fillRect( 0, 0, thumb.width, thumb.height );
@@ -722,7 +847,29 @@ function openStudio( ctx ) {
 					);
 				}
 			} catch ( e ) {}
-		}
+		};
+		const order = [
+			params.mode,
+			...MODES.map( ( m ) => m.id ).filter(
+				( id ) => id !== params.mode
+			),
+		];
+		let next = 0;
+		const step = () => {
+			if ( run !== thumbRun || closedFlag ) {
+				return;
+			}
+			const t0 = performance.now();
+			while ( next < order.length && performance.now() - t0 < 12 ) {
+				paintOne( order[ next++ ] );
+			}
+			if ( next < order.length ) {
+				window.requestAnimationFrame( step );
+			} else {
+				paintLineThumbs();
+			}
+		};
+		step();
 	}
 	let thumbTimer = 0;
 	const refreshThumbs = () => {
@@ -748,7 +895,7 @@ function openStudio( ctx ) {
 		// l.type und l.name waren undefined, jedes Kind wurde als
 		// "layer:undefined" mit der Beschriftung "undefined" angeboten - und
 		// danach standen dieselben Ebenen noch einmal flach in der Liste,
-		// weil sie dort ohnehin schon drin sind. (Codex F15.)
+		// weil sie dort ohnehin schon drin sind. (Audit F15.)
 		const walk = ( layers ) => {
 			const list = layers || [];
 			for ( const l of list ) {
@@ -925,7 +1072,7 @@ function openStudio( ctx ) {
 				if ( target ) {
 					// The layer may be the child of a group: the renderer
 					// starts at roots without a parent and never reached it,
-					// so a grouped photo arrived as an empty canvas (Codex
+					// so a grouped photo arrived as an empty canvas (audit
 					// F15, 10.09.2026). Render a parent-less copy and hand the
 					// renderer its descendants for a group.
 					const byId = new Map(
@@ -1215,6 +1362,62 @@ function openStudio( ctx ) {
 
 	/* ------------------------------ settings ------------------------------ */
 
+	const lineStyleSec = section( side, ICONS.type, t( 'Line style' ) );
+	side.prepend( lineStyleSec.parentElement );
+	const lineStyleGrid = ui.picks( lineStyleSec, {
+		cols: 3,
+		cls: 'wpieta-line-styles',
+	} );
+	const lineStyleTiles = new Map();
+	for ( const style of LINE_STYLES ) {
+		const thumb = document.createElement( 'canvas' );
+		thumb.width = 144;
+		thumb.height = 96;
+		const { node: card } = ui.pick( lineStyleGrid, {
+			label: t( style.label ),
+			thumb,
+			on: style.id === params.oneLine,
+			onClick: () => {
+				params.oneLine = style.id;
+				syncUi();
+				schedule();
+			},
+		} );
+		card.dataset.lineStyle = style.id;
+		lineStyleTiles.set( style.id, { card, thumb } );
+	}
+	function paintLineThumbs() {
+		const source = thumbSource();
+		const like = document.createElement( 'canvas' );
+		for ( const [ id, { thumb } ] of lineStyleTiles ) {
+			const art = renderLineArt( like, source, {
+				mode: 'oneline',
+				oneLine: id,
+				oneDensity: 20,
+				background: 'light',
+				detail: 144,
+				scale: 288,
+				dots: 700,
+				stroke: 0.8,
+				budgetMs: 80,
+				seed: 7,
+			} );
+			const g = thumb.getContext( '2d' );
+			g.fillStyle = '#fff';
+			g.fillRect( 0, 0, thumb.width, thumb.height );
+			const fit = Math.min(
+				thumb.width / art.width,
+				thumb.height / art.height
+			);
+			g.drawImage(
+				art,
+				( thumb.width - art.width * fit ) / 2,
+				( thumb.height - art.height * fit ) / 2,
+				art.width * fit,
+				art.height * fit
+			);
+		}
+	}
 	const setSec = section( side, ICONS.settings, t( 'Settings' ) );
 	function sliderRowIn( parent, label, min, max, get, set, unit ) {
 		const row = el( 'label', 'wpieta-row', parent );
@@ -1623,6 +1826,44 @@ function openStudio( ctx ) {
 		() => params.diceMix,
 		( v ) => ( params.diceMix = v )
 	);
+	// Continuous-line patterns share tone and vector export with the other pens.
+	const oneLineRows = [];
+	const oneSlider = ( label, key, min, max, unit = '%' ) => {
+		const row = sliderRowIn(
+			setSec,
+			t( label ),
+			min,
+			max,
+			() => params[ key ],
+			( v ) => ( params[ key ] = v ),
+			unit
+		);
+		row.classList.add( 'wpieta-line-control' );
+		row.dataset.lineControl = key;
+		oneLineRows.push( row );
+		return row;
+	};
+	oneSlider( 'Line density', 'oneDensity', 16, 100, '' );
+	oneSlider( 'Maximum width', 'oneWeight', 10, 96 );
+	oneSlider( 'Minimum width', 'oneHairline', 0, 20 );
+	const oneWaveRow = oneSlider( 'Wave height', 'oneWave', 0, 100 );
+	const oneFrequencyRow = oneSlider(
+		'Wave frequency',
+		'oneFrequency',
+		40,
+		240
+	);
+	const oneVariation = el(
+		'button',
+		'ai-btn wpieta-wide',
+		setSec,
+		t( 'New path' )
+	);
+	oneVariation.type = 'button';
+	oneVariation.onclick = () => {
+		params.seed++;
+		schedule();
+	};
 	// drawn with lines
 	const lineSpacingRow = sliderRowIn(
 		setSec,
@@ -1699,6 +1940,60 @@ function openStudio( ctx ) {
 		() => params.lineVector,
 		( v ) => ( params.lineVector = v )
 	);
+	// string art (3.5)
+	const stringNailsRow = sliderRowIn(
+		setSec,
+		t( 'Nails' ),
+		120,
+		400,
+		() => params.stringNails,
+		( v ) => ( params.stringNails = v )
+	);
+	const stringThreadsRow = sliderRowIn(
+		setSec,
+		t( 'Threads' ),
+		1000,
+		6000,
+		() => params.stringThreads,
+		( v ) => ( params.stringThreads = v )
+	);
+	const stringWeightRow = sliderRowIn(
+		setSec,
+		t( 'Thread weight' ),
+		3,
+		16,
+		() => params.stringWeight,
+		( v ) => ( params.stringWeight = v )
+	);
+	// 3.6: several thread colours, wound one after the other.
+	const stringColorsRow = selectRow(
+		setSec,
+		t( 'Thread colors' ),
+		[
+			[ '1', '1' ],
+			[ '2', '2' ],
+			[ '3', '3' ],
+			[ '4', '4' ],
+		],
+		() => String( params.stringColors || 1 ),
+		( v ) => ( params.stringColors = parseInt( v, 10 ) || 1 )
+	);
+	const stringColorsNote = el(
+		'div',
+		'dsm-note wpieta-note',
+		setSec,
+		t( 'Several thread colors are inserted as a picture, at the size of the document.' )
+	);
+	// morse (3.5)
+	const morseRow = el( 'label', 'wpieta-text-row', setSec );
+	el( 'span', 'dsm-fieldlabel', morseRow ).textContent = t( 'Message' );
+	const morseInput = el( 'input', 'dsm-input wpieta-input', morseRow );
+	morseInput.type = 'text';
+	morseInput.value = params.morseText;
+	morseInput.oninput = () => {
+		params.morseText = morseInput.value;
+		schedule();
+	};
 	// cube
 	const cubeCellRow = sliderRowIn(
 		setSec,
@@ -1887,6 +2182,22 @@ function openStudio( ctx ) {
 		48,
 		() => params.capsCell,
 		( v ) => ( params.capsCell = v )
+	);
+	const cardCellRow = sliderRowIn(
+		setSec,
+		t( 'Card size' ),
+		14,
+		48,
+		() => params.cardCell,
+		( v ) => ( params.cardCell = v )
+	);
+	const pinCellRow = sliderRowIn(
+		setSec,
+		t( 'Pin size' ),
+		8,
+		40,
+		() => params.pinCell,
+		( v ) => ( params.pinCell = v )
 	);
 	const coinCellRow = sliderRowIn(
 		setSec,
@@ -2230,19 +2541,50 @@ function openStudio( ctx ) {
 		// palettes - but the contrast dial IS their tone curve, and the
 		// ground decides whether the ink is black or white.
 		const lineArt = LINE_ART.includes( m );
+		const patternedLine = m === 'oneline' && params.oneLine !== 'tour';
+		const wavyLine =
+			patternedLine &&
+			[ 'wave', 'spiral-wave' ].includes( params.oneLine );
+		lineStyleSec.parentElement.style.display =
+			m === 'oneline' ? '' : 'none';
+		lineStyleTiles.forEach( ( { card }, id ) =>
+			ui.pressed( card, id === params.oneLine )
+		);
+		oneLineRows.forEach( ( row ) => {
+			row.style.display = patternedLine ? '' : 'none';
+		} );
+		oneWaveRow.style.display = wavyLine ? '' : 'none';
+		oneFrequencyRow.style.display = wavyLine ? '' : 'none';
+		oneVariation.style.display =
+			m === 'oneline' && [ 'maze', 'tour' ].includes( params.oneLine )
+				? ''
+				: 'none';
 		cmRow.style.display = textOnly || objMosaic || lineArt ? 'none' : '';
 		contrastRow.style.display = textOnly || objMosaic ? 'none' : '';
 		bgRow.style.display = FIXED_BOARD.includes( m ) ? 'none' : '';
-		lineSpacingRow.style.display = 'engrave' === m ? '' : 'none';
+		lineSpacingRow.style.display =
+			'engrave' === m || 'morse' === m ? '' : 'none';
 		lineAngleRow.style.display =
 			'engrave' === m && ! params.lineFollow ? '' : 'none';
-		lineWeightRow.style.display = 'engrave' === m ? '' : 'none';
+		lineWeightRow.style.display =
+			'engrave' === m || 'morse' === m ? '' : 'none';
+		stringNailsRow.style.display = 'string' === m ? '' : 'none';
+		stringThreadsRow.style.display = 'string' === m ? '' : 'none';
+		stringWeightRow.style.display = 'string' === m ? '' : 'none';
+		stringColorsRow.style.display = 'string' === m ? '' : 'none';
+		stringColorsNote.style.display =
+			'string' === m && ( params.stringColors || 1 ) >= 2 && params.lineVector ? '' : 'none';
+		morseRow.style.display = 'morse' === m ? '' : 'none';
 		lineFollowRow.style.display = 'engrave' === m ? '' : 'none';
 		lineLevelsRow.style.display = 'contour' === m ? '' : 'none';
 		lineStrokeRow.style.display =
-			'contour' === m || 'oneline' === m ? '' : 'none';
+			'contour' === m || ( 'oneline' === m && ! patternedLine )
+				? ''
+				: 'none';
 		lineDotsRow.style.display =
-			'stipple' === m || 'oneline' === m ? '' : 'none';
+			'stipple' === m || ( 'oneline' === m && ! patternedLine )
+				? ''
+				: 'none';
 		lineDotSizeRow.style.display = 'stipple' === m ? '' : 'none';
 		lineVectorRow.style.display = lineArt ? '' : 'none';
 		const showPalettes =
@@ -2250,7 +2592,9 @@ function openStudio( ctx ) {
 			! lineArt &&
 			( textOnly || 'image' !== params.colorMode );
 		palWrap.style.display = showPalettes ? '' : 'none';
-		customRow.style.display = showPalettes ? '' : 'none';
+		// 3.6: coloured string art takes its thread colours from here.
+		customRow.style.display =
+			showPalettes || ( 'string' === m && ( params.stringColors || 1 ) >= 2 ) ? '' : 'none';
 		cellRow.style.display = 'ascii' === m ? '' : 'none';
 		charsetRow.style.display = 'ascii' === m ? '' : 'none';
 		customCharsRow.style.display =
@@ -2306,6 +2650,8 @@ function openStudio( ctx ) {
 		marqStyleRow.style.display = 'marquee' === m ? '' : 'none';
 		stampCellRow.style.display = 'stamp' === m ? '' : 'none';
 		capsCellRow.style.display = 'caps' === m ? '' : 'none';
+		cardCellRow.style.display = 'cards' === m ? '' : 'none';
+		pinCellRow.style.display = 'pins' === m ? '' : 'none';
 		coinCellRow.style.display = 'coins' === m ? '' : 'none';
 		btnCellRow.style.display = 'buttons' === m ? '' : 'none';
 		domCellRow.style.display = 'domino' === m ? '' : 'none';
@@ -2348,7 +2694,7 @@ function openStudio( ctx ) {
 	const animRow = el( 'div', 'wpieta-btnrow', animSec );
 	const animBtn = el( 'button', 'ai-btn secondary', animRow );
 	animBtn.type = 'button';
-	const LB_ANIM = t( 'Animation (WebM)' );
+	const LB_ANIM = t( 'Animation (video)' );
 	animBtn.textContent = LB_ANIM;
 	const animLib = el( 'button', 'ai-btn secondary', animRow );
 	animLib.type = 'button';
@@ -2365,13 +2711,16 @@ function openStudio( ctx ) {
 
 	const easeOut = ( k ) => 1 - Math.pow( 1 - k, 2 );
 
-	/** Seeded, diagonally flavoured cell order for the pop-in reveal. */
-	function revealPlan( baked ) {
+	/**
+	 * Seeded, diagonally flavoured cell order for the pop-in reveal. `k`
+	 * is the scale the artwork was drawn at: the cells are layout cells.
+	 */
+	function revealPlan( baked, k = 1 ) {
 		const cf = CELL_OF[ params.mode ];
 		if ( ! cf ) {
 			return null;
 		}
-		const [ cw, ch ] = cf( params );
+		const [ cw, ch ] = cf( params ).map( ( v ) => v * k );
 		const cols = Math.max( 1, Math.round( baked.width / cw ) );
 		const rows = Math.max( 1, Math.round( baked.height / ch ) );
 		const rand = ( x, y ) => {
@@ -2400,10 +2749,18 @@ function openStudio( ctx ) {
 		if ( btn.disabled ) {
 			return;
 		}
-		const baked = bake();
-		if ( ! baked ) {
+		const layout = bake();
+		if ( ! layout ) {
 			return;
 		}
+		// 3.5: drawn at the video's own size. A card of 560 pixels used to
+		// become a video of 560 pixels.
+		const grow = Math.min(
+			4096 / Math.max( layout.width, layout.height ),
+			1080 / Math.max( layout.width, layout.height )
+		);
+		const vk = grow > 1.05 ? grow : 1;
+		const baked = ( vk > 1 && bake( { outScale: vk } ) ) || layout;
 		animBtn.disabled = true;
 		animLib.disabled = true;
 		btn.textContent = t( 'Recording…' );
@@ -2426,7 +2783,7 @@ function openStudio( ctx ) {
 			pg.drawImage( baked, 0, 0 );
 			const bp = pg.getImageData( 0, 0, 1, 1 ).data;
 			const board = `rgb(${ bp[ 0 ] },${ bp[ 1 ] },${ bp[ 2 ] })`;
-			const cells = revealPlan( baked );
+			const cells = revealPlan( baked, baked === layout ? 1 : vk );
 			const committed = document.createElement( 'canvas' );
 			committed.width = AW;
 			committed.height = AH;
@@ -2522,6 +2879,58 @@ function openStudio( ctx ) {
 				}
 			};
 			drawFrame( 0 );
+			// 3.5: frame by frame where the browser encodes H.264 itself -
+			// every frame is the moment it names, however long a heavy
+			// card takes to draw it, and nothing drops.
+			if ( mp4Available() ) {
+				const plan = videoPlan( AW, AH, total );
+				const controller = new AbortController();
+				let blob = null;
+				try {
+					blob = await encodeFrames( {
+						plan,
+						frames: plan.frames,
+						frameAt: ( i ) => {
+							if ( closedFlag ) {
+								controller.abort();
+							}
+							drawFrame(
+								Math.min( 1, i / plan.fps / ( total - tail ) )
+							);
+							return rec;
+						},
+						onProgress: ( f ) => {
+							btn.textContent =
+								t( 'Recording…' ) +
+								' ' +
+								Math.round( f * 100 ) +
+								'%';
+						},
+						signal: controller.signal,
+					} );
+				} catch ( e ) {
+					// No H.264 encoder for this size after all: the real-time
+					// recording below still works.
+					blob = null;
+				}
+				if ( closedFlag ) {
+					return;
+				}
+				if ( blob ) {
+					recExt = 'mp4';
+					await sink( blob );
+					animBtn.disabled = false;
+					animLib.disabled = false;
+					animBtn.textContent = LB_ANIM;
+					animLib.textContent = LB_ALIB;
+					return;
+				}
+				cg.fillStyle = board;
+				cg.fillRect( 0, 0, AW, AH );
+				committedN = 0;
+				btn.textContent = t( 'Recording…' );
+				drawFrame( 0 );
+			}
 			const stream = rec.captureStream( 30 );
 			// mp4 first, as the core's recorder does: WebKit writes no WebM at
 			// all, and a WebM-only chain could only fail there (EXPORT-9).
@@ -2626,7 +3035,7 @@ function openStudio( ctx ) {
 
 	animBtn.onclick = () =>
 		recordReveal( animBtn, async ( blob ) =>
-			downloadBlob( blob, 'text-art.webm' )
+			downloadBlob( blob, 'text-art.' + ( recExt || 'webm' ) )
 		);
 	animLib.onclick = () => recordReveal( animLib, animToMedia );
 
@@ -2666,7 +3075,31 @@ function openStudio( ctx ) {
 		return emojiCache.get( key );
 	}
 
-	function bake() {
+	/**
+	 * The artwork at its layout size, or `outScale` times larger (3.5):
+	 * the layout stays the same, only the pixels grow, so the inserted
+	 * layer is sharp at the size it takes in the document.
+	 *
+	 * @param {Object} o { outScale }.
+	 * @return {HTMLCanvasElement|null} The artwork.
+	 */
+	function bake( o = {} ) {
+		const outScale = o.outScale || 1;
+		// Every renderer takes its options last; this hands each the scale.
+		// A QR code keeps a whole scale, so module edges stay on pixels.
+		const sized =
+			( fn ) =>
+			( ...args ) => {
+				const opts = args[ args.length - 1 ] || {};
+				args[ args.length - 1 ] = {
+					...opts,
+					outScale:
+						fn === renderQrPortrait && outScale >= 1
+							? Math.max( 1, Math.round( outScale ) )
+							: outScale,
+				};
+				return fn( ...args );
+			};
 		const textOnly = TEXT_ONLY.includes( params.mode );
 		if ( ! srcFlat && ! textOnly ) {
 			return null;
@@ -2689,7 +3122,7 @@ function openStudio( ctx ) {
 			const dims = { width: W, height: H };
 			switch ( params.mode ) {
 				case 'elements':
-					return renderElementWords( like, {
+					return sized( renderElementWords )( like, {
 						...base,
 						...dims,
 						words: splitLines( params.elemWords ),
@@ -2697,7 +3130,7 @@ function openStudio( ctx ) {
 						showNames: params.elemNames,
 					} );
 				case 'hidden':
-					return renderLetterGrid( like, {
+					return sized( renderLetterGrid )( like, {
 						...base,
 						...dims,
 						words: splitLines( params.hiddenWords ),
@@ -2707,7 +3140,7 @@ function openStudio( ctx ) {
 						seed: params.seed,
 					} );
 				case 'ransom':
-					return renderRansomNote( like, {
+					return sized( renderRansomNote )( like, {
 						...base,
 						...dims,
 						lines: splitLines( params.ransomText, 6 ),
@@ -2736,7 +3169,7 @@ function openStudio( ctx ) {
 									params.font
 							  )
 							: null;
-					return renderWordCloud( like, {
+					return sized( renderWordCloud )( like, {
 						...base,
 						...dims,
 						entries,
@@ -2745,7 +3178,7 @@ function openStudio( ctx ) {
 					} );
 				}
 				default:
-					return renderScrabble( like, {
+					return sized( renderScrabble )( like, {
 						...base,
 						...dims,
 						words: splitLines( params.tileWords ),
@@ -2755,24 +3188,14 @@ function openStudio( ctx ) {
 			}
 		}
 		if ( LINE_ART.includes( params.mode ) ) {
-			return renderLineArt( like, srcFlat, {
-				mode: params.mode,
+			return sized( renderLineArt )( like, srcFlat, {
+				...lineOptions(),
 				background: params.background,
-				contrast: params.contrast / 100,
-				spacing: params.lineSpacing,
-				angle: params.lineAngle,
-				weight: params.lineWeight,
-				follow: params.lineFollow,
-				levels: params.lineLevels,
-				stroke: params.lineStroke,
-				dots: params.lineDots,
-				dotSize: params.lineDotSize,
-				seed: params.seed,
 			} );
 		}
 		switch ( params.mode ) {
 			case 'ascii':
-				return renderAscii( like, srcFlat, {
+				return sized( renderAscii )( like, srcFlat, {
 					...base,
 					cell: params.cell,
 					charset: params.charset,
@@ -2780,85 +3203,101 @@ function openStudio( ctx ) {
 					bold: params.bold,
 				} );
 			case 'emoji':
-				return renderEmojiArt( like, srcFlat, getEmojiTiles(), {
-					...base,
-					cell: params.ecell,
-				} );
+				return sized( renderEmojiArt )(
+					like,
+					srcFlat,
+					getEmojiTiles(),
+					{
+						...base,
+						cell: params.ecell,
+					}
+				);
 			case 'brick':
-				return renderBrickArt( like, srcFlat, {
+				return sized( renderBrickArt )( like, srcFlat, {
 					cell: params.bcell,
 					originalColors: params.brickOriginal,
 				} );
 			case 'dice':
-				return renderDiceArt( like, srcFlat, {
+				return sized( renderDiceArt )( like, srcFlat, {
 					cell: params.diceCell,
 					mix: params.diceMix,
 					background: params.background,
 				} );
 			case 'cube':
-				return renderCubeArt( like, srcFlat, {
+				return sized( renderCubeArt )( like, srcFlat, {
 					cell: params.cubeCell,
 				} );
 			case 'sticky':
-				return renderStickyNotes( like, srcFlat, {
+				return sized( renderStickyNotes )( like, srcFlat, {
 					cell: params.noteCell,
 					background: params.background,
 				} );
 			case 'dots':
-				return renderDotMatrix( like, srcFlat, {
+				return sized( renderDotMatrix )( like, srcFlat, {
 					cell: params.dotCell,
 					style: params.dotStyle,
 				} );
 			case 'ceramic':
-				return renderCeramicMosaic( like, srcFlat, {
+				return sized( renderCeramicMosaic )( like, srcFlat, {
 					cell: params.tileCell,
 					background: params.background,
 				} );
 			case 'keycap':
-				return renderKeycapArt( like, srcFlat, {
+				return sized( renderKeycapArt )( like, srcFlat, {
 					cell: params.capCell,
 					text: params.capText,
 				} );
 			case 'marquee':
-				return renderMarquee( like, srcFlat, {
+				return sized( renderMarquee )( like, srcFlat, {
 					cell: params.marqCell,
 					style: params.marqStyle,
 				} );
 			case 'stamp':
-				return renderStampWall( like, srcFlat, {
+				return sized( renderStampWall )( like, srcFlat, {
 					cell: params.stampCell,
 					background: params.background,
 				} );
 			case 'caps':
-				return renderBottleCaps( like, srcFlat, {
+				return sized( renderBottleCaps )( like, srcFlat, {
 					cell: params.capsCell,
 					background: params.background,
 				} );
 			case 'coins':
-				return renderCoinMosaic( like, srcFlat, {
+				return sized( renderCoinMosaic )( like, srcFlat, {
 					cell: params.coinCell,
 					background: params.background,
 				} );
 			case 'buttons':
-				return renderButtonMosaic( like, srcFlat, {
+				return sized( renderButtonMosaic )( like, srcFlat, {
 					cell: params.btnCell,
 					background: params.background,
 				} );
+			case 'cards':
+				return sized( renderCardWall )( like, srcFlat, {
+					cell: params.cardCell,
+					background: params.background,
+				} );
+			case 'pins':
+				return sized( renderPushPins )( like, srcFlat, {
+					cell: params.pinCell,
+					background: params.background,
+					seed: params.seed,
+				} );
 			case 'domino':
-				return renderDominoArt( like, srcFlat, {
+				return sized( renderDominoArt )( like, srcFlat, {
 					cell: params.domCell,
 					stoneStyle: params.domStyle,
 					background: params.background,
 				} );
 			case 'tile':
-				return renderTileMosaic( like, srcFlat, tileCanvas, {
+				return sized( renderTileMosaic )( like, srcFlat, tileCanvas, {
 					cell: params.tmCell,
 					tint: params.tmTint,
 					jitter: params.tmJitter,
 					background: params.background,
 				} );
 			case 'qr':
-				return renderQrPortrait( like, srcFlat, {
+				return sized( renderQrPortrait )( like, srcFlat, {
 					text:
 						params.qrText.trim() ||
 						( window.location && window.location.origin ) ||
@@ -2868,7 +3307,7 @@ function openStudio( ctx ) {
 					round: params.qrRound,
 				} );
 			case 'words':
-				return renderWordArt( like, srcFlat, {
+				return sized( renderWordArt )( like, srcFlat, {
 					...base,
 					words: splitLines( params.words ),
 					sizeMin: params.sizeMin,
@@ -2877,7 +3316,7 @@ function openStudio( ctx ) {
 					seed: params.seed,
 				} );
 			case 'lyrics':
-				return renderTextFlow( like, srcFlat, {
+				return sized( renderTextFlow )( like, srcFlat, {
 					...base,
 					text: params.text || 'LA LA LA ',
 					size: params.size,
@@ -2885,7 +3324,7 @@ function openStudio( ctx ) {
 					dynamicSize: params.dynamicSize,
 				} );
 			case 'post':
-				return renderTextFlow( like, srcFlat, {
+				return sized( renderTextFlow )( like, srcFlat, {
 					...base,
 					text: params.postText || params.postTitle || 'WordPress ',
 					size: params.size,
@@ -2893,7 +3332,7 @@ function openStudio( ctx ) {
 					dynamicSize: params.dynamicSize,
 				} );
 			default:
-				return renderSilhouetteText( like, srcRaw || srcFlat, {
+				return sized( renderSilhouetteText )( like, srcRaw || srcFlat, {
 					...base,
 					text: params.text || 'ART ',
 					size: params.size,
@@ -2905,12 +3344,22 @@ function openStudio( ctx ) {
 
 	let timer = 0;
 	let bakeToken = 0;
-	function drawBaked( baked ) {
+	// How long the last full preview took, and the pending live frame.
+	let lastBakeMs = 0;
+	let liveFrame = 0;
+	const LIVE_SCALE = 0.5;
+	/**
+	 * Show an artwork in the preview. `k` is the scale it was drawn at, so
+	 * a half-resolution live frame takes the same place as the full one.
+	 */
+	function drawBaked( baked, k = 1 ) {
+		const lw = baked.width / k;
+		const lh = baked.height / k;
 		const maxW = Math.max( 200, view.clientWidth - 36 );
 		const maxH = Math.max( 200, view.clientHeight - 36 );
-		const sc = Math.min( maxW / baked.width, maxH / baked.height, 1 );
-		canvas.width = Math.round( baked.width * sc );
-		canvas.height = Math.round( baked.height * sc );
+		const sc = Math.min( maxW / lw, maxH / lh, 1 );
+		canvas.width = Math.round( lw * sc );
+		canvas.height = Math.round( lh * sc );
 		const g = canvas.getContext( '2d' );
 		g.imageSmoothingEnabled = true;
 		g.drawImage( baked, 0, 0, canvas.width, canvas.height );
@@ -2929,7 +3378,9 @@ function openStudio( ctx ) {
 			if ( tk !== bakeToken ) {
 				return;
 			}
+			const t0 = performance.now();
 			const baked = bake();
+			lastBakeMs = performance.now() - t0;
 			if ( tk !== bakeToken ) {
 				return;
 			}
@@ -2949,9 +3400,31 @@ function openStudio( ctx ) {
 			}
 		}, 40 );
 	}
+	/** A quick frame at half resolution while a control is moving. */
+	function paintLive() {
+		liveFrame = 0;
+		if (
+			closedFlag ||
+			( ! srcFlat && ! TEXT_ONLY.includes( params.mode ) )
+		) {
+			return;
+		}
+		const baked = bake( { outScale: LIVE_SCALE } );
+		if ( baked ) {
+			drawBaked( baked, LIVE_SCALE );
+		}
+	}
 	function schedule() {
 		window.clearTimeout( timer );
 		timer = window.setTimeout( paintNow, 220 );
+		// 3.5: a slider being dragged showed nothing until it was let go -
+		// the debounce never fires while the hand keeps moving. A card that
+		// renders quickly now follows the hand at half resolution; a slow
+		// one (the long drawings) still waits for the pause, because a
+		// frozen slider is worse than a late picture.
+		if ( lastBakeMs > 0 && lastBakeMs < 160 && ! liveFrame ) {
+			liveFrame = window.requestAnimationFrame( paintLive );
+		}
 	}
 
 	/* ------------------------------ lifecycle ----------------------------- */
@@ -2972,6 +3445,7 @@ function openStudio( ctx ) {
 
 	function close() {
 		closedFlag = true;
+		history.dispose();
 		if ( activeRecorder ) {
 			// The reveal recording used to run on after the dialog was
 			// gone, recorder and stream never stopped (LECK-7).
@@ -2987,6 +3461,11 @@ function openStudio( ctx ) {
 		}
 		window.clearTimeout( timer );
 		window.clearTimeout( thumbTimer );
+		if ( liveFrame ) {
+			window.cancelAnimationFrame( liveFrame );
+			liveFrame = 0;
+		}
+		thumbRun++;
 		bakeToken++;
 		window.removeEventListener( 'resize', onResize );
 		if ( viewRO ) {
@@ -3015,6 +3494,28 @@ function openStudio( ctx ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: style,
+	// palette, colours, texts and their settings; a changed picture is
+	// loaded again.
+	const history = studioUndo( {
+		backdrop,
+		read: () => params,
+		write: ( data ) => {
+			const source = () => JSON.stringify( [ params.source, params.image ] );
+			const before = source();
+			Object.assign( params, data );
+			customCtls.forEach( ( ctl, i ) =>
+				ctl?.set?.( params.customColors[ i ] || '#cccccc' )
+			);
+			syncUi();
+			refreshThumbs();
+			if ( source() !== before ) {
+				loadSource();
+			} else {
+				schedule();
+			}
+		},
+	} );
 
 	/* -------------------------------- insert ------------------------------ */
 
@@ -3024,9 +3525,53 @@ function openStudio( ctx ) {
 	 * too old to take a shape from an extension - the drawing is the same
 	 * either way, only the material differs.
 	 */
+	function lineOptions() {
+		return {
+			mode: params.mode,
+			contrast: params.contrast / 100,
+			spacing: params.lineSpacing,
+			angle: params.lineAngle,
+			weight: params.lineWeight,
+			follow: params.lineFollow,
+			levels: params.lineLevels,
+			stroke: params.lineStroke,
+			dots: params.lineDots,
+			dotSize: params.lineDotSize,
+			seed: params.seed,
+			nails: params.stringNails,
+			threads: params.stringThreads,
+			threadWeight: params.stringWeight,
+			// 3.6: the colours of the threads - the pinned custom colours,
+			// otherwise the picture's own.
+			threadColors: params.stringColors || 1,
+			threadList: threadList(),
+			morseText: params.morseText,
+			background: params.background,
+			...cleanOneLine( params ),
+		};
+	}
+
+	function threadList() {
+		const valid = ( c ) => /^#[0-9a-f]{6}$/i.test( String( c ) );
+		const custom = ( params.customColors || [] ).filter( valid );
+		return custom.length >= 2
+			? custom.map( ( h ) => [ 1, 3, 5 ].map( ( i ) => parseInt( h.slice( i, i + 2 ), 16 ) ) )
+			: null;
+	}
+
 	function insertVector() {
+		// 3.6: a coloured board is several fills; a path layer carries one.
+		// It goes in as a picture at the document's size instead.
+		if ( 'string' === params.mode && ( params.stringColors || 1 ) >= 2 ) {
+			return false;
+		}
 		const doc = editor.state.doc;
-		const srcAR = ( srcFlat.width || 1 ) / ( srcFlat.height || 1 );
+		// String art is drawn on a round board: its drawing is square,
+		// whatever the photo's proportions.
+		const srcAR =
+			'string' === params.mode
+				? 1
+				: ( srcFlat.width || 1 ) / ( srcFlat.height || 1 );
 		const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
 		// A drawing OF the canvas has the canvas' proportions and belongs on
 		// it edge to edge - the same rule the baked modes follow below. Only
@@ -3041,17 +3586,7 @@ function openStudio( ctx ) {
 			? Math.round( layer.w )
 			: Math.round( Math.min( doc.w * fit, doc.h * fit * srcAR ) );
 		const art = lineArtPaths( srcFlat, document.createElement( 'canvas' ), {
-			mode: params.mode,
-			contrast: params.contrast / 100,
-			spacing: params.lineSpacing,
-			angle: params.lineAngle,
-			weight: params.lineWeight,
-			follow: params.lineFollow,
-			levels: params.lineLevels,
-			stroke: params.lineStroke,
-			dots: params.lineDots,
-			dotSize: params.lineDotSize,
-			seed: params.seed,
+			...lineOptions(),
 			scaleTo: w,
 		} );
 		if ( ! art.d ) {
@@ -3113,12 +3648,46 @@ function openStudio( ctx ) {
 				close();
 				return;
 			}
-			const baked = bake();
-			if ( ! baked ) {
+			const layout = bake();
+			if ( ! layout ) {
 				throw new Error( t( 'Could not insert the artwork.' ) );
 			}
-			const url = baked.toDataURL( 'image/png' );
 			const doc = editor.state.doc;
+			// The text/shape modes bake to the document's aspect ratio, so
+			// they can fill the whole canvas; image-based art keeps its own
+			// aspect and is fit centred (filling it would distort the art).
+			const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
+			const fillsCanvas =
+				Math.abs( layout.width / layout.height - docAR ) / docAR < 0.02;
+			let box;
+			if ( editing ) {
+				box = { w: layer.w || layout.width };
+			} else if ( fillsCanvas ) {
+				box = { x: 0, y: 0, w: doc.w, h: doc.h };
+			} else {
+				const fit = Math.min(
+					( doc.w * 0.92 ) / layout.width,
+					( doc.h * 0.92 ) / layout.height
+				);
+				const w = Math.round( layout.width * fit ),
+					h = Math.round( layout.height * fit );
+				box = {
+					x: Math.round( ( doc.w - w ) / 2 ),
+					y: Math.round( ( doc.h - h ) / 2 ),
+					w,
+					h,
+				};
+			}
+			// 3.5: drawn again at the size the layer takes, up to 4096 px a
+			// side. Before, every card was stretched from its working size:
+			// ASCII art came into a 1920 px document three times enlarged.
+			const grow = Math.min(
+				4096 / Math.max( layout.width, layout.height ),
+				box.w / layout.width
+			);
+			const baked =
+				( grow > 1.05 && bake( { outScale: grow } ) ) || layout;
+			const url = baked.toDataURL( 'image/png' );
 			const stored = { ...params };
 			if ( editing ) {
 				editor.dispatch( {
@@ -3137,30 +3706,6 @@ function openStudio( ctx ) {
 				const name = t(
 					MODES.find( ( m ) => m.id === params.mode ).label
 				);
-				// The text/shape modes bake to the document's aspect ratio, so
-				// they can fill the whole canvas; image-based art keeps its own
-				// aspect and is fit centred (filling it would distort the art).
-				const docAR = ( doc.w || 1 ) / ( doc.h || 1 );
-				const fillsCanvas =
-					Math.abs( baked.width / baked.height - docAR ) / docAR <
-					0.02;
-				let box;
-				if ( fillsCanvas ) {
-					box = { x: 0, y: 0, w: doc.w, h: doc.h };
-				} else {
-					const fit = Math.min(
-						( doc.w * 0.92 ) / baked.width,
-						( doc.h * 0.92 ) / baked.height
-					);
-					const w = Math.round( baked.width * fit ),
-						h = Math.round( baked.height * fit );
-					box = {
-						x: Math.round( ( doc.w - w ) / 2 ),
-						y: Math.round( ( doc.h - h ) / 2 ),
-						w,
-						h,
-					};
-				}
 				const imgLayer = bridge.documents.makeImage( {
 					name,
 					...box,
@@ -3189,6 +3734,8 @@ function openStudio( ctx ) {
 	if ( window.__wpieQA ) {
 		window.__ta = {
 			params,
+			glow,
+			lastBakeMs: () => lastBakeMs,
 			pick: ( mode ) => {
 				params.mode = mode;
 				syncUi();
@@ -3207,12 +3754,8 @@ function openStudio( ctx ) {
 						srcFlat,
 						document.createElement( 'canvas' ),
 						{
+							...lineOptions(),
 							mode,
-							contrast: params.contrast / 100,
-							levels: params.lineLevels,
-							stroke: params.lineStroke,
-							spacing: params.lineSpacing,
-							dots: params.lineDots,
 							scaleTo: 800,
 						}
 					);

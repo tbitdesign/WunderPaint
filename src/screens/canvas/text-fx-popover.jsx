@@ -5,7 +5,7 @@
  * Same placement family as the Smart Select refine card.
  */
 
-import { useState, useEffect } from '@wordpress/element';
+import { useState, useEffect, useId } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 import { I } from '../../icons';
@@ -13,8 +13,15 @@ import { TEXT_FX, FX_PARAMS } from '../../lib/text-fx-defs';
 import { SwatchButton } from '../../components/color-popover';
 import { MediaPicker } from '../../components/media-picker';
 
-export function TextFxPopover( { editor, layer, fxId, onClose } ) {
+export function TextFxPopover( {
+	editor,
+	layer,
+	fxId,
+	onClose,
+	embedded = false,
+} ) {
 	const { dispatch, commit } = editor;
+	const fieldId = useId();
 	const [ picking, setPicking ] = useState( false );
 	// Warp is stored as textFX.warp = { type, bend } (not textFX[id]); it
 	// shares this same closeable card as every other text effect (v1.174.1).
@@ -62,11 +69,12 @@ export function TextFxPopover( { editor, layer, fxId, onClose } ) {
 	return (
 		// Shield the canvas: without this the first pointer-down bubbles
 		// into the stage handlers, deselects the layer and unmounts the
-		// card mid-drag (same guard as the context bar).
+		// card mid-drag (same guard as the context bar). This is not a keyboard action.
+		// eslint-disable-next-line jsx-a11y/click-events-have-key-events
 		<div
-			className="textfx-pop"
-			role="dialog"
-			aria-modal="true"
+			className={ embedded ? 'textfx-pop textfx-embedded' : 'textfx-pop' }
+			role={ embedded ? 'region' : 'dialog' }
+			aria-modal={ embedded ? undefined : true }
 			aria-label={ def.label }
 			onPointerDown={ ( e ) => e.stopPropagation() }
 			onMouseDown={ ( e ) => e.stopPropagation() }
@@ -86,9 +94,13 @@ export function TextFxPopover( { editor, layer, fxId, onClose } ) {
 				</button>
 			</div>
 			{ isWarp ? (
-				<label className="smart-refine-field">
+				<label
+					className="smart-refine-field"
+					htmlFor={ fieldId + '-bend' }
+				>
 					<span>{ __( 'Bend', 'wunderpaint' ) }</span>
 					<input
+						id={ fieldId + '-bend' }
 						type="range"
 						min={ -100 }
 						max={ 100 }
@@ -97,6 +109,9 @@ export function TextFxPopover( { editor, layer, fxId, onClose } ) {
 							setPart( { bend: +e.target.value } )
 						}
 					/>
+					<output className="wpie-number-output">
+						{ cur.bend ?? 50 }
+					</output>
 				</label>
 			) : 'imageFill' === fxId ? (
 				<>
@@ -152,31 +167,47 @@ export function TextFxPopover( { editor, layer, fxId, onClose } ) {
 						/>
 					) }
 				</>
-			) : (
+			) : null }
+			{ ! isWarp &&
 				FX_PARAMS[ fxId ].map( ( p ) => (
-					<label key={ p.key } className="smart-refine-field">
+					<label
+						key={ p.key }
+						className="smart-refine-field"
+						htmlFor={ fieldId + '-' + p.key }
+					>
 						<span>{ p.label }</span>
 						{ p.color ? (
 							<SwatchButton
+								id={ fieldId + '-' + p.key }
+								title={ p.label }
 								color={ cur[ p.key ] ?? def.def[ p.key ] }
 								onChange={ ( c ) =>
 									setPart( { [ p.key ]: c } )
 								}
 							/>
 						) : (
-							<input
-								type="range"
-								min={ p.min }
-								max={ p.max }
-								value={ cur[ p.key ] ?? def.def[ p.key ] ?? 0 }
-								onChange={ ( e ) =>
-									setPart( { [ p.key ]: +e.target.value } )
-								}
-							/>
+							<>
+								<input
+									id={ fieldId + '-' + p.key }
+									type="range"
+									min={ p.min }
+									max={ p.max }
+									value={
+										cur[ p.key ] ?? def.def[ p.key ] ?? 0
+									}
+									onChange={ ( e ) =>
+										setPart( {
+											[ p.key ]: +e.target.value,
+										} )
+									}
+								/>
+								<output className="wpie-number-output">
+									{ cur[ p.key ] ?? def.def[ p.key ] ?? 0 }
+								</output>
+							</>
 						) }
 					</label>
-				) )
-			) }
+				) ) }
 			<button
 				className="ai-btn secondary"
 				style={ { fontSize: 11, padding: '4px 10px' } }

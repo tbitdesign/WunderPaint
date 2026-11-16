@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { buildStage, launchQA } from '../../shared/qa-kit/stage.mjs';
+import { editPaused, pressAndWait } from './lab-qa.mjs';
 const active = execFileSync( 'ps', [ '-eo', 'stat=,comm=' ], {
 	encoding: 'utf8',
 } )
@@ -205,6 +206,7 @@ try {
 	check( cards.ready >= 60, 'All 60 preview cards rendered' );
 	await page.evaluate( () => {
 		const lab = window.__wpieFluidLab;
+		lab.pause();
 		lab.choose( 'volume_bubbles', 17 );
 		lab.renderer.update( lab.settings );
 		lab.renderer.render();
@@ -212,7 +214,7 @@ try {
 	const savedVolume = await page.evaluate(
 		() => window.__wpieFluidLab.save().snapshot.data
 	);
-	await page.getByRole( 'button', { name: 'Einfügen', exact: true } ).click();
+	await pressAndWait( page, 'Einfügen' );
 	const inserted = await page.evaluate(
 		() =>
 			window.__dispatched.findLast(
@@ -221,22 +223,19 @@ try {
 	);
 	check(
 		inserted?.generator?.params?.lab?.snapshot?.kind === 'volume' &&
+			inserted.generator.params.lab.snapshot.pack &&
 			inserted.src.startsWith( 'data:image/png' ),
 		'Insert preserves the spatial experiment and a real full-size PNG'
 	);
-	await page.evaluate( ( layer ) => {
-		window.__gen.edit( { editor: window.__editor, layer } );
-		window.__wpieFluidLab.pause();
-	}, inserted );
+	// Packed in the layer, losslessly for a volume bath (21.10.2026).
+	await editPaused( page, inserted );
 	check(
 		( await page.evaluate(
 			() => window.__wpieFluidLab.save().snapshot.data
 		) ) === savedVolume,
 		'Editing the spatial generator restores every particle and reagent'
 	);
-	await page
-		.getByRole( 'button', { name: 'Aktualisieren', exact: true } )
-		.click();
+	await pressAndWait( page, 'Aktualisieren' );
 	const update = await page.evaluate( () =>
 		window.__dispatched.findLast(
 			( action ) => action.type === 'UPDATE_LAYER'

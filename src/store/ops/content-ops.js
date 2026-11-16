@@ -42,7 +42,7 @@ export function applyPresetFilterOp( editor, filterId ) {
 	dispatch( {
 		type: 'UPDATE_LAYER',
 		id: layer.id,
-		patch: { filter: filterId },
+		patch: { filter: filterId, filterAmount: 100 },
 	} );
 	commit(
 		sprintf(

@@ -45,7 +45,7 @@
 	--wp-600: #e3e5e8;
 	--wp-500: #d0d4d9;
 	--wp-400: #a6adb8;
-	--wp-350: #7a8699;
+	--wp-350: #6f7681;
 	--wp-300: #5b6068;
 	--wp-200: #3a3f47;
 	--wp-100: #1a1d21;
@@ -89,6 +89,8 @@
 	--status-warn: var(--amber-500);
 	--status-error: var(--red-500);
 	--status-ai: var(--purple-500);
+	/* Equal gaps while dragging (smart guides, 1.431); lines use --accent. */
+	--guide-spacing: #ec4899;
 
 	/* ---- DS type scale ---- */
 	--fs-2xs: 10px;
@@ -215,7 +217,10 @@
 	--wp-600: #2a2d33;
 	--wp-500: #3a3f47;
 	--wp-400: #5c6470;
-	--wp-350: #718ca4;
+
+	/* Muted text, neutral since 16.09.2026: the one tinted grey in the scale
+	 * read as a third voice beside white and the accent (was #718ca4). */
+	--wp-350: #868c94;
 	--wp-300: #a8acae;
 	--wp-200: #d4d7db;
 	--wp-100: #f3f5f7;

@@ -2,6 +2,7 @@
  * Editor constants, reproduced verbatim from the prototype / spec 02.4.
  */
 import { __, _x } from '@wordpress/i18n';
+import { FILTER_COLLECTION } from '../lib/filter-collection';
 
 import {
 	SYSTEM_FONTS,
@@ -10,6 +11,7 @@ import {
 } from '../lib/font-manager';
 import { DEFAULT_STOPS } from '../lib/colour-ramp';
 import { DEFAULT_JITTER } from '../lib/colour-jitter';
+import { FX_BRUSH_DEFAULTS } from '../lib/fxbrush-settings';
 
 export const PRESETS = [
 	{
@@ -382,6 +384,7 @@ export const FILTERS = [
 		label: __( 'Cinema', 'wunderpaint' ),
 		css: 'contrast(1.2) saturate(1.12) brightness(.95) hue-rotate(12deg) sepia(.1)',
 	},
+	...FILTER_COLLECTION,
 ];
 
 // Greyscale (dark → light) first, then colours ordered by hue (v1.37).
@@ -533,6 +536,13 @@ export const TOOLS = [
 		kbd: 'K',
 		icon: 'smartselect',
 	},
+	// Repeat (v1.431): a live Repeat layer for the selected layer or group.
+	{
+		id: 'repeat',
+		label: __( 'Repeat', 'wunderpaint' ),
+		kbd: 'J',
+		icon: 'repeat',
+	},
 ];
 
 /** Toolbar layout: tool ids with separators between groups (spec 04.3). */
@@ -550,6 +560,7 @@ export const TOOLBAR_GROUPS = [
 	[ 'brush', 'pencil', 'eraser', 'bucket', 'gradient', 'stamp', 'fxbrush' ],
 	[ 'shape', 'pen' ],
 	[ 'eyedropper', 'hand', 'zoom' ],
+	[ 'repeat' ],
 ];
 
 /**
@@ -578,6 +589,17 @@ export const DEFAULT_TOOL_OPTS = {
 		// The pulled string (stroke smoothing), 0-100. 20 rounds hand
 		// jitter without feeling laggy; 0 is raw input.
 		smoothing: 20,
+		// The pen's pressure curve, 0-100: 50 is the tablet as it comes,
+		// lower answers a light touch sooner, higher wants a firmer hand.
+		pressCurve: 50,
+		// The virtual pen of the media styles, 0-100: how far a mouse or
+		// touch stroke swells in and lifts off (a real pen brings its own
+		// pressure). 0 lays every stroke at full load end to end.
+		taper: 35,
+		// The wet brush's charge, 0-100: how much new ground a loaded brush
+		// covers before it runs dry (the last of it breaks up into dry
+		// brush). 100 never runs out; lifting the brush reloads it.
+		load: 65,
 		mirror: 'off',
 		tip: 'round',
 		// Per-style dials of the wet island, keyed by style id; the
@@ -634,6 +656,7 @@ export const DEFAULT_TOOL_OPTS = {
 		size: 2,
 		opacity: 100,
 		smoothing: 20,
+		pressCurve: 50,
 		mirror: 'off',
 		layerMode: 'single',
 		paintStyle: 'normal',
@@ -642,6 +665,7 @@ export const DEFAULT_TOOL_OPTS = {
 		size: 32,
 		opacity: 100,
 		smoothing: 10,
+		pressCurve: 50,
 		flow: 100,
 		hardness: 100,
 		mirror: 'off',
@@ -664,7 +688,15 @@ export const DEFAULT_TOOL_OPTS = {
 		alphaJitter: null,
 		sizeJitter: null,
 	},
-	bucket: { tolerance: 32, contiguous: true, opacity: 100 },
+	bucket: {
+		mode: 'pixels',
+		source: 'visible',
+		target: 'new',
+		tolerance: 32,
+		contiguous: true,
+		opacity: 100,
+		gap: 0,
+	},
 	gradient: {
 		kind: 'linear',
 		reverse: false,
@@ -701,22 +733,25 @@ export const DEFAULT_TOOL_OPTS = {
 		source: null,
 		aligned: true,
 		offset: null,
+		pickingSource: false,
+		preview: true,
 	},
-	fxbrush: {
-		mode: 'blur',
-		size: 40,
-		strength: 50,
-		hardness: 60,
-		sponge: 'desaturate',
-	},
-	crop: { ratio: 'free' },
+	fxbrush: { ...FX_BRUSH_DEFAULTS },
+	crop: { ratio: 'free', guides: 'thirds', preview: false },
 	zoom: {},
 	move: {},
-	marquee: { shape: 'rect', combine: 'replace', feather: 0 },
+	marquee: {
+		shape: 'rect',
+		combine: 'replace',
+		feather: 0,
+		sizeMode: 'free',
+		width: 100,
+		height: 100,
+	},
 	lasso: { mode: 'freehand', combine: 'replace', feather: 0 },
-	wand: { tolerance: 32, contiguous: true },
-	pen: { mode: 'pen', fidelity: 50 },
-	eyedropper: { sample: 1 },
+	wand: { tolerance: 32, contiguous: true, combine: 'replace' },
+	pen: { mode: 'curve', fidelity: 50, tension: 50 },
+	eyedropper: { sample: 1, source: 'canvas' },
 	hand: {},
 };
 

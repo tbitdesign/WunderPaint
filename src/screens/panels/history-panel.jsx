@@ -151,7 +151,7 @@ export function HistoryPanel( { extras } ) {
 				) }
 				<span style={ { flex: 1 } } />
 				<button
-					className="icon-btn"
+					className="ai-btn secondary sm"
 					title={ __( 'Take a named snapshot', 'wunderpaint' ) }
 					style={ {
 						display: 'inline-flex',

@@ -1,5 +1,6 @@
 /** The paper in the middle: the rendered SVG drawn on a canvas, fitted to the view. */
 import { ICONS } from './icons.js';
+import { docParts, docAround } from '../../../shared/doc-preview.js';
 
 export function buildView( mid, { ui, t, onToggleDoc } ) {
 	const view = ui.el( 'div', 'wpiemf-view', mid );
@@ -20,6 +21,25 @@ export function buildView( mid, { ui, t, onToggleDoc } ) {
 		t( 'Choose a starter or paste your own material.' )
 	);
 	let token = 0;
+	// v1.0.1 (shared doc-preview): the document split at the figure's
+	// layer, laid around the paper where the figure lands - below under
+	// it, above over it.
+	const parts = docParts( view, [ docBtn, hint ] );
+	let docState = null;
+	function layoutDoc() {
+		if ( ! docState ) {
+			parts.hide();
+			return;
+		}
+		const box = {
+			x: canvas.offsetLeft,
+			y: canvas.offsetTop,
+			w: canvas.offsetWidth,
+			h: canvas.offsetHeight,
+		};
+		const R = docState.region( canvas.width, canvas.height );
+		parts.show( docState.around, docAround( box, R, docState.doc.w, docState.doc.h ) );
+	}
 
 	/** Draw an SVG string; resolves when the picture is on the canvas. */
 	function show( res ) {
@@ -56,14 +76,14 @@ export function buildView( mid, { ui, t, onToggleDoc } ) {
 		);
 		canvas.style.width = Math.round( canvas.width * s ) + 'px';
 		canvas.style.height = Math.round( canvas.height * s ) + 'px';
+		layoutDoc();
 	}
 
-	function setDoc( url ) {
-		view.style.backgroundImage = url ? 'url(' + url + ')' : '';
-		view.style.backgroundSize = url ? 'contain' : '';
-		view.style.backgroundRepeat = 'no-repeat';
-		view.style.backgroundPosition = 'center';
-		docBtn.setAttribute( 'aria-pressed', url ? 'true' : 'false' );
+	/** { around, doc, region( w, h ) } from main, or null to hide. */
+	function setDoc( state ) {
+		docState = state || null;
+		docBtn.setAttribute( 'aria-pressed', state ? 'true' : 'false' );
+		layoutDoc();
 	}
 
 	return { view, canvas, hint, show, fit, setDoc };

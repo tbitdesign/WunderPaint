@@ -41,6 +41,7 @@ export {
 	copyLayers,
 	deleteLayers,
 	deselectOp,
+	restoreSelectionOp,
 	distributeLayersOp,
 	duplicateLayer,
 	featherSelectionOp,
@@ -50,14 +51,19 @@ export {
 	newLayerOp,
 	pasteLayerStyles,
 	pasteLayers,
-	radialRepeat,
-	radialRepeatPrompt,
-	gridRepeat,
-	gridRepeatPrompt,
 	saveSelectionOp,
 	selectAllOp,
 	sendBackwardOp,
 } from './ops/edit-ops';
+export {
+	ensureRepeatFor,
+	updateRepeat,
+	setRepeatRule,
+	setRepeatProgression,
+	bakeRepeat,
+	removeRepeat,
+	repeatToolClick,
+} from './ops/repeat-ops';
 
 export {
 	applyPresetFilterOp,

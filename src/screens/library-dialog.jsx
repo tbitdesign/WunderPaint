@@ -43,6 +43,7 @@ import {
 	DesignsSection,
 	UploadsSection,
 } from './library/user-sections';
+import { ArchiveSection } from './library/archive-section';
 import { StartersSection, TemplatesSection } from './library/template-sections';
 import {
 	ExtensionSectionModal,
@@ -85,6 +86,8 @@ export function LibraryDialog( { section, onClose, extras } ) {
 		{ id: 'elements', label: __( 'Shapes', 'wunderpaint' ) },
 		{ id: 'backgrounds', label: __( 'Backgrounds', 'wunderpaint' ) },
 		{ id: 'uploads', label: __( 'Media Library', 'wunderpaint' ) },
+		// A folder on the visitor's own computer (v1.431.0), read in place.
+		{ id: 'archive', label: __( 'My Archive', 'wunderpaint' ) },
 		{ id: 'icons', label: __( 'Icons', 'wunderpaint' ) },
 		{ id: 'emoji', label: __( 'Emoji', 'wunderpaint' ) },
 		{ id: 'patterns', label: __( 'Patterns', 'wunderpaint' ) },
@@ -197,6 +200,13 @@ export function LibraryDialog( { section, onClose, extras } ) {
 					) }
 					{ ! searching && 'uploads' === active && (
 						<UploadsSection
+							editor={ editor }
+							extras={ extras }
+							onClose={ onClose }
+						/>
+					) }
+					{ ! searching && 'archive' === active && (
+						<ArchiveSection
 							editor={ editor }
 							extras={ extras }
 							onClose={ onClose }

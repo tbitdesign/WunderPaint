@@ -1,37 +1,86 @@
 /**
- * Color Schemer (v1.103.0): five lockable swatch slots driven by classic
- * color-theory harmonies (base color + harmony + spread/saturation/
- * lightness sliders), tasteful randomize, extraction from the current
- * document or a media-library image, a live design preview, and named
- * swatch sets saved site-wide (they appear in every color picker and in
- * backups). Optionally overwrites a brand kit's colors.
+ * Color Schemer (v1.432.0, rebuilt from the v1.103.0 dialog): a palette
+ * workbench in three columns like the studios.
+ *
+ * Left, where a palette comes from and where it is kept: an image from
+ * the Media Library Manager, the document, the saved palettes (load,
+ * rename, duplicate, drag to reorder, delete with Undo) and the Brand
+ * Kits. Middle, the palette as one bar and - the
+ * reason this is a dialog and not part of the narrow Color panel - the
+ * palette on the user's own design, several variants side by side. Right,
+ * the harmonies as cards with their colors, the harmony wheel and the
+ * dials. Apply recolors the design in one undo step through the Palette
+ * mix engine; As gradient hands the palette to the Color panel's gradient
+ * row. Opened from the Color panel, it starts with what the panel showed.
  */
 
-import { useReducer, useState } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { useMemo, useRef, useState, useId } from '@wordpress/element';
+import { __, _n, sprintf } from '@wordpress/i18n';
 
 import { I } from '../icons';
 import { useEditor } from '../store/editor-context';
 import { useEscape } from '../components/use-escape';
+import { useColorEditor } from '../components/use-color-editor';
+import { ColorField } from '../components/color-field';
+import { SnapSlider } from '../components/snap-slider';
 import { HelpLink } from './help-dialog';
-import {
-	ColorPopover,
-	SwatchButton,
-	anchoredPopoverStyle,
-} from '../components/color-popover';
-import { listMediaPage, request } from '../lib/api';
+import { request } from '../lib/api';
 import {
 	HARMONIES,
 	buildScheme,
-	labelColorFor,
+	mostColorful,
 	randomSchemeInput,
-	schemeRoles,
 } from '../lib/color-scheme';
 import { extractPalette } from '../lib/palette';
 import { loadImage } from '../store/document';
 import { renderToCanvas, sharedImageCache, createCanvas } from '../lib/raster';
+import { colorKey, scanColors } from '../lib/color-replace';
+import { mappingPatches } from '../lib/color-experiments';
+import { schemeVariants } from '../lib/scheme-variants';
+import {
+	PALETTE_MAX,
+	addPalette,
+	duplicatePalette,
+	moveItem,
+	paletteColors,
+	paletteText,
+	removePalette,
+	restorePalette,
+	updatePalette,
+} from '../lib/palette-library';
+import { loadColorPanelSettings } from '../lib/color-panel';
+import { schemeGradientColors } from '../lib/color-scales';
+import { PaletteBar } from './color-schemer/palette-bar';
+import { HarmonyWheel } from './color-schemer/harmony-wheel';
+import { LibraryColumn, Strip } from './color-schemer/library-column';
+import { DesignVariants } from './color-schemer/design-variants';
+import { ColorScales } from './color-schemer/color-scales';
+import '../styles/editor/color-schemer.css';
 
-const SLOT_COUNT = 5;
+/** The studios' dice with four pips (ICONS.dice), the CI sign for Random. */
+const Dice = () => (
+	<svg
+		viewBox="0 0 24 24"
+		width="14"
+		height="14"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="1.8"
+		aria-hidden="true"
+	>
+		<rect x="3" y="3" width="18" height="18" rx="3" />
+		<circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none" />
+		<circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none" />
+		<circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none" />
+		<circle cx="8.5" cy="15.5" r="1.3" fill="currentColor" stroke="none" />
+	</svg>
+);
+
+/** Same order as the Color panel's harmony list. */
+const HARMONY_ORDER = [
+	'shades',
+	...HARMONIES.filter( ( h ) => h !== 'shades' ),
+];
 
 const harmonyLabel = ( h ) =>
 	( {
@@ -44,52 +93,132 @@ const harmonyLabel = ( h ) =>
 		shades: __( 'Shades & tints', 'wunderpaint' ),
 	} )[ h ] || h;
 
-export function ColorSchemerDialog( { onClose, extras } ) {
-	useEscape( onClose );
+const num = ( value, fallback ) =>
+	Number.isFinite( +value ) && value !== null && value !== ''
+		? +value
+		: fallback;
+
+/**
+ * Start from the seed the Color panel hands over (its harmony, or the
+ * swatches it showed), else from the panel's last harmony settings.
+ */
+function initialState( seed, fgColor, pageColors ) {
+	let panel = {};
+	try {
+		panel = loadColorPanelSettings();
+	} catch ( e ) {}
+	// Opened from the menu, a design's own accent is a better start than
+	// whatever the foreground color happens to be.
+	const base =
+		colorKey( seed?.base )?.key ||
+		mostColorful( pageColors ) ||
+		colorKey( fgColor )?.key ||
+		panel.harmonyBase ||
+		'#3b66ff';
+	let harmony = 'analogous';
+	if ( HARMONIES.includes( seed?.harmony ) ) {
+		harmony = seed.harmony;
+	} else if ( HARMONIES.includes( panel.harmony ) ) {
+		harmony = panel.harmony;
+	}
+	const params = {
+		base,
+		harmony,
+		spread: num( seed?.spread ?? panel.harmonySpread, 50 ),
+		saturation: num( seed?.saturation ?? panel.harmonySaturation, 0 ),
+		lightness: num( seed?.lightness ?? panel.harmonyLightness, 0 ),
+	};
+	const loaded = paletteColors( seed?.colors || [] );
+	const saved = seed?.paletteId
+		? ( window.WPIE?.palettes || [] ).find(
+				( p ) => p.id === seed.paletteId
+		  )
+		: null;
+	return {
+		params: loaded.length ? { ...params, base: loaded[ 0 ] } : params,
+		slots: ( loaded.length
+			? loaded
+			: buildScheme( { ...params, count: 5 } )
+		).map( ( color ) => ( { color, locked: false } ) ),
+		source: loaded.length ? 'palette' : 'harmony',
+		editingId: saved?.id || '',
+		name: saved?.name || seed?.name || '',
+	};
+}
+
+export function ColorSchemerDialog( { onClose, extras, seed } ) {
 	const editor = useEditor();
-	const { state } = editor;
+	const { state, dispatch, commit } = editor;
+	const standalone = !! window.WPIE?.standalone;
+	const canSave = ! standalone;
+	const baseId = useId();
 
-	const [ params, setParams ] = useState( () => ( {
-		base: state.fgColor || '#3b66ff',
-		harmony: 'analogous',
-		spread: 50,
-		saturation: 0,
-		lightness: 0,
-	} ) );
-	const [ slots, setSlots ] = useState( () =>
-		buildScheme( {
-			base: state.fgColor || '#3b66ff',
-			harmony: 'analogous',
-		} ).map( ( color ) => ( { color, locked: false } ) )
+	// The page does not change under a modal dialog: read it once.
+	const pageColors = useMemo(
+		() =>
+			scanColors( state.layers, state.doc ).colors.map( ( c ) => c.key ),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[]
 	);
-	const [ name, setName ] = useState( '' );
+	const start = useMemo(
+		() => initialState( seed, state.fgColor, pageColors ),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[]
+	);
+	const [ params, setParams ] = useState( start.params );
+	const [ slots, setSlots ] = useState( start.slots );
+	const [ source, setSource ] = useState( start.source );
+	const [ editingId, setEditingId ] = useState( start.editingId );
+	const [ name, setName ] = useState( start.name );
+	const [ baseDraft, setBaseDraft ] = useState( null );
+	const [ variant, setVariant ] = useState( 0 );
+	const [ workspace, setWorkspace ] = useState( 'design' );
+	const [ sets, setSetsState ] = useState(
+		() => window.WPIE?.palettes || []
+	);
+	const [ kits, setKits ] = useState( () =>
+		( window.WPIE?.brandKits || [] ).filter( ( k ) => k?.name )
+	);
 	const [ busy, setBusy ] = useState( false );
-	const [ pickerOpen, setPickerOpen ] = useState( false );
-	// Editor color popover per swatch slot: { i, style } | null.
-	const [ pickSlot, setPickSlot ] = useState( null );
-	const [ media, setMedia ] = useState( {
-		items: [],
-		page: 0,
-		hasMore: true,
-		loading: false,
-	} );
-	const [ confirmDelete, setConfirmDelete ] = useState( null ); // set id
-	const [ kitId, setKitId ] = useState( '' );
-	const [ confirmKit, setConfirmKit ] = useState( false );
+	const [ picking, setPicking ] = useState( false );
+	// Undo links outlive a render; they read the list as it is then.
+	const setsRef = useRef( sets );
+	const setSets = ( next ) => {
+		setsRef.current = next;
+		setSetsState( next );
+	};
 
-	const [ , bump ] = useReducer( ( x ) => x + 1, 0 );
-	const sets = window.WPIE?.palettes || [];
-	const kits = ( window.WPIE?.brandKits || [] ).filter( ( k ) => k?.name );
-	const canKits = !! window.WPIE?.canManageKits && kits.length > 0;
+	useEscape( onClose, ! picking );
 
-	/* -------------------------- scheme updates ------------------------- */
+	const canManageKits = !! window.WPIE?.canManageKits;
+	const colors = slots.map( ( s ) => s.color );
+	// Take the palette out of the editor (19.10.2026).
+	const copyPalette = async ( format ) => {
+		if ( ! format ) {
+			return;
+		}
+		try {
+			await window.navigator.clipboard.writeText(
+				paletteText( colors, format, name )
+			);
+			extras?.toasts?.success?.( __( 'Palette copied.', 'wunderpaint' ) );
+		} catch ( e ) {
+			extras?.toasts?.error?.(
+				__( 'The palette could not be copied.', 'wunderpaint' )
+			);
+		}
+	};
+	const paletteKey = colors.join();
+
+	/* ---------------------------- the palette ---------------------------- */
 
 	// Controls rebuild the unlocked slots explicitly (no effect): manual
-	// slot edits and image extractions must never be clobbered by renders.
+	// edits and loaded palettes are never clobbered by a render.
 	const applyParams = ( patch ) => {
 		const next = { ...params, ...patch };
 		setParams( next );
-		const scheme = buildScheme( next );
+		setSource( 'harmony' );
+		const scheme = buildScheme( { ...next, count: slots.length } );
 		setSlots( ( prev ) =>
 			prev.map( ( s, i ) =>
 				s.locked ? s : { ...s, color: scheme[ i ] }
@@ -99,10 +228,107 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 
 	const randomize = () => applyParams( randomSchemeInput() );
 
-	const setSlotColor = ( i, color ) =>
-		// A manual pick is a decision: lock it against slider rebuilds.
+	// The base field reports every keystroke. While typing only a full
+	// six- or eight-digit value counts ("#3b6" is on its way to "#3b66ff",
+	// not a color yet); leaving the field accepts short forms and rgb().
+	const baseInput = ( value ) => {
+		const text = String( value || '' ).trim();
+		if ( /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i.test( text ) ) {
+			setBaseDraft( null );
+			applyParams( {
+				base: colorKey( '#' + text.replace( '#', '' ) ).key,
+			} );
+		} else {
+			setBaseDraft( value );
+		}
+	};
+	const baseCommit = () => {
+		if ( null === baseDraft ) {
+			return;
+		}
+		const text = String( baseDraft ).trim();
+		const key = colorKey(
+			/^[0-9a-f]{3,8}$/i.test( text ) ? '#' + text : text
+		)?.key;
+		setBaseDraft( null );
+		if ( key ) {
+			applyParams( { base: key } );
+		}
+	};
+
+	/** A whole palette replaces the bar (saved palettes, kits, website). */
+	const load = ( list, meta = {} ) => {
+		const clean = paletteColors( list );
+		if ( ! clean.length ) {
+			return;
+		}
+		setSlots( clean.map( ( color ) => ( { color, locked: false } ) ) );
+		setParams( ( p ) => ( { ...p, base: clean[ 0 ] } ) );
+		setSource( meta.source || 'palette' );
+		setEditingId( meta.editingId || '' );
+		setName( meta.name ?? '' );
+		setVariant( 0 );
+	};
+
+	/** Extracted colors fill the unlocked slots (image, document). */
+	const fillUnlocked = ( list, from ) => {
+		if ( ! list.length ) {
+			return;
+		}
+		setSlots( ( prev ) => {
+			let n = 0;
+			return prev.map( ( s ) =>
+				s.locked ? s : { ...s, color: list[ n++ % list.length ] }
+			);
+		} );
+		setParams( ( p ) => ( { ...p, base: list[ 0 ] } ) );
+		setSource( from );
+		setVariant( 0 );
+	};
+
+	const setSlotColor = ( i, value ) => {
+		const key = colorKey( value )?.key;
+		if ( ! key ) {
+			return;
+		}
+		// A manual pick is a decision: lock it against harmony rebuilds.
 		setSlots( ( prev ) =>
-			prev.map( ( s, j ) => ( j === i ? { color, locked: true } : s ) )
+			prev.map( ( s, j ) =>
+				j === i ? { color: key, locked: true } : s
+			)
+		);
+	};
+
+	const pickIndex = useRef( 0 );
+	const slotEditor = useColorEditor( {
+		color: slots[ pickIndex.current ]?.color,
+		title: __( 'Color', 'wunderpaint' ),
+		onChange: ( v ) => setSlotColor( pickIndex.current, v ),
+	} );
+	const editSlot = ( i, anchor ) => {
+		pickIndex.current = i;
+		slotEditor.show( anchor, {
+			color: slots[ i ].color,
+			onChange: ( v ) => setSlotColor( i, v ),
+		} );
+	};
+
+	const addSlot = () => {
+		if ( slots.length >= PALETTE_MAX ) {
+			return;
+		}
+		// The next color of the same harmony, one step longer: harmonious,
+		// and the colors already there stay where they are.
+		const longer = buildScheme( { ...params, count: slots.length + 1 } );
+		const fresh =
+			longer.find( ( c ) => ! colors.includes( c ) ) ||
+			longer[ longer.length - 1 ];
+		setSlots( ( prev ) => [ ...prev, { color: fresh, locked: false } ] );
+	};
+
+	const removeSlot = ( i ) =>
+		setSlots( ( prev ) =>
+			prev.length > 1 ? prev.filter( ( _, j ) => j !== i ) : prev
 		);
 
 	const toggleLock = ( i ) =>
@@ -112,17 +338,20 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 			)
 		);
 
-	const fillFromColors = ( colors ) => {
-		if ( ! colors.length ) {
-			return;
-		}
-		setParams( ( p ) => ( { ...p, base: colors[ 0 ] } ) );
+	const addScaleColor = ( color ) => {
 		setSlots( ( prev ) =>
-			prev.map( ( s, i ) =>
-				s.locked ? s : { ...s, color: colors[ i % colors.length ] }
-			)
+			prev.length >= PALETTE_MAX ||
+			prev.some( ( s ) => s.color === color )
+				? prev
+				: [ ...prev, { color, locked: true } ]
 		);
+		setVariant( 0 );
 	};
+
+	/* ------------------------------ sources ------------------------------ */
+
+	const readCanvas = ( canvas ) =>
+		extractPalette( canvas, Math.max( 1, slots.length ) );
 
 	const fromDocument = async () => {
 		try {
@@ -133,7 +362,7 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 				),
 				cache: sharedImageCache,
 			} );
-			fillFromColors( extractPalette( canvas, SLOT_COUNT ) );
+			fillUnlocked( readCanvas( canvas ), 'document' );
 		} catch ( e ) {
 			extras?.toasts?.error?.(
 				__( 'Could not read colors from the document.', 'wunderpaint' )
@@ -141,9 +370,23 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 		}
 	};
 
-	const fromMediaItem = async ( item ) => {
+	// The shared image picker (Media Library Manager or classic wp.media),
+	// never a small media grid inside this dialog.
+	const fromImage = async () => {
+		if ( ! window.WPIE?.pickMedia ) {
+			return;
+		}
+		setPicking( true );
 		try {
-			const img = await loadImage( item.url, 'anonymous' );
+			const items = await window.WPIE.pickMedia( {
+				multiple: false,
+				types: 'image',
+			} );
+			const m = items && items[ 0 ];
+			if ( ! m ) {
+				return;
+			}
+			const img = await loadImage( m.url || m.fullUrl, 'anonymous' );
 			const w = img.naturalWidth || img.width;
 			const h = img.naturalHeight || img.height;
 			const scale = Math.min( 1, 128 / Math.max( w, h ) );
@@ -151,152 +394,173 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 			canvas
 				.getContext( '2d' )
 				.drawImage( img, 0, 0, canvas.width, canvas.height );
-			fillFromColors( extractPalette( canvas, SLOT_COUNT ) );
-			setPickerOpen( false );
+			fillUnlocked( readCanvas( canvas ), 'image' );
 		} catch ( e ) {
 			extras?.toasts?.error?.(
 				__( 'Could not read colors from that image.', 'wunderpaint' )
 			);
+		} finally {
+			setPicking( false );
 		}
 	};
 
-	const loadMedia = () => {
-		if ( media.loading || ! media.hasMore ) {
-			return;
-		}
-		setMedia( ( m ) => ( { ...m, loading: true } ) );
-		listMediaPage( media.page + 1 )
-			.then( ( res ) =>
-				setMedia( ( m ) => ( {
-					items: [ ...m.items, ...res.items ],
-					page: m.page + 1,
-					hasMore: res.hasMore,
-					loading: false,
-				} ) )
-			)
-			.catch( () =>
-				setMedia( ( m ) => ( {
-					...m,
-					hasMore: false,
-					loading: false,
-				} ) )
-			);
-	};
+	/* ------------------------- saved palettes -------------------------- */
 
-	const openPicker = () => {
-		setPickerOpen( ( open ) => ! open );
-		if ( ! media.items.length ) {
-			loadMedia();
-		}
-	};
-
-	/* ------------------------------ sets ------------------------------- */
-
-	const saveSets = async ( nextSets, successMsg ) => {
+	const persist = async ( next, { success, undo } = {} ) => {
+		const before = setsRef.current;
+		setSets( next );
 		setBusy( true );
 		try {
 			const saved = await request( {
 				path: '/palettes',
 				method: 'POST',
-				data: nextSets,
+				data: next,
 			} );
-			window.WPIE.palettes = Array.isArray( saved ) ? saved : nextSets;
+			const list = Array.isArray( saved ) ? saved : next;
+			window.WPIE.palettes = list;
+			setSets( list );
 			window.dispatchEvent( new CustomEvent( 'wpie:palettes-updated' ) );
-			bump();
-			if ( successMsg ) {
-				extras?.toasts?.success?.( successMsg );
+			if ( success ) {
+				extras?.toasts?.success?.(
+					success,
+					undo
+						? {
+								linkText: __( 'Undo', 'wunderpaint' ),
+								onLink: undo,
+								duration: 8000,
+						  }
+						: undefined
+				);
 			}
+			return list;
 		} catch ( e ) {
+			setSets( before );
 			extras?.toasts?.error?.(
 				e?.message ||
 					__( 'The swatch set could not be saved.', 'wunderpaint' )
 			);
+			return null;
 		} finally {
 			setBusy( false );
 		}
 	};
 
-	const addSet = () => {
-		const setName2 =
-			name.trim() ||
-			sprintf(
-				/* translators: %d: palette number. */
-				__( 'Palette %d', 'wunderpaint' ),
-				sets.length + 1
-			);
-		const colors = slots.map( ( s ) => s.color );
-		// Same name = update in place; anything else appends.
-		const existing = sets.findIndex( ( s ) => s.name === setName2 );
-		const entry = {
-			id: existing >= 0 ? sets[ existing ].id : '',
-			name: setName2,
+	// Same rule as the /palettes route (Helpers::can_manage_owned):
+	// administrators manage every palette, everyone else their own.
+	const me = +window.WPIE?.userId || 0;
+	const canManageSet = ( set ) =>
+		!! window.WPIE?.canManage || ( me > 0 && +set?.owner === me );
+	const editing =
+		sets.find( ( s ) => s.id === editingId && canManageSet( s ) ) || null;
+
+	const saveNew = async () => {
+		const { sets: next, entry } = addPalette( setsRef.current, {
+			name:
+				name.trim() ||
+				sprintf(
+					/* translators: %d: palette number. */
+					__( 'Palette %d', 'wunderpaint' ),
+					setsRef.current.length + 1
+				),
 			colors,
-		};
-		const next =
-			existing >= 0
-				? sets.map( ( s, i ) => ( i === existing ? entry : s ) )
-				: [ ...sets, entry ];
-		saveSets(
-			next,
-			__(
+		} );
+		const list = await persist( next, {
+			success: __(
 				'Swatch set saved. It now shows up in every color picker.',
 				'wunderpaint'
-			)
-		);
-		setName( setName2 );
+			),
+		} );
+		if ( list ) {
+			setEditingId( entry.id );
+			setName( entry.name );
+		}
 	};
 
-	const loadSet = ( set ) => {
-		setName( set.name );
-		setSlots( ( prev ) =>
-			prev.map( ( s, i ) => ( {
-				color: set.colors[ i % set.colors.length ],
-				locked: false,
-			} ) )
-		);
-		setParams( ( p ) => ( { ...p, base: set.colors[ 0 ] } ) );
+	const saveUpdate = () =>
+		editing
+			? persist(
+					updatePalette( setsRef.current, editing.id, {
+						name: name.trim() || editing.name,
+						colors,
+					} ),
+					{ success: __( 'Palette updated.', 'wunderpaint' ) }
+			  )
+			: saveNew();
+
+	const renameSet = ( id, next ) => {
+		persist( updatePalette( setsRef.current, id, { name: next } ) );
+		if ( id === editingId ) {
+			setName( next.trim() );
+		}
 	};
 
-	const deleteSet = ( set ) => {
-		if ( confirmDelete !== set.id ) {
-			setConfirmDelete( set.id );
+	const duplicateSet = ( id ) => {
+		const original = setsRef.current.find( ( s ) => s.id === id );
+		if ( ! original ) {
 			return;
 		}
-		setConfirmDelete( null );
-		saveSets(
-			sets.filter( ( s ) => s.id !== set.id ),
-			__( 'Swatch set deleted.', 'wunderpaint' )
+		persist(
+			duplicatePalette(
+				setsRef.current,
+				id,
+				sprintf(
+					/* translators: %s: palette name. */
+					__( '%s copy', 'wunderpaint' ),
+					original.name
+				)
+			).sets
 		);
 	};
 
-	const applyToKit = async () => {
-		const kit = kits.find( ( k ) => k.id === kitId ) || kits[ 0 ];
-		if ( ! kit ) {
+	const deleteSet = ( id ) => {
+		const {
+			sets: next,
+			removed,
+			index,
+		} = removePalette( setsRef.current, id );
+		if ( ! removed ) {
 			return;
 		}
-		if ( ! confirmKit ) {
-			setConfirmKit( true );
-			return;
+		if ( id === editingId ) {
+			setEditingId( '' );
 		}
-		setConfirmKit( false );
+		persist( next, {
+			success: sprintf(
+				/* translators: %s: palette name. */
+				__( 'Palette “%s” deleted.', 'wunderpaint' ),
+				removed.name
+			),
+			undo: () =>
+				persist( restorePalette( setsRef.current, removed, index ) ),
+		} );
+	};
+
+	const moveSet = ( from, to ) =>
+		persist( moveItem( setsRef.current, from, to ) );
+
+	/* ----------------------------- Brand Kits ---------------------------- */
+
+	const writeKit = async ( kit, list ) => {
+		const nextKits = ( window.WPIE?.brandKits || [] ).map( ( k ) =>
+			k.id === kit.id ? { ...k, colors: list } : k
+		);
+		const res = await request( {
+			path: '/brand-kits',
+			method: 'POST',
+			data: { kits: nextKits },
+		} );
+		const saved = res?.kits || nextKits;
+		window.WPIE.brandKits = saved;
+		window.WPIE.brand = saved[ 0 ] || window.WPIE.brand;
+		setKits( saved.filter( ( k ) => k?.name ) );
+		window.dispatchEvent( new CustomEvent( 'wpie:brand-kits-updated' ) );
+	};
+
+	const kitColors = async ( kit ) => {
+		const before = kit.colors || [];
 		setBusy( true );
 		try {
-			const nextKits = ( window.WPIE?.brandKits || [] ).map( ( k ) =>
-				k.id === kit.id
-					? { ...k, colors: slots.map( ( s ) => s.color ) }
-					: k
-			);
-			const res = await request( {
-				path: '/brand-kits',
-				method: 'POST',
-				data: { kits: nextKits },
-			} );
-			const saved = res?.kits || nextKits;
-			window.WPIE.brandKits = saved;
-			window.WPIE.brand = saved[ 0 ] || window.WPIE.brand;
-			window.dispatchEvent(
-				new CustomEvent( 'wpie:brand-kits-updated' )
-			);
+			await writeKit( kit, colors );
 			extras?.toasts?.success?.(
 				sprintf(
 					/* translators: %s: brand kit name. */
@@ -305,7 +569,20 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 						'wunderpaint'
 					),
 					kit.name
-				)
+				),
+				{
+					linkText: __( 'Undo', 'wunderpaint' ),
+					onLink: () =>
+						writeKit( kit, before ).catch( () =>
+							extras?.toasts?.error?.(
+								__(
+									'The Brand Kit could not be updated.',
+									'wunderpaint'
+								)
+							)
+						),
+					duration: 8000,
+				}
 			);
 		} catch ( e ) {
 			extras?.toasts?.error?.(
@@ -317,37 +594,115 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 		}
 	};
 
-	/* ----------------------------- render ------------------------------ */
+	/* ------------------------ the palette on the design ------------------ */
 
-	const roles = schemeRoles( slots.map( ( s ) => s.color ) );
-	const sliderRow = ( label, key, min, max ) => (
-		<label style={ { display: 'grid', gap: 4, fontSize: 12 } }>
-			<span className="dsm-label">
-				{ label } { params[ key ] > 0 && 'spread' !== key ? '+' : '' }
+	const variants = useMemo(
+		() => schemeVariants( pageColors, colors ),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[ pageColors, paletteKey ]
+	);
+	const results = useMemo(
+		() =>
+			variants.map( ( v ) =>
+				mappingPatches( state.layers, state.doc, v.mapping )
+			),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[ variants ]
+	);
+	const chosenIndex = Math.min( variant, Math.max( 0, results.length - 1 ) );
+	const chosen = results[ chosenIndex ] || null;
+
+	const apply = () => {
+		if ( ! chosen?.changed ) {
+			return;
+		}
+		if ( chosen.patches.size ) {
+			dispatch( {
+				type: 'UPDATE_LAYERS',
+				ids: Array.from( chosen.patches.keys() ),
+				patchFor: ( l ) => chosen.patches.get( l.id ) || {},
+			} );
+		}
+		if ( chosen.doc ) {
+			dispatch( { type: 'SET_DOC', doc: chosen.doc } );
+		}
+		commit( __( 'Color Schemer', 'wunderpaint' ) );
+		extras?.toasts?.success?.(
+			__( 'Palette applied to the design.', 'wunderpaint' )
+		);
+		onClose();
+	};
+
+	// Preview cards and the footer share the existing Color panel workflow.
+	const asGradient = ( gradientColors, kind ) => {
+		const stops = schemeGradientColors( gradientColors );
+		if ( stops.length < 2 ) {
+			return;
+		}
+		window.dispatchEvent(
+			new CustomEvent( 'wpie:color-panel-gradient', {
+				detail: { colors: stops, kind },
+			} )
+		);
+		onClose();
+	};
+
+	/* ------------------------------- render ------------------------------ */
+
+	const dial = ( key, label, min, max, def ) => (
+		<div key={ key } className="csd-dial">
+			<span className="dsm-label">{ label }</span>
+			<span className="csd-dial-val" data-number-value="">
+				{ params[ key ] > 0 && 'spread' !== key ? '+' : '' }
 				{ params[ key ] }
 			</span>
-			<input
-				type="range"
+			<SnapSlider
 				min={ min }
 				max={ max }
 				value={ params[ key ] }
-				onChange={ ( e ) =>
-					applyParams( { [ key ]: +e.target.value } )
-				}
+				def={ def }
+				ariaLabel={ label }
+				onChange={ ( v ) => applyParams( { [ key ]: v } ) }
 			/>
-		</label>
+		</div>
 	);
+
+	let status = __( 'This design has no editable colors yet.', 'wunderpaint' );
+	if ( chosen && ! chosen.changed ) {
+		status = __( 'The design already uses these colors.', 'wunderpaint' );
+	} else if ( chosen ) {
+		const n = chosen.patches.size;
+		if ( ! n ) {
+			status = __( 'The background gets a new color.', 'wunderpaint' );
+		} else if ( chosen.doc ) {
+			status = sprintf(
+				/* translators: %d: number of layers. */
+				_n(
+					'%d layer and the background get new colors.',
+					'%d layers and the background get new colors.',
+					n,
+					'wunderpaint'
+				),
+				n
+			);
+		} else {
+			status = sprintf(
+				/* translators: %d: number of layers. */
+				_n(
+					'%d layer gets new colors.',
+					'%d layers get new colors.',
+					n,
+					'wunderpaint'
+				),
+				n
+			);
+		}
+	}
 
 	return (
 		<div className="modal-backdrop" onClick={ onClose } role="presentation">
 			<div
-				className="stock-dialog"
-				style={ {
-					width: 'min(720px, 94vw)',
-					height: 'auto',
-					maxHeight: '90vh',
-					gridTemplateRows: 'auto 1fr',
-				} }
+				className="dsm csd"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
 				aria-modal="true"
@@ -369,7 +724,7 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 						</div>
 						<div className="dsm-sub">
 							{ __(
-								'Build a scheme with color theory, from an image, or by chance.',
+								'Build a palette, see it on your design, and keep it for every color picker.',
 								'wunderpaint'
 							) }
 						</div>
@@ -383,533 +738,321 @@ export function ColorSchemerDialog( { onClose, extras } ) {
 					</button>
 				</div>
 
-				<div
-					style={ {
-						padding: 16,
-						display: 'grid',
-						gap: 14,
-						overflowY: 'auto',
-						alignContent: 'start',
-					} }
-				>
-					{ /* Swatch slots */ }
-					<div style={ { display: 'flex', gap: 8, height: 112 } }>
-						{ slots.map( ( slot, i ) => (
-							<div
-								key={ i }
-								style={ {
-									flex: 1,
-									position: 'relative',
-									borderRadius: 8,
-									background: slot.color,
-									border: '1px solid var(--ed-border-strong)',
-									overflow: 'hidden',
-								} }
-							>
-								<button
-									type="button"
-									aria-label={ sprintf(
-										/* translators: %d: slot number. */
-										__( 'Slot %d color', 'wunderpaint' ),
-										i + 1
-									) }
-									onClick={ ( e ) => {
-										const rect =
-											e.currentTarget.getBoundingClientRect();
-										setPickSlot( ( p ) =>
-											p?.i === i
-												? null
-												: {
-														i,
-														style: anchoredPopoverStyle(
-															rect
-														),
-												  }
-										);
-									} }
-									style={ {
-										position: 'absolute',
-										inset: 0,
-										width: '100%',
-										height: '100%',
-										opacity: 0,
-										cursor: 'pointer',
-									} }
-								/>
-								{ pickSlot?.i === i && (
-									<ColorPopover
-										color={ slot.color }
-										onChange={ ( v ) =>
-											setSlotColor( i, v.slice( 0, 7 ) )
+				<div className="csd-body">
+					<LibraryColumn
+						sets={ sets }
+						canSave={ canSave }
+						activeId={ editingId }
+						onLoadSet={ ( set ) =>
+							load( set.colors, {
+								source: 'palette',
+								editingId: set.id,
+								name: set.name,
+							} )
+						}
+						canManageSet={ canManageSet }
+						onRenameSet={ renameSet }
+						onDuplicateSet={ duplicateSet }
+						onDeleteSet={ deleteSet }
+						onMoveSet={ moveSet }
+						kits={ kits }
+						canManageKits={ canManageKits && ! busy }
+						onLoadKit={ ( kit ) =>
+							load( kit.colors || [], {
+								source: 'kit',
+								name: kit.name,
+							} )
+						}
+						onKitColors={ kitColors }
+						canPickImage={ !! window.WPIE?.pickMedia }
+						picking={ picking }
+						onFromImage={ fromImage }
+						hasDocument={ state.layers.length > 0 }
+						onFromDocument={ fromDocument }
+					/>
+
+					<div className="csd-main">
+						<div className="csd-main-head">
+							{ canSave ? (
+								<>
+									<input
+										className="dsm-input csd-name"
+										value={ name }
+										placeholder={ __(
+											'Palette name',
+											'wunderpaint'
+										) }
+										aria-label={ __(
+											'Palette name',
+											'wunderpaint'
+										) }
+										onChange={ ( e ) =>
+											setName( e.target.value )
 										}
-										onClose={ () => setPickSlot( null ) }
-										style={ pickSlot.style }
 									/>
-								) }
-								<button
-									type="button"
-									onClick={ () => toggleLock( i ) }
-									title={
-										slot.locked
-											? __( 'Unlock slot', 'wunderpaint' )
-											: __(
-													'Lock slot (kept on randomize and sliders)',
-													'wunderpaint'
-											  )
-									}
-									style={ {
-										position: 'absolute',
-										top: 6,
-										right: 6,
-										width: 24,
-										height: 24,
-										display: 'flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										border: 'none',
-										borderRadius: 5,
-										cursor: 'pointer',
-										background: slot.locked
-											? 'rgba(0,0,0,.35)'
-											: 'transparent',
-										color: labelColorFor( slot.color ),
-										opacity: slot.locked ? 1 : 0.55,
-									} }
-								>
-									{ ( slot.locked ? I.lock : I.unlock )( {
-										size: 13,
-									} ) }
-								</button>
-								<span
-									style={ {
-										position: 'absolute',
-										left: 0,
-										right: 0,
-										bottom: 6,
-										textAlign: 'center',
-										fontSize: 11,
-										fontFamily: 'var(--font-mono)',
-										color: labelColorFor( slot.color ),
-										pointerEvents: 'none',
-										textTransform: 'uppercase',
-									} }
-								>
-									{ slot.color }
-								</span>
-							</div>
-						) ) }
-					</div>
-
-					{ /* Harmony controls */ }
-					<div
-						style={ {
-							display: 'flex',
-							gap: 10,
-							alignItems: 'end',
-							flexWrap: 'wrap',
-						} }
-					>
-						<label
-							style={ {
-								display: 'grid',
-								gap: 4,
-								fontSize: 12,
-								flex: 1,
-								minWidth: 160,
-							} }
-						>
-							<span className="dsm-label">
-								{ __( 'Harmony', 'wunderpaint' ) }
-							</span>
-							<select
-								className="dsm-select"
-								style={ { width: '100%' } }
-								value={ params.harmony }
-								onChange={ ( e ) =>
-									applyParams( { harmony: e.target.value } )
-								}
-							>
-								{ HARMONIES.map( ( h ) => (
-									<option key={ h } value={ h }>
-										{ harmonyLabel( h ) }
-									</option>
-								) ) }
-							</select>
-						</label>
-						<div
-							style={ { display: 'grid', gap: 4, fontSize: 12 } }
-						>
-							<span className="dsm-label">
-								{ __( 'Base color', 'wunderpaint' ) }
-							</span>
-							<SwatchButton
-								color={ params.base }
-								size={ 26 }
-								title={ __( 'Base color', 'wunderpaint' ) }
-								onChange={ ( v ) =>
-									applyParams( { base: v.slice( 0, 7 ) } )
-								}
-							/>
-						</div>
-						<button
-							className="ai-btn secondary"
-							style={ {
-								display: 'flex',
-								gap: 6,
-								alignItems: 'center',
-							} }
-							onClick={ randomize }
-						>
-							{ I.rotateCw( { size: 13 } ) }
-							{ __( 'Randomize', 'wunderpaint' ) }
-						</button>
-						<button
-							className="ai-btn secondary"
-							disabled={ ! state.layers.length }
-							onClick={ fromDocument }
-						>
-							{ __( 'From document', 'wunderpaint' ) }
-						</button>
-						<button
-							className="ai-btn secondary"
-							onClick={ openPicker }
-						>
-							{ __( 'From image…', 'wunderpaint' ) }
-						</button>
-					</div>
-
-					{ pickerOpen && (
-						<div
-							style={ {
-								maxHeight: 170,
-								overflowY: 'auto',
-								border: '1px solid var(--ed-border-strong)',
-								borderRadius: 6,
-								padding: 8,
-								display: 'grid',
-								gridTemplateColumns:
-									'repeat(auto-fill, minmax(72px, 1fr))',
-								gap: 6,
-							} }
-						>
-							{ media.items.map( ( m ) => (
-								<button
-									key={ m.id }
-									type="button"
-									onClick={ () => fromMediaItem( m ) }
-									title={ m.title }
-									style={ {
-										padding: 0,
-										border: '1px solid var(--ed-border-strong)',
-										borderRadius: 5,
-										overflow: 'hidden',
-										cursor: 'pointer',
-										aspectRatio: '1',
-										background: 'var(--ed-panel-alt)',
-									} }
-								>
-									<img
-										src={ m.url }
-										alt={ m.alt }
-										loading="lazy"
-										style={ {
-											width: '100%',
-											height: '100%',
-											objectFit: 'cover',
-											display: 'block',
-										} }
-									/>
-								</button>
-							) ) }
-							{ media.hasMore && (
-								<button
-									type="button"
-									className="ai-btn secondary"
-									style={ { aspectRatio: '1' } }
-									disabled={ media.loading }
-									onClick={ loadMedia }
-								>
-									{ media.loading
-										? __( 'Loading…', 'wunderpaint' )
-										: __( 'More…', 'wunderpaint' ) }
-								</button>
-							) }
-						</div>
-					) }
-
-					{ /* Sliders */ }
-					<div
-						style={ {
-							display: 'grid',
-							gridTemplateColumns: '1fr 1fr 1fr',
-							gap: 12,
-						} }
-					>
-						{ sliderRow(
-							__( 'Saturation', 'wunderpaint' ),
-							'saturation',
-							-100,
-							100
-						) }
-						{ sliderRow(
-							__( 'Lightness', 'wunderpaint' ),
-							'lightness',
-							-100,
-							100
-						) }
-						{ sliderRow(
-							__( 'Spread', 'wunderpaint' ),
-							'spread',
-							0,
-							100
-						) }
-					</div>
-
-					{ /* Live preview */ }
-					<div
-						style={ {
-							borderRadius: 8,
-							border: '1px solid var(--ed-border-strong)',
-							background: roles.bg,
-							padding: '18px 20px',
-							display: 'flex',
-							gap: 16,
-							alignItems: 'center',
-						} }
-					>
-						<div
-							style={ {
-								flex: 1,
-								background: roles.surface,
-								borderRadius: 8,
-								padding: '14px 16px',
-								display: 'grid',
-								gap: 8,
-							} }
-						>
-							<div
-								style={ {
-									fontSize: 16,
-									fontWeight: 700,
-									color: roles.text,
-								} }
-							>
-								{ __( 'Design preview', 'wunderpaint' ) }
-							</div>
-							<div
-								style={ {
-									fontSize: 12,
-									color: roles.text,
-									opacity: 0.75,
-								} }
-							>
-								{ __(
-									'How the scheme feels as background, card, text and buttons.',
-									'wunderpaint'
-								) }
-							</div>
-							<div
-								style={ {
-									display: 'flex',
-									gap: 8,
-									marginTop: 4,
-								} }
-							>
-								<span
-									style={ {
-										background: roles.primary,
-										color: labelColorFor( roles.primary ),
-										borderRadius: 5,
-										padding: '5px 12px',
-										fontSize: 12,
-										fontWeight: 600,
-									} }
-								>
-									{ __( 'Primary', 'wunderpaint' ) }
-								</span>
-								<span
-									style={ {
-										background: roles.secondary,
-										color: labelColorFor( roles.secondary ),
-										borderRadius: 5,
-										padding: '5px 12px',
-										fontSize: 12,
-									} }
-								>
-									{ __( 'Secondary', 'wunderpaint' ) }
-								</span>
-							</div>
-						</div>
-					</div>
-
-					{ /* Save + kit.
-					   Not in the standalone studio: saving a set POSTs to
-					   /palettes, a route its local host does not have, so the
-					   only possible outcome there was the error toast. What the
-					   studio cannot do it hides rather than offering it broken.
-					   The saved-sets list below needs no rule - window.WPIE
-					   .palettes stays empty there, so it never renders. */ }
-					{ ! window.WPIE?.standalone && (
-						<div
-							style={ {
-								display: 'flex',
-								gap: 8,
-								alignItems: 'center',
-								flexWrap: 'wrap',
-							} }
-						>
-							<input
-								type="text"
-								placeholder={ __(
-									'Swatch set name',
-									'wunderpaint'
-								) }
-								value={ name }
-								onChange={ ( e ) => setName( e.target.value ) }
-								style={ {
-									flex: 1,
-									minWidth: 160,
-									padding: '6px 8px',
-									border: '1px solid var(--ed-border-strong)',
-									borderRadius: 4,
-									background: 'var(--ed-panel-alt)',
-									color: 'var(--ed-text)',
-									fontSize: 12,
-								} }
-							/>
-							<button
-								className="ai-btn primary"
-								disabled={ busy }
-								onClick={ addSet }
-							>
-								{ sets.some( ( s ) => s.name === name.trim() )
-									? __( 'Update swatch set', 'wunderpaint' )
-									: __( 'Add swatch set', 'wunderpaint' ) }
-							</button>
-							{ canKits && (
-								<div
-									style={ {
-										display: 'flex',
-										gap: 6,
-										alignItems: 'center',
-									} }
-								>
-									<select
-										className="dsm-select"
-										value={ kitId || kits[ 0 ]?.id || '' }
-										onChange={ ( e ) => {
-											setKitId( e.target.value );
-											setConfirmKit( false );
-										} }
-									>
-										{ kits.map( ( k ) => (
-											<option key={ k.id } value={ k.id }>
-												{ k.name }
-											</option>
-										) ) }
-									</select>
 									<button
-										className={
-											'ai-btn secondary' +
-											( confirmKit ? ' danger' : '' )
-										}
+										type="button"
+										className="ai-btn secondary"
 										disabled={ busy }
-										onClick={ applyToKit }
+										onClick={ saveUpdate }
 									>
-										{ confirmKit
+										{ editing
 											? __(
-													'Really overwrite the kit colors?',
+													'Update palette',
 													'wunderpaint'
 											  )
 											: __(
-													'Apply to Brand Kit',
+													'Save palette',
 													'wunderpaint'
 											  ) }
 									</button>
-								</div>
+									{ editing && (
+										<button
+											type="button"
+											className="ai-btn ghost"
+											disabled={ busy }
+											onClick={ saveNew }
+										>
+											{ __(
+												'Save as new',
+												'wunderpaint'
+											) }
+										</button>
+									) }
+								</>
+							) : (
+								<span className="csd-stage-title">
+									{ __( 'Palette', 'wunderpaint' ) }
+								</span>
 							) }
+							<select
+								className="dsm-select sm"
+								value=""
+								aria-label={ __(
+									'Copy palette',
+									'wunderpaint'
+								) }
+								onChange={ ( e ) =>
+									copyPalette( e.target.value )
+								}
+							>
+								<option value="">
+									{ __( 'Copy palette…', 'wunderpaint' ) }
+								</option>
+								<option value="hex">
+									{ __( 'Hex list', 'wunderpaint' ) }
+								</option>
+								<option value="css">
+									{ __( 'CSS variables', 'wunderpaint' ) }
+								</option>
+								<option value="json">JSON</option>
+							</select>
 						</div>
-					) }
-
-					{ /* Saved sets */ }
-					{ sets.length > 0 && (
-						<div style={ { display: 'grid', gap: 6 } }>
-							<span className="dsm-label">
-								{ __( 'Saved swatch sets', 'wunderpaint' ) }
-							</span>
-							{ sets.map( ( set ) => (
-								<div
-									key={ set.id }
-									style={ {
-										display: 'flex',
-										gap: 10,
-										alignItems: 'center',
-										padding: '6px 8px',
-										border: '1px solid var(--ed-border-strong)',
-										borderRadius: 6,
-									} }
-								>
-									<div style={ { display: 'flex', gap: 3 } }>
-										{ set.colors
-											.slice( 0, 6 )
-											.map( ( c, ci ) => (
-												<span
-													key={ ci }
-													style={ {
-														width: 18,
-														height: 18,
-														borderRadius: 4,
-														background: c,
-														border: '1px solid var(--ed-border-strong)',
-													} }
-												/>
-											) ) }
+						<div className="csd-stage">
+							<PaletteBar
+								slots={ slots }
+								max={ PALETTE_MAX }
+								onEdit={ editSlot }
+								onToggleLock={ toggleLock }
+								onRemove={ removeSlot }
+								onAdd={ addSlot }
+								onMove={ ( from, to ) =>
+									setSlots( ( prev ) =>
+										moveItem( prev, from, to )
+									)
+								}
+							/>
+							<div
+								className="dsm-seg csd-workspace"
+								role="group"
+								aria-label={ __(
+									'Palette workspace',
+									'wunderpaint'
+								) }
+							>
+								{ [
+									[
+										'design',
+										__( 'On your design', 'wunderpaint' ),
+									],
+									[
+										'scales',
+										__( 'Color scales', 'wunderpaint' ),
+									],
+								].map( ( [ id, label ] ) => (
+									<button
+										key={ id }
+										type="button"
+										className={
+											workspace === id ? 'active' : ''
+										}
+										aria-pressed={ workspace === id }
+										onClick={ () => setWorkspace( id ) }
+									>
+										{ label }
+									</button>
+								) ) }
+							</div>
+							<div
+								style={ {
+									display:
+										workspace === 'scales'
+											? undefined
+											: 'none',
+								} }
+							>
+								<ColorScales
+									initialBase={ start.params.base }
+									colors={ colors }
+									onAdd={ addScaleColor }
+									onGradient={ asGradient }
+								/>
+							</div>
+							{ workspace === 'design' &&
+								( variants.length ? (
+									<DesignVariants
+										doc={ state.doc }
+										layers={ state.layers }
+										variants={ variants }
+										results={ results }
+										selected={ chosenIndex }
+										onSelect={ setVariant }
+										paletteKey={ paletteKey }
+									/>
+								) : (
+									<div className="csd-empty">
+										<Strip colors={ colors } />
+										<p>
+											{ __(
+												'Add shapes or text to the design and the palette shows up on it here. Photos stay as they are.',
+												'wunderpaint'
+											) }
+										</p>
 									</div>
-									<span
-										style={ {
-											flex: 1,
-											fontSize: 12,
-											overflow: 'hidden',
-											textOverflow: 'ellipsis',
-											whiteSpace: 'nowrap',
-										} }
-									>
-										{ set.name }
-									</span>
-									<button
-										className="ai-btn secondary"
-										style={ {
-											padding: '3px 10px',
-											fontSize: 11,
-										} }
-										onClick={ () => loadSet( set ) }
-									>
-										{ __( 'Load', 'wunderpaint' ) }
-									</button>
-									<button
-										className="ai-btn secondary"
-										style={ {
-											padding: '3px 10px',
-											fontSize: 11,
-											color:
-												confirmDelete === set.id
-													? '#e5484d'
-													: undefined,
-										} }
-										disabled={ busy }
-										onClick={ () => deleteSet( set ) }
-									>
-										{ confirmDelete === set.id
-											? __(
-													'Really delete?',
-													'wunderpaint'
-											  )
-											: __( 'Delete', 'wunderpaint' ) }
-									</button>
-								</div>
-							) ) }
+								) ) }
 						</div>
-					) }
+					</div>
+
+					<div className="csd-right">
+						<section className="dsm-card">
+							<div className="dsm-card-head">
+								{ I.palette( { size: 14 } ) }
+								<span>{ __( 'Harmony', 'wunderpaint' ) }</span>
+								<button
+									type="button"
+									className="dsm-mini dsm-head-end"
+									aria-label={ __( 'Random', 'wunderpaint' ) }
+									title={ __(
+										'Random: a new base, harmony and spread. Locked colors stay.',
+										'wunderpaint'
+									) }
+									onClick={ randomize }
+								>
+									<Dice />
+								</button>
+							</div>
+							<div className="csd-wheel-row">
+								<HarmonyWheel
+									base={ params.base }
+									colors={ colors }
+									onBase={ ( base ) =>
+										applyParams( { base } )
+									}
+									size={ 184 }
+								/>
+							</div>
+							<label className="csd-base" htmlFor={ baseId }>
+								<span className="dsm-label">
+									{ __( 'Base color', 'wunderpaint' ) }
+								</span>
+								<ColorField
+									id={ baseId }
+									title={ __( 'Base color', 'wunderpaint' ) }
+									color={ baseDraft ?? params.base }
+									onChange={ baseInput }
+									onCommit={ baseCommit }
+								/>
+							</label>
+							<div className="dsm-picklist">
+								{ HARMONY_ORDER.map( ( h ) => (
+									<button
+										key={ h }
+										type="button"
+										className="dsm-pickrow dsm-pickrow-sm csd-harmony"
+										aria-pressed={
+											'harmony' === source &&
+											params.harmony === h
+										}
+										onClick={ () =>
+											applyParams( { harmony: h } )
+										}
+									>
+										<b>{ harmonyLabel( h ) }</b>
+										<Strip
+											colors={ buildScheme( {
+												...params,
+												harmony: h,
+												count: 5,
+											} ) }
+										/>
+									</button>
+								) ) }
+							</div>
+						</section>
+						<section className="dsm-card">
+							<div className="dsm-card-head">
+								{ I.sliders( { size: 14 } ) }
+								<span>{ __( 'Tune', 'wunderpaint' ) }</span>
+							</div>
+							{ dial(
+								'spread',
+								__( 'Spread', 'wunderpaint' ),
+								0,
+								100,
+								50
+							) }
+							{ dial(
+								'saturation',
+								__( 'Saturation', 'wunderpaint' ),
+								-100,
+								100,
+								0
+							) }
+							{ dial(
+								'lightness',
+								__( 'Lightness', 'wunderpaint' ),
+								-100,
+								100,
+								0
+							) }
+						</section>
+					</div>
+				</div>
+
+				<div className="dsm-foot">
+					<span className="dsm-mono">{ status }</span>
+					<div className="dsm-actions">
+						<button
+							type="button"
+							className="ai-btn secondary"
+							disabled={ colors.length < 2 }
+							title={ __(
+								'Open the palette as a gradient in the Color panel',
+								'wunderpaint'
+							) }
+							onClick={ () => asGradient( colors ) }
+						>
+							{ __( 'As gradient', 'wunderpaint' ) }
+						</button>
+						<button
+							type="button"
+							className="ai-btn primary"
+							disabled={ ! chosen?.changed }
+							onClick={ apply }
+						>
+							{ __( 'Apply to design', 'wunderpaint' ) }
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>

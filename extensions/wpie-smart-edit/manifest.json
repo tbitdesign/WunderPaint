@@ -1,0 +1,15 @@
+{
+	"name": "Smart Edit",
+	"slug": "wpie-smart-edit",
+	"version": "1.2.0",
+	"author": "TBIT DESIGN - Thomas Breher",
+	"description": "Discover visual families in your document - text by its role, colors as families of lighter and darker tones, shapes by how they look - and modify them together. Start from the whole design or from any object via the Layer menu, preview changes on your actual design, refine the affected objects visually, transfer recognized highlights, or hand a family to the editor as a selection. Works locally in your browser.",
+	"main": "extension.js",
+	"style": "style.css",
+	"requiresApi": "2.25.0",
+	"provides": [
+		"menuItem"
+	],
+	"category": "data",
+	"tier": "free"
+}

@@ -1,6 +1,6 @@
 /**
  * Persistent user colors (v0.3): recently used colors (auto-collected,
- * cap 10) and starred custom swatches (cap 20), stored in localStorage
+ * cap 18) and starred custom swatches (cap 20), stored in localStorage
  * per browser. Storage failures (private mode, quota) degrade silently.
  */
 
@@ -11,6 +11,13 @@ export const RECENT_CAP = 18;
 export const CUSTOM_CAP = 20;
 
 let storage = siteStorage;
+const listeners = new Set();
+
+/** Keep open color pickers and the global panel in sync. */
+export function onUserSwatchesChange( callback ) {
+	listeners.add( callback );
+	return () => listeners.delete( callback );
+}
 
 /** Test hook: swap the backing store (pass a Map-like {getItem,setItem}). */
 export const __setStorage = ( s ) => {
@@ -35,6 +42,13 @@ const write = ( key, list ) => {
 	} catch ( e ) {
 		// Quota/private mode, non-fatal.
 	}
+	listeners.forEach( ( callback ) => {
+		try {
+			callback();
+		} catch ( e ) {
+			// A closing picker must not prevent the other views from updating.
+		}
+	} );
 };
 
 const normalize = ( color ) =>

@@ -998,6 +998,7 @@ export function DesignDialog( { onClose, extras } ) {
 											>
 												<input
 													type="checkbox"
+													data-checkbox="selection"
 													checked={
 														!! dynVars[ v.key ]
 													}

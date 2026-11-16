@@ -9,6 +9,58 @@ import { __ } from '@wordpress/i18n';
 import { listPatterns } from '../lib/user-patterns';
 import { registerUserTile } from '../lib/raster';
 
+/** The same built-ins are shown as previews in the common Color panel. */
+export const patternOptions = () => [
+	[ 'dots', __( 'Dots', 'wunderpaint' ) ],
+	[ 'stripes', __( 'Stripes', 'wunderpaint' ) ],
+	[ 'checker', __( 'Checker', 'wunderpaint' ) ],
+	[ 'grid', __( 'Grid', 'wunderpaint' ) ],
+	[ 'diagonal', __( 'Diagonal', 'wunderpaint' ) ],
+	[ 'crosshatch', __( 'Crosshatch', 'wunderpaint' ) ],
+	[ 'zigzag', __( 'Zigzag', 'wunderpaint' ) ],
+	[ 'waves', __( 'Waves', 'wunderpaint' ) ],
+	[ 'bricks', __( 'Bricks', 'wunderpaint' ) ],
+	[ 'plus', __( 'Plus', 'wunderpaint' ) ],
+	[ 'triangles', __( 'Triangles', 'wunderpaint' ) ],
+	[ 'scales', __( 'Scales', 'wunderpaint' ) ],
+	[ 'pinstripe', __( 'Pinstripe', 'wunderpaint' ) ],
+	[ 'horizontal-lines', __( 'Horizontal Lines', 'wunderpaint' ) ],
+	[ 'vertical-lines', __( 'Vertical Lines', 'wunderpaint' ) ],
+	[ 'double-stripe', __( 'Double Stripe', 'wunderpaint' ) ],
+	[ 'dashed-lines', __( 'Dashed Lines', 'wunderpaint' ) ],
+	[ 'herringbone', __( 'Herringbone', 'wunderpaint' ) ],
+	[ 'chevron-wide', __( 'Wide Chevron', 'wunderpaint' ) ],
+	[ 'basket-weave', __( 'Basket Weave', 'wunderpaint' ) ],
+	[ 'dot-grid', __( 'Dot Grid', 'wunderpaint' ) ],
+	[ 'offset-dots', __( 'Offset Dots', 'wunderpaint' ) ],
+	[ 'micro-dots', __( 'Micro Dots', 'wunderpaint' ) ],
+	[ 'dot-rings', __( 'Dot Rings', 'wunderpaint' ) ],
+	[ 'square-dots', __( 'Square Dots', 'wunderpaint' ) ],
+	[ 'diamond-grid', __( 'Diamond Grid', 'wunderpaint' ) ],
+	[ 'hollow-diamonds', __( 'Hollow Diamonds', 'wunderpaint' ) ],
+	[ 'honeycomb', __( 'Honeycomb', 'wunderpaint' ) ],
+	[ 'triangle-grid', __( 'Triangle Grid', 'wunderpaint' ) ],
+	[ 'tessellated-triangles', __( 'Triangle Mosaic', 'wunderpaint' ) ],
+	[ 'isometric', __( 'Isometric Grid', 'wunderpaint' ) ],
+	[ 'octagons', __( 'Octagons', 'wunderpaint' ) ],
+	[ 'arches', __( 'Arches', 'wunderpaint' ) ],
+	[ 'scallops', __( 'Scallops', 'wunderpaint' ) ],
+	[ 'fan-waves', __( 'Fan Waves', 'wunderpaint' ) ],
+	[ 'concentric-rings', __( 'Concentric Rings', 'wunderpaint' ) ],
+	[ 'ripples', __( 'Ripples', 'wunderpaint' ) ],
+	[ 'petals', __( 'Petals', 'wunderpaint' ) ],
+	[ 'daisies', __( 'Daisies', 'wunderpaint' ) ],
+	[ 'clover', __( 'Clover', 'wunderpaint' ) ],
+	[ 'seed-pods', __( 'Seed Pods', 'wunderpaint' ) ],
+	[ 'leaves', __( 'Leaves', 'wunderpaint' ) ],
+	[ 'woven-check', __( 'Woven Check', 'wunderpaint' ) ],
+	[ 'plaid', __( 'Plaid', 'wunderpaint' ) ],
+	[ 'terrazzo', __( 'Terrazzo', 'wunderpaint' ) ],
+	[ 'confetti', __( 'Confetti', 'wunderpaint' ) ],
+	[ 'sprinkles', __( 'Sprinkles', 'wunderpaint' ) ],
+	[ 'stipple', __( 'Stipple', 'wunderpaint' ) ],
+];
+
 export function PatternSelect( {
 	value,
 	patternData,
@@ -48,24 +100,11 @@ export function PatternSelect( {
 			} }
 		>
 			<option value="none">{ __( 'Solid', 'wunderpaint' ) }</option>
-			<option value="dots">{ __( 'Dots', 'wunderpaint' ) }</option>
-			<option value="stripes">{ __( 'Stripes', 'wunderpaint' ) }</option>
-			<option value="checker">{ __( 'Checker', 'wunderpaint' ) }</option>
-			<option value="grid">{ __( 'Grid', 'wunderpaint' ) }</option>
-			<option value="diagonal">
-				{ __( 'Diagonal', 'wunderpaint' ) }
-			</option>
-			<option value="crosshatch">
-				{ __( 'Crosshatch', 'wunderpaint' ) }
-			</option>
-			<option value="zigzag">{ __( 'Zigzag', 'wunderpaint' ) }</option>
-			<option value="waves">{ __( 'Waves', 'wunderpaint' ) }</option>
-			<option value="bricks">{ __( 'Bricks', 'wunderpaint' ) }</option>
-			<option value="plus">{ __( 'Plus', 'wunderpaint' ) }</option>
-			<option value="triangles">
-				{ __( 'Triangles', 'wunderpaint' ) }
-			</option>
-			<option value="scales">{ __( 'Scales', 'wunderpaint' ) }</option>
+			{ patternOptions().map( ( [ kind, label ] ) => (
+				<option key={ kind } value={ kind }>
+					{ label }
+				</option>
+			) ) }
 			{ patterns.map( ( p ) => (
 				<option key={ p.name } value={ `custom:${ p.name }` }>
 					{ p.name }

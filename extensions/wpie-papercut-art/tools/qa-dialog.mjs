@@ -459,12 +459,12 @@ check(
 	`the colour picker paints and its host survives a selection (${ picker.colors })`
 );
 
-/* ------------------------------ look chips ------------------------------- */
+/* ------------------------------ look selector ---------------------------- */
 
-await page.locator( '.wpiepca-look' ).nth( 2 ).click();
+await page.locator( '[data-paper-control="look"]' ).selectOption( 'sunset' );
 await page.waitForTimeout( 250 );
 const look2 = await page.evaluate( () => window.__pca.params.look );
-check( 'sunset' === look2, `look chips switch the palette (${ look2 })` );
+check( 'sunset' === look2, `look selector switches the palette (${ look2 })` );
 
 /* --------------------------------- ampel --------------------------------- */
 

@@ -1,383 +1,30 @@
 import { hexToRgb } from '../color';
+import {
+	drawTextContours,
+	drawNeonLettering,
+	drawCutSurface,
+	drawWireLettering,
+} from './text-boundaries';
+import {
+	TEXT_SURFACE_KEYS,
+	paintTextSurfaces,
+	paintTextImage,
+	textBodyReach,
+} from './text-surfaces';
 import { stripSpanColors } from '../rich-text';
 import { createCanvas } from './env';
 import { DEG, TEXT_WARPS, warpText } from './text-warp';
 import { drawText } from './text-draw';
 import { blurCanvas } from './styles';
+import {
+	hasPremiumText,
+	paintPremiumText,
+	premiumTextReach,
+	PREMIUM_TEXT_KEYS,
+	textDistanceField,
+} from './text-premium';
 
-/**
- * Hand-drawn highlight shapes behind the text lines (v1.141.0): marker
- * swipe, sketched circle and scribble underline. Called from the drawText
- * paths with EXACT per-line geometry (same rects the pill background uses).
- * rects: [{ x, baseline, width, size }].
- */
-export function drawLineHighlights( ctx, fx, rects ) {
-	const kinds = [
-		[ 'marker', fx.marker ],
-		[ 'circleMark', fx.circleMark ],
-		[ 'scribbleUnder', fx.scribbleUnder ],
-		[ 'strikeFx', fx.strikeFx ],
-	].filter( ( k ) => k[ 1 ] );
-	if ( ! kinds.length ) {
-		return;
-	}
-	for ( const [ kind, conf ] of kinds ) {
-		const rough = Math.max( 0, Math.min( 10, conf.rough ?? 4 ) );
-		const rnd = seededRnd( ( conf.seed || 1 ) * 4241 );
-		const wob = () => ( rnd() - 0.5 ) * rough;
-		ctx.save();
-		// Style variants (v1.256.0) - 0 keeps each effect's classic look.
-		const style = Math.round(
-			Math.max( 0, Math.min( 3, conf.style ?? 0 ) )
-		);
-		for ( const rect of rects ) {
-			if ( ! rect.width ) {
-				continue;
-			}
-			const { x, baseline, width, size } = rect;
-			if ( 'marker' === kind ) {
-				// Real brush bands (v1.256.0): a filled polygon whose top
-				// and bottom edges wobble independently, with chisel-cut
-				// ends and a taper - not a round-cap capsule.
-				const y = baseline - size * 0.32;
-				ctx.fillStyle = conf.color || '#ffe066';
-				const band = ( x0, x1, yMid, h, tilt, taper, alpha ) => {
-					const steps = Math.max(
-						4,
-						Math.round( ( x1 - x0 ) / Math.max( 18, h * 0.8 ) )
-					);
-					const yAt = ( t ) => yMid + tilt * ( t - 0.5 );
-					const hAt = ( t ) => h * ( 1 - taper * t );
-					ctx.globalAlpha = alpha;
-					ctx.beginPath();
-					for ( let i = 0; i <= steps; i++ ) {
-						const t = i / steps;
-						const px =
-							x0 + ( x1 - x0 ) * t - ( 0 === i ? h * 0.16 : 0 );
-						const py = yAt( t ) - hAt( t ) / 2 + wob();
-						if ( 0 === i ) {
-							ctx.moveTo( px, py );
-						} else {
-							ctx.lineTo( px, py );
-						}
-					}
-					for ( let i = steps; i >= 0; i-- ) {
-						const t = i / steps;
-						const px =
-							x0 +
-							( x1 - x0 ) * t +
-							( i === steps ? hAt( 1 ) * 0.22 : 0 );
-						ctx.lineTo( px, yAt( t ) + hAt( t ) / 2 + wob() );
-					}
-					ctx.closePath();
-					ctx.fill();
-				};
-				const over = size * 0.3;
-				if ( 1 === style ) {
-					// Swipe: one confident angled stroke, strong taper.
-					band(
-						x - over * 1.6,
-						x + width + over * 1.6,
-						y + wob(),
-						size * 0.92,
-						size * 0.14,
-						0.38,
-						0.7
-					);
-				} else if ( 2 === style ) {
-					// Double swipe: two slim bands with a visible gap.
-					band(
-						x - over,
-						x + width + over * 0.7,
-						y - size * 0.22,
-						size * 0.44,
-						size * 0.06,
-						0.14,
-						0.62
-					);
-					band(
-						x - over * 0.7,
-						x + width + over,
-						y + size * 0.26,
-						size * 0.44,
-						-size * 0.05,
-						0.14,
-						0.55
-					);
-				} else if ( 3 === style ) {
-					// Scribble fill: quick zigzag strokes over the line.
-					ctx.strokeStyle = conf.color || '#ffe066';
-					ctx.lineWidth = size * 0.17;
-					ctx.lineCap = 'round';
-					ctx.lineJoin = 'round';
-					ctx.globalAlpha = 0.8;
-					const step = Math.max( 6, size * 0.42 );
-					ctx.beginPath();
-					let up = true;
-					ctx.moveTo( x - over * 0.6, y + size * 0.4 + wob() );
-					for (
-						let px = x - over * 0.4;
-						px <= x + width + over * 0.6;
-						px += step
-					) {
-						ctx.lineTo(
-							px + wob() * 1.5,
-							y +
-								( up ? -size * 0.38 : size * 0.42 ) +
-								wob() * 1.5
-						);
-						up = ! up;
-					}
-					ctx.stroke();
-				} else {
-					// Classic band, now with brush edges and layered ink.
-					band(
-						x - over,
-						x + width + over,
-						y,
-						size * 0.95,
-						wob() * 0.6,
-						0.1,
-						0.62
-					);
-					band(
-						x - over * 0.6,
-						x + width + over * 0.8,
-						y + size * 0.05,
-						size * 0.8,
-						-wob() * 0.5,
-						0.16,
-						0.3
-					);
-				}
-			} else if ( 'circleMark' === kind ) {
-				const cx = x + width / 2;
-				const cy = baseline - size * 0.32;
-				const rx = width / 2 + size * 0.5;
-				const ry = size * 0.78;
-				const k = 0.5523;
-				ctx.strokeStyle = conf.color || '#e5484d';
-				ctx.lineCap = 'round';
-				// Hand tilt per line (v1.256.0).
-				const rot = ( rnd() - 0.5 ) * 0.09;
-				ctx.save();
-				ctx.translate( cx, cy );
-				ctx.rotate( rot );
-				ctx.translate( -cx, -cy );
-				const loop = ( sx, sy, lw, alpha ) => {
-					ctx.lineWidth = Math.max( 2, lw );
-					ctx.globalAlpha = alpha;
-					const rxx = rx * sx;
-					const ryy = ry * sy;
-					ctx.beginPath();
-					ctx.moveTo( cx - rxx + wob(), cy + wob() );
-					ctx.bezierCurveTo(
-						cx - rxx + wob(),
-						cy - ryy * k + wob(),
-						cx - rxx * k + wob(),
-						cy - ryy + wob(),
-						cx + wob(),
-						cy - ryy + wob()
-					);
-					ctx.bezierCurveTo(
-						cx + rxx * k + wob(),
-						cy - ryy + wob(),
-						cx + rxx + wob(),
-						cy - ryy * k + wob(),
-						cx + rxx + wob(),
-						cy + wob()
-					);
-					ctx.bezierCurveTo(
-						cx + rxx + wob(),
-						cy + ryy * k + wob(),
-						cx + rxx * k + wob(),
-						cy + ryy + wob(),
-						cx + wob(),
-						cy + ryy + wob()
-					);
-					ctx.bezierCurveTo(
-						cx - rxx * k + wob(),
-						cy + ryy + wob(),
-						cx - rxx + wob(),
-						cy + ryy * k + wob(),
-						cx - rxx + wob() * 2,
-						cy + wob() * 2
-					);
-					// Hand-drawn circles never close cleanly: overshoot
-					// past the start point into the second lap.
-					ctx.quadraticCurveTo(
-						cx - rxx * 1.04 + wob(),
-						cy - ryy * 0.5 + wob(),
-						cx - rxx * 0.55 + wob(),
-						cy - ryy * 0.92 + wob()
-					);
-					ctx.stroke();
-				};
-				if ( 1 === style ) {
-					// Double loop: two clearly separate laps.
-					loop( 1, 1, size * 0.07, 0.9 );
-					loop( 1.14, 1.22, size * 0.06, 0.85 );
-				} else if ( 2 === style ) {
-					// Sketchy box with crossed corners.
-					ctx.restore();
-					ctx.save();
-					const bx0 = x - size * 0.35;
-					const bx1 = x + width + size * 0.35;
-					const by0 = baseline - size * 0.86;
-					const by1 = baseline + size * 0.28;
-					ctx.strokeStyle = conf.color || '#e5484d';
-					ctx.lineCap = 'round';
-					const edge = ( x1, y1, x2, y2, lw, alpha ) => {
-						const ov = size * ( 0.1 + rnd() * 0.12 );
-						const dx = x2 - x1;
-						const dy = y2 - y1;
-						const len = Math.hypot( dx, dy ) || 1;
-						const ux = ( dx / len ) * ov;
-						const uy = ( dy / len ) * ov;
-						ctx.lineWidth = Math.max( 2, lw );
-						ctx.globalAlpha = alpha;
-						ctx.beginPath();
-						ctx.moveTo( x1 - ux + wob(), y1 - uy + wob() );
-						ctx.quadraticCurveTo(
-							( x1 + x2 ) / 2 + wob() * 1.8,
-							( y1 + y2 ) / 2 + wob() * 1.8,
-							x2 + ux + wob(),
-							y2 + uy + wob()
-						);
-						ctx.stroke();
-					};
-					for ( let pass = 0; pass < 2; pass++ ) {
-						const lw = size * ( pass ? 0.05 : 0.07 );
-						const alpha = pass ? 0.5 : 0.9;
-						edge( bx0, by0, bx1, by0, lw, alpha );
-						edge( bx1, by0, bx1, by1, lw, alpha );
-						edge( bx1, by1, bx0, by1, lw, alpha );
-						edge( bx0, by1, bx0, by0, lw, alpha );
-					}
-				} else {
-					// Classic oval with varying stroke weight.
-					loop( 1, 1, size * 0.075, 0.9 );
-					loop( 0.97, 1.05, size * 0.055, 0.55 );
-				}
-				ctx.restore();
-			} else if ( 'strikeFx' === kind ) {
-				// Hand-drawn strike-through (v1.248): rough line, double
-				// line or a big X across each line's box.
-				const strike = Math.min( 2, style );
-				const over = size * 0.18;
-				const midY = baseline - size * 0.3;
-				ctx.strokeStyle = conf.color || '#e5484d';
-				ctx.lineWidth = Math.max( 2, size * 0.09 );
-				ctx.lineCap = 'round';
-				ctx.globalAlpha = 0.95;
-				const strokeLine = ( y1, y2 ) => {
-					for ( let pass = 0; pass < 2; pass++ ) {
-						ctx.beginPath();
-						ctx.moveTo( x - over + wob(), y1 + wob() );
-						ctx.quadraticCurveTo(
-							x + width / 2 + wob() * 2,
-							( y1 + y2 ) / 2 + wob() * 2,
-							x + width + over + wob(),
-							y2 + wob()
-						);
-						ctx.stroke();
-					}
-				};
-				if ( 2 === strike ) {
-					const top = baseline - size * 0.72;
-					const bottom = baseline + size * 0.1;
-					strokeLine( top, bottom );
-					strokeLine( bottom, top );
-				} else if ( 1 === strike ) {
-					strokeLine( midY - size * 0.09, midY - size * 0.09 );
-					strokeLine( midY + size * 0.12, midY + size * 0.12 );
-				} else {
-					strokeLine( midY, midY );
-				}
-			} else {
-				// scribbleUnder styles (v1.256.0): 0 wave (classic),
-				// 1 double stroke, 2 hand zigzag, 3 cursive loops.
-				const y = baseline + size * 0.18;
-				ctx.strokeStyle = conf.color || '#3b82f6';
-				ctx.lineCap = 'round';
-				ctx.lineJoin = 'round';
-				const wave = ( yy, lw, alpha ) => {
-					ctx.lineWidth = Math.max( 2, lw );
-					ctx.globalAlpha = alpha;
-					for ( let pass = 0; pass < 2; pass++ ) {
-						ctx.beginPath();
-						ctx.moveTo( x - size * 0.1 + wob(), yy + wob() );
-						ctx.quadraticCurveTo(
-							x + width * ( 0.3 + rnd() * 0.4 ),
-							yy + size * 0.1 + wob(),
-							x + width + size * 0.1 + wob(),
-							yy + wob()
-						);
-						ctx.stroke();
-					}
-				};
-				if ( 1 === style ) {
-					wave( y, size * 0.1, 0.95 );
-					wave( y + size * 0.17, size * 0.08, 0.9 );
-				} else if ( 2 === style ) {
-					ctx.lineWidth = Math.max( 2, size * 0.09 );
-					ctx.globalAlpha = 0.95;
-					const step = Math.max( 5, size * 0.36 );
-					ctx.beginPath();
-					let up = false;
-					ctx.moveTo( x - size * 0.1 + wob(), y + wob() );
-					for (
-						let px = x + step * 0.5;
-						px <= x + width + size * 0.15;
-						px += step
-					) {
-						ctx.lineTo(
-							px + wob(),
-							y + ( up ? 0 : size * 0.16 ) + wob()
-						);
-						up = ! up;
-					}
-					ctx.stroke();
-				} else if ( 3 === style ) {
-					// Cursive practice loops advancing along the line.
-					ctx.lineWidth = Math.max( 2, size * 0.08 );
-					ctx.globalAlpha = 0.92;
-					const step = Math.max( 6, size * 0.5 );
-					const ly = y + size * 0.12;
-					ctx.beginPath();
-					ctx.moveTo( x - size * 0.05 + wob(), ly + wob() );
-					for (
-						let px = x;
-						px <= x + width + size * 0.05;
-						px += step
-					) {
-						ctx.bezierCurveTo(
-							px + step * 0.9 + wob(),
-							ly + wob(),
-							px + step * 0.15 + wob(),
-							ly - size * 0.42 + wob(),
-							px + step * 0.55 + wob(),
-							ly - size * 0.42 + wob()
-						);
-						ctx.bezierCurveTo(
-							px + step * 0.95 + wob(),
-							ly - size * 0.42 + wob(),
-							px + step * 0.3 + wob(),
-							ly + wob(),
-							px + step + wob(),
-							ly + wob()
-						);
-					}
-					ctx.stroke();
-				} else {
-					wave( y, size * 0.11, 0.95 );
-				}
-			}
-		}
-		ctx.restore();
-		ctx.globalAlpha = 1;
-	}
-}
+export { drawLineHighlights } from './text-annotations';
 
 /** Flat solid copy of a text layer for silhouettes (round-3 helpers). */
 export function flatTextCopy( layer, color, extra ) {
@@ -389,6 +36,7 @@ export function flatTextCopy( layer, color, extra ) {
 		gradientStops: null,
 		color,
 		fill: color,
+		strokeGradient: null,
 		outlineColor: null,
 		outlineW: 0,
 		shadowOn: false,
@@ -419,28 +67,9 @@ export function textSilhouette( layer, color, pad = 0, extra ) {
  * stroked tube glows. Replaces the text body entirely.
  */
 export function drawNeonTube( ctx, layer, fx ) {
-	const width = Math.max( 1, Math.min( 10, fx.neonTube.width || 3 ) );
-	const color = fx.neonTube.color || '#ff36c7';
-	const size = Math.max( 4, Math.min( 60, fx.neonTube.glow ?? 16 ) );
-	const pad = Math.ceil( size * 1.4 );
-	const tube = textSilhouette( layer, 'rgba(0,0,0,0)', pad, {
-		outlineColor: color,
-		outlineW: width,
-	} );
-	const halo = blurCanvas( tube, size * 0.6 );
-	ctx.drawImage( halo, -pad, -pad );
-	ctx.drawImage( halo, -pad, -pad );
-	ctx.drawImage( tube, -pad, -pad );
-	const core = blurCanvas(
-		textSilhouette( layer, 'rgba(0,0,0,0)', pad, {
-			outlineColor: '#ffffff',
-			outlineW: Math.max( 1, width * 0.45 ),
-		} ),
-		0.8
+	drawNeonLettering( ctx, layer, fx.neonTube, ( color, pad = 0, extra ) =>
+		textSilhouette( layer, color, pad, extra )
 	);
-	ctx.globalAlpha = 0.95;
-	ctx.drawImage( core, -pad, -pad );
-	ctx.globalAlpha = 1;
 }
 
 /**
@@ -448,40 +77,9 @@ export function drawNeonTube( ctx, layer, fx ) {
  * a soft shadow inside the hole. Replaces the text body entirely.
  */
 export function drawPaperCut( ctx, layer, fx ) {
-	const w = Math.max( 1, Math.round( layer.w || 1 ) );
-	const h = Math.max( 1, Math.round( layer.h || 1 ) );
-	const padP = Math.max( 0, Math.min( 60, fx.paperCut.pad ?? 14 ) );
-	const radius = Math.max( 0, Math.min( 80, fx.paperCut.radius ?? 12 ) );
-	const color = fx.paperCut.color || '#ffffff';
-	const shadowA =
-		Math.max( 0, Math.min( 90, fx.paperCut.opacity ?? 45 ) ) / 100;
-
-	// Shadow visible only through the hole, hugging its top edge.
-	const sil = textSilhouette( layer, '#000000' );
-	const sh = createCanvas( w, h );
-	const shctx = sh.getContext( '2d' );
-	shctx.drawImage( blurCanvas( sil, 3 ), 0, 2.5 );
-	shctx.globalCompositeOperation = 'destination-in';
-	shctx.drawImage( sil, 0, 0 );
-	ctx.globalAlpha = shadowA;
-	ctx.drawImage( sh, 0, 0 );
-	ctx.globalAlpha = 1;
-
-	const panel = createCanvas( w + padP * 2, h + padP * 2 );
-	const pctx = panel.getContext( '2d' );
-	pctx.fillStyle = color;
-	const rr = Math.min( radius, ( h + padP * 2 ) / 2 );
-	pctx.beginPath();
-	pctx.moveTo( rr, 0 );
-	pctx.arcTo( panel.width, 0, panel.width, panel.height, rr );
-	pctx.arcTo( panel.width, panel.height, 0, panel.height, rr );
-	pctx.arcTo( 0, panel.height, 0, 0, rr );
-	pctx.arcTo( 0, 0, panel.width, 0, rr );
-	pctx.closePath();
-	pctx.fill();
-	pctx.globalCompositeOperation = 'destination-out';
-	pctx.drawImage( sil, padP, padP );
-	ctx.drawImage( panel, -padP, -padP );
+	drawCutSurface( ctx, layer, fx.paperCut, ( color, pad = 0, extra ) =>
+		textSilhouette( layer, color, pad, extra )
+	);
 }
 
 /**
@@ -516,39 +114,13 @@ export function drawTextBody( ctx, layer, env ) {
 		drawNeonTube( ctx, layer, fx );
 		return;
 	}
-	// Blueprint wireframe: hollow glyphs with a technical grid inside.
 	if ( fx.wireframe ) {
-		const lw = Math.max( 1, Math.min( 5, fx.wireframe.width || 2 ) );
-		const grid = Math.max( 5, Math.min( 40, fx.wireframe.grid || 12 ) );
-		const color = fx.wireframe.color || '#3b82f6';
-		const gw = Math.max( 1, Math.round( layer.w || 1 ) );
-		const gh = Math.max( 1, Math.round( layer.h || 1 ) );
-		const inner = createCanvas( gw, gh );
-		const ictx = inner.getContext( '2d' );
-		ictx.strokeStyle = color;
-		ictx.lineWidth = 1;
-		ictx.globalAlpha = 0.55;
-		ictx.beginPath();
-		for ( let gx = grid / 2; gx < gw; gx += grid ) {
-			ictx.moveTo( gx, 0 );
-			ictx.lineTo( gx, gh );
-		}
-		for ( let gy = grid / 2; gy < gh; gy += grid ) {
-			ictx.moveTo( 0, gy );
-			ictx.lineTo( gw, gy );
-		}
-		ictx.stroke();
-		ictx.globalAlpha = 1;
-		ictx.globalCompositeOperation = 'destination-in';
-		drawText( ictx, flatTextCopy( layer, '#000000' ) );
-		ctx.drawImage( inner, 0, 0 );
-		drawText(
+		drawWireLettering(
 			ctx,
-			flatTextCopy( layer, 'rgba(0,0,0,0)', {
-				outlineColor: color,
-				outlineW: lw,
-				outlineDash: null,
-			} )
+			layer,
+			fx.wireframe,
+			( color, pad = 0, extra ) =>
+				textSilhouette( layer, color, pad, extra )
 		);
 		return;
 	}
@@ -567,11 +139,20 @@ export function drawTextBody( ctx, layer, env ) {
 			'string' === typeof layer.color && '#' === layer.color[ 0 ]
 				? layer.color
 				: '#1a1d21';
-		ctx.drawImage(
-			textSilhouette( layer, inkFill ),
-			Math.cos( rad ) * off,
-			Math.sin( rad ) * off
-		);
+		const ink = textSilhouette( layer, inkFill );
+		if ( ( fx.offsetPrint.grain ?? 28 ) > 0 ) {
+			paintTextSurfaces( ink, {
+				...layer,
+				textFX: {
+					grunge: {
+						amount: fx.offsetPrint.grain ?? 28,
+						scale: 110,
+						seed: 6,
+					},
+				},
+			} );
+		}
+		ctx.drawImage( ink, Math.cos( rad ) * off, Math.sin( rad ) * off );
 		ctx.drawImage(
 			textSilhouette( layer, 'rgba(0,0,0,0)', 0, {
 				outlineColor: lineColor,
@@ -582,1003 +163,35 @@ export function drawTextBody( ctx, layer, env ) {
 		);
 		return;
 	}
-	const bevel = fx.bevel || fx.letterpress;
 	if (
 		! fillImg &&
-		! bevel &&
-		! fx.shine &&
-		! fx.scanlines &&
-		! fx.grunge &&
-		! fx.glitch &&
-		! fx.innerGlow &&
-		! fx.stripesFill &&
+		! TEXT_SURFACE_KEYS.some( ( key ) => fx[ key ] ) &&
 		! fx.pixelate &&
-		! fx.gradient &&
-		! fx.chrome &&
-		! fx.comicDots &&
-		! fx.spray &&
-		! fx.twoTone &&
-		! fx.foil &&
+		! fx.glitch &&
+		! fx.ripple &&
 		! fx.fade &&
 		! fx.softBlur &&
-		! fx.threeD &&
-		! fx.checker &&
-		! fx.halftone &&
-		! fx.static &&
-		! fx.dotMatrix &&
-		! fx.fold &&
-		! fx.inline &&
-		! fx.waves &&
-		! fx.motifFill &&
-		! fx.camo &&
-		! fx.circuit &&
-		! fx.plaid &&
-		! fx.bubbles &&
-		! fx.cracks &&
-		! fx.ripple
+		! hasPremiumText( fx )
 	) {
 		drawText( ctx, layer );
 		return;
 	}
-	const w = Math.max( 1, Math.round( layer.w || 1 ) );
-	const h = Math.max( 1, Math.round( layer.h || 1 ) );
-	// Glitch slices shift and blur bleeds: pad the buffer so they survive.
-	const blurR = fx.softBlur
-		? Math.max( 1, Math.min( 30, fx.softBlur.amount || 6 ) )
-		: 0;
-	const pad = Math.max(
-		fx.glitch
-			? Math.ceil( Math.min( 60, fx.glitch.strength || 12 ) ) + 2
-			: 0,
-		blurR ? Math.ceil( blurR * 2 ) + 2 : 0,
-		fx.ripple ? Math.ceil( Math.min( 30, fx.ripple.amp || 8 ) ) + 2 : 0
-	);
-	const body = createCanvas( w + 2 * pad, h + 2 * pad );
-	const bctx = body.getContext( '2d' );
+	const w = Math.max( 1, Math.round( layer.w || 1 ) ),
+		h = Math.max( 1, Math.round( layer.h || 1 ) );
+	const pad = Math.max( textBodyReach( layer ), premiumTextReach( layer ) );
+	const body = createCanvas( w + pad * 2, h + pad * 2 ),
+		bctx = body.getContext( '2d' );
 	bctx.translate( pad, pad );
 	drawText( bctx, layer );
 	bctx.translate( -pad, -pad );
-
 	if ( fillImg ) {
-		// Cover-fit the image into the glyph alpha.
-		const iw = fillImg.naturalWidth || fillImg.width || 1;
-		const ih = fillImg.naturalHeight || fillImg.height || 1;
-		const sc = Math.max( w / iw, h / ih );
-		bctx.globalCompositeOperation = 'source-in';
-		bctx.drawImage(
-			fillImg,
-			pad + ( w - iw * sc ) / 2,
-			pad + ( h - ih * sc ) / 2,
-			iw * sc,
-			ih * sc
-		);
-		bctx.globalCompositeOperation = 'source-over';
+		paintTextImage( body, fillImg, fx.imageFill, pad, w, h );
 	}
-
-	if ( bevel ) {
-		const depth = Math.max( 1, Math.min( 12, bevel.depth || 3 ) );
-		const inset = !! fx.letterpress;
-		const solid = {
-			...layer,
-			textFX: fx.jitter ? { jitter: fx.jitter } : null,
-			fillType: 'solid',
-			gradientStops: null,
-			outlineColor: null,
-			outlineW: 0,
-			shadowOn: false,
-			bgColor: null,
-		};
-		const sil = ( color ) => {
-			const c = createCanvas( w, h );
-			drawText( c.getContext( '2d' ), {
-				...solid,
-				color,
-				fill: color,
-				lineStyles: Array.isArray( layer.lineStyles )
-					? layer.lineStyles.map( ( ls ) =>
-							ls ? { ...ls, color: undefined } : ls
-					  )
-					: layer.lineStyles,
-				spans: layer.spans
-					? stripSpanColors( layer.spans )
-					: layer.spans,
-			} );
-			return c;
-		};
-		// Inner crescent: glyph silhouette minus an offset copy of itself.
-		const crescent = ( color, dx, dy ) => {
-			const c = sil( color );
-			const cctx = c.getContext( '2d' );
-			cctx.globalCompositeOperation = 'destination-out';
-			cctx.drawImage( sil( '#000' ), dx, dy );
-			return blurCanvas( c, depth * 0.35 );
-		};
-		const light = crescent(
-			'#ffffff',
-			inset ? -depth : depth,
-			inset ? -depth : depth
-		);
-		const dark = crescent(
-			'#000000',
-			inset ? depth : -depth,
-			inset ? depth : -depth
-		);
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.globalAlpha = inset ? 0.5 : 0.55;
-		bctx.drawImage( light, pad, pad );
-		bctx.globalAlpha = inset ? 0.55 : 0.45;
-		bctx.drawImage( dark, pad, pad );
-		bctx.globalAlpha = 1;
-		bctx.globalCompositeOperation = 'source-over';
-		if ( inset ) {
-			// The pressed look needs a light rim just below the glyphs.
-			const rim = sil( '#ffffff' );
-			const rctx = rim.getContext( '2d' );
-			rctx.globalCompositeOperation = 'destination-out';
-			rctx.drawImage( sil( '#000' ), 0, -1.5 );
-			ctx.globalAlpha = 0.4;
-			ctx.drawImage( rim, 0, 1.5 );
-			ctx.globalAlpha = 1;
-		}
-	}
-
-	// Shine: a diagonal gloss band clipped into the glyphs.
-	if ( fx.shine ) {
-		const width = Math.max( 4, Math.min( 90, fx.shine.width || 26 ) );
-		const alpha =
-			Math.max( 5, Math.min( 100, fx.shine.opacity ?? 65 ) ) / 100;
-		const pos = Math.max( 0, Math.min( 100, fx.shine.pos ?? 38 ) ) / 100;
-		const rad = ( ( fx.shine.angle ?? 115 ) * Math.PI ) / 180;
-		const dxs = Math.cos( rad );
-		const dys = Math.sin( rad );
-		const len = Math.abs( dxs ) * w + Math.abs( dys ) * h;
-		const cx0 = pad + w / 2 - ( dxs * len ) / 2;
-		const cy0 = pad + h / 2 - ( dys * len ) / 2;
-		const grad = bctx.createLinearGradient(
-			cx0,
-			cy0,
-			cx0 + dxs * len,
-			cy0 + dys * len
-		);
-		const bw = width / len / 2;
-		grad.addColorStop( Math.max( 0, pos - bw ), 'rgba(255,255,255,0)' );
-		grad.addColorStop( pos, `rgba(255,255,255,${ alpha })` );
-		grad.addColorStop( Math.min( 1, pos + bw ), 'rgba(255,255,255,0)' );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = grad;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Retro stripes: repeating color bands clipped into the glyphs.
-	if ( fx.stripesFill ) {
-		const sw = Math.max( 2, Math.min( 60, fx.stripesFill.width || 12 ) );
-		const rad = ( ( fx.stripesFill.angle ?? 0 ) * Math.PI ) / 180;
-		const colors = [
-			fx.stripesFill.color || '#e5484d',
-			fx.stripesFill.color2 || '#ff8a00',
-			fx.stripesFill.color3 || '#f5d90a',
-		].filter( Boolean );
-		const ext = body.width + body.height;
-		bctx.save();
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.translate( body.width / 2, body.height / 2 );
-		bctx.rotate( rad );
-		let idx = 0;
-		for ( let y = -ext; y < ext; y += sw ) {
-			bctx.fillStyle = colors[ idx++ % colors.length ];
-			bctx.fillRect( -ext, y, ext * 2, sw );
-		}
-		bctx.restore();
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Gradient fill: a linear colour ramp clipped into the glyphs.
-	if ( fx.gradient ) {
-		const rad = ( ( fx.gradient.angle ?? 90 ) * Math.PI ) / 180;
-		const dx = Math.cos( rad );
-		const dy = Math.sin( rad );
-		const len = Math.abs( dx ) * w + Math.abs( dy ) * h || 1;
-		const cx0 = pad + w / 2 - ( dx * len ) / 2;
-		const cy0 = pad + h / 2 - ( dy * len ) / 2;
-		const grad = bctx.createLinearGradient(
-			cx0,
-			cy0,
-			cx0 + dx * len,
-			cy0 + dy * len
-		);
-		grad.addColorStop( 0, fx.gradient.color || '#ff5db1' );
-		grad.addColorStop( 1, fx.gradient.color2 || '#7b2ff7' );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = grad;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Chrome: a vertical metallic ramp (dark → tint → bright band → dark).
-	if ( fx.chrome ) {
-		const tint = fx.chrome.color || '#cfd6e4';
-		const shine =
-			Math.max( 0, Math.min( 100, fx.chrome.shine ?? 50 ) ) / 100;
-		const contrast =
-			Math.max( 10, Math.min( 100, fx.chrome.contrast ?? 60 ) ) / 100;
-		const dark = mixColor( tint, '#0a0e16', 0.35 + contrast * 0.45 );
-		const grad = bctx.createLinearGradient( 0, pad, 0, pad + h );
-		grad.addColorStop( 0, dark );
-		grad.addColorStop( Math.max( 0.02, shine - 0.14 ), tint );
-		grad.addColorStop( shine, '#ffffff' );
-		grad.addColorStop( Math.min( 0.98, shine + 0.14 ), tint );
-		grad.addColorStop( 1, dark );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = grad;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Two tone: a hard two-color split clipped into the glyphs.
-	if ( fx.twoTone ) {
-		const split =
-			Math.max( 10, Math.min( 90, fx.twoTone.split ?? 50 ) ) / 100;
-		const rad = ( ( fx.twoTone.angle ?? 0 ) * Math.PI ) / 180;
-		// Angle 0 = horizontal split line (the ramp runs top to bottom).
-		const dx = Math.sin( rad );
-		const dy = Math.cos( rad );
-		const len = Math.abs( dx ) * w + Math.abs( dy ) * h || 1;
-		const cx0 = pad + w / 2 - ( dx * len ) / 2;
-		const cy0 = pad + h / 2 - ( dy * len ) / 2;
-		const grad = bctx.createLinearGradient(
-			cx0,
-			cy0,
-			cx0 + dx * len,
-			cy0 + dy * len
-		);
-		const c1 = fx.twoTone.color || '#ffd166';
-		const c2 = fx.twoTone.color2 || '#ef476f';
-		grad.addColorStop( 0, c1 );
-		grad.addColorStop( split, c1 );
-		grad.addColorStop( split, c2 );
-		grad.addColorStop( 1, c2 );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = grad;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// 3D front face: a glossy vertical gradient with a light streak near the
-	// top, clipped into the glyphs (the extrusion is drawn behind, and the
-	// bevel highlight over, in stampTextWithShadow).
-	if ( fx.threeD ) {
-		const top = fx.threeD.color || '#e4d9ff';
-		const bottom = fx.threeD.color2 || '#8b6bff';
-		const grad = bctx.createLinearGradient( 0, pad, 0, pad + h );
-		grad.addColorStop( 0, mixColor( top, '#ffffff', 0.25 ) );
-		grad.addColorStop( 0.5, top );
-		grad.addColorStop( 1, bottom );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = grad;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		// A soft gloss streak across the upper third.
-		const gloss = bctx.createLinearGradient(
-			0,
-			pad + h * 0.08,
-			0,
-			pad + h * 0.5
-		);
-		gloss.addColorStop( 0, 'rgba(255,255,255,0)' );
-		gloss.addColorStop( 0.5, 'rgba(255,255,255,0.5)' );
-		gloss.addColorStop( 1, 'rgba(255,255,255,0)' );
-		bctx.fillStyle = gloss;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Gold foil: a warm metallic ramp plus tiny sparkle glints, in-glyph.
-	if ( fx.foil ) {
-		const tint = fx.foil.color || '#d4af37';
-		const dark = mixColor( tint, '#1a1207', 0.55 );
-		const light = mixColor( tint, '#fff8e1', 0.7 );
-		const grad = bctx.createLinearGradient(
-			pad,
-			pad,
-			pad + w * 0.35,
-			pad + h
-		);
-		grad.addColorStop( 0, dark );
-		grad.addColorStop( 0.28, tint );
-		grad.addColorStop( 0.5, light );
-		grad.addColorStop( 0.72, tint );
-		grad.addColorStop( 1, dark );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = grad;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		const nSpark = Math.max(
-			0,
-			Math.min( 20, Math.round( fx.foil.sparkles ?? 8 ) )
-		);
-		const rnd = seededRnd( ( fx.foil.seed || 1 ) * 7331 );
-		bctx.fillStyle = '#ffffff';
-		for ( let i = 0; i < nSpark; i++ ) {
-			const sx = pad + rnd() * w;
-			const sy = pad + rnd() * h;
-			const s = 2 + rnd() * Math.min( 14, Math.max( 4, h * 0.06 ) );
-			bctx.save();
-			bctx.translate( sx, sy );
-			bctx.rotate( rnd() * Math.PI );
-			bctx.beginPath();
-			for ( let p = 0; p < 8; p++ ) {
-				const rr = p % 2 ? s * 0.18 : s;
-				const a = ( p / 8 ) * 2 * Math.PI;
-				bctx[ p ? 'lineTo' : 'moveTo' ](
-					Math.cos( a ) * rr,
-					Math.sin( a ) * rr
-				);
-			}
-			bctx.closePath();
-			bctx.fill();
-			bctx.restore();
-		}
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Comic dots: a Ben-Day halftone grid inside the glyphs over a flat fill.
-	if ( fx.comicDots ) {
-		const ds = Math.max( 3, Math.min( 24, fx.comicDots.size || 8 ) );
-		const dotColor = fx.comicDots.color || '#1a1d21';
-		const bg = fx.comicDots.bg || '#ffd400';
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = bg;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		const tile = createCanvas( ds, ds );
-		const tctx = tile.getContext( '2d' );
-		tctx.fillStyle = dotColor;
-		tctx.beginPath();
-		tctx.arc( ds / 2, ds / 2, ds * 0.3, 0, 2 * Math.PI );
-		tctx.fill();
-		bctx.fillStyle = bctx.createPattern( tile, 'repeat' );
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Waves: alternating wavy horizontal bands clipped into the glyphs.
-	if ( fx.waves ) {
-		const wl = Math.max( 20, Math.min( 160, fx.waves.size || 70 ) );
-		const amp = Math.max( 2, Math.min( 24, fx.waves.amp || 8 ) );
-		const c1 = fx.waves.color || '#38bdf8';
-		const c2 = fx.waves.color2 || '#1d4ed8';
-		const bh = Math.max( 6, Math.round( wl * 0.32 ) );
-		bctx.globalCompositeOperation = 'source-atop';
-		let band = 0;
-		for ( let by = -bh - amp; by < body.height + amp; by += bh, band++ ) {
-			bctx.fillStyle = band % 2 ? c2 : c1;
-			bctx.beginPath();
-			bctx.moveTo( 0, by + Math.sin( band * 1.7 ) * amp );
-			for ( let gx = 0; gx <= body.width; gx += 6 ) {
-				bctx.lineTo(
-					gx,
-					by +
-						Math.sin( ( gx / wl ) * 2 * Math.PI + band * 1.7 ) * amp
-				);
-			}
-			bctx.lineTo( body.width, body.height + amp + bh );
-			bctx.lineTo( 0, body.height + amp + bh );
-			bctx.closePath();
-			bctx.fill();
-		}
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Motif fill: a repeating little shape (heart/star/plus/ring) grid.
-	if ( fx.motifFill ) {
-		const ms = Math.max( 8, Math.min( 48, fx.motifFill.size || 18 ) );
-		const style = Math.max(
-			0,
-			Math.min( 3, Math.round( fx.motifFill.style || 0 ) )
-		);
-		const mc = fx.motifFill.color || '#ffffff';
-		const bg = fx.motifFill.bg || '#ff6ea9';
-		const tile = createCanvas( ms * 2, ms * 2 );
-		const tctx = tile.getContext( '2d' );
-		tctx.fillStyle = bg;
-		tctx.fillRect( 0, 0, ms * 2, ms * 2 );
-		const drawMotif = ( mx, my ) => {
-			const r = ms * 0.3;
-			tctx.save();
-			tctx.translate( mx, my );
-			tctx.fillStyle = mc;
-			tctx.strokeStyle = mc;
-			tctx.beginPath();
-			if ( 0 === style ) {
-				// Heart.
-				tctx.moveTo( 0, r * 0.9 );
-				tctx.bezierCurveTo(
-					-r * 1.4,
-					-r * 0.1,
-					-r * 0.7,
-					-r,
-					0,
-					-r * 0.35
-				);
-				tctx.bezierCurveTo(
-					r * 0.7,
-					-r,
-					r * 1.4,
-					-r * 0.1,
-					0,
-					r * 0.9
-				);
-				tctx.fill();
-			} else if ( 1 === style ) {
-				// Star (5 points).
-				for ( let i = 0; i < 10; i++ ) {
-					const rr = i % 2 ? r * 0.45 : r;
-					const a = ( i / 10 ) * 2 * Math.PI - Math.PI / 2;
-					tctx[ i ? 'lineTo' : 'moveTo' ](
-						Math.cos( a ) * rr,
-						Math.sin( a ) * rr
-					);
-				}
-				tctx.closePath();
-				tctx.fill();
-			} else if ( 2 === style ) {
-				// Plus.
-				const t = r * 0.42;
-				tctx.rect( -t / 2, -r, t, 2 * r );
-				tctx.rect( -r, -t / 2, 2 * r, t );
-				tctx.fill();
-			} else {
-				// Ring.
-				tctx.lineWidth = Math.max( 1.5, r * 0.35 );
-				tctx.arc( 0, 0, r * 0.75, 0, 2 * Math.PI );
-				tctx.stroke();
-			}
-			tctx.restore();
-		};
-		drawMotif( ms / 2, ms / 2 );
-		drawMotif( ms * 1.5, ms * 1.5 );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = bctx.createPattern( tile, 'repeat' );
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Camo: seeded organic blobs in earthy tones over a base fill.
-	if ( fx.camo ) {
-		const cs = Math.max( 10, Math.min( 60, fx.camo.size || 26 ) );
-		const rnd = seededRnd( ( fx.camo.seed || 1 ) * 613 );
-		const cols = [
-			fx.camo.bg || '#5a6f43',
-			fx.camo.color || '#3e4a2e',
-			fx.camo.color2 || '#8a9a6b',
-			fx.camo.color3 || '#2c3520',
-		];
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = cols[ 0 ];
-		bctx.fillRect( 0, 0, body.width, body.height );
-		const blobs = Math.round(
-			( body.width * body.height ) / ( cs * cs * 1.6 )
-		);
-		for ( let i = 0; i < blobs; i++ ) {
-			const bx2 = rnd() * body.width;
-			const by2 = rnd() * body.height;
-			const base = cs * ( 0.55 + rnd() * 0.7 );
-			bctx.fillStyle = cols[ 1 + Math.floor( rnd() * 3 ) ];
-			bctx.beginPath();
-			const pts = 7;
-			for ( let k = 0; k <= pts; k++ ) {
-				const a = ( k / pts ) * 2 * Math.PI;
-				const rr = base * ( 0.55 + rnd() * 0.5 );
-				const px2 = bx2 + Math.cos( a ) * rr * 1.25;
-				const py2 = by2 + Math.sin( a ) * rr * 0.8;
-				if ( 0 === k ) {
-					bctx.moveTo( px2, py2 );
-				} else {
-					bctx.quadraticCurveTo(
-						bx2 + Math.cos( a - Math.PI / pts ) * rr * 1.5,
-						by2 + Math.sin( a - Math.PI / pts ) * rr,
-						px2,
-						py2
-					);
-				}
-			}
-			bctx.closePath();
-			bctx.fill();
-		}
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Circuit board: repeating traces with solder pads.
-	if ( fx.circuit ) {
-		const cs = Math.max( 14, Math.min( 60, fx.circuit.size || 26 ) );
-		const trace = fx.circuit.color || '#22c55e';
-		const bg = fx.circuit.bg || '#0c1f13';
-		const tile = createCanvas( cs, cs );
-		const tctx = tile.getContext( '2d' );
-		tctx.fillStyle = bg;
-		tctx.fillRect( 0, 0, cs, cs );
-		tctx.strokeStyle = trace;
-		tctx.fillStyle = trace;
-		tctx.lineWidth = Math.max( 1, cs / 16 );
-		tctx.beginPath();
-		tctx.moveTo( 0, cs * 0.25 );
-		tctx.lineTo( cs, cs * 0.25 );
-		tctx.moveTo( cs * 0.25, cs * 0.25 );
-		tctx.lineTo( cs * 0.25, cs * 0.7 );
-		tctx.moveTo( cs * 0.75, cs * 0.75 );
-		tctx.lineTo( cs * 0.75, cs );
-		tctx.moveTo( cs * 0.5, cs * 0.75 );
-		tctx.lineTo( cs, cs * 0.75 );
-		tctx.stroke();
-		const padR = Math.max( 1.5, cs / 10 );
-		tctx.beginPath();
-		tctx.arc( cs * 0.25, cs * 0.7, padR, 0, 2 * Math.PI );
-		tctx.fill();
-		tctx.beginPath();
-		tctx.arc( cs * 0.5, cs * 0.75, padR, 0, 2 * Math.PI );
-		tctx.fill();
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = bctx.createPattern( tile, 'repeat' );
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Plaid: two crossing translucent band sets plus thin accent lines.
-	if ( fx.plaid ) {
-		const ps = Math.max( 14, Math.min( 80, fx.plaid.size || 34 ) );
-		const bg = fx.plaid.bg || '#9f1239';
-		const band = fx.plaid.color || '#1e3a5f';
-		const accent = fx.plaid.color2 || '#f8e8c8';
-		const tile = createCanvas( ps, ps );
-		const tctx = tile.getContext( '2d' );
-		tctx.fillStyle = bg;
-		tctx.fillRect( 0, 0, ps, ps );
-		tctx.globalAlpha = 0.65;
-		tctx.fillStyle = band;
-		tctx.fillRect( 0, 0, ps * 0.38, ps );
-		tctx.fillRect( 0, 0, ps, ps * 0.38 );
-		tctx.globalAlpha = 1;
-		tctx.fillStyle = accent;
-		tctx.fillRect( ps * 0.72, 0, Math.max( 1, ps / 18 ), ps );
-		tctx.fillRect( 0, ps * 0.72, ps, Math.max( 1, ps / 18 ) );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = bctx.createPattern( tile, 'repeat' );
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Checker: a two-color checkerboard clipped into the glyphs.
-	if ( fx.checker ) {
-		const cs = Math.max( 4, Math.min( 60, fx.checker.size || 14 ) );
-		const c1 = fx.checker.color || '#1a1d21';
-		const c2 = fx.checker.color2 || '#ffffff';
-		const tile = createCanvas( cs * 2, cs * 2 );
-		const tctx = tile.getContext( '2d' );
-		tctx.fillStyle = c1;
-		tctx.fillRect( 0, 0, cs * 2, cs * 2 );
-		tctx.fillStyle = c2;
-		tctx.fillRect( 0, 0, cs, cs );
-		tctx.fillRect( cs, cs, cs, cs );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = bctx.createPattern( tile, 'repeat' );
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Halftone shade: a dot screen growing toward one side of the glyphs
-	// (comic shading - unlike comicDots' uniform grid).
-	if ( fx.halftone ) {
-		const ds = Math.max( 4, Math.min( 24, fx.halftone.size || 9 ) );
-		const strength =
-			Math.max( 10, Math.min( 100, fx.halftone.strength ?? 80 ) ) / 100;
-		const rad = ( ( fx.halftone.angle ?? 90 ) * Math.PI ) / 180;
-		const hdx = Math.cos( rad );
-		const hdy = Math.sin( rad );
-		const len =
-			Math.abs( hdx ) * body.width + Math.abs( hdy ) * body.height || 1;
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = fx.halftone.color || '#1a1d21';
-		const maxR = ds * 0.5 * strength;
-		let row = 0;
-		for ( let gy = ds / 2; gy < body.height; gy += ds, row++ ) {
-			const stag = row % 2 ? ds / 2 : 0;
-			for ( let gx = ds / 2 + stag; gx < body.width; gx += ds ) {
-				const t =
-					( gx * hdx +
-						gy * hdy +
-						( hdx < 0 ? body.width * -hdx : 0 ) +
-						( hdy < 0 ? body.height * -hdy : 0 ) ) /
-					len;
-				const r = maxR * Math.max( 0, Math.min( 1, t ) );
-				if ( r < 0.45 ) {
-					continue;
-				}
-				bctx.beginPath();
-				bctx.arc( gx, gy, r, 0, 2 * Math.PI );
-				bctx.fill();
-			}
-		}
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// TV static: seeded monochrome noise clipped into the glyphs.
-	if ( fx.static ) {
-		const scale = Math.max( 1, Math.min( 6, fx.static.scale || 2 ) );
-		const amount =
-			Math.max( 10, Math.min( 100, fx.static.amount ?? 100 ) ) / 100;
-		const rnd = seededRnd( ( fx.static.seed || 1 ) * 7919 );
-		const ts = 96;
-		const tile = createCanvas( ts, ts );
-		const tctx = tile.getContext( '2d' );
-		const img = tctx.createImageData( ts, ts );
-		for ( let i = 0; i < img.data.length; i += 4 ) {
-			const v = Math.round( rnd() * 255 );
-			img.data[ i ] = v;
-			img.data[ i + 1 ] = v;
-			img.data[ i + 2 ] = v;
-			img.data[ i + 3 ] = 255;
-		}
-		tctx.putImageData( img, 0, 0 );
-		const scaled = createCanvas( ts * scale, ts * scale );
-		const sctx2 = scaled.getContext( '2d' );
-		sctx2.imageSmoothingEnabled = false;
-		sctx2.drawImage( tile, 0, 0, ts * scale, ts * scale );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.globalAlpha = amount;
-		bctx.fillStyle = bctx.createPattern( scaled, 'repeat' );
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalAlpha = 1;
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// LED board: glowing round pixels on a dark chip, clipped into glyphs.
-	if ( fx.dotMatrix ) {
-		const cell = Math.max( 6, Math.min( 26, fx.dotMatrix.size || 12 ) );
-		const led = fx.dotMatrix.color || '#ff3b30';
-		const chip = fx.dotMatrix.bg || '#181210';
-		const glowR = Math.max( 0, Math.min( 30, fx.dotMatrix.glow ?? 10 ) );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = chip;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-		const tile = createCanvas( cell, cell );
-		const tctx = tile.getContext( '2d' );
-		tctx.fillStyle = led;
-		tctx.beginPath();
-		tctx.arc( cell / 2, cell / 2, cell * 0.33, 0, 2 * Math.PI );
-		tctx.fill();
-		const dots = createCanvas( body.width, body.height );
-		const dctx = dots.getContext( '2d' );
-		dctx.fillStyle = dctx.createPattern( tile, 'repeat' );
-		dctx.fillRect( 0, 0, body.width, body.height );
-		dctx.globalCompositeOperation = 'destination-in';
-		dctx.drawImage( body, 0, 0 );
-		if ( glowR ) {
-			bctx.globalCompositeOperation = 'lighter';
-			bctx.drawImage( blurCanvas( dots, glowR * 0.6 ), 0, 0 );
-		}
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.drawImage( dots, 0, 0 );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Origami fold: alternating light/dark facets across the glyphs.
-	if ( fx.fold ) {
-		const bands = Math.max( 3, Math.min( 16, fx.fold.bands || 7 ) );
-		const strength =
-			Math.max( 10, Math.min( 100, fx.fold.strength ?? 55 ) ) / 100;
-		const rad = ( ( fx.fold.angle ?? 65 ) * Math.PI ) / 180;
-		const rnd = seededRnd( ( fx.fold.seed || 3 ) * 131 );
-		const diag = Math.hypot( body.width, body.height );
-		const bandW = diag / bands;
-		bctx.save();
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.translate( body.width / 2, body.height / 2 );
-		bctx.rotate( rad );
-		for ( let i = 0; i < bands; i++ ) {
-			const x0 = -diag / 2 + i * bandW;
-			const light = i % 2 === 0;
-			const a =
-				( light ? 0.2 : 0.24 ) * strength * ( 0.75 + rnd() * 0.5 );
-			bctx.fillStyle = light
-				? `rgba(255,255,255,${ a.toFixed( 3 ) })`
-				: `rgba(0,0,0,${ a.toFixed( 3 ) })`;
-			bctx.fillRect( x0, -diag / 2, bandW + 0.5, diag );
-		}
-		bctx.restore();
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Spray: a solid fill eroded by fine seeded speckles for a grainy look.
-	if ( fx.spray ) {
-		const density =
-			Math.max( 10, Math.min( 100, fx.spray.density ?? 55 ) ) / 100;
-		const grain = Math.max( 1, Math.min( 8, fx.spray.grain || 3 ) );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = fx.spray.color || '#1a1d21';
-		bctx.fillRect( 0, 0, body.width, body.height );
-		const rnd = seededRnd( 91763 );
-		const specks = Math.round(
-			( ( body.width * body.height ) / ( grain * grain * 5 ) ) *
-				( 1 - density )
-		);
-		bctx.globalCompositeOperation = 'destination-out';
-		bctx.fillStyle = '#000';
-		for ( let i = 0; i < specks; i++ ) {
-			bctx.beginPath();
-			bctx.arc(
-				rnd() * body.width,
-				rnd() * body.height,
-				grain * ( 0.4 + rnd() * 0.8 ),
-				0,
-				2 * Math.PI
-			);
-			bctx.fill();
-		}
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Inner glow: light creeping inward from the glyph edges.
-	if ( fx.innerGlow ) {
-		const gSize = Math.max( 1, Math.min( 40, fx.innerGlow.size || 10 ) );
-		const gColor = fx.innerGlow.color || '#ffe08a';
-		const inv = createCanvas( body.width, body.height );
-		const ictx = inv.getContext( '2d' );
-		ictx.fillStyle = gColor;
-		ictx.fillRect( 0, 0, inv.width, inv.height );
-		ictx.globalCompositeOperation = 'destination-out';
-		ictx.drawImage( textSilhouette( layer, '#000000' ), pad, pad );
-		const blurred = blurCanvas( inv, gSize * 0.6 );
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.drawImage( blurred, 0, 0 );
-		bctx.drawImage( blurred, 0, 0 );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Inline: a thin contour inset inside the glyph edges (varsity look).
-	if ( fx.inline ) {
-		const inset = Math.max( 1, Math.min( 24, fx.inline.inset || 5 ) );
-		const lw = Math.max( 1, Math.min( 10, fx.inline.width || 2 ) );
-		const color = fx.inline.color || '#ffffff';
-		const ring = createCanvas( body.width, body.height );
-		const rctx = ring.getContext( '2d' );
-		rctx.save();
-		rctx.translate( pad, pad );
-		drawText(
-			rctx,
-			flatTextCopy( layer, 'rgba(0,0,0,0)', {
-				outlineColor: color,
-				outlineW: 2 * inset + lw,
-				outlineDash: null,
-			} )
-		);
-		rctx.restore();
-		rctx.globalCompositeOperation = 'destination-out';
-		if ( 2 * inset - lw > 0.2 ) {
-			rctx.save();
-			rctx.translate( pad, pad );
-			drawText(
-				rctx,
-				flatTextCopy( layer, 'rgba(0,0,0,0)', {
-					outlineColor: color,
-					outlineW: Math.max( 0.2, 2 * inset - lw ),
-					outlineDash: null,
-				} )
-			);
-			rctx.restore();
-		}
-		// Keep only the interior half of the annulus.
-		rctx.globalCompositeOperation = 'destination-in';
-		rctx.drawImage( body, 0, 0 );
-		bctx.drawImage( ring, 0, 0 );
-	}
-
-	// Bubbles: seeded fizzy circles rising inside the glyphs.
-	if ( fx.bubbles ) {
-		const count = Math.max(
-			4,
-			Math.min( 80, Math.round( fx.bubbles.count || 26 ) )
-		);
-		const bs = Math.max( 2, Math.min( 20, fx.bubbles.size || 7 ) );
-		const bc = fx.bubbles.color || '#ffffff';
-		const rnd = seededRnd( ( fx.bubbles.seed || 1 ) * 389 );
-		const layerC = createCanvas( body.width, body.height );
-		const lctx = layerC.getContext( '2d' );
-		lctx.strokeStyle = bc;
-		lctx.fillStyle = bc;
-		for ( let i = 0; i < count; i++ ) {
-			const bx2 = rnd() * body.width;
-			const by2 = rnd() * body.height;
-			const r = bs * ( 0.35 + rnd() * 0.75 );
-			lctx.globalAlpha = 0.28 + rnd() * 0.3;
-			lctx.beginPath();
-			lctx.arc( bx2, by2, r, 0, 2 * Math.PI );
-			lctx.fill();
-			lctx.globalAlpha = 0.75;
-			lctx.beginPath();
-			lctx.arc( bx2 - r * 0.3, by2 - r * 0.3, r * 0.25, 0, 2 * Math.PI );
-			lctx.fill();
-		}
-		lctx.globalAlpha = 1;
-		lctx.globalCompositeOperation = 'destination-in';
-		lctx.drawImage( body, 0, 0 );
-		bctx.drawImage( layerC, 0, 0 );
-	}
-
-	// Cracks: seeded branching fracture lines over the glyphs.
-	if ( fx.cracks ) {
-		const count = Math.max(
-			1,
-			Math.min( 14, Math.round( fx.cracks.count || 6 ) )
-		);
-		const cc = fx.cracks.color || '#1a1d21';
-		const rnd = seededRnd( ( fx.cracks.seed || 1 ) * 547 );
-		const layerC = createCanvas( body.width, body.height );
-		const lctx = layerC.getContext( '2d' );
-		lctx.strokeStyle = cc;
-		lctx.lineCap = 'round';
-		let data = null;
-		try {
-			data = bctx.getImageData( 0, 0, body.width, body.height ).data;
-		} catch ( e ) {
-			data = null;
-		}
-		const inGlyph = ( gx, gy ) =>
-			! data ||
-			( gx >= 0 &&
-				gy >= 0 &&
-				gx < body.width &&
-				gy < body.height &&
-				data[
-					( Math.floor( gy ) * body.width + Math.floor( gx ) ) * 4 + 3
-				] > 100 );
-		const walk = ( gx, gy, a, segs, lw ) => {
-			let px2 = gx;
-			let py2 = gy;
-			let ang = a;
-			for ( let sSeg = 0; sSeg < segs; sSeg++ ) {
-				const len = 5 + rnd() * 11;
-				const nx = px2 + Math.cos( ang ) * len;
-				const ny = py2 + Math.sin( ang ) * len;
-				lctx.lineWidth = Math.max( 0.5, lw * ( 1 - sSeg / segs ) );
-				lctx.beginPath();
-				lctx.moveTo( px2, py2 );
-				lctx.lineTo( nx, ny );
-				lctx.stroke();
-				if ( rnd() < 0.3 && segs - sSeg > 2 ) {
-					walk(
-						nx,
-						ny,
-						ang + ( rnd() < 0.5 ? 1 : -1 ) * ( 0.6 + rnd() ),
-						Math.floor( ( segs - sSeg ) / 2 ),
-						lw * 0.6
-					);
-				}
-				ang += ( rnd() - 0.5 ) * 0.9;
-				px2 = nx;
-				py2 = ny;
-			}
-		};
-		for ( let i = 0, tries = 0; i < count && tries < count * 40; tries++ ) {
-			const gx = rnd() * body.width;
-			const gy = rnd() * body.height;
-			if ( ! inGlyph( gx, gy ) ) {
-				continue;
-			}
-			walk(
-				gx,
-				gy,
-				rnd() * 2 * Math.PI,
-				5 + Math.floor( rnd() * 4 ),
-				2.2
-			);
-			i++;
-		}
-		lctx.globalAlpha = 1;
-		lctx.globalCompositeOperation = 'destination-in';
-		lctx.drawImage( body, 0, 0 );
-		bctx.globalAlpha = 0.8;
-		bctx.drawImage( layerC, 0, 0 );
-		bctx.globalAlpha = 1;
-	}
-
-	// Scanlines: dark horizontal CRT lines inside the glyphs.
-	if ( fx.scanlines ) {
-		const gap = Math.max( 2, Math.min( 14, fx.scanlines.gap || 4 ) );
-		const alpha =
-			Math.max( 5, Math.min( 90, fx.scanlines.opacity ?? 40 ) ) / 100;
-		bctx.globalCompositeOperation = 'source-atop';
-		bctx.fillStyle = `rgba(0,0,0,${ alpha })`;
-		const lh = Math.max( 1, Math.round( gap / 3 ) );
-		for ( let y = pad; y < pad + h; y += gap ) {
-			bctx.fillRect( 0, y, body.width, lh );
-		}
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Grunge: seeded speckle erosion for a stamped / distressed look.
-	if ( fx.grunge ) {
-		const amount =
-			Math.max( 5, Math.min( 100, fx.grunge.amount ?? 50 ) ) / 100;
-		const scale = Math.max( 20, Math.min( 200, fx.grunge.scale || 70 ) );
-		const rnd = seededRnd( ( fx.grunge.seed || 1 ) * 7919 );
-		const tile = createCanvas( scale, scale );
-		const tctx = tile.getContext( '2d' );
-		tctx.fillStyle = '#000';
-		const blobs = Math.round( 26 * amount );
-		for ( let i = 0; i < blobs; i++ ) {
-			const bx = rnd() * scale;
-			const by = rnd() * scale;
-			if ( rnd() < 0.35 ) {
-				// Scratches.
-				tctx.save();
-				tctx.translate( bx, by );
-				tctx.rotate( rnd() * Math.PI );
-				tctx.fillRect(
-					0,
-					0,
-					2 + rnd() * scale * 0.4,
-					0.6 + rnd() * 1.6
-				);
-				tctx.restore();
-			} else {
-				tctx.beginPath();
-				tctx.arc( bx, by, 0.6 + rnd() * 2.6 * amount, 0, 2 * Math.PI );
-				tctx.fill();
-			}
-		}
-		bctx.globalCompositeOperation = 'destination-out';
-		bctx.fillStyle = bctx.createPattern( tile, 'repeat' );
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Ripple: sinusoidal horizontal displacement of the finished body.
-	if ( fx.ripple ) {
-		const amp = Math.max( 2, Math.min( 30, fx.ripple.amp || 8 ) );
-		const wl = Math.max( 10, Math.min( 140, fx.ripple.size || 46 ) );
-		for ( let ry = 0; ry < body.height; ry++ ) {
-			const off = Math.sin( ( ry / wl ) * 2 * Math.PI ) * amp;
-			ctx.drawImage(
-				body,
-				0,
-				ry,
-				body.width,
-				1,
-				-pad + off,
-				ry - pad,
-				body.width,
-				1
-			);
-		}
-		return;
-	}
-
-	// Fade: a directional opacity ramp eating into the finished body.
-	if ( fx.fade ) {
-		const amount =
-			Math.max( 10, Math.min( 100, fx.fade.amount ?? 90 ) ) / 100;
-		const rad = ( ( fx.fade.angle ?? 90 ) * Math.PI ) / 180;
-		const dx = Math.cos( rad );
-		const dy = Math.sin( rad );
-		const len = Math.abs( dx ) * w + Math.abs( dy ) * h || 1;
-		const cx0 = pad + w / 2 - ( dx * len ) / 2;
-		const cy0 = pad + h / 2 - ( dy * len ) / 2;
-		const grad = bctx.createLinearGradient(
-			cx0,
-			cy0,
-			cx0 + dx * len,
-			cy0 + dy * len
-		);
-		grad.addColorStop( 0, 'rgba(0,0,0,0)' );
-		grad.addColorStop( 1, `rgba(0,0,0,${ amount })` );
-		bctx.globalCompositeOperation = 'destination-out';
-		bctx.fillStyle = grad;
-		bctx.fillRect( 0, 0, body.width, body.height );
-		bctx.globalCompositeOperation = 'source-over';
-	}
-
-	// Pixelate: rasterize the finished body onto a coarse grid (8-bit).
+	paintTextSurfaces( body, layer );
+	paintPremiumText( body, layer );
+	// Distortions compose in one padded body instead of discarding later effects.
 	if ( fx.pixelate ) {
-		const px = Math.max( 2, Math.min( 24, fx.pixelate.size || 6 ) );
+		const px = Math.max( 2, Math.min( 24, fx.pixelate.size ?? 5 ) );
 		const small = createCanvas(
 			Math.max( 1, Math.ceil( body.width / px ) ),
 			Math.max( 1, Math.ceil( body.height / px ) )
@@ -1589,48 +202,114 @@ export function drawTextBody( ctx, layer, env ) {
 		bctx.save();
 		bctx.globalCompositeOperation = 'copy';
 		bctx.imageSmoothingEnabled = false;
-		bctx.setTransform( 1, 0, 0, 1, 0, 0 );
 		bctx.drawImage( small, 0, 0, body.width, body.height );
 		bctx.restore();
 	}
-
-	// Glitch: horizontal slices of the finished body, shifted sideways.
+	if ( fx.ripple ) {
+		const amp = Math.max( 0, Math.min( 30, fx.ripple.amp ?? 5 ) ),
+			wl = Math.max( 10, Math.min( 140, fx.ripple.size ?? 54 ) );
+		const displaced = createCanvas( body.width, body.height ),
+			dctx = displaced.getContext( '2d' );
+		for ( let y = 0; y < body.height; y++ ) {
+			const dx = Math.sin( ( ( y - pad ) / wl ) * Math.PI * 2 ) * amp;
+			dctx.drawImage( body, 0, y, body.width, 1, dx, y, body.width, 1 );
+		}
+		bctx.save();
+		bctx.globalCompositeOperation = 'copy';
+		bctx.drawImage( displaced, 0, 0 );
+		bctx.restore();
+	}
 	if ( fx.glitch ) {
 		const strength = Math.max(
-			2,
-			Math.min( 60, fx.glitch.strength || 12 )
-		);
-		const count = Math.max( 2, Math.min( 16, fx.glitch.slices || 7 ) );
-		const rnd = seededRnd( ( fx.glitch.seed || 1 ) * 104729 );
-		const bandH = body.height / count;
-		for ( let i = 0; i < count; i++ ) {
-			const sy = Math.round( i * bandH );
-			const sh = Math.ceil( bandH );
-			// Every slice gets its own offset; some stay put for contrast.
-			const dx =
-				rnd() < 0.3 ? 0 : Math.round( ( rnd() - 0.5 ) * 2 * strength );
-			ctx.drawImage(
-				body,
 				0,
-				sy,
-				body.width,
-				sh,
-				-pad + dx,
-				-pad + sy,
-				body.width,
-				sh
-			);
+				Math.min( 60, fx.glitch.strength ?? 10 )
+			),
+			count = Math.round(
+				Math.max( 2, Math.min( 16, fx.glitch.slices ?? 10 ) )
+			),
+			rnd = seededRnd( ( fx.glitch.seed || 8 ) * 104729 );
+		const displaced = createCanvas( body.width, body.height ),
+			dctx = displaced.getContext( '2d' );
+		const image = bctx.getImageData( 0, 0, body.width, body.height );
+		let top = body.height,
+			bottom = 0;
+		for ( let y = 0; y < body.height; y++ ) {
+			for ( let x = 0; x < body.width; x++ ) {
+				if ( image.data[ ( y * body.width + x ) * 4 + 3 ] > 8 ) {
+					top = Math.min( top, y );
+					bottom = Math.max( bottom, y );
+					break;
+				}
+			}
 		}
-		return;
+		if ( top <= bottom ) {
+			const cuts = [ 0, top ];
+			for ( let n = 1; n < count; n++ ) {
+				cuts.push(
+					Math.round(
+						top +
+							( bottom - top ) *
+								( n / count +
+									( ( rnd() - 0.5 ) * 0.5 ) / count )
+					)
+				);
+			}
+			cuts.push( bottom + 1, body.height );
+			cuts.sort( ( x, y ) => x - y );
+			for ( let n = 0; n < cuts.length - 1; n++ ) {
+				const y = cuts[ n ],
+					band = cuts[ n + 1 ] - y;
+				if ( band <= 0 ) {
+					continue;
+				}
+				const dx = rnd() < 0.35 ? 0 : ( rnd() - 0.5 ) * 2 * strength;
+				dctx.drawImage(
+					body,
+					0,
+					y,
+					body.width,
+					band,
+					dx,
+					y,
+					body.width,
+					band
+				);
+			}
+		}
+		bctx.save();
+		bctx.globalCompositeOperation = 'copy';
+		bctx.drawImage( displaced, 0, 0 );
+		bctx.restore();
 	}
-
-	// Soft blur: smear the finished body (the buffer pad holds the bleed).
-	if ( blurR ) {
-		ctx.drawImage( blurCanvas( body, blurR ), -pad, -pad );
-		return;
+	if ( fx.fade ) {
+		const amount =
+				Math.max( 0, Math.min( 100, fx.fade.amount ?? 70 ) ) / 100,
+			rad = ( ( fx.fade.angle ?? 105 ) * Math.PI ) / 180,
+			dx = Math.cos( rad ),
+			dy = Math.sin( rad ),
+			len = Math.abs( dx ) * w + Math.abs( dy ) * h || 1;
+		const grad = bctx.createLinearGradient(
+			pad + w / 2 - ( dx * len ) / 2,
+			pad + h / 2 - ( dy * len ) / 2,
+			pad + w / 2 + ( dx * len ) / 2,
+			pad + h / 2 + ( dy * len ) / 2
+		);
+		grad.addColorStop( 0, 'rgba(0,0,0,0)' );
+		grad.addColorStop(
+			Math.max(
+				0.05,
+				Math.min( 0.95, ( fx.fade.midpoint ?? 50 ) / 100 )
+			),
+			'rgba(0,0,0,0)'
+		);
+		grad.addColorStop( 1, `rgba(0,0,0,${ amount })` );
+		bctx.globalCompositeOperation = 'destination-out';
+		bctx.fillStyle = grad;
+		bctx.fillRect( 0, 0, body.width, body.height );
+		bctx.globalCompositeOperation = 'source-over';
 	}
-
-	ctx.drawImage( body, -pad, -pad );
+	const blur = Math.max( 0, Math.min( 30, fx.softBlur?.amount ?? 0 ) );
+	ctx.drawImage( blur ? blurCanvas( body, blur ) : body, -pad, -pad );
 }
 
 /** Back-of-text effects (echo, shadows, glow, outline …) then the text. */
@@ -1651,6 +330,7 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		fillType: 'solid',
 		color,
 		fill: color,
+		strokeGradient: null,
 		outlineColor: null,
 		outlineW: 0,
 		// FX outlines (sticker, dashed-outline FX) stay solid; the FX set
@@ -1675,51 +355,25 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		return c;
 	};
 
-	// Knockout: a rounded panel with the glyphs punched out as holes.
 	if ( fx.knockout ) {
-		const padP = Math.max( 0, Math.min( 60, fx.knockout.pad ?? 16 ) );
-		const radius = Math.max( 0, Math.min( 90, fx.knockout.radius ?? 18 ) );
-		const color = fx.knockout.color || '#ffffff';
-		const shadowA =
-			Math.max( 0, Math.min( 90, fx.knockout.shadow ?? 25 ) ) / 100;
-		const M = padP + 12;
-		const panel = createCanvas( w + 2 * M, h + 2 * M );
-		const pctx = panel.getContext( '2d' );
-		const px = M - padP;
-		const py = M - padP;
-		const pw = w + 2 * padP;
-		const ph = h + 2 * padP;
-		const r = Math.min( radius, pw / 2, ph / 2 );
-		pctx.fillStyle = color;
-		pctx.beginPath();
-		pctx.moveTo( px + r, py );
-		pctx.arcTo( px + pw, py, px + pw, py + ph, r );
-		pctx.arcTo( px + pw, py + ph, px, py + ph, r );
-		pctx.arcTo( px, py + ph, px, py, r );
-		pctx.arcTo( px, py, px + pw, py, r );
-		pctx.closePath();
-		pctx.fill();
-		pctx.globalCompositeOperation = 'destination-out';
-		pctx.translate( M, M );
-		drawText( pctx, solidCopy( '#000000' ) );
-		pctx.translate( -M, -M );
-		pctx.globalCompositeOperation = 'source-over';
-		if ( shadowA > 0 ) {
-			const sh = createCanvas( panel.width, panel.height );
-			const shx = sh.getContext( '2d' );
-			shx.drawImage( panel, 0, 0 );
-			shx.globalCompositeOperation = 'source-in';
-			shx.fillStyle = '#000000';
-			shx.fillRect( 0, 0, sh.width, sh.height );
-			ctx.globalAlpha = shadowA;
-			ctx.drawImage( blurCanvas( sh, 8 ), -M, -M + 7 );
-			ctx.globalAlpha = 1;
-		}
-		ctx.drawImage( panel, -M, -M );
+		drawCutSurface(
+			ctx,
+			layer,
+			fx.knockout,
+			( color, pad = 0, extra ) =>
+				textSilhouette( layer, color, pad, extra ),
+			true
+		);
 	}
-
+	// Badges and rays follow the ink, so wide paragraph boxes do not make the motif drift.
+	const badgeMask = fx.seal || fx.burst ? silhouette( '#ffffff' ) : null;
+	const badgeBox = badgeMask
+		? textDistanceField(
+				badgeMask.getContext( '2d' ).getImageData( 0, 0, w, h )
+		  )
+		: null;
 	// Star seal: a starburst badge panel sitting behind the text.
-	if ( fx.seal ) {
+	if ( fx.seal && ! badgeBox.empty ) {
 		const points = Math.max(
 			8,
 			Math.min( 40, Math.round( fx.seal.points || 16 ) )
@@ -1728,10 +382,10 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		const depth = Math.max( 4, Math.min( 40, fx.seal.depth ?? 16 ) ) / 100;
 		const color = fx.seal.color || '#e5484d';
 		const rim = fx.seal.color2 || null;
-		const cx = w / 2;
-		const cy = h / 2;
-		const rx = w / 2 + padP;
-		const ry = h / 2 + padP;
+		const cx = ( badgeBox.x0 + badgeBox.x1 ) / 2;
+		const cy = ( badgeBox.y0 + badgeBox.y1 ) / 2;
+		const rx = ( badgeBox.x1 - badgeBox.x0 ) / 2 + padP;
+		const ry = ( badgeBox.y1 - badgeBox.y0 ) / 2 + padP;
 		ctx.save();
 		ctx.beginPath();
 		for ( let i = 0; i < points * 2; i++ ) {
@@ -1746,7 +400,13 @@ export function stampTextWithShadow( ctx, layer, env ) {
 			}
 		}
 		ctx.closePath();
-		ctx.fillStyle = color;
+		const polish =
+				Math.max( 0, Math.min( 100, fx.seal.relief ?? 45 ) ) / 100,
+			gradient = ctx.createLinearGradient( 0, cy - ry, 0, cy + ry );
+		gradient.addColorStop( 0, mixColor( color, '#fff5de', polish * 0.42 ) );
+		gradient.addColorStop( 0.4, color );
+		gradient.addColorStop( 1, mixColor( color, '#18243c', polish * 0.48 ) );
+		ctx.fillStyle = gradient;
 		ctx.fill();
 		if ( rim ) {
 			ctx.lineWidth = Math.max( 2, padP * 0.12 );
@@ -1762,26 +422,29 @@ export function stampTextWithShadow( ctx, layer, env ) {
 	}
 
 	// Speed lines: tapering rays bursting outward from the centre, behind all.
-	if ( fx.burst ) {
+	if ( fx.burst && ! badgeBox.empty ) {
 		const count = Math.max(
 			6,
 			Math.min( 48, Math.round( fx.burst.count || 16 ) )
 		);
 		const length = Math.max( 10, Math.min( 200, fx.burst.length || 60 ) );
 		const gap = Math.max( 10, Math.min( 120, fx.burst.gap || 40 ) );
-		const cx = w / 2;
-		const cy = h / 2;
+		const cx = ( badgeBox.x0 + badgeBox.x1 ) / 2;
+		const cy = ( badgeBox.y0 + badgeBox.y1 ) / 2;
 		ctx.save();
 		ctx.fillStyle = fx.burst.color || '#111417';
 		for ( let i = 0; i < count; i++ ) {
 			const a = ( i / count ) * 2 * Math.PI + 0.015 * i;
 			const ux = Math.cos( a );
 			const uy = Math.sin( a );
-			const wIn = Math.max( 1, length * 0.06 );
-			const x0 = cx + ux * gap;
-			const y0 = cy + uy * gap;
-			const x1 = cx + ux * ( gap + length );
-			const y1 = cy + uy * ( gap + length );
+			const wIn = Math.max( 1, length * 0.04 );
+			const rx = Math.max( 1, ( badgeBox.x1 - badgeBox.x0 ) / 2 ),
+				ry = Math.max( 1, ( badgeBox.y1 - badgeBox.y0 ) / 2 );
+			const radius = 1 / Math.hypot( ux / rx, uy / ry );
+			const x0 = cx + ux * ( radius + gap );
+			const y0 = cy + uy * ( radius + gap );
+			const x1 = cx + ux * ( radius + gap + length );
+			const y1 = cy + uy * ( radius + gap + length );
 			ctx.beginPath();
 			ctx.moveTo( x0 - uy * wIn, y0 + ux * wIn );
 			ctx.lineTo( x1, y1 );
@@ -1794,49 +457,7 @@ export function stampTextWithShadow( ctx, layer, env ) {
 
 	// Sticker: a thick die-cut contour around the whole word plus a soft
 	// drop shadow (the outline effect + a shadow).
-	if ( fx.sticker ) {
-		const size = Math.max( 2, Math.min( 40, fx.sticker.size || 12 ) );
-		const color = fx.sticker.color || '#ffffff';
-		const shadowA =
-			Math.max( 0, Math.min( 90, fx.sticker.shadow ?? 35 ) ) / 100;
-		const pad = Math.ceil( size ) + 6;
-		if ( shadowA > 0 ) {
-			const sh = blurCanvas(
-				silhouette( '#000000', pad ),
-				size * 0.4 + 3
-			);
-			ctx.globalAlpha = shadowA;
-			for ( let i = 0; i < 12; i++ ) {
-				const a = ( i / 12 ) * 2 * Math.PI;
-				ctx.drawImage(
-					sh,
-					Math.cos( a ) * size - pad,
-					Math.sin( a ) * size - pad + size * 0.55
-				);
-			}
-			ctx.globalAlpha = 1;
-		}
-		const sil = silhouette( color, pad );
-		for ( let i = 0; i < 20; i++ ) {
-			const a = ( i / 20 ) * 2 * Math.PI;
-			ctx.drawImage(
-				sil,
-				Math.cos( a ) * size - pad,
-				Math.sin( a ) * size - pad
-			);
-		}
-		for ( let i = 0; i < 10; i++ ) {
-			const a = ( i / 10 ) * 2 * Math.PI + 0.3;
-			ctx.drawImage(
-				sil,
-				Math.cos( a ) * size * 0.6 - pad,
-				Math.sin( a ) * size * 0.6 - pad
-			);
-		}
-	}
 
-	// Retro stack: 2-3 SOLID coloured copies stepping away behind the text
-	// (the 70s poster look - unlike echo, which fades one colour out).
 	if ( fx.stackShadow ) {
 		const angle = ( fx.stackShadow.angle ?? 45 ) * DEG;
 		const off = Math.max( 2, Math.min( 60, fx.stackShadow.offset || 12 ) );
@@ -1898,26 +519,29 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		}
 	}
 
-	// Echo: fading copies of the full (coloured) text, offset along an angle.
+	// Echo: individually colored impressions with a controlled depth fade.
 	if ( fx.echo ) {
-		const angle = ( fx.echo.angle ?? 45 ) * DEG;
-		const count = Math.max(
-			1,
-			Math.min( 20, Math.round( fx.echo.count || 5 ) )
-		);
-		const gap = Math.max( 1, Math.min( 80, fx.echo.gap || 10 ) );
-		const ex = Math.cos( angle ) * gap;
-		const ey = Math.sin( angle ) * gap;
-		const off = createCanvas( w, h );
-		drawText( off.getContext( '2d' ), { ...layer, textFX: layoutFX } );
+		const c = fx.echo,
+			angle = ( c.angle ?? 22 ) * DEG,
+			count = Math.round( Math.max( 1, Math.min( 20, c.count ?? 7 ) ) ),
+			gap = Math.max( 1, Math.min( 80, c.gap ?? 10 ) ),
+			decay = Math.max( 0, Math.min( 100, c.decay ?? 65 ) ) / 100;
+		ctx.save();
 		for ( let i = count; i >= 1; i-- ) {
-			ctx.globalAlpha = Math.max(
-				0.06,
-				0.55 * ( 1 - i / ( count + 1 ) )
+			const t = i / ( count + 1 );
+			ctx.globalAlpha = ( 1 - decay * t ) * 0.88;
+			const ink = mixColor(
+				c.color || '#88d9d5',
+				c.color2 || '#6655a2',
+				t
 			);
-			ctx.drawImage( off, ex * i, ey * i );
+			ctx.drawImage(
+				silhouette( ink ),
+				Math.cos( angle ) * gap * i,
+				Math.sin( angle ) * gap * i
+			);
 		}
-		ctx.globalAlpha = 1;
+		ctx.restore();
 	}
 
 	// Halftone shadow: an offset silhouette rendered as a dot screen.
@@ -1927,10 +551,7 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		const color = fx.dotShadow.color || '#1a1d21';
 		const sil = silhouette( color );
 		const sctx = sil.getContext( '2d' );
-		const t = Math.max(
-			6,
-			Math.min( 24, Math.round( ( layer.fontSize || 48 ) * 0.14 ) )
-		);
+		const t = Math.max( 2, Math.min( 24, fx.dotShadow.size ?? 7 ) );
 		const tile = createCanvas( t, t );
 		const tctx = tile.getContext( '2d' );
 		tctx.fillStyle = color;
@@ -1948,50 +569,108 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		);
 	}
 
-	// Ground shadow: the text "stands" on the floor, its shadow falling
-	// away in perspective (flipped, squashed, sheared, blurred silhouette).
+	// A floor shadow starts at the actual ink baseline even when the text box is tall.
 	if ( fx.groundShadow ) {
-		const squash =
-			Math.max( 10, Math.min( 100, fx.groundShadow.squash ?? 45 ) ) / 100;
-		const shear =
-			Math.max( -60, Math.min( 60, fx.groundShadow.shear ?? 25 ) ) / 100;
-		const blur = Math.max( 0, Math.min( 20, fx.groundShadow.blur ?? 6 ) );
-		const alpha =
-			Math.max( 5, Math.min( 90, fx.groundShadow.opacity ?? 35 ) ) / 100;
-		const gPad = Math.ceil( blur ) + 2;
-		const sil = blurCanvas(
-			silhouette( fx.groundShadow.color || '#000000', gPad ),
-			blur * 0.6
-		);
-		ctx.save();
-		ctx.globalAlpha = alpha;
-		ctx.translate( 0, h );
-		ctx.transform( 1, 0, -shear, -squash, shear * h * squash, 0 );
-		ctx.drawImage( sil, -gPad, -gPad - h );
-		ctx.restore();
+		const c = fx.groundShadow,
+			squash = Math.max( 0.1, Math.min( 1, ( c.squash ?? 38 ) / 100 ) ),
+			shear = Math.max( -0.6, Math.min( 0.6, ( c.shear ?? 25 ) / 100 ) ),
+			blur = Math.max( 0, Math.min( 20, c.blur ?? 7 ) ),
+			opacity = Math.max( 0, Math.min( 0.9, ( c.opacity ?? 40 ) / 100 ) );
+		const source = silhouette( c.color || '#182637' ),
+			box = textDistanceField(
+				source.getContext( '2d' ).getImageData( 0, 0, w, h )
+			);
+		if ( ! box.empty ) {
+			const iw = box.x1 - box.x0 + 1,
+				ih = box.y1 - box.y0 + 1,
+				pad = Math.ceil( blur * 2 + Math.abs( shear ) * ih ) + 3,
+				sh = createCanvas(
+					iw + pad * 2,
+					Math.ceil( ih * squash ) + pad * 2
+				),
+				g = sh.getContext( '2d' );
+			g.translate( pad, pad );
+			g.transform( 1, 0, shear, -squash, 0, ih * squash );
+			g.drawImage( source, box.x0, box.y0, iw, ih, 0, 0, iw, ih );
+			g.setTransform( 1, 0, 0, 1, 0, 0 );
+			const fade = g.createLinearGradient( 0, pad, 0, pad + ih * squash );
+			fade.addColorStop( 0, 'rgba(0,0,0,1)' );
+			fade.addColorStop(
+				1,
+				`rgba(0,0,0,${
+					1 - Math.max( 0, Math.min( 100, c.fade ?? 70 ) ) / 100
+				})`
+			);
+			g.globalCompositeOperation = 'destination-in';
+			g.fillStyle = fade;
+			g.fillRect( 0, 0, sh.width, sh.height );
+			ctx.save();
+			ctx.globalAlpha = opacity;
+			ctx.drawImage(
+				blurCanvas( sh, blur * 0.6 ),
+				box.x0 - pad,
+				box.y1 - pad
+			);
+			ctx.restore();
+		}
 	}
 
-	const shadow = fx.longShadow || fx.extrude;
-	if ( shadow ) {
-		const isLong = !! fx.longShadow;
-		const angle = ( shadow.angle ?? 45 ) * DEG;
-		const length = Math.max(
-			0,
-			Math.min( 400, ( isLong ? shadow.length : shadow.depth ) ?? 20 )
-		);
-		const color = shadow.color || '#000000';
-		const dx = Math.cos( angle );
-		const dy = Math.sin( angle );
-		const off = createCanvas( w, h );
-		drawText( off.getContext( '2d' ), solidCopy( color ) );
-		const steps = Math.round( length );
-		for ( let i = steps; i >= 1; i-- ) {
-			ctx.globalAlpha = isLong
-				? Math.max( 0.12, 1 - ( i / steps ) * 0.85 )
-				: 1;
-			ctx.drawImage( off, dx * i, dy * i );
+	// Build a union shadow first, then shade it once so overlapping stamps cannot turn the fade opaque.
+	for ( const key of [ 'longShadow', 'extrude' ] ) {
+		const c = fx[ key ];
+		if ( ! c ) {
+			continue;
 		}
-		ctx.globalAlpha = 1;
+		const length = Math.max(
+				0,
+				Math.min(
+					400,
+					( key === 'longShadow' ? c.length : c.depth ) ?? 24
+				)
+			),
+			a = ( c.angle ?? 40 ) * DEG,
+			dx = Math.cos( a ),
+			dy = Math.sin( a ),
+			pad = Math.ceil( length ) + 2;
+		const shadow = createCanvas( w + pad * 2, h + pad * 2 ),
+			g = shadow.getContext( '2d' ),
+			mask = silhouette( '#ffffff' );
+		const steps = Math.max( 1, Math.ceil( length ) );
+		for ( let i = steps; i >= 0; i-- ) {
+			g.drawImage(
+				mask,
+				pad + ( dx * length * i ) / steps,
+				pad + ( dy * length * i ) / steps
+			);
+		}
+		const grad = g.createLinearGradient(
+			pad + w * 0.5 - dx * length * 0.15,
+			pad + h * 0.5 - dy * length * 0.15,
+			pad + w * 0.5 + dx * length,
+			pad + h * 0.5 + dy * length
+		);
+		const c1 = c.color || ( key === 'longShadow' ? '#283953' : '#38455f' ),
+			c2 = c.color2 || '#8aa3bb';
+		grad.addColorStop( 0, c1 );
+		grad.addColorStop( 1, key === 'extrude' ? c2 : c1 );
+		g.globalCompositeOperation = 'source-in';
+		g.fillStyle = grad;
+		g.fillRect( 0, 0, shadow.width, shadow.height );
+		if ( key === 'longShadow' ) {
+			const amount = Math.max( 0, Math.min( 100, c.fade ?? 70 ) ) / 100;
+			const fade = g.createLinearGradient(
+				pad + w * 0.5 - dx * length * 0.15,
+				pad + h * 0.5 - dy * length * 0.15,
+				pad + w * 0.5 + dx * length,
+				pad + h * 0.5 + dy * length
+			);
+			fade.addColorStop( 0, 'rgba(0,0,0,0.65)' );
+			fade.addColorStop( 1, `rgba(0,0,0,${ 0.65 * ( 1 - amount ) })` );
+			g.globalCompositeOperation = 'destination-in';
+			g.fillStyle = fade;
+			g.fillRect( 0, 0, shadow.width, shadow.height );
+		}
+		ctx.drawImage( shadow, -pad, -pad );
 	}
 
 	// Splice: a hollow (outline-only) copy of the text, offset behind it.
@@ -1999,10 +678,7 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		const angle = ( fx.splice.angle ?? 45 ) * DEG;
 		const offset = Math.max( 1, Math.min( 80, fx.splice.offset || 10 ) );
 		const color = fx.splice.color || '#e5484d';
-		const lw = Math.max(
-			1,
-			Math.round( ( layer.fontSize || 48 ) * 0.035 )
-		);
+		const lw = Math.max( 1, Math.min( 8, fx.splice.width ?? 2 ) );
 		const off = createCanvas( w, h );
 		drawText(
 			off.getContext( '2d' ),
@@ -2015,28 +691,26 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		);
 	}
 
-	// Glow: a blurred coloured silhouette hugging the text edges.
-	if ( fx.glow ) {
-		const gColor = fx.glow.color || '#3ba7ff';
-		const size = Math.max( 1, Math.min( 60, fx.glow.size || 14 ) );
-		const pad = Math.ceil( size );
-		const blurred = blurCanvas( silhouette( gColor, pad ), size * 0.6 );
-		// Draw twice so the glow reads on light and dark backgrounds.
-		ctx.drawImage( blurred, -pad, -pad );
-		ctx.drawImage( blurred, -pad, -pad );
-	}
-
-	// Neon: a wide + tight halo pair; the bright core is added after the text.
-	if ( fx.neon ) {
-		const nColor = fx.neon.color || '#ff36c7';
-		const size = Math.max( 4, Math.min( 60, fx.neon.size || 18 ) );
-		const pad = Math.ceil( size * 1.4 );
-		const sil = silhouette( nColor, pad );
-		const wide = blurCanvas( sil, size );
-		const tight = blurCanvas( sil, Math.max( 1, size * 0.35 ) );
-		ctx.drawImage( wide, -pad, -pad );
-		ctx.drawImage( wide, -pad, -pad );
-		ctx.drawImage( tight, -pad, -pad );
+	// Light builds from a broad tinted halo, a soft middle and a tight luminous edge.
+	for ( const key of [ 'glow', 'neon' ] ) {
+		const c = fx[ key ];
+		if ( ! c ) {
+			continue;
+		}
+		const size = Math.max( 1, Math.min( 60, c.size ?? 20 ) ),
+			pad = Math.ceil( size * 1.6 ) + 2,
+			ink = silhouette( c.color || '#5adad1', pad ),
+			intensity = Math.max( 0, Math.min( 100, c.intensity ?? 80 ) ) / 100;
+		ctx.save();
+		for ( const [ radius, alpha ] of [
+			[ size * 0.72, 0.48 ],
+			[ size * 0.29, 0.72 ],
+			[ Math.max( 0.6, size * 0.075 ), 0.55 ],
+		] ) {
+			ctx.globalAlpha = intensity * alpha;
+			ctx.drawImage( blurCanvas( ink, radius ), -pad, -pad );
+		}
+		ctx.restore();
 	}
 
 	// Hatch shadow: an offset silhouette drawn as diagonal line shading.
@@ -2046,161 +720,31 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		const gapH = Math.max( 3, Math.min( 20, fx.hatchShadow.gap || 6 ) );
 		const color = fx.hatchShadow.color || '#1a1d21';
 		const sil = silhouette( color );
-		const sctx3 = sil.getContext( '2d' );
-		sctx3.globalCompositeOperation = 'destination-in';
+		const hatch = createCanvas( sil.width, sil.height );
+		const sctx3 = hatch.getContext( '2d' );
 		sctx3.save();
 		sctx3.translate( sil.width / 2, sil.height / 2 );
 		sctx3.rotate( -Math.PI / 4 );
 		const diag = Math.hypot( sil.width, sil.height );
 		sctx3.fillStyle = '#000';
 		for ( let gy = -diag / 2; gy < diag / 2; gy += gapH ) {
-			sctx3.fillRect( -diag / 2, gy, diag, Math.max( 1, gapH * 0.4 ) );
+			sctx3.fillRect(
+				-diag / 2,
+				gy,
+				diag,
+				Math.max( 1, Math.min( 8, fx.hatchShadow.width ?? 1 ) )
+			);
 		}
 		sctx3.restore();
+		const sx = sil.getContext( '2d' );
+		sx.globalCompositeOperation = 'destination-in';
+		sx.drawImage( hatch, 0, 0 );
 		ctx.drawImage( sil, Math.cos( rad ) * off, Math.sin( rad ) * off );
 	}
 
 	// Gradient outline: a stroked ring filled with a two-color ramp.
-	if ( fx.gradientOutline ) {
-		const gow = Math.max(
-			1,
-			Math.min( 20, fx.gradientOutline.width || 6 )
-		);
-		const c1 = fx.gradientOutline.color || '#f5c518';
-		const c2 = fx.gradientOutline.color2 || '#e5484d';
-		const goPad = gow + 3;
-		const ring = createCanvas( w + 2 * goPad, h + 2 * goPad );
-		const rctx2 = ring.getContext( '2d' );
-		rctx2.translate( goPad, goPad );
-		drawText(
-			rctx2,
-			solidCopy( 'rgba(0,0,0,0)', {
-				outlineColor: '#000000',
-				outlineW: gow * 2,
-			} )
-		);
-		rctx2.setTransform( 1, 0, 0, 1, 0, 0 );
-		rctx2.globalCompositeOperation = 'source-in';
-		const rad2 = ( fx.gradientOutline.angle ?? 90 ) * DEG;
-		const gdx = Math.cos( rad2 );
-		const gdy = Math.sin( rad2 );
-		const glen =
-			Math.abs( gdx ) * ring.width + Math.abs( gdy ) * ring.height || 1;
-		const grad = rctx2.createLinearGradient(
-			ring.width / 2 - ( gdx * glen ) / 2,
-			ring.height / 2 - ( gdy * glen ) / 2,
-			ring.width / 2 + ( gdx * glen ) / 2,
-			ring.height / 2 + ( gdy * glen ) / 2
-		);
-		grad.addColorStop( 0, c1 );
-		grad.addColorStop( 1, c2 );
-		rctx2.fillStyle = grad;
-		rctx2.fillRect( 0, 0, ring.width, ring.height );
-		ctx.drawImage( ring, -goPad, -goPad );
-	}
+	drawTextContours( ctx, layer, silhouette );
 
-	// Contour lines: concentric hollow rings marching outward (topo look).
-	if ( fx.contour ) {
-		const count = Math.max(
-			1,
-			Math.min( 4, Math.round( fx.contour.count || 3 ) )
-		);
-		const gap = Math.max( 3, Math.min( 30, fx.contour.gap || 8 ) );
-		const lw = Math.max( 1, Math.min( 6, fx.contour.width || 2 ) );
-		const cols = [
-			fx.contour.color || '#1a1d21',
-			fx.contour.color2 || fx.contour.color || '#1a1d21',
-		];
-		const cPad = count * gap + lw + 4;
-		for ( let n = count; n >= 1; n-- ) {
-			const d = n * gap;
-			const ring = createCanvas( w + 2 * cPad, h + 2 * cPad );
-			const rctx = ring.getContext( '2d' );
-			rctx.translate( cPad, cPad );
-			drawText(
-				rctx,
-				solidCopy( 'rgba(0,0,0,0)', {
-					outlineColor: cols[ ( n - 1 ) % 2 ],
-					outlineW: 2 * d + lw,
-				} )
-			);
-			rctx.globalCompositeOperation = 'destination-out';
-			drawText(
-				rctx,
-				solidCopy( 'rgba(0,0,0,0)', {
-					outlineColor: '#000000',
-					outlineW: Math.max( 0.2, 2 * d - lw ),
-				} )
-			);
-			ctx.drawImage( ring, -cPad, -cPad );
-		}
-	}
-
-	// Outline (sticker): a dilated silhouette ring right behind the text.
-	if ( fx.outline ) {
-		const oColor = fx.outline.color || '#ffffff';
-		const size = Math.max( 1, Math.min( 40, fx.outline.size || 8 ) );
-		const pad = Math.ceil( size ) + 2;
-		const sil = silhouette( oColor, pad );
-		for ( let i = 0; i < 16; i++ ) {
-			const a = ( i / 16 ) * 2 * Math.PI;
-			ctx.drawImage(
-				sil,
-				Math.cos( a ) * size - pad,
-				Math.sin( a ) * size - pad
-			);
-		}
-		for ( let i = 0; i < 8; i++ ) {
-			const a = ( i / 8 ) * 2 * Math.PI + 0.3;
-			ctx.drawImage(
-				sil,
-				Math.cos( a ) * size * 0.55 - pad,
-				Math.sin( a ) * size * 0.55 - pad
-			);
-		}
-	}
-
-	// Multi outline (v1.139.0): stacked rings behind the text, innermost
-	// first in fx.rings.colors. Drawn widest ring first so each inner ring
-	// sits on top of the previous one.
-	if ( fx.rings ) {
-		const size = Math.max( 1, Math.min( 30, fx.rings.size || 6 ) );
-		// Up to five rings (v1.248); missing colors cycle the given ones.
-		const base = [
-			fx.rings.color || '#ffffff',
-			fx.rings.color2 || '#1a1d21',
-			fx.rings.color3 || null,
-		].filter( Boolean );
-		const wanted = Math.max( 2, Math.min( 5, fx.rings.count || 2 ) );
-		const colors = Array.from(
-			{ length: wanted },
-			( _, i ) => base[ i % base.length ]
-		);
-		for ( let ring = colors.length; ring >= 1; ring-- ) {
-			const reach = size * ring;
-			const pad = Math.ceil( reach ) + 2;
-			const sil = silhouette( colors[ ring - 1 ], pad );
-			const stamps = 8 + ring * 8;
-			for ( let i = 0; i < stamps; i++ ) {
-				const a = ( i / stamps ) * 2 * Math.PI;
-				ctx.drawImage(
-					sil,
-					Math.cos( a ) * reach - pad,
-					Math.sin( a ) * reach - pad
-				);
-			}
-			for ( let i = 0; i < 8; i++ ) {
-				const a = ( i / 8 ) * 2 * Math.PI + 0.35;
-				ctx.drawImage(
-					sil,
-					Math.cos( a ) * reach * 0.6 - pad,
-					Math.sin( a ) * reach * 0.6 - pad
-				);
-			}
-		}
-	}
-
-	// Confetti: seeded particles and sparkles scattered around the text.
 	if ( fx.confetti ) {
 		const density = Math.max(
 			5,
@@ -2210,7 +754,16 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		const rnd = seededRnd( ( fx.confetti.seed || 1 ) * 31337 );
 		const cPad = size * 2 + 6;
 		const count = Math.round( density * 0.7 );
-		const palette = [ ...RAINBOW_COLORS, '#ffffff', '#ffd700' ];
+		const palette = [
+			fx.confetti.color || '#e89273',
+			fx.confetti.color2 || '#80cfc7',
+			mixColor(
+				fx.confetti.color || '#e89273',
+				fx.confetti.color2 || '#80cfc7',
+				0.5
+			),
+			'#fff1d8',
+		];
 		for ( let i = 0; i < count; i++ ) {
 			const cx = rnd() * ( w + cPad * 2 ) - cPad;
 			const cy = rnd() * ( h + cPad * 2 ) - cPad;
@@ -2261,7 +814,13 @@ export function stampTextWithShadow( ctx, layer, env ) {
 			// saturates into a solid slab that swallows the glyphs.
 			ctx.globalAlpha = Math.max(
 				0.01,
-				0.22 * Math.pow( 1 - i / steps, 2 )
+				( ( 0.32 *
+					Math.max(
+						0,
+						Math.min( 100, fx.motionBlur.opacity ?? 65 )
+					) ) /
+					100 ) *
+					Math.pow( 1 - i / steps, 2 )
 			);
 			ctx.drawImage(
 				off,
@@ -2279,8 +838,16 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		const cdx = Math.cos( rad ) * offset;
 		const cdy = Math.sin( rad ) * offset;
 		ctx.globalAlpha = 0.85;
-		ctx.drawImage( silhouette( '#ff2436' ), -cdx, -cdy );
-		ctx.drawImage( silhouette( '#00e0ff' ), cdx, cdy );
+		ctx.drawImage(
+			silhouette( fx.chromatic.color || '#59dae8' ),
+			-cdx,
+			-cdy
+		);
+		ctx.drawImage(
+			silhouette( fx.chromatic.color2 || '#f66d95' ),
+			cdx,
+			cdy
+		);
 		ctx.globalAlpha = 1;
 	}
 
@@ -2313,6 +880,17 @@ export function stampTextWithShadow( ctx, layer, env ) {
 				1.5,
 				( layer.fontSize || 48 ) * 0.045 * ( 0.7 + rnd() * 0.6 )
 			);
+			const polish =
+					Math.max( 0, Math.min( 100, fx.drip.shine ?? 55 ) ) / 100,
+				grad = ctx.createLinearGradient( bx - r, by, bx + r, by );
+			grad.addColorStop( 0, mixColor( dColor, '#142230', 0.28 ) );
+			grad.addColorStop(
+				0.28,
+				mixColor( dColor, '#fff8dc', polish * 0.65 )
+			);
+			grad.addColorStop( 0.62, dColor );
+			grad.addColorStop( 1, mixColor( dColor, '#142230', 0.35 ) );
+			ctx.fillStyle = grad;
 			ctx.beginPath();
 			ctx.moveTo( bx - r, by - 1 );
 			ctx.quadraticCurveTo(
@@ -2451,6 +1029,17 @@ export function stampTextWithShadow( ctx, layer, env ) {
 			ctx.save();
 			ctx.translate( gx, gy );
 			ctx.rotate( ( rnd() - 0.5 ) * 0.5 );
+			const glow =
+					Math.max( 0, Math.min( 100, fx.sparkle.glow ?? 35 ) ) / 100,
+				halo = ctx.createRadialGradient( 0, 0, 0, 0, 0, sSize );
+			halo.addColorStop( 0, mixColor( color, '#ffffff', 0.5 ) );
+			halo.addColorStop( 0.18, color );
+			halo.addColorStop( 1, 'rgba(255,255,255,0)' );
+			ctx.globalAlpha = glow * 0.6;
+			ctx.fillStyle = halo;
+			ctx.fillRect( -sSize, -sSize, sSize * 2, sSize * 2 );
+			ctx.globalAlpha = 1;
+			ctx.fillStyle = color;
 			ctx.beginPath();
 			ctx.moveTo( 0, -sSize );
 			ctx.quadraticCurveTo( 0, 0, sSize * 0.45, 0 );
@@ -2465,35 +1054,50 @@ export function stampTextWithShadow( ctx, layer, env ) {
 		ctx.restore();
 	}
 
-	// Reflection: a flipped, fading copy below the text block.
+	// Reflection begins directly below the visible letters, independent of paragraph-box whitespace.
 	if ( fx.reflection ) {
-		const gap = Math.max( 0, Math.min( 60, fx.reflection.gap ?? 6 ) );
-		const alpha = Math.max(
-			0.05,
-			Math.min( 0.95, ( fx.reflection.alpha ?? 45 ) / 100 )
+		const c = fx.reflection,
+			gap = Math.max( 0, Math.min( 60, c.gap ?? 3 ) ),
+			alpha = Math.max( 0.05, Math.min( 0.95, ( c.alpha ?? 50 ) / 100 ) );
+		const source = createCanvas( w, h );
+		drawTextBody(
+			source.getContext( '2d' ),
+			{
+				...layer,
+				textFX: { ...fx, reflection: null, groundShadow: null },
+			},
+			env
 		);
-		const off = createCanvas( w, h );
-		drawText( off.getContext( '2d' ), { ...layer, textFX: layoutFX } );
-		const refl = createCanvas( w, h );
-		const rctx = refl.getContext( '2d' );
-		rctx.translate( 0, h );
-		rctx.scale( 1, -1 );
-		rctx.drawImage( off, 0, 0 );
-		rctx.setTransform( 1, 0, 0, 1, 0, 0 );
-		rctx.globalCompositeOperation = 'destination-in';
-		const grad = rctx.createLinearGradient( 0, 0, 0, h );
-		grad.addColorStop( 0, 'rgba(0,0,0,0.9)' );
-		grad.addColorStop( 0.7, 'rgba(0,0,0,0)' );
-		rctx.fillStyle = grad;
-		rctx.fillRect( 0, 0, w, h );
-		ctx.globalAlpha = alpha;
-		ctx.drawImage( refl, 0, h + gap );
-		ctx.globalAlpha = 1;
+		const box = textDistanceField(
+			source.getContext( '2d' ).getImageData( 0, 0, w, h )
+		);
+		if ( ! box.empty ) {
+			const iw = box.x1 - box.x0 + 1,
+				ih = box.y1 - box.y0 + 1,
+				refl = createCanvas( iw, ih ),
+				g = refl.getContext( '2d' );
+			g.translate( 0, ih );
+			g.scale( 1, -1 );
+			g.drawImage( source, box.x0, box.y0, iw, ih, 0, 0, iw, ih );
+			g.setTransform( 1, 0, 0, 1, 0, 0 );
+			const fade = g.createLinearGradient( 0, 0, 0, ih ),
+				amount = Math.max( 0, Math.min( 100, c.fade ?? 75 ) ) / 100;
+			fade.addColorStop( 0, 'rgba(0,0,0,.9)' );
+			fade.addColorStop( 1, `rgba(0,0,0,${ 0.9 * ( 1 - amount ) })` );
+			g.globalCompositeOperation = 'destination-in';
+			g.fillStyle = fade;
+			g.fillRect( 0, 0, iw, ih );
+			ctx.save();
+			ctx.globalAlpha = alpha;
+			ctx.drawImage( refl, box.x0, box.y1 + 1 + gap );
+			ctx.restore();
+		}
 	}
 }
 
 // Every live text-effect key (besides warp) drawTextWithEffects understands.
 export const TEXT_FX_KEYS = [
+	...PREMIUM_TEXT_KEYS,
 	'longShadow',
 	'extrude',
 	'skew',
@@ -2650,11 +1254,28 @@ export function charFxFor( layer ) {
 			Math.sin( ( i + 1 ) * 127.1 + salt * 311.7 + seed ) * 43758.5453;
 		return x - Math.floor( x );
 	};
-	const palette = fx.rainbow
+	let palette = fx.rainbow
 		? Array.isArray( fx.rainbow.colors ) && fx.rainbow.colors.length
 			? fx.rainbow.colors
 			: RAINBOW_COLORS
 		: null;
+	if ( fx.rainbow && ! Array.isArray( fx.rainbow.colors ) ) {
+		const hue = Math.max( 0, Math.min( 360, fx.rainbow.offset ?? 20 ) ),
+			saturation = Math.max(
+				0,
+				Math.min( 100, fx.rainbow.saturation ?? 70 )
+			);
+		palette = Array.from(
+			{ length: 7 },
+			( _, i ) =>
+				`hsl(${ ( hue + ( i * 360 ) / 7 ) % 360 },${ saturation }%,${
+					58 + ( i % 3 ) * 4
+				}%)`
+		);
+	}
+	const rotate =
+			Math.max( 0, Math.min( 100, fx.jitter?.rotation ?? 65 ) ) / 65,
+		spread = Math.max( 0, Math.min( 100, fx.jitter?.spread ?? 50 ) ) / 50;
 	let idx = 0;
 	return {
 		next( ch, size ) {
@@ -2666,12 +1287,14 @@ export function charFxFor( layer ) {
 			return {
 				color:
 					palette && ! isSpace ? palette[ i % palette.length ] : null,
-				rot: fx.jitter ? ( rnd( i, 1 ) - 0.5 ) * amount * 0.42 : 0,
+				rot: fx.jitter
+					? ( rnd( i, 1 ) - 0.5 ) * amount * 0.42 * rotate
+					: 0,
 				dx: fx.jitter
-					? ( rnd( i, 2 ) - 0.5 ) * amount * size * 0.12
+					? ( rnd( i, 2 ) - 0.5 ) * amount * size * 0.12 * spread
 					: 0,
 				dy: fx.jitter
-					? ( rnd( i, 3 ) - 0.5 ) * amount * size * 0.24
+					? ( rnd( i, 3 ) - 0.5 ) * amount * size * 0.24 * spread
 					: 0,
 			};
 		},

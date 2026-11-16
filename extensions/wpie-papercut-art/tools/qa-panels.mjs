@@ -84,7 +84,13 @@ const histogramState = () =>
 	} ) );
 try {
 	await page.waitForFunction(
-		() => document.querySelectorAll( '.wpiepca-tile' ).length === 194
+		// v3.8: 323 cards of its own (the figure had been 194 since long
+		// before 3.7), plus every editor shape the bridge offers.
+		() =>
+			document.querySelectorAll( '.wpiepca-tile' ).length ===
+			323 +
+				document.querySelectorAll( '[data-library-key^="form:"]' )
+					.length
 	);
 	const sceneBefore = await page.evaluate( () =>
 		JSON.stringify( window.__pca.params )

@@ -11,6 +11,8 @@
 /** Perceived lightness of an rgb triple in 0..1. */
 import { gridSize } from '../core/frame.js';
 
+import { inZones } from './clear.js';
+
 export const lum = ( c ) => 0.2126 * c[ 0 ] + 0.7152 * c[ 1 ] + 0.0722 * c[ 2 ];
 
 /** Hue in 0..1 (undefined for grays -> -1) and saturation 0..1. */
@@ -208,8 +210,18 @@ export class SenseMap {
 		const r = Math.max( 1, Math.round( size * this.rows * 0.5 ) );
 		let best = Infinity;
 		let at = 0;
+		// The page's text zones are empty on purpose: a space-seeker that
+		// went there would only be sent away again (flat/clear.js).
+		const blocked =
+			this.blocked && this.blocked.length ? this.blocked : null;
 		for ( let y = r; y < this.rows - r; y++ ) {
 			for ( let x = r; x < this.cols - r; x++ ) {
+				if ( blocked ) {
+					const c = this.cellCenter( y * this.cols + x );
+					if ( inZones( blocked, c[ 0 ], c[ 1 ] ) ) {
+						continue;
+					}
+				}
 				let s = 0;
 				for ( let yy = -r; yy <= r; yy++ ) {
 					for ( let xx = -r; xx <= r; xx++ ) {

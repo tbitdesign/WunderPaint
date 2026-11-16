@@ -3,6 +3,37 @@ const stroke = ( d, size = 16 ) =>
 	`<svg width="${ size }" height="${ size }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ d }</svg>`;
 
 export const ICONS = {
+	song: stroke(
+		'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7m-3-3 3 3-3 3"/>'
+	),
+	worksheet: stroke(
+		'<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 12h4m-4 5h4m2-2 2 2 4-4"/>'
+	),
+	roadmap: stroke(
+		'<path d="M3 4v16m6-16v16m6-16v16m6-16v16M3 7h18M3 12h18M3 17h18m-18 0 6-5 6 5 6-10"/>'
+	),
+	analysis: stroke(
+		'<path d="M3 13h18M3 17h18M5 8V4h14v4M8 11v10m8-10v10"/>'
+	),
+	up: stroke( '<path d="m6 15 6-6 6 6"/>' ),
+	down: stroke( '<path d="m6 9 6 6 6-6"/>' ),
+	remove: stroke( '<path d="M6 6l12 12M6 18 18 6"/>' ),
+	copy: stroke(
+		'<rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/>'
+	),
+	drag: stroke( '<path d="M8 5h1m6 0h1M8 12h1m6 0h1M8 19h1m6 0h1"/>' ),
+	melody: stroke(
+		'<path d="M3 5h18v14H3zM7 5v9h3V5m4 0v9h3V5M8 14v5m8-5v5"/>'
+	),
+	rhythm: stroke(
+		'<path d="M3 16h18M6 15V5m6 10V5m6 10V5"/><circle cx="4" cy="16" r="2"/><circle cx="10" cy="16" r="2"/><circle cx="16" cy="16" r="2"/>'
+	),
+	harmony: stroke(
+		'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5m0 8v5M3 12h5m8 0h5M6 6l3 3m6 6l3 3M6 18l3-3m6-6l3-3"/>'
+	),
+	lesson: stroke(
+		'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M6 7h12M6 10h12M6 14h5v4H6zm9 0h3m-3 4h3"/>'
+	),
 	score: stroke(
 		'<path d="M3 6h18M3 10h18M3 14h18M3 18h18"/><circle cx="8" cy="15" r="2" fill="currentColor"/><path d="M10 15V5l5 2"/>'
 	),

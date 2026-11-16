@@ -1327,7 +1327,7 @@ class Settings {
 							<strong><?php esc_html_e( 'Built-in fonts', 'wunderpaint' ); ?></strong>
 						</div>
 						<p class="description">
-							<?php esc_html_e( 'The editor bundles 10 font families that are served from this site (self-hosted). No visitor data leaves your server, this source is always active.', 'wunderpaint' ); ?>
+							<?php esc_html_e( 'The editor bundles a set of font families that are served from this site (self-hosted). No visitor data leaves your server, this source is always active.', 'wunderpaint' ); ?>
 						</p>
 					</div>
 
@@ -1341,7 +1341,7 @@ class Settings {
 							<strong><?php esc_html_e( 'Font library (recommended)', 'wunderpaint' ); ?></strong>
 						</div>
 						<p class="description">
-							<?php esc_html_e( 'Beyond the 10 built-in families the editor knows a large font catalog. Download it once to keep every family available locally, served from this site. Only your server contacts Google during the download, no visitor browser does, and nothing is loaded from a CDN afterwards.', 'wunderpaint' ); ?>
+							<?php esc_html_e( 'Beyond the built-in families the editor knows a large font catalog. Download it once to keep every family available locally, served from this site. Only your server contacts Google during the download, no visitor browser does, and nothing is loaded from a CDN afterwards.', 'wunderpaint' ); ?>
 						</p>
 						<div class="wpie-card-row">
 							<label><?php esc_html_e( 'Local library', 'wunderpaint' ); ?></label>
@@ -1430,7 +1430,7 @@ class Settings {
 						$stock_meta = array(
 							'pexels'  => array(
 								'name'       => 'Pexels',
-								'desc'       => __( 'Hundreds of thousands of free, high-resolution photos and videos, free for commercial use without attribution. The key is free - sign up, confirm your email, done.', 'wunderpaint' ),
+								'desc'       => __( 'A huge library of free, high-resolution photos and videos, free for commercial use without attribution. The key is free - sign up, confirm your email, done.', 'wunderpaint' ),
 								'link'       => 'https://www.pexels.com/api/',
 								'link_label' => __( 'Get your free API key at pexels.com/api', 'wunderpaint' ),
 								'tile'       => '#05a081',

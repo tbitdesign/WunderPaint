@@ -9,7 +9,12 @@ import {
 } from '../brush-tips';
 import { blendToComposite, createCanvas, supportsCtxFilter } from './env';
 import { tracePathD } from './shapes';
-import { patternTile, registerUserTile, userTile } from './patterns';
+import {
+	gradientFillFor,
+	patternTile,
+	registerUserTile,
+	userTile,
+} from './patterns';
 import { markColour } from '../mark-colour';
 
 /**
@@ -44,7 +49,14 @@ export function drawSoftRoundStroke( ctx, path, soft ) {
 	const scratch = softScratch;
 	const sctx = scratch.getContext( '2d' );
 	sctx.setTransform( 1, 0, 0, 1, 0, 0 );
-	sctx.clearRect( 0, 0, scratch.width, scratch.height );
+	// Only the target's own size: the buffer grows to the editor viewport
+	// once and stays that big, and a wet brush stamps through it into a
+	// window of a few dozen cells, piece after piece - clearing and
+	// copying the whole viewport each time made every piece several times
+	// slower (measured 16.10.2026). Whatever lies beyond is never copied.
+	const cw = ctx.canvas.width;
+	const ch = ctx.canvas.height;
+	sctx.clearRect( 0, 0, cw, ch );
 	if ( 'function' === typeof ctx.getTransform ) {
 		sctx.setTransform( ctx.getTransform() );
 	}
@@ -125,7 +137,7 @@ export function drawSoftRoundStroke( ctx, path, soft ) {
 		ctx.setTransform( 1, 0, 0, 1, 0, 0 );
 	}
 	ctx.globalAlpha = path.opacity ?? 1;
-	ctx.drawImage( scratch, 0, 0 );
+	ctx.drawImage( scratch, 0, 0, cw, ch, 0, 0, cw, ch );
 	ctx.restore();
 }
 
@@ -487,12 +499,33 @@ export function applyLayerStyles( content, layer, scale ) {
 		const size = s.stroke.size * scale;
 		const silhouette = tintedSilhouette(
 			content,
-			s.stroke.color || '#000',
-			s.stroke.opacity ?? 1
+			s.stroke.gradient?.stops?.length
+				? '#ffffff'
+				: s.stroke.color || '#000',
+			s.stroke.gradient?.stops?.length ? 1 : s.stroke.opacity ?? 1
 		);
 		const ring = createCanvas( content.width, content.height );
 		const rctx = ring.getContext( '2d' );
 		const position = s.stroke.position || 'outside';
+		const paintRing = () => {
+			const paint = s.stroke.gradient;
+			if ( ! paint?.stops?.length ) {
+				return;
+			}
+			rctx.save();
+			rctx.globalCompositeOperation = 'source-in';
+			rctx.globalAlpha = s.stroke.opacity ?? 1;
+			rctx.fillStyle = gradientFillFor(
+				rctx,
+				ring.width,
+				ring.height,
+				paint.stops,
+				paint.angle,
+				paint.kind
+			);
+			rctx.fillRect( 0, 0, ring.width, ring.height );
+			rctx.restore();
+		};
 		// Erosion = INTERSECTION of translated copies (v1.7 fix, the old
 		// code subtracted their UNION, which wiped the whole silhouette:
 		// inside/center strokes never showed).
@@ -515,6 +548,7 @@ export function applyLayerStyles( content, layer, scale ) {
 			rctx.drawImage( silhouette, 0, 0 );
 			rctx.globalCompositeOperation = 'destination-out';
 			rctx.drawImage( erode( size ), 0, 0 );
+			paintRing();
 			fctx.globalCompositeOperation = 'source-atop';
 			fctx.drawImage( ring, 0, 0 );
 		} else {
@@ -526,6 +560,7 @@ export function applyLayerStyles( content, layer, scale ) {
 			} else {
 				rctx.drawImage( content, 0, 0 );
 			}
+			paintRing();
 			fctx.globalCompositeOperation = 'destination-over'; // ring behind content edge
 			ctx.drawImage( ring, 0, 0 );
 			if ( 'center' === position ) {

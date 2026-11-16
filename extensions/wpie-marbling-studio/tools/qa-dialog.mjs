@@ -184,6 +184,55 @@ check(
 const afterUndo = await sig();
 check( afterUndo.h === beforeComb.h, 'undo restores the earlier picture' );
 
+// v1.9.1: a real wavy comb stroke is ONE move of three exact ops (sway,
+// comb, sway back), and one undo takes all of it back.
+const beforeWavy = await sig();
+const wavy = await page.evaluate( async () => {
+	window.__marblingStudio.set( { tool: 'wavycomb' } );
+	const cv = document.querySelector( '.wpiemb-canvas' );
+	const r = cv.getBoundingClientRect();
+	const at = ( k ) => [
+		r.left + r.width * ( 0.1 + k * 0.8 ),
+		r.top + r.height * ( 0.5 + 0.14 * Math.sin( k * Math.PI * 4 ) ),
+	];
+	const fire = ( type, [ x, y ] ) =>
+		cv.dispatchEvent(
+			new PointerEvent( type, {
+				bubbles: true,
+				clientX: x,
+				clientY: y,
+				pointerId: 9,
+				pointerType: 'mouse',
+				isPrimary: true,
+			} )
+		);
+	const n0 = window.__wpiembState().ops;
+	fire( 'pointerdown', at( 0 ) );
+	for ( let k = 1; k <= 40; k++ ) {
+		fire( 'pointermove', at( k / 40 ) );
+		await new Promise( ( res ) => setTimeout( res, 12 ) );
+	}
+	fire( 'pointerup', at( 1 ) );
+	const ops = window.__marblingStudio.getState().ops;
+	return {
+		added: window.__wpiembState().ops - n0,
+		kinds: ops.slice( -3 ).map( ( o ) => o[ 0 ] ).join( '' ),
+		pull: ops[ ops.length - 2 ][ 5 ],
+		force: window.__marblingStudio.getState().force,
+	};
+} );
+check(
+	3 === wavy.added && 'wcw' === wavy.kinds,
+	`a wavy comb stroke is sway, comb, sway back (${ wavy.added }, ${ wavy.kinds })`
+);
+check( wavy.pull <= wavy.force + 1e-9, 'the wavy pull is capped by the force' );
+const afterWavy = await sig();
+check( afterWavy.h !== beforeWavy.h, 'the wavy comb bent the bath' );
+await qa.shot( 'qa-wavy.png' );
+await page.locator( '.wpiemb-action' ).nth( 1 ).click();
+await page.waitForTimeout( 100 );
+check( ( await sig() ).h === beforeWavy.h, 'one undo takes the whole wavy stroke back' );
+
 // Sprinkle adds drops; clear empties after arming (no popup anywhere).
 await page.locator( '.wpiemb-action' ).nth( 0 ).click();
 await page.waitForTimeout( 100 );
@@ -413,6 +462,77 @@ const partial = await page.evaluate( () => {
 	return ink;
 } );
 check( partial > 5000, `half the history is a valid picture (${ partial })` );
+
+// v1.9: a picture on the water, and the seamless tile.
+await page.evaluate( () => window.__marblingStudio.recipe( 'nonpareil' ) );
+await page.waitForTimeout( 150 );
+const plainNon = await sig();
+await page.locator( '[data-action="picture-media"]' ).click();
+await page.locator( '.mock-media-item' ).first().click();
+await page.waitForFunction(
+	() => /^data:image\/jpeg/.test( window.__marblingStudio.getState().picture ),
+	null,
+	{ timeout: 15000 }
+);
+await page.waitForTimeout( 400 );
+const pictured = await sig();
+check( pictured.h !== plainNon.h, 'a picture on the water changes the marbling' );
+check( pictured.ink > 40000, `the picture fills the water (${ pictured.ink } px)` );
+await qa.shot( 'qa-picture.png' );
+await page.locator( '[data-action="picture-remove"]' ).click();
+await page.waitForTimeout( 200 );
+check(
+	'' === ( await page.evaluate( () => window.__marblingStudio.getState().picture ) ) &&
+		( await sig() ).h === plainNon.h,
+	'removing the picture brings the plain water back exactly'
+);
+await page.locator( '[data-action="picture-document"]' ).click();
+await page.waitForFunction(
+	() => !! window.__marblingStudio.getState().picture,
+	null,
+	{ timeout: 15000 }
+);
+check( true, 'the document can float on the water too' );
+await page.locator( '[data-action="picture-remove"]' ).click();
+await page.waitForTimeout( 150 );
+
+await page.evaluate( () => window.__marblingStudio.recipe( 'stone' ) );
+await page.locator( '[data-action="seamless"]' ).click();
+await page.waitForTimeout( 500 );
+const tile = await page.evaluate( () => ( {
+	on: window.__marblingStudio.getState().seamless,
+	view: !! document.querySelector( '.wpiemb-tileview' ),
+} ) );
+check( tile.on && tile.view, 'the seamless switch shows the tile, repeated' );
+const seam = await page.evaluate( () => {
+	const W = 400;
+	const H = 300;
+	const c = window.__marblingStudio.still( W, H );
+	const d = c.getContext( '2d' ).getImageData( 0, 0, W, H ).data;
+	const at = ( x, y ) => ( y * W + x ) * 4;
+	const diff = ( a, b ) =>
+		Math.abs( d[ a ] - d[ b ] ) +
+		Math.abs( d[ a + 1 ] - d[ b + 1 ] ) +
+		Math.abs( d[ a + 2 ] - d[ b + 2 ] );
+	let edge = 0;
+	let inner = 0;
+	for ( let y = 0; y < H; y++ ) {
+		edge += diff( at( W - 1, y ), at( 0, y ) );
+		inner += diff( at( W / 2 - 1, y ), at( W / 2, y ) );
+	}
+	for ( let x = 0; x < W; x++ ) {
+		edge += diff( at( x, H - 1 ), at( x, 0 ) );
+		inner += diff( at( x, H / 2 - 1 ), at( x, H / 2 ) );
+	}
+	return { edge, inner };
+} );
+check(
+	seam.edge < seam.inner * 2 + 4000,
+	`the tile meets itself without a seam (${ seam.edge } vs ${ seam.inner })`
+);
+await qa.shot( 'qa-tile.png' );
+await page.locator( '[data-action="seamless"]' ).click();
+await page.waitForTimeout( 200 );
 
 // Insert: a generator layer with a real PNG, through the real button.
 const inserted = await page.evaluate( async () => {

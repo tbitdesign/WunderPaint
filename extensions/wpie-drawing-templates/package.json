@@ -1,12 +1,13 @@
 {
 	"name": "wpie-drawing-templates",
-	"version": "2.5.4",
+	"version": "3.2.0",
 	"private": true,
 	"type": "module",
-	"description": "WPIE extension: photos as printable drawing templates",
+	"description": "Drawing practice studio with original motifs, presets and photo templates",
 	"scripts": {
 		"build": "esbuild src/main.js --bundle --format=iife --minify --outfile=extension.js",
-		"qa": "node tools/qa-dialog.mjs"
+		"qa": "node tools/qa-practice.mjs",
+		"build:library": "node tools/render-library.mjs"
 	},
 	"devDependencies": {
 		"esbuild": "^0.24.0"

@@ -896,12 +896,21 @@
 	border-color: var(--accent);
 }
 
+/* The tint needs an opaque base: the canvas below may stay dark in
+   light mode, or show a bright document in dark mode. */
 #wpie-root .dsm-viewbtn[aria-pressed="true"],
 #wpie-root .dsm-viewbtn.is-on,
 #wpie-root .dsm-viewbtn.active {
 	color: var(--text-primary);
-	background: var(--accent-soft);
+	background:
+		linear-gradient(var(--accent-soft), var(--accent-soft)),
+		var(--surface-panel);
 	border-color: var(--accent);
+}
+
+#wpie-root .dsm-viewbtn:disabled {
+	opacity: 0.4;
+	cursor: default;
 }
 
 /* The hint under the canvas ("drag to orbit"): centred, never a tooltip. */

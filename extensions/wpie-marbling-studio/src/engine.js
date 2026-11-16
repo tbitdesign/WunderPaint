@@ -22,6 +22,7 @@ import {
 	traceColor,
 	replaySchedule,
 	ease,
+	seamReach,
 } from './marbling.js';
 
 const VERT = `#version 300 es
@@ -47,6 +48,10 @@ uniform float uAspect;
 uniform vec2  uLive;      // living water: amplitude, loop angle
 uniform float uVeins;     // pigment: rim darkening + clouds + tone
 uniform float uPaper;     // paper grain over the finished sheet
+uniform float uSeam;      // v1.9 seamless tile: the reach (0 = open bath)
+uniform sampler2D uPic;   // v1.9 a picture floating on the water
+uniform float uPicOn;
+uniform vec4  uPicFit;    // xy scale, zw offset: bath -> picture uv
 
 out vec4 outColor;
 
@@ -69,12 +74,34 @@ float mnoise( vec2 q ) {
 	);
 }
 
+// Periodic value noise for the seamless tile's paper (whole cells).
+float mnoiseP( vec2 q, vec2 per ) {
+	vec2 i = floor( q );
+	vec2 f = fract( q );
+	f = f * f * ( 3.0 - 2.0 * f );
+	vec2 a = mod( i, per );
+	vec2 b = mod( i + 1.0, per );
+	return mix(
+		mix( mhash( a ), mhash( vec2( b.x, a.y ) ), f.x ),
+		mix( mhash( vec2( a.x, b.y ) ), mhash( b ), f.x ),
+		f.y
+	);
+}
+
 vec4 bathColor( vec2 p ) {
+	vec2 tile = vec2( uAspect, 1.0 );
+	bool seam = uSeam > 0.0;
 	// Living water: two gentle crossed sways on whole loop cycles - the
-	// same wave mathematics, applied as the newest ops of all.
+	// same wave mathematics, applied as the newest ops of all. On the
+	// tile their wavelengths divide it, so the sway wraps too.
 	if ( uLive.x > 0.0 ) {
-		p.x -= uLive.x * 0.016 * sin( 6.2831853 * p.y / 0.43 + uLive.y );
-		p.y -= uLive.x * 0.011 * sin( 6.2831853 * p.x / 0.57 - uLive.y );
+		float ly = seam ? 0.5 : 0.43;
+		float lx = seam ? uAspect * 0.5 : 0.57;
+		p.x -= uLive.x * 0.016 * sin( 6.2831853 * p.y / ly + uLive.y );
+		p.y -= uLive.x * 0.011 * sin( 6.2831853 * p.x / lx - uLive.y );
+	}
+	if ( seam ) {
+		p = mod( p, tile );
 	}
 	for ( int i = 0; i < ${ MAX_OPS }; i++ ) {
 		int k = uCount - 1 - i;
@@ -90,6 +117,9 @@ vec4 bathColor( vec2 p ) {
 		int type = int( A.x + 0.5 );
 		if ( type == ${ OP_CODE.d } ) {
 			vec2 d = p - A.yz;
+			if ( seam ) {
+				d -= tile * floor( d / tile + 0.5 );
+			}
 			float r = A.w * s;
 			float L2 = dot( d, d );
 			if ( L2 <= r * r ) {
@@ -116,9 +146,22 @@ vec4 bathColor( vec2 p ) {
 				}
 				return vec4( col, 1.0 );
 			}
-			p = A.yz + d * sqrt( 1.0 - r * r / L2 );
+			if ( seam ) {
+				// The tile's drop: still beyond the reach (marbling.js).
+				if ( L2 < uSeam * uSeam ) {
+					p = A.yz + d * sqrt(
+						( L2 - r * r ) * uSeam * uSeam /
+							( ( uSeam * uSeam - r * r ) * L2 )
+					);
+				}
+			} else {
+				p = A.yz + d * sqrt( 1.0 - r * r / L2 );
+			}
 		} else if ( type == ${ OP_CODE.a } || type == ${ OP_CODE.o } ) {
 			vec2 d = p - A.yz;
+			if ( seam ) {
+				d -= tile * floor( d / tile + 0.5 );
+			}
 			float L = length( d );
 			float R = max( 0.02, A.w );
 			float dist = L - R;
@@ -126,8 +169,13 @@ vec4 bathColor( vec2 p ) {
 				float sp = B.z;
 				dist = mod( dist + sp * 0.5, sp ) - sp * 0.5;
 			}
+			float fade = 1.0;
+			if ( seam ) {
+				float lr = L / uSeam;
+				fade = L < uSeam ? ( 1.0 - lr * lr ) * ( 1.0 - lr * lr ) : 0.0;
+			}
 			float phi = ( B.x * s / R ) *
-				( B.y / ( B.y + abs( dist ) ) );
+				( B.y / ( B.y + abs( dist ) ) ) * fade;
 			float cc = cos( -phi );
 			float sn = sin( -phi );
 			p = A.yz + vec2( cc * d.x - sn * d.y, sn * d.x + cc * d.y );
@@ -142,9 +190,19 @@ vec4 bathColor( vec2 p ) {
 			p -= u * ( B.y * s * B.z / ( B.z + dd ) );
 		} else if ( type == ${ OP_CODE.v } ) {
 			vec2 d = p - A.yz;
+			if ( seam ) {
+				d -= tile * floor( d / tile + 0.5 );
+			}
 			float L = length( d );
 			float q = 1.0 + ( L / B.x ) * ( L / B.x );
 			float th = -A.w * s / ( q * q );
+			if ( seam ) {
+				float qc = 1.0 + ( uSeam / B.x ) * ( uSeam / B.x );
+				float ic = 1.0 / ( qc * qc );
+				th = L < uSeam
+					? -A.w * s * ( 1.0 / ( q * q ) - ic ) / ( 1.0 - ic )
+					: 0.0;
+			}
 			float c = cos( th );
 			float sn = sin( th );
 			p = A.yz + vec2( c * d.x - sn * d.y, sn * d.x + c * d.y );
@@ -154,6 +212,15 @@ vec4 bathColor( vec2 p ) {
 				A.w * s * sin( 6.2831853 * dot( p, u ) / B.x + B.y );
 			p -= vec2( -u.y, u.x ) * sh;
 		}
+		if ( seam ) {
+			p = mod( p, tile );
+		}
+	}
+	// v1.9: the water may carry a picture - then the point shows the
+	// picture exactly where it started on the bath.
+	if ( uPicOn > 0.5 ) {
+		vec2 uv = vec2( p.x / uAspect, p.y ) * uPicFit.xy + uPicFit.zw;
+		return vec4( texture( uPic, clamp( uv, 0.0, 1.0 ) ).rgb, 1.0 );
 	}
 	return uBath;
 }
@@ -175,9 +242,19 @@ void main() {
 	// Paper grain: a faint tooth over the finished sheet, ink and bath
 	// alike (only where something is - premultiplied rgb).
 	if ( uPaper > 0.0 && outColor.a > 0.0 ) {
-		float g =
-			mnoise( gl_FragCoord.xy * 0.71 ) * 0.72 +
-			mnoise( gl_FragCoord.xy * 2.9 ) * 0.28;
+		float g;
+		if ( uSeam > 0.0 ) {
+			// The tile's tooth repeats with the tile: whole noise cells
+			// across it, wrapped.
+			vec2 q = vec2( p.x / uAspect, p.y );
+			vec2 per1 = max( vec2( 1.0 ), floor( uRes * 0.71 ) );
+			vec2 per2 = max( vec2( 1.0 ), floor( uRes * 2.9 ) );
+			g = mnoiseP( q * per1, per1 ) * 0.72 +
+				mnoiseP( q * per2, per2 ) * 0.28;
+		} else {
+			g = mnoise( gl_FragCoord.xy * 0.71 ) * 0.72 +
+				mnoise( gl_FragCoord.xy * 2.9 ) * 0.28;
+		}
 		outColor.rgb *= 1.0 + ( g * 2.0 - 1.0 ) * 0.055 * uPaper;
 	}
 }
@@ -503,7 +580,9 @@ export class MarblingEngine {
 			aspect: 4 / 3,
 			veins: 0.45,
 			paper: 0.22,
+			seamless: false,
 		};
+		this.picture = null;
 		this.partial = { count: 0, lastT: 1 };
 		this.live = { amp: 0, theta: 0 };
 		this._disposed = false;
@@ -551,9 +630,14 @@ export class MarblingEngine {
 			'uLive',
 			'uVeins',
 			'uPaper',
+			'uSeam',
+			'uPic',
+			'uPicOn',
+			'uPicFit',
 		] ) {
 			this.loc[ name ] = gl.getUniformLocation( prog, name );
 		}
+		this.picTex = gl.createTexture();
 		// A uniform ARRAY is portably addressed by its first element -
 		// the bare name comes back null on some implementations, and a
 		// null location swallows the upload without a word (every ink
@@ -805,11 +889,87 @@ export class MarblingEngine {
 		gl.uniform2f( this.loc.uLive, this.live.amp, this.live.theta );
 		gl.uniform1f( this.loc.uVeins, this.state.veins );
 		gl.uniform1f( this.loc.uPaper, this.state.paper );
+		gl.uniform1f(
+			this.loc.uSeam,
+			this.state.seamless ? seamReach( aspect ) : 0
+		);
+		const fit = this._pictureFit( aspect );
+		gl.activeTexture( gl.TEXTURE2 );
+		gl.bindTexture( gl.TEXTURE_2D, this.picTex );
+		gl.uniform1i( this.loc.uPic, 2 );
+		gl.uniform1f( this.loc.uPicOn, fit ? 1 : 0 );
+		gl.uniform4f( this.loc.uPicFit, ...( fit || [ 1, 1, 0, 0 ] ) );
+		gl.activeTexture( gl.TEXTURE0 );
 		gl.drawArrays( gl.TRIANGLES, 0, 3 );
 		this._bathDirty = false;
 		if ( toSurface ) {
 			this._drawSurface( timeSec || 0 );
 		}
+	}
+
+	/**
+	 * v1.9: a picture floating on the water, or null. It covers the bath
+	 * (centred, cropped to the bath's shape).
+	 *
+	 * @param {HTMLImageElement|HTMLCanvasElement|null} source The picture.
+	 */
+	setPicture( source ) {
+		if ( ! source ) {
+			this.picture = null;
+			this._bathDirty = true;
+			return;
+		}
+		const w = source.naturalWidth || source.width;
+		const h = source.naturalHeight || source.height;
+		this.picture = { w, h, data: null };
+		if ( this.cpu ) {
+			const c = document.createElement( 'canvas' );
+			c.width = w;
+			c.height = h;
+			const g = c.getContext( '2d' );
+			g.drawImage( source, 0, 0 );
+			this.picture.data = g.getImageData( 0, 0, w, h ).data;
+		} else {
+			const gl = this.gl;
+			gl.activeTexture( gl.TEXTURE2 );
+			gl.bindTexture( gl.TEXTURE_2D, this.picTex );
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR );
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR );
+			gl.texParameteri(
+				gl.TEXTURE_2D,
+				gl.TEXTURE_WRAP_S,
+				gl.CLAMP_TO_EDGE
+			);
+			gl.texParameteri(
+				gl.TEXTURE_2D,
+				gl.TEXTURE_WRAP_T,
+				gl.CLAMP_TO_EDGE
+			);
+			gl.pixelStorei( gl.UNPACK_FLIP_Y_WEBGL, false );
+			gl.pixelStorei( gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false );
+			gl.texImage2D(
+				gl.TEXTURE_2D,
+				0,
+				gl.RGBA,
+				gl.RGBA,
+				gl.UNSIGNED_BYTE,
+				source
+			);
+			gl.activeTexture( gl.TEXTURE0 );
+		}
+		this._bathDirty = true;
+	}
+
+	/** Bath -> picture uv for a centred cover crop: [sx, sy, ox, oy]. */
+	_pictureFit( aspect ) {
+		const pic = this.picture;
+		if ( ! pic || ! pic.w || ! pic.h ) {
+			return null;
+		}
+		const ia = pic.w / pic.h;
+		const sx = ia > aspect ? aspect / ia : 1;
+		const sy = ia > aspect ? 1 : ia / aspect;
+		return [ sx, sy, ( 1 - sx ) / 2, ( 1 - sy ) / 2 ];
 	}
 
 	_renderCpu( ops, inks, bath, bathClear, aspect ) {
@@ -819,7 +979,13 @@ export class MarblingEngine {
 		const px = img.data;
 		const rgb = inks.map( ( c ) => hexRgb( c ).map( ( v ) => v * 255 ) );
 		const bg = hexRgb( bath ).map( ( v ) => Math.round( v * 255 ) );
-		const opt = this.partial;
+		const opt = {
+			...this.partial,
+			seamless: this.state.seamless,
+			aspect,
+		};
+		const fit = this._pictureFit( aspect );
+		const pic = this.picture;
 		const veins = this.state.veins;
 		const fract = ( v ) => v - Math.floor( v );
 		const mh = ( qx, qy ) =>
@@ -869,7 +1035,25 @@ export class MarblingEngine {
 					px[ o + 1 ] = Math.min( 255, rgb[ tr.ink ][ 1 ] * f );
 					px[ o + 2 ] = Math.min( 255, rgb[ tr.ink ][ 2 ] * f );
 					px[ o + 3 ] = 255;
-				} else if ( ! bathClear ) {
+				} else if ( fit && pic.data && tr.k < 0 ) {
+					const u = Math.min(
+						1,
+						Math.max( 0, ( tr.x / aspect ) * fit[ 0 ] + fit[ 2 ] )
+					);
+					const v = Math.min(
+						1,
+						Math.max( 0, tr.y * fit[ 1 ] + fit[ 3 ] )
+					);
+					const q =
+						( Math.min( pic.h - 1, Math.floor( v * pic.h ) ) *
+							pic.w +
+							Math.min( pic.w - 1, Math.floor( u * pic.w ) ) ) *
+						4;
+					px[ o ] = pic.data[ q ];
+					px[ o + 1 ] = pic.data[ q + 1 ];
+					px[ o + 2 ] = pic.data[ q + 2 ];
+					px[ o + 3 ] = 255;
+				} else if ( ! bathClear || fit ) {
 					px[ o ] = bg[ 0 ];
 					px[ o + 1 ] = bg[ 1 ];
 					px[ o + 2 ] = bg[ 2 ];

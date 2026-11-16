@@ -32,7 +32,13 @@ const qa = await launchQA( {
 const { page, check } = qa;
 try {
 	await page.waitForFunction(
-		() => document.querySelectorAll( '.wpiepca-tile-thumb' ).length === 194
+		// v3.8: 323 cards of its own (the figure had been 194 since long
+		// before 3.7), plus every editor shape the bridge offers.
+		() =>
+			document.querySelectorAll( '.wpiepca-tile-thumb' ).length ===
+			323 +
+				document.querySelectorAll( '[data-library-key^="form:"]' )
+					.length
 	);
 	await page.waitForFunction(
 		() =>

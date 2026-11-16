@@ -33,11 +33,6 @@ export function workspaceCatalog() {
 		group: G_TOOLS,
 	} ) );
 	tools.push( {
-		key: 'tool.aigen',
-		label: __( 'AI Generate', 'wunderpaint' ),
-		group: G_TOOLS,
-	} );
-	tools.push( {
 		key: 'tool.colors',
 		label: __( 'Foreground / background', 'wunderpaint' ),
 		group: G_TOOLS,
@@ -51,7 +46,7 @@ export function workspaceCatalog() {
 		[ 'panel.props', __( 'Properties', 'wunderpaint' ) ],
 		[ 'panel.adjust', __( 'Adjust', 'wunderpaint' ) ],
 		[ 'panel.effects', __( 'Effects', 'wunderpaint' ) ],
-		[ 'panel.history', __( 'History', 'wunderpaint' ) ],
+		[ 'panel.color', __( 'Color', 'wunderpaint' ) ],
 		[ 'panel.ai', __( 'AI Studio', 'wunderpaint' ) ],
 		[ 'panel.layers.foot', __( 'Layers panel footer', 'wunderpaint' ) ],
 	] );
@@ -93,7 +88,6 @@ export function workspaceCatalog() {
 		[ 'props.imagefit', __( 'Image Fit', 'wunderpaint' ) ],
 		[ 'props.appearance', __( 'Appearance', 'wunderpaint' ) ],
 		[ 'props.character', __( 'Character', 'wunderpaint' ) ],
-		[ 'props.gradient', __( 'Gradient', 'wunderpaint' ) ],
 		[ 'props.smart', __( 'Smart Object', 'wunderpaint' ) ],
 		[ 'props.blending', __( 'Blending Options', 'wunderpaint' ) ],
 		[ 'props.align', __( 'Align & Distribute', 'wunderpaint' ) ],

@@ -3,6 +3,7 @@
  * stay untranslated. A starter with one block belongs to that block's
  * group; a starter with several blocks is a "whole figure".
  */
+import { PREMIUM_STARTERS } from './starters-premium.js';
 import { BLOCKS, BLOCK_GROUPS } from './blocks.js';
 
 const one = ( id, name, subtitle, type, params ) => ( {
@@ -13,6 +14,7 @@ const one = ( id, name, subtitle, type, params ) => ( {
 } );
 
 export const STARTERS = [
+	...PREMIUM_STARTERS,
 	/* Formulas */
 	one(
 		'quadratic',

@@ -33,6 +33,28 @@ export function penTilt( e ) {
 }
 
 /**
+ * The hand's pressure through the user's PRESSURE CURVE. Every hand and
+ * every tablet presses differently: 50 leaves the tablet as it comes
+ * (linear), lower answers a light touch sooner, higher wants a firmer
+ * hand for the same mark. Only a pen is shaped - a mouse reports a flat
+ * 0.5 while its button is down, which says nothing about a hand, so that
+ * value passes through untouched.
+ *
+ * @param {PointerEvent} e     The event.
+ * @param {number}       curve The dial, 0 (soft) to 100 (firm).
+ * @return {number} The pressure the tools should read.
+ */
+export function penPressure( e, curve = 50 ) {
+	const p = e.pressure;
+	if ( 'pen' !== e.pointerType || ! ( p > 0 ) ) {
+		return p;
+	}
+	// 0 -> exponent 0.35, 50 -> 1, 100 -> 2.8: symmetric in the log.
+	const k = Math.pow( 2, ( ( curve ?? 50 ) - 50 ) / 33.3 );
+	return Math.pow( Math.min( 1, p ), k );
+}
+
+/**
  * The medium's answer to a leaning pen.
  *
  * @param {string} family 'liquid' | 'paste' | 'dry'.

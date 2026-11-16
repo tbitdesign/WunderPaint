@@ -12,7 +12,7 @@ import { maze, drawMaze } from './maze.js';
 export const ITEM = {
 	id: 'placemat',
 	label: "Kids' place mat",
-	hint: "A landscape sheet for the kids' table: a maze, the motif to colour, three tic-tac-toe grids and a dot grid for dots and boxes.",
+	hint: "A landscape sheet for the kids' table: a maze, the motif to color, three tic-tac-toe grids and a dot grid for dots and boxes.",
 	group: 'games',
 	uses: {
 		text: true,
@@ -107,7 +107,7 @@ export const ITEM = {
 			const cw = w * 0.43;
 			parts.push(
 				label(
-					t( 'Colour me' ),
+					t( 'Color me' ),
 					{ x: cx, y: h * 0.155, w: cw, h: h * 0.04 },
 					{
 						font: theme.textFont,

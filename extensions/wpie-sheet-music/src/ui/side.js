@@ -1,5 +1,6 @@
 /** Right column: Layout, Style, Music, Text. Rows carry data-cards and hide per card. */
 import { ICONS } from './icons.js';
+import { buildWorkshopControls } from './workshop.js';
 import { FORMATS, PAPER_OPTIONS, LABEL_OPTIONS } from '../cards.js';
 import { INSTRUMENTS, TUNING_LABELS } from '../engine/voicings.js';
 import {
@@ -12,7 +13,10 @@ import {
 	FINGERING_OPTIONS,
 } from '../engine/notation.js';
 
-export function buildSide( side, { S, ui, bridge, t, onChange } ) {
+export function buildSide(
+	side,
+	{ S, ui, bridge, t, onChange, onRebuild = () => {} }
+) {
 	const mounts = [];
 	const rows = [];
 	const sections = [];
@@ -81,12 +85,23 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 		return input;
 	};
 
+	mounts.push(
+		...buildWorkshopControls( side, {
+			S,
+			ui,
+			t,
+			bridge,
+			onChange,
+			onRebuild,
+		} )
+	);
+
 	/* Layout */
 	const layout = sec( ICONS.layout, t( 'Layout' ) );
 	ui.select(
 		rowFor(
 			layout,
-			'score leadsheet diagrams fretboard paper flash scales',
+			'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 			t( 'Format' )
 		),
 		{
@@ -103,7 +118,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	);
 	sliderFor(
 		layout,
-		'score leadsheet diagrams fretboard paper flash scales',
+		'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 		{
 			label: t( 'Size' ),
 			min: 0.5,
@@ -119,7 +134,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	);
 	sliderFor(
 		layout,
-		'score leadsheet diagrams fretboard paper flash scales',
+		'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 		{
 			label: t( 'Margin' ),
 			min: 0,
@@ -133,7 +148,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			},
 		}
 	);
-	ui.select( rowFor( layout, 'leadsheet', t( 'Columns' ) ), {
+	ui.select( rowFor( layout, 'leadsheet song', t( 'Columns' ) ), {
 		options: [
 			{ value: '1', label: t( 'One column' ) },
 			{ value: '2', label: t( 'Two columns' ) },
@@ -222,7 +237,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	ui.select( rowFor( layout, 'scales', t( 'Direction' ) ), {
+	ui.select( rowFor( layout, 'scales lesson', t( 'Direction' ) ), {
 		options: DIRECTIONS.map( ( o ) => ( {
 			value: o.value,
 			label: t( o.label ),
@@ -233,7 +248,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	sliderFor( layout, 'scales', {
+	sliderFor( layout, 'scales lesson', {
 		label: t( 'Octaves' ),
 		min: 1,
 		max: 2,
@@ -244,7 +259,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	const fromS = sliderFor( layout, 'fretboard', {
+	const fromS = sliderFor( layout, 'fretboard lesson', {
 		label: t( 'Frets from' ),
 		min: 0,
 		max: 20,
@@ -259,7 +274,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	const toS = sliderFor( layout, 'fretboard', {
+	const toS = sliderFor( layout, 'fretboard lesson', {
 		label: t( 'Frets to' ),
 		min: 3,
 		max: 24,
@@ -274,7 +289,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	sliderFor( layout, 'fretboard', {
+	sliderFor( layout, 'fretboard lesson', {
 		label: t( 'Octaves' ),
 		min: 1,
 		max: 4,
@@ -291,7 +306,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	ui.select(
 		rowFor(
 			style,
-			'score leadsheet diagrams fretboard paper flash scales',
+			'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 			t( 'Paper' )
 		),
 		{
@@ -308,35 +323,35 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	);
 	colorFor(
 		style,
-		'score leadsheet diagrams fretboard paper flash scales',
+		'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 		t( 'Ink' ),
 		() => p().style.ink,
 		( c ) => ( p().style.ink = c )
 	);
 	colorFor(
 		style,
-		'diagrams fretboard flash',
+		'diagrams fretboard flash melody rhythm harmony lesson song worksheet roadmap',
 		t( 'Accent' ),
 		() => p().style.accent,
 		( c ) => ( p().style.accent = c )
 	);
 	colorFor(
 		style,
-		'score leadsheet',
+		'score leadsheet song',
 		t( 'Chord color' ),
 		() => p().style.chordColor,
 		( c ) => ( p().style.chordColor = c )
 	);
 	fontFor(
 		style,
-		'score leadsheet diagrams fretboard paper flash scales',
+		'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 		t( 'Title font' ),
 		() => p().style.titleFont,
 		( f ) => ( p().style.titleFont = f )
 	);
 	fontFor(
 		style,
-		'score leadsheet diagrams fretboard paper flash scales',
+		'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 		t( 'Text font' ),
 		() => p().style.textFont,
 		( f ) => ( p().style.textFont = f )
@@ -347,7 +362,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	const instSel = ui.select(
 		rowFor(
 			music,
-			'score leadsheet diagrams fretboard paper scales',
+			'score leadsheet diagrams fretboard paper scales harmony lesson',
 			t( 'Instrument' )
 		),
 		{
@@ -366,7 +381,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	);
 	const tuningRow = rowFor(
 		music,
-		'score leadsheet diagrams fretboard paper scales',
+		'score leadsheet diagrams fretboard paper scales harmony lesson',
 		t( 'Tuning' )
 	);
 	const tuningSel = ui.select( tuningRow, {
@@ -375,6 +390,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 		onChange: ( v ) => {
 			p().tuning = v;
 			onChange();
+			onRebuild();
 		},
 	} );
 	function fillTunings() {
@@ -393,7 +409,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 		tuningRow.parentNode.dataset.hide = ids.length > 1 ? '' : '1';
 	}
 	fillTunings();
-	sliderFor( music, 'score leadsheet', {
+	sliderFor( music, 'score leadsheet song', {
 		label: t( 'Transpose' ),
 		min: -12,
 		max: 12,
@@ -405,7 +421,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	sliderFor( music, 'score leadsheet', {
+	sliderFor( music, 'score leadsheet song', {
 		label: t( 'Capo' ),
 		min: 0,
 		max: 7,
@@ -457,7 +473,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	ui.select( rowFor( music, 'scales', t( 'Fingering' ) ), {
+	ui.select( rowFor( music, 'scales lesson', t( 'Fingering' ) ), {
 		options: FINGERING_OPTIONS.map( ( o ) => ( {
 			value: o.value,
 			label: t( o.label ),
@@ -484,7 +500,7 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 			onChange();
 		},
 	} );
-	ui.select( rowFor( music, 'fretboard', t( 'Labels' ) ), {
+	ui.select( rowFor( music, 'fretboard lesson', t( 'Labels' ) ), {
 		options: LABEL_OPTIONS.map( ( o ) => ( {
 			value: o.value,
 			label: t( o.label ),
@@ -500,21 +516,21 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 	const text = sec( ICONS.text, t( 'Text' ) );
 	textFor(
 		text,
-		'score leadsheet diagrams fretboard paper flash scales',
+		'score leadsheet diagrams fretboard paper flash scales melody rhythm harmony lesson song worksheet roadmap',
 		t( 'Title' ),
 		() => p().text.title,
 		( v ) => ( p().text.title = v )
 	);
 	textFor(
 		text,
-		'score leadsheet diagrams',
+		'score leadsheet diagrams song',
 		t( 'Subtitle' ),
 		() => p().text.subtitle,
 		( v ) => ( p().text.subtitle = v )
 	);
 	textFor(
 		text,
-		'score leadsheet',
+		'score leadsheet song',
 		t( 'Composer or artist' ),
 		() => p().text.composer,
 		( v ) => ( p().text.composer = v )
@@ -525,7 +541,12 @@ export function buildSide( side, { S, ui, bridge, t, onChange } ) {
 		for ( const r of rows ) {
 			r.hidden =
 				! r.dataset.cards.split( ' ' ).includes( S.card ) ||
-				'1' === r.dataset.hide;
+				'1' === r.dataset.hide ||
+				( S.card === 'harmony' &&
+					[ 'voice-leading', 'modes' ].includes(
+						p().harmony.topic
+					) &&
+					music.contains( r ) );
 		}
 		for ( const s of sections ) {
 			s.hidden = ! [ ...s.querySelectorAll( '.wpiesm-row' ) ].some(

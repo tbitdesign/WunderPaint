@@ -24,8 +24,24 @@ const FAMILY_FINISHES = {
 	geometric: [ 'dust' ],
 };
 
+// Marks that draw rather than lay ground: they never pass the page's
+// text as underpainting (flat/clear.js).
+const LINEAR = new Set( [
+	'line',
+	'sketch',
+	'hatch',
+	'tendril',
+	'orbit',
+	'lead',
+] );
+
 const SENSE_EVERY = 0.35; // world seconds
 const SENSE_MARKS = 5;
+// Broad strokes waiting to be styled (stage.js) before the society holds
+// its breath: its clock stops until the painter has caught up, so a
+// school that sweeps a lot slows down on a slow machine instead of
+// piling up strokes that land a minute late.
+const HOLD_BACKLOG = 2;
 
 export class FlatSession {
 	/**
@@ -37,10 +53,16 @@ export class FlatSession {
 	 * @param {Object}   o.params       Live dials { chaos, energy, density, tempo, colors, auto* }.
 	 * @param {Uint32Array} o.words     Entropy pool words.
 	 * @param {string[]} [o.colors]     Fixed colors (else the school draws its own).
+	 * @param {Object}   [o.song]       A song's analysis (shared/audio/song.js) to paint to.
+	 * @param {number}   [o.pace]       Wall seconds handed in per song second (the engine's PACE).
 	 */
 	constructor( o ) {
 		this.rng = makeRng( o.words );
 		this.school = o.school;
+		this.pace = o.pace || 5;
+		// The song's own clock, in song seconds. The engine hands in the
+		// player's time; without one (proofs, stills) it follows the pace.
+		this.songTime = 0;
 		this.world = new FlatWorld( {
 			rng: this.rng,
 			params: o.params,
@@ -52,6 +74,8 @@ export class FlatSession {
 			pigment: ( o.kit && o.kit.pigment ) || null,
 			mixed: !! o.mixed,
 			ensemble: o.ensemble || [],
+			song: o.song || null,
+			clear: o.clear || [],
 		} );
 		this.world.motifImage = ( o.motif && o.motif.image ) || null;
 		// Pieces are treated on demand and cached per piece and effect.
@@ -160,6 +184,7 @@ export class FlatSession {
 			}
 		}
 		this.world.senses = this.stage.senses;
+		this.setClear( this.world.clear );
 		this.world.needs = readNeeds( this.world.plan, this.world.senses );
 		this.actors = makeCast( this.world, o.school, o.params.density );
 		// The opener does not wait for a beat of the clock: the first
@@ -178,6 +203,25 @@ export class FlatSession {
 		this.sinceSense = 0;
 		this.marksSinceSense = 0;
 		this.painted = 0;
+	}
+
+	/**
+	 * The page's text zones (flat/clear.js), also mid-piece: the world's
+	 * painters, the senses' space-seekers and the stage's last word all
+	 * read the same list.
+	 */
+	setClear( zones ) {
+		const z = Array.isArray( zones ) ? zones : [];
+		this.world.clear = z;
+		this.stage.clear = z;
+		this.stage.senses.blocked = z;
+		// Past the opening the underpainting is laid: switched on now,
+		// the zones reserve the bare ground (stage.reserve).
+		if ( ! z.length ) {
+			this.stage.calmLayer = null;
+		} else if ( 'opening' !== this.world.phase ) {
+			this.stage.reserve( true );
+		}
 	}
 
 	/** The restless one's hires and retirements. */
@@ -216,6 +260,17 @@ export class FlatSession {
 				}
 			} );
 			for ( const cmd of list ) {
+				if ( w.clear.length ) {
+					// Underpainting and veils may cross the page's text,
+					// softened; everything else keeps out (stage.push).
+					// Lines are drawing, never ground - a grid line through
+					// a headline is as loud as any accent.
+					cmd.calm =
+						! LINEAR.has( cmd.type ) &&
+						( 'opening' === w.phase ||
+							'glaze' === cmd.type ||
+							'wash' === cmd.type );
+				}
 				if ( this.stage.push( cmd, w.time + ( cmd.delay || 0 ) ) ) {
 					this.painted++;
 					this.marksSinceSense++;
@@ -226,9 +281,25 @@ export class FlatSession {
 		w.emitted.length = 0;
 	}
 
-	/** One frame of wall time. */
-	step( dtWall ) {
+	/**
+	 * One frame of wall time. `songTime` is the player's clock when the
+	 * piece is painted to a song; the song keeps going while the stage
+	 * catches up, so the conductor steps before the hold.
+	 */
+	step( dtWall, songTime ) {
 		const w = this.world;
+		if ( w.conductor ) {
+			this.songTime = Number.isFinite( songTime )
+				? songTime
+				: this.songTime + dtWall / this.pace;
+			w.conductor.step( this.songTime );
+		}
+		if ( this.stage.backlog() > HOLD_BACKLOG ) {
+			// The painter is behind: it catches up, the world waits.
+			this.stage.advance( w.time );
+			this.stage.tick( dtWall * 1000, 1 );
+			return 0;
+		}
 		const dt = w.step( dtWall, this.actors );
 		this.stageDirections();
 		this.drain();
@@ -250,6 +321,15 @@ export class FlatSession {
 			w.senses = this.stage.senses;
 			w.needs = readNeeds( w.plan, w.senses );
 			w.updatePhase();
+			if (
+				w.clear.length &&
+				! this.stage.calmLayer &&
+				'opening' !== w.phase
+			) {
+				// The underpainting is laid: from here on the page's text
+				// keeps exactly this calm (stage.reserve).
+				this.stage.reserve();
+			}
 		}
 		return dt;
 	}

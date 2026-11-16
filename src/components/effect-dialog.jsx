@@ -72,9 +72,6 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 	if ( ! effect || ! layerId.current ) {
 		return null;
 	}
-	const isSmart =
-		'smart' ===
-		editor.state.layers.find( ( l ) => l.id === layerId.current )?.type;
 
 	const apply = () => {
 		clearTimeout( debounce.current );
@@ -132,6 +129,7 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 								/>
 							) : 'bool' === schema.type ? (
 								<label
+									htmlFor={ fieldId + '-' + key }
 									style={ {
 										display: 'flex',
 										gap: 6,
@@ -140,6 +138,7 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 									} }
 								>
 									<input
+										id={ fieldId + '-' + key }
 										type="checkbox"
 										checked={ !! params[ key ] }
 										onChange={ ( e ) =>
@@ -149,17 +148,49 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 											} )
 										}
 									/>
-									{ key }
+									{ schema.label || key }
 								</label>
+							) : 'select' === schema.type ? (
+								<div
+									className="field"
+									style={ {
+										gridTemplateColumns:
+											'90px minmax(0, 1fr)',
+									} }
+								>
+									<label htmlFor={ fieldId + '-' + key }>
+										{ schema.label || key }
+									</label>
+									<select
+										id={ fieldId + '-' + key }
+										value={ params[ key ] }
+										onChange={ ( e ) =>
+											update( {
+												...params,
+												[ key ]: e.target.value,
+											} )
+										}
+									>
+										{ schema.options.map( ( option ) => (
+											<option
+												key={ option.value }
+												value={ option.value }
+											>
+												{ option.label }
+											</option>
+										) ) }
+									</select>
+								</div>
 							) : 'color' === schema.type ? (
 								<div
 									className="field"
 									style={ {
-										gridTemplateColumns: '70px 1fr',
+										gridTemplateColumns:
+											'90px minmax(0, 1fr)',
 									} }
 								>
 									<label htmlFor={ fieldId + '-' + key }>
-										{ key }
+										{ schema.label || key }
 									</label>
 									{ /* House rule: our HSV picker, no OS color dialog (v1.8). */ }
 									<SwatchButton
@@ -173,7 +204,7 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 							) : (
 								<div className="slider-row">
 									<label htmlFor={ fieldId + '-' + key }>
-										{ key }
+										{ schema.label || key }
 									</label>
 									<SnapSlider
 										id={ fieldId + '-' + key }
@@ -182,7 +213,7 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 										step={ schema.step || 1 }
 										value={ params[ key ] }
 										def={ schema.default ?? 0 }
-										ariaLabel={ key }
+										ariaLabel={ schema.label || key }
 										onChange={ ( v ) =>
 											update( { ...params, [ key ]: v } )
 										}
@@ -204,9 +235,7 @@ export function EffectDialog( { effectId, onClose, extras } ) {
 						style={ { flex: 1 } }
 						onClick={ apply }
 					>
-						{ isSmart
-							? __( 'Add Smart Filter', 'wunderpaint' )
-							: __( 'Apply', 'wunderpaint' ) }
+						{ __( 'Apply', 'wunderpaint' ) }
 					</button>
 					<button className="ai-btn secondary" onClick={ onClose }>
 						{ __( 'Cancel', 'wunderpaint' ) }

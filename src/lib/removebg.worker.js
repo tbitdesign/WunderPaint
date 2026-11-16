@@ -4,7 +4,9 @@
  * with OffscreenCanvas. Assets (wasm + model) are plugin-local, no CDN.
  *
  * Protocol: postMessage({ bitmap, wasmPath, modelUrl }) →
- *           { alpha: Float32Array(320*320) } | { error }
+ *           { alpha: Float32Array(320*320), size, min, max } | { error }
+ * The session stays loaded for as long as the worker lives, so a caller that
+ * keeps the worker (local-image-ops.js watchSubject) pays for the model once.
  * Compositing back happens on the caller side (needs the original pixels).
  */
 
@@ -91,7 +93,10 @@ self.onmessage = async ( event ) => {
 			alpha[ i ] = ( output[ i ] - min ) / range;
 		}
 
-		self.postMessage( { alpha, size: SIZE }, [ alpha.buffer ] );
+		// min and max: the range the map was spread from. A caller that
+		// watches a camera needs it to tell an empty room from a subject
+		// (subject-model.js subjectAnswer).
+		self.postMessage( { alpha, size: SIZE, min, max }, [ alpha.buffer ] );
 	} catch ( err ) {
 		self.postMessage( { error: err?.message || String( err ) } );
 	}

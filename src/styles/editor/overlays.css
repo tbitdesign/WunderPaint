@@ -85,7 +85,10 @@
 	align-items: center;
 	gap: 8px;
 	width: 100%;
-	padding: 6px 10px;
+
+	/* Indented past the section heads (Thomas, 16.09.2026), so the
+	 * labelled rules stand out from the entries. */
+	padding: 6px 20px;
 	font-size: 12px;
 	color: var(--ed-text);
 	border-radius: 3px;
@@ -141,6 +144,46 @@
 	height: 1px;
 	background: var(--ed-border);
 	margin: 4px 0;
+}
+
+/* Section heads (16.09.2026): the small label at the left in a thin
+ * outline, the rule running on to its right - the divider with a name,
+ * the same shape the context menu uses. */
+#wpie-root .ed-dropdown .ed-head {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 5px 6px 2px;
+	white-space: nowrap;
+}
+
+#wpie-root .ed-dropdown .ed-head:first-child {
+	padding-top: 6px;
+}
+
+/* A head in the middle of a menu breathes a little above the rule
+ * (Thomas, 16.09.2026). */
+#wpie-root .ed-dropdown .ed-head:not( :first-child ) {
+	margin-top: 5px;
+}
+
+#wpie-root .ed-dropdown .ed-head span {
+	padding: 1px 6px;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.4;
+	letter-spacing: 0.06em;
+	color: var(--ed-text-dim);
+	text-transform: uppercase;
+	border: 1px solid var(--ed-border);
+	border-radius: 3px;
+}
+
+#wpie-root .ed-dropdown .ed-head::after {
+	flex: 1;
+	height: 1px;
+	content: "";
+	background: var(--ed-border);
 }
 
 /* Toasts */

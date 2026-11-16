@@ -46,6 +46,9 @@ const MAX_HISTORY_BYTES = 256 * 1024 * 1024;
 
 export function snapshotBytes( snapshot ) {
 	let bytes = 0;
+	// Frozen pixels still waiting for their PNG (document.js snapshotLayers)
+	// weigh what they hold until then: four bytes a pixel.
+	const frozen = ( c ) => ( c ? c.width * c.height * 4 : 0 );
 	for ( const layer of snapshot?.layers || [] ) {
 		if ( layer.dataUrl ) {
 			bytes += layer.dataUrl.length;
@@ -53,6 +56,7 @@ export function snapshotBytes( snapshot ) {
 		if ( layer.mask?.data ) {
 			bytes += layer.mask.data.length;
 		}
+		bytes += frozen( layer.pixels ) + frozen( layer.mask?.pixels );
 	}
 	return bytes;
 }

@@ -1,0 +1,116 @@
+#wpie-root .ed-float-panel.theme-panel-window {
+	min-width: 280px;
+	max-width: 420px;
+	min-height: 250px;
+	max-height: calc(100vh - 140px);
+}
+
+#wpie-root .ed-float-panel.theme-panel-window.is-collapsed {
+	min-height: 0;
+}
+
+#wpie-root .theme-panel-window > .ed-float-body {
+	overflow: hidden;
+}
+
+#wpie-root .theme-panel-content {
+	flex: 1;
+	min-height: 0;
+	padding: 12px;
+	overflow-y: auto;
+}
+
+#wpie-root .theme-panel-intro {
+	flex: none;
+	padding: 12px 12px 0;
+}
+
+#wpie-root .theme-panel-intro select {
+	width: 100%;
+	min-width: 0;
+	height: 30px;
+	padding-right: 28px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+#wpie-root .theme-panel-intro p {
+	min-height: 33px;
+	margin: 6px 0 0;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+#wpie-root .theme-panel-empty {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+#wpie-root .theme-panel-content section + section {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .theme-panel-content h3 {
+	margin: 0 0 7px;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+#wpie-root .theme-panel-window .theme-panel-grid {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	margin: 0;
+}
+
+#wpie-root .theme-panel-window .theme-panel-card {
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	min-height: 42px;
+	padding: 7px;
+}
+
+/* Keyboard focus uses the existing 1px card border, without an extra ring. */
+#wpie-root .theme-panel-window .theme-panel-card:focus-visible {
+	outline: none;
+	box-shadow: none;
+	border-color: var(--accent);
+}
+
+#wpie-root .theme-panel-window .theme-panel-card .ai-tile-icon {
+	flex: none;
+	min-height: 0;
+	background: none;
+}
+
+#wpie-root .theme-panel-window .theme-panel-card .ai-tile-name {
+	flex: 1;
+	justify-content: flex-start;
+	min-width: 0;
+	min-height: 0;
+	padding: 0;
+	text-align: left;
+	overflow-wrap: anywhere;
+	hyphens: auto;
+}
+
+#wpie-root .theme-panel-footer {
+	flex: none;
+	padding: 9px 12px;
+	border-top: 1px solid var(--ed-border);
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+/* A studio or Create dialog owns the foreground, even when Themes is pinned. */
+#wpie-root:has(.modal-backdrop) .theme-panel-window,
+#wpie-root:has([role="dialog"][aria-modal="true"]:not(.ed-float-panel))
+	.theme-panel-window {
+	visibility: hidden;
+	pointer-events: none;
+}

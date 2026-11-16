@@ -10,6 +10,11 @@
  * UI follows the studio CI (the 3D Gallery Studio look): preset pills
  * on top, card sections, hold-to-compare, drag the vignette center
  * right in the preview.
+ *
+ * 19.10.2026: the preview paints at its own size (the overlay is measured
+ * against the picture now), inserting encodes off the main thread, the
+ * overlay can sit on the selected photo only (a clipping mask at the
+ * photo's box), and the grain can be in color.
  */
 
 import { useState, useEffect, useMemo, useRef } from '@wordpress/element';
@@ -26,10 +31,15 @@ import {
 	normalizeFilmParams,
 	filmParamsFromGradient,
 	FILM_PRESETS,
+	FILM_GENERATOR_ID,
 } from '../lib/film-overlay';
+import { encodeCanvas } from '../lib/canvas-encode';
 import { makeImage } from '../store/document';
 
-export const FILM_GENERATOR_ID = 'wpie-core/vignette';
+export { FILM_GENERATOR_ID };
+
+/** Layers the overlay can sit on as a clipping mask (19.10.2026). */
+const PHOTO_TYPES = [ 'image', 'raster', 'smart' ];
 
 const SHAPE_LABELS = {
 	oval: () => __( 'Oval', 'wunderpaint' ),
@@ -131,6 +141,34 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 		);
 		return active && filmParamsFromGradient( active ) ? active : null;
 	} );
+	// On one picture instead of the whole document (19.10.2026): with a
+	// photo selected the overlay can go right above it as a clipping mask,
+	// at the photo's size, so a layout's text and logo stay untouched.
+	const [ photo ] = useState( () => {
+		if ( editLayer || adoptLayer ) {
+			return null;
+		}
+		const active = editor.state.layers.find(
+			( l ) => l.id === editor.state.activeId
+		);
+		return active &&
+			PHOTO_TYPES.includes( active.type ) &&
+			active.generator?.id !== FILM_GENERATOR_ID &&
+			active.w > 0 &&
+			active.h > 0
+			? active
+			: null;
+	} );
+	const [ target, setTarget ] = useState( 'doc' );
+	const onPhoto = !! photo && 'layer' === target;
+	const [ busy, setBusy ] = useState( false );
+	const mounted = useRef( true );
+	useEffect(
+		() => () => {
+			mounted.current = false;
+		},
+		[]
+	);
 	const [ params, setParams ] = useState(
 		() =>
 			( adoptLayer && filmParamsFromGradient( adoptLayer ) ) ||
@@ -162,28 +200,63 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 		setBlend( preset.blend || 'normal' );
 	};
 
-	// The document under the overlay, rendered once per open (without
-	// the layer being edited/replaced, so the preview never doubles it).
+	// Where the overlay sits: the photo's box, the edited layer's own box,
+	// or the whole document.
 	const doc = state.doc;
+	const placeLayer = onPhoto ? photo : editLayer;
+	const place = placeLayer
+		? {
+				x: placeLayer.x || 0,
+				y: placeLayer.y || 0,
+				w: Math.max( 1, placeLayer.w || doc.w ),
+				h: Math.max( 1, placeLayer.h || doc.h ),
+				rot: placeLayer.rot || 0,
+		  }
+		: { x: 0, y: 0, w: doc.w, h: doc.h, rot: 0 };
+	const clipped = onPhoto || !! editLayer?.clip;
+
+	// The document under and over the overlay, rendered once per placement
+	// (without the layer being edited/replaced, so the preview never
+	// doubles it). An overlay that is not the top of the stack - on a
+	// photo, a converted template vignette, an edited layer - has layers
+	// above it that it must not shade, so those are drawn after it.
 	const [ base, setBase ] = useState( null );
 	useEffect( () => {
 		let cancelled = false;
 		const hidden = editLayer || adoptLayer;
-		const layers = state.layers.filter(
-			( l ) => ! hidden || l.id !== hidden.id
-		);
-		renderToCanvas( doc, layers, { cache: sharedImageCache } )
-			.then( ( canvas ) => ! cancelled && setBase( canvas ) )
+		const layers = state.layers;
+		const anchor = onPhoto ? photo : hidden;
+		const at = anchor ? layers.indexOf( anchor ) : -1;
+		const split = at >= 0 && ! anchor.parent;
+		const keep = ( l ) => ! hidden || l.id !== hidden.id;
+		const below = split
+			? layers.slice( 0, onPhoto ? at + 1 : at ).filter( keep )
+			: layers.filter( keep );
+		const above = split ? layers.slice( at + 1 ).filter( keep ) : [];
+		Promise.all( [
+			renderToCanvas( doc, below, { cache: sharedImageCache } ),
+			above.length
+				? renderToCanvas( { ...doc, bg: 'transparent' }, above, {
+						cache: sharedImageCache,
+				  } )
+				: null,
+		] )
+			.then(
+				( [ under, over ] ) => ! cancelled && setBase( { under, over } )
+			)
 			.catch( () => ! cancelled && setBase( null ) );
 		return () => {
 			cancelled = true;
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [] );
+	}, [ onPhoto ] );
 
-	// WYSIWYG: the overlay renders at FULL document size and is scaled
-	// into the preview, so grain and dust match the final pixels. The
-	// layer blend mode is honored via the composite operation.
+	// WYSIWYG at preview size (19.10.2026): grain, dust and scratches are
+	// measured against the picture now, so the overlay painted at the size
+	// it has in the preview shows what the inserted one carries. It used to
+	// be painted at full document size for every slider step - at twelve
+	// megapixels a quarter of a second each. The layer blend mode is
+	// honored via the composite operation.
 	const previewRef = useRef( null );
 	useEffect( () => {
 		const el = previewRef.current;
@@ -193,22 +266,51 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 		const raf = requestAnimationFrame( () => {
 			const ctx = el.getContext( '2d' );
 			ctx.clearRect( 0, 0, el.width, el.height );
-			if ( base ) {
-				ctx.drawImage( base, 0, 0, el.width, el.height );
+			if ( base?.under ) {
+				ctx.drawImage( base.under, 0, 0, el.width, el.height );
 			}
-			if ( compare ) {
-				return;
+			if ( ! compare ) {
+				const scale = el.width / doc.w;
+				const ow = Math.max( 1, Math.round( place.w * scale ) );
+				const oh = Math.max( 1, Math.round( place.h * scale ) );
+				const overlay = renderFilmOverlay( params, ow, oh );
+				ctx.save();
+				ctx.globalAlpha = Math.max( 0, Math.min( 1, opacity / 100 ) );
+				ctx.globalCompositeOperation =
+					'normal' === blend ? 'source-over' : blend;
+				ctx.translate(
+					( place.x + place.w / 2 ) * scale,
+					( place.y + place.h / 2 ) * scale
+				);
+				ctx.rotate( ( place.rot * Math.PI ) / 180 );
+				if ( clipped ) {
+					ctx.beginPath();
+					ctx.rect( -ow / 2, -oh / 2, ow, oh );
+					ctx.clip();
+				}
+				ctx.drawImage( overlay, -ow / 2, -oh / 2, ow, oh );
+				ctx.restore();
 			}
-			const overlay = renderFilmOverlay( params, doc.w, doc.h );
-			ctx.save();
-			ctx.globalAlpha = Math.max( 0, Math.min( 1, opacity / 100 ) );
-			ctx.globalCompositeOperation =
-				'normal' === blend ? 'source-over' : blend;
-			ctx.drawImage( overlay, 0, 0, el.width, el.height );
-			ctx.restore();
+			if ( base?.over ) {
+				ctx.drawImage( base.over, 0, 0, el.width, el.height );
+			}
 		} );
 		return () => cancelAnimationFrame( raf );
-	}, [ params, base, doc.w, doc.h, blend, opacity, compare ] );
+	}, [
+		params,
+		base,
+		doc.w,
+		doc.h,
+		blend,
+		opacity,
+		compare,
+		place.x,
+		place.y,
+		place.w,
+		place.h,
+		place.rot,
+		clipped,
+	] );
 
 	const previewDims = useMemo( () => {
 		const scale = Math.min( 560 / doc.w, 620 / doc.h, 1 );
@@ -254,86 +356,128 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 			'circle' === params.vignette.shape );
 	const centerFromEvent = ( e ) => {
 		const rect = previewRef.current.getBoundingClientRect();
+		// Into the overlay's own box (the photo's, when it sits on one),
+		// turned back by its rotation.
+		const dx =
+			( ( e.clientX - rect.left ) / rect.width ) * doc.w -
+			( place.x + place.w / 2 );
+		const dy =
+			( ( e.clientY - rect.top ) / rect.height ) * doc.h -
+			( place.y + place.h / 2 );
+		const a = ( -place.rot * Math.PI ) / 180;
+		const lx = dx * Math.cos( a ) - dy * Math.sin( a );
+		const ly = dx * Math.sin( a ) + dy * Math.cos( a );
+		const pct = ( v, size ) =>
+			Math.round(
+				Math.max( 0, Math.min( 100, ( v / size + 0.5 ) * 100 ) )
+			);
 		patch( 'vignette', {
-			cx: Math.round(
-				Math.max(
-					0,
-					Math.min(
-						100,
-						( ( e.clientX - rect.left ) / rect.width ) * 100
-					)
-				)
-			),
-			cy: Math.round(
-				Math.max(
-					0,
-					Math.min(
-						100,
-						( ( e.clientY - rect.top ) / rect.height ) * 100
-					)
-				)
-			),
+			cx: pct( lx, place.w ),
+			cy: pct( ly, place.h ),
 		} );
 	};
 
-	const insert = () => {
-		const overlay = renderFilmOverlay( params, doc.w, doc.h );
-		const src = overlay.toDataURL( 'image/png' );
+	// Painting and encoding a full-size overlay took a second and more on a
+	// large document, all on the main thread; the button now says so first
+	// and the PNG is encoded off the main thread (19.10.2026).
+	const insert = async () => {
+		if ( busy ) {
+			return;
+		}
+		setBusy( true );
+		await new Promise( ( resolve ) =>
+			requestAnimationFrame( () => setTimeout( resolve, 0 ) )
+		);
+		try {
+			const ow = Math.max( 1, Math.round( place.w ) );
+			const oh = Math.max( 1, Math.round( place.h ) );
+			const src = await encodeCanvas(
+				renderFilmOverlay( params, ow, oh ),
+				'image/png'
+			);
+			if ( ! mounted.current ) {
+				return;
+			}
+			finish( src, ow, oh );
+			onClose();
+		} catch ( e ) {
+			extras?.toasts?.error?.(
+				__( 'The overlay could not be created.', 'wunderpaint' )
+			);
+		} finally {
+			if ( mounted.current ) {
+				setBusy( false );
+			}
+		}
+	};
+
+	const finish = ( src, ow, oh ) => {
 		const compositing = {
 			blend,
 			opacity: Math.max( 0, Math.min( 1, opacity / 100 ) ),
 		};
 		if ( editLayer ) {
+			// An edited overlay keeps its own box: the document for a full
+			// one, the photo's for one that sits on a picture.
 			dispatch( {
 				type: 'UPDATE_LAYER',
 				id: editLayer.id,
 				patch: {
 					src,
-					naturalW: doc.w,
-					naturalH: doc.h,
+					naturalW: ow,
+					naturalH: oh,
 					generator: { id: FILM_GENERATOR_ID, params },
 					...compositing,
 				},
 			} );
 			commit( __( 'Edit Vignette & Film', 'wunderpaint' ) );
-		} else {
-			const layer = makeImage( {
-				name:
-					adoptLayer?.name || __( 'Vignette & Film', 'wunderpaint' ),
-				x: 0,
-				y: 0,
-				w: doc.w,
-				h: doc.h,
-				src,
-				naturalW: doc.w,
-				naturalH: doc.h,
-				imageFit: { mode: 'fill' },
-			} );
-			// Set AFTER the factory - makeImage only keeps its known
-			// fields, a generator in the options would be dropped (the
-			// extension bridges assign it the same way).
-			layer.generator = { id: FILM_GENERATOR_ID, params };
-			layer.blend = compositing.blend;
-			layer.opacity = compositing.opacity;
-			if ( adoptLayer ) {
-				// Convert in place: the gradient vignette makes way for
-				// the studio layer at the same stack position.
-				const index = state.layers.findIndex(
-					( l ) => l.id === adoptLayer.id
-				);
-				layer.parent = adoptLayer.parent || null;
-				dispatch( {
-					type: 'REMOVE_LAYERS',
-					ids: [ adoptLayer.id ],
-				} );
-				dispatch( { type: 'ADD_LAYER', layer, index } );
-				commit( __( 'Convert vignette layer', 'wunderpaint' ) );
-			} else {
-				dispatch( { type: 'ADD_LAYER', layer } );
-				commit( __( 'Add Vignette & Film', 'wunderpaint' ) );
-			}
+			return;
 		}
-		onClose();
+		const layer = makeImage( {
+			name: adoptLayer?.name || __( 'Vignette & Film', 'wunderpaint' ),
+			x: place.x,
+			y: place.y,
+			w: place.w,
+			h: place.h,
+			src,
+			naturalW: ow,
+			naturalH: oh,
+			imageFit: { mode: 'fill' },
+		} );
+		// Set AFTER the factory - makeImage only keeps its known
+		// fields, a generator in the options would be dropped (the
+		// extension bridges assign it the same way).
+		layer.generator = { id: FILM_GENERATOR_ID, params };
+		layer.blend = compositing.blend;
+		layer.opacity = compositing.opacity;
+		if ( onPhoto ) {
+			// Right above the photo, clipped to it.
+			layer.rot = place.rot;
+			layer.clip = true;
+			layer.parent = photo.parent || null;
+			dispatch( {
+				type: 'ADD_LAYER',
+				layer,
+				index: state.layers.indexOf( photo ) + 1,
+			} );
+			commit( __( 'Add Vignette & Film', 'wunderpaint' ) );
+		} else if ( adoptLayer ) {
+			// Convert in place: the gradient vignette makes way for
+			// the studio layer at the same stack position.
+			const index = state.layers.findIndex(
+				( l ) => l.id === adoptLayer.id
+			);
+			layer.parent = adoptLayer.parent || null;
+			dispatch( {
+				type: 'REMOVE_LAYERS',
+				ids: [ adoptLayer.id ],
+			} );
+			dispatch( { type: 'ADD_LAYER', layer, index } );
+			commit( __( 'Convert vignette layer', 'wunderpaint' ) );
+		} else {
+			dispatch( { type: 'ADD_LAYER', layer } );
+			commit( __( 'Add Vignette & Film', 'wunderpaint' ) );
+		}
 	};
 
 	const v = params.vignette;
@@ -423,7 +567,7 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 							<span className="vgn-hint">
 								{ canDrag
 									? __(
-											'Drag in the preview to move the centre · wheel to resize · Shift + wheel to soften',
+											'Drag in the preview to move the center · wheel to resize · Shift + wheel to soften',
 											'wunderpaint'
 									  )
 									: __(
@@ -489,6 +633,33 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 								) }
 							</div>
 						</div>
+
+						{ photo && (
+							<Row label={ __( 'Apply to', 'wunderpaint' ) }>
+								<select
+									className="dsm-select sm"
+									value={ target }
+									onChange={ ( e ) =>
+										setTarget( e.target.value )
+									}
+								>
+									<option value="doc">
+										{ __(
+											'Whole document',
+											'wunderpaint'
+										) }
+									</option>
+									<option value="layer">
+										{ sprintf(
+											/* translators: %s: layer name. */
+											__( 'Only on %s', 'wunderpaint' ),
+											photo.name ||
+												__( 'Image', 'wunderpaint' )
+										) }
+									</option>
+								</select>
+							</Row>
+						) }
 
 						<div className="vgn-row vgn-blendrow">
 							<span className="vgn-lbl">
@@ -661,6 +832,29 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 									patch( 'grain', { size } )
 								}
 							/>
+							<Row label={ __( 'Tone', 'wunderpaint' ) }>
+								<select
+									className="dsm-select sm"
+									value={
+										params.grain.color ? 'color' : 'mono'
+									}
+									onChange={ ( e ) =>
+										patch( 'grain', {
+											color: 'color' === e.target.value,
+										} )
+									}
+								>
+									<option value="mono">
+										{ __(
+											'Black and white',
+											'wunderpaint'
+										) }
+									</option>
+									<option value="color">
+										{ __( 'Color', 'wunderpaint' ) }
+									</option>
+								</select>
+							</Row>
 							<Slider
 								label={ __( 'Variant', 'wunderpaint' ) }
 								value={ params.grain.seed }
@@ -915,9 +1109,17 @@ export function VignetteDialog( { data, onClose, editor, extras } ) {
 						{ __( 'Cancel', 'wunderpaint' ) }
 					</button>
 					<span style={ { flex: 1 } } />
-					<button className="ai-btn primary" onClick={ insert }>
-						{ editLayer && __( 'Update layer', 'wunderpaint' ) }
-						{ ! editLayer &&
+					<button
+						className="ai-btn primary"
+						disabled={ busy }
+						onClick={ insert }
+					>
+						{ busy && __( 'Rendering…', 'wunderpaint' ) }
+						{ ! busy &&
+							editLayer &&
+							__( 'Update layer', 'wunderpaint' ) }
+						{ ! busy &&
+							! editLayer &&
 							( adoptLayer
 								? __( 'Replace layer', 'wunderpaint' )
 								: __( 'Add as layer', 'wunderpaint' ) ) }

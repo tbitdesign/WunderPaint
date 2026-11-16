@@ -1,16 +1,16 @@
 {
 	"name": "Mystic Studio",
 	"slug": "wpie-mystic-studio",
-	"version": "0.6.5",
+	"version": "1.1.0",
 	"author": "TBIT DESIGN - Thomas Breher",
-	"description": "Birth data becomes wall art, all of it computed locally: a genuine natal chart wheel with true planet positions, aspects, ascendant and Placidus houses (birth time and place resolve through a bundled time zone atlas, decades of DST history included), the moon exactly as it stood over any date with its phase, illumination and moon sign, and zodiac posters built from the real constellation figures. Since 0.2 the numerology wing: the life path with its reduction cascade descending into one big numeral, the name chart with letter grid and the destiny, soul urge and personality medallions, angel number posters, and two couple cards that join two birth dates into one artwork. Short curated keywords and meanings, the position data block and the caption land as editable text layers in your fonts and eight themes from celestial dark to rose gold and amethyst. Reopen any chart via Edit Mystic Studio.",
+	"description": "Birth data becomes a finished poster in the shape of your document, computed entirely on your device. Pick a card - a real natal chart wheel with houses and aspects, the Big Three, element balance, a cosmic profile, the moon over any night (single, cycle or week), zodiac and Chinese zodiac posters, life path, personal year, name chart, angel numbers, couple and synastry charts - then a look: curated styles from midnight gold to rose quartz, or Surprise me. Backdrops (night sky, nebula, aurora, dusk, paper), star density, frames from a fine line to zodiac and celestial borders, layouts that adapt to portrait, square and landscape, your own colors, fonts, a foil title and a personal message. Titles, dates, keywords and meanings land as editable text layers, grouped with the background and the art. Reopen the poster via Edit Mystic Studio: it updates in place and keeps the text you changed by hand.",
 	"main": "extension.js",
 	"style": "style.css",
 	"requiresApi": "2.24.0",
 	"provides": [
 		"generator"
 	],
-	"category": "print",
+	"category": "posters",
 	"tier": "free",
 	"preview": "preview.jpg"
 }

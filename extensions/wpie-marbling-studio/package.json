@@ -1,6 +1,6 @@
 {
 	"name": "wpie-marbling-studio",
-	"version": "1.7.3",
+	"version": "1.11.0",
 	"private": true,
 	"type": "module",
 	"description": "WPIE extension: classic paper marbling and a continuously running fluid laboratory",
@@ -10,6 +10,7 @@
 		"qa": "node tools/qa-dialog.mjs",
 		"pack": "npm run build && mkdir -p dist && rm -f dist/marbling-studio.zip && zip -r dist/marbling-studio.zip manifest.json extension.js runtime.js style.css",
 		"qa:fluid": "node tools/qa-fluid.mjs",
+		"qa:flow": "node tools/qa-flow.mjs",
 		"qa:surface": "node tools/qa-fluid-surface.mjs"
 	},
 	"devDependencies": {

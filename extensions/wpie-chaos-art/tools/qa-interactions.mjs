@@ -36,6 +36,8 @@ await esbuild.build( {
 		resolveDir: EDITOR,
 	},
 	bundle: true,
+	// The core's HEIC decoder (Node glue + .wasm) is never used here.
+	external: [ 'libheif-js/*' ],
 	format: 'iife',
 	outfile: path.join( stage, 'core.js' ),
 	logLevel: 'warning',

@@ -1,7 +1,8 @@
 import { encodePigment, decodePigment } from './pigment.js';
+import { FLOW_SOURCES } from './flow-sources.js';
 
 const clamp = ( x, a, b ) => Math.max( a, Math.min( b, x ) );
-export const SOURCE_TYPES = [ 'heat', 'cool', 'magnet' ];
+export const SOURCE_TYPES = [ 'heat', 'cool', 'magnet', ...FLOW_SOURCES ];
 export const MAX_SOURCES = 12;
 
 /** Sources are apparatus outside the bath, and survive save/open. */
@@ -34,6 +35,15 @@ export function cleanSources( sources ) {
 			throw new Error( 'Invalid fluid source' );
 		}
 		ids.add( source.id );
+		if (
+			FLOW_SOURCES.includes( source.type ) &&
+			( ! Number.isFinite( source.angle ) ||
+				Math.abs( source.angle ) > 180 ||
+				! Number.isFinite( source.spin ) ||
+				Math.abs( source.spin ) > 1 )
+		) {
+			throw new Error( 'Invalid flow source' );
+		}
 		return {
 			id: source.id,
 			type: source.type,
@@ -42,6 +52,9 @@ export function cleanSources( sources ) {
 			radius: source.radius,
 			power: source.power,
 			gap: source.gap,
+			...( FLOW_SOURCES.includes( source.type )
+				? { angle: source.angle, spin: source.spin }
+				: {} ),
 		};
 	} );
 }
@@ -98,7 +111,7 @@ function sourceFields( sim ) {
 					bx += ( moment * 3 * dx * z ) / den;
 					by += ( moment * 3 * dy * z ) / den;
 					bz += ( moment * ( 2 * z * z - rr ) ) / den;
-				} else {
+				} else if ( source.type === 'heat' || source.type === 'cool' ) {
 					const weight =
 						Math.exp(
 							( -rr / ( source.radius * source.radius ) ) * 2
@@ -123,7 +136,9 @@ function sourceFields( sim ) {
 export function updateTemperature( sim, settings, dt ) {
 	sourceFields( sim );
 	if (
-		! sim.sources.some( ( source ) => source.type !== 'magnet' ) &&
+		! sim.sources.some(
+			( source ) => source.type === 'heat' || source.type === 'cool'
+		) &&
 		sim.temperature.every(
 			( value ) => value === settings.ambientTemperature
 		)

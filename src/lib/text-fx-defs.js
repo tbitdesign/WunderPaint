@@ -6,8 +6,132 @@
  */
 
 import { __ } from '@wordpress/i18n';
+import {
+	applyTextEffectRecipe,
+	extendTextEffectParameters,
+} from './text-effect-recipes';
+import {
+	TEXT_EFFECT_COLLECTION,
+	COLLECTION_FX_PARAMS,
+} from './text-effects-collection';
+
+const INK_DEFAULTS = { pressure: 62, texture: 22 };
+const INK_PARAMS = [
+	{
+		key: 'pressure',
+		label: __( 'Pressure', 'wunderpaint' ),
+		min: 0,
+		max: 100,
+	},
+	{ key: 'texture', label: __( 'Texture', 'wunderpaint' ), min: 0, max: 100 },
+];
+const INK_WIDTH = {
+	key: 'thickness',
+	label: __( 'Thickness', 'wunderpaint' ),
+	min: 0,
+	max: 100,
+};
 
 export const TEXT_FX = [
+	{
+		id: 'liquidMetal',
+		label: __( 'Liquid Metal', 'wunderpaint' ),
+		def: { color: '#c7d5eb', bevel: 36, shine: 80, angle: 125 },
+		prev: {
+			liquidMetal: { color: '#c7d5eb', bevel: 36, shine: 80, angle: 125 },
+		},
+	},
+	{
+		id: 'dichroicGlass',
+		label: __( 'Dichroic Glass', 'wunderpaint' ),
+		def: {
+			color: '#98e8ea',
+			color2: '#bd70ff',
+			bevel: 32,
+			shine: 80,
+			angle: 125,
+			dispersion: 65,
+			opacity: 52,
+		},
+		prev: {
+			dichroicGlass: {
+				color: '#98e8ea',
+				color2: '#bd70ff',
+				bevel: 32,
+				shine: 80,
+				angle: 125,
+				dispersion: 65,
+				opacity: 52,
+			},
+		},
+	},
+	{
+		id: 'ribbonFlow',
+		label: __( 'Ribbon Flow', 'wunderpaint' ),
+		def: {
+			color: '#fc648a',
+			color2: '#6454e9',
+			length: 75,
+			bend: 32,
+			angle: 65,
+			count: 18,
+		},
+		prev: {
+			ribbonFlow: {
+				color: '#fc648a',
+				color2: '#6454e9',
+				length: 30,
+				bend: 10,
+				angle: 65,
+				count: 18,
+			},
+		},
+	},
+	{
+		id: 'prismCut',
+		label: __( 'Prism Cut', 'wunderpaint' ),
+		def: {
+			color: '#55dcf3',
+			color2: '#aa78ee',
+			slices: 7,
+			shift: 15,
+			depth: 9,
+			angle: 18,
+		},
+		prev: {
+			prismCut: {
+				color: '#55dcf3',
+				color2: '#aa78ee',
+				slices: 7,
+				shift: 15,
+				depth: 9,
+				angle: 18,
+			},
+		},
+	},
+	{
+		id: 'contourTunnel',
+		label: __( 'Contour Tunnel', 'wunderpaint' ),
+		def: {
+			color: '#77f5dd',
+			color2: '#7863d9',
+			count: 16,
+			width: 10,
+			depth: 78,
+			angle: 35,
+		},
+		prev: {
+			contourTunnel: {
+				color: '#77f5dd',
+				color2: '#7863d9',
+				count: 12,
+				width: 15,
+				depth: 65,
+				angle: 35,
+			},
+		},
+	},
+	...TEXT_EFFECT_COLLECTION,
 	{
 		id: 'longShadow',
 		label: __( 'Long shadow', 'wunderpaint' ),
@@ -168,26 +292,56 @@ export const TEXT_FX = [
 	},
 	{
 		id: 'marker',
+		annotation: true,
 		label: __( 'Marker', 'wunderpaint' ),
-		def: { color: '#ffe066', rough: 4, seed: 1 },
+		def: {
+			...INK_DEFAULTS,
+			texture: 28,
+			thickness: 60,
+			color: '#ffe066',
+			rough: 4,
+			seed: 1,
+		},
 		prev: { marker: { color: '#ffe066', rough: 4, seed: 1 } },
 	},
 	{
 		id: 'circleMark',
+		annotation: true,
 		label: __( 'Circle mark', 'wunderpaint' ),
-		def: { color: '#e5484d', rough: 4, seed: 1 },
+		def: {
+			...INK_DEFAULTS,
+			thickness: 42,
+			color: '#e5484d',
+			rough: 4,
+			seed: 1,
+		},
 		prev: { circleMark: { color: '#e5484d', rough: 4, seed: 1 } },
 	},
 	{
 		id: 'scribbleUnder',
+		annotation: true,
 		label: __( 'Scribble line', 'wunderpaint' ),
-		def: { color: '#3b82f6', rough: 4, seed: 1 },
+		def: {
+			...INK_DEFAULTS,
+			thickness: 48,
+			color: '#3b82f6',
+			rough: 4,
+			seed: 1,
+		},
 		prev: { scribbleUnder: { color: '#3b82f6', rough: 5, seed: 1 } },
 	},
 	{
 		id: 'strikeFx',
+		annotation: true,
 		label: __( 'Strike / Cross', 'wunderpaint' ),
-		def: { style: 2, color: '#e5484d', rough: 4, seed: 1 },
+		def: {
+			...INK_DEFAULTS,
+			thickness: 44,
+			style: 2,
+			color: '#e5484d',
+			rough: 4,
+			seed: 1,
+		},
 		prev: { strikeFx: { style: 2, color: '#e5484d', rough: 4, seed: 2 } },
 	},
 	{
@@ -292,8 +446,15 @@ export const TEXT_FX = [
 	},
 	{
 		id: 'highlight',
+		annotation: true,
 		label: __( 'Highlight', 'wunderpaint' ),
-		def: { color: '#ffe066', pad: 14, radius: 8, opacity: 100 },
+		def: {
+			...INK_DEFAULTS,
+			color: '#ffe066',
+			pad: 14,
+			radius: 8,
+			opacity: 100,
+		},
 		prev: {
 			highlight: { color: '#ffe066', pad: 10, radius: 6, opacity: 100 },
 		},
@@ -301,7 +462,13 @@ export const TEXT_FX = [
 	{
 		id: 'underlineFx',
 		label: __( 'Underline', 'wunderpaint' ),
-		def: { style: 0, thickness: 8, offset: 8, color: '#e5484d' },
+		def: {
+			...INK_DEFAULTS,
+			style: 0,
+			thickness: 8,
+			offset: 8,
+			color: '#e5484d',
+		},
 		prev: {
 			underlineFx: {
 				style: 2,
@@ -599,10 +766,155 @@ export const TEXT_FX = [
 			},
 		},
 	},
-];
+].map( applyTextEffectRecipe );
+
+// Annotate owns these presets; retain their shared definitions for active
+// annotation controls without duplicating their cards in the effects gallery.
+export const TEXT_FX_CATALOG = TEXT_FX.filter( ( item ) => ! item.annotation );
 
 // Slider/color rows shown while an effect is active, per effect id.
-export const FX_PARAMS = {
+export const FX_PARAMS = extendTextEffectParameters( {
+	...COLLECTION_FX_PARAMS,
+	liquidMetal: [
+		{ key: 'color', label: __( 'Metal tint', 'wunderpaint' ), color: true },
+		{
+			key: 'bevel',
+			label: __( 'Roundness', 'wunderpaint' ),
+			min: 5,
+			max: 75,
+		},
+		{
+			key: 'shine',
+			label: __( 'Polish', 'wunderpaint' ),
+			min: 0,
+			max: 100,
+		},
+		{
+			key: 'angle',
+			label: __( 'Light angle', 'wunderpaint' ),
+			min: 0,
+			max: 360,
+		},
+	],
+	dichroicGlass: [
+		{ key: 'color', label: __( 'Glass tint', 'wunderpaint' ), color: true },
+		{ key: 'color2', label: __( 'Edge tint', 'wunderpaint' ), color: true },
+		{
+			key: 'bevel',
+			label: __( 'Roundness', 'wunderpaint' ),
+			min: 5,
+			max: 75,
+		},
+		{
+			key: 'dispersion',
+			label: __( 'Iridescence', 'wunderpaint' ),
+			min: 0,
+			max: 100,
+		},
+		{
+			key: 'shine',
+			label: __( 'Polish', 'wunderpaint' ),
+			min: 0,
+			max: 100,
+		},
+		{
+			key: 'opacity',
+			label: __( 'Opacity', 'wunderpaint' ),
+			min: 5,
+			max: 100,
+		},
+		{
+			key: 'angle',
+			label: __( 'Light angle', 'wunderpaint' ),
+			min: 0,
+			max: 360,
+		},
+	],
+	ribbonFlow: [
+		{
+			key: 'color',
+			label: __( 'Start color', 'wunderpaint' ),
+			color: true,
+		},
+		{ key: 'color2', label: __( 'End color', 'wunderpaint' ), color: true },
+		{
+			key: 'length',
+			label: __( 'Length', 'wunderpaint' ),
+			min: 0,
+			max: 150,
+		},
+		{ key: 'bend', label: __( 'Bend', 'wunderpaint' ), min: -60, max: 60 },
+		{
+			key: 'angle',
+			label: __( 'Direction', 'wunderpaint' ),
+			min: 0,
+			max: 360,
+		},
+		{
+			key: 'count',
+			label: __( 'Ribbons', 'wunderpaint' ),
+			min: 6,
+			max: 30,
+		},
+	],
+	prismCut: [
+		{
+			key: 'color',
+			label: __( 'Start color', 'wunderpaint' ),
+			color: true,
+		},
+		{ key: 'color2', label: __( 'End color', 'wunderpaint' ), color: true },
+		{
+			key: 'slices',
+			label: __( 'Facets', 'wunderpaint' ),
+			min: 3,
+			max: 16,
+		},
+		{
+			key: 'shift',
+			label: __( 'Displacement', 'wunderpaint' ),
+			min: 0,
+			max: 45,
+		},
+		{ key: 'depth', label: __( 'Depth', 'wunderpaint' ), min: 0, max: 24 },
+		{
+			key: 'angle',
+			label: __( 'Cut angle', 'wunderpaint' ),
+			min: -45,
+			max: 45,
+		},
+	],
+	contourTunnel: [
+		{
+			key: 'color',
+			label: __( 'Front color', 'wunderpaint' ),
+			color: true,
+		},
+		{
+			key: 'color2',
+			label: __( 'Depth color', 'wunderpaint' ),
+			color: true,
+		},
+		{
+			key: 'count',
+			label: __( 'Contours', 'wunderpaint' ),
+			min: 4,
+			max: 30,
+		},
+		{
+			key: 'width',
+			label: __( 'Line weight', 'wunderpaint' ),
+			min: 3,
+			max: 30,
+		},
+		{ key: 'depth', label: __( 'Depth', 'wunderpaint' ), min: 15, max: 94 },
+		{
+			key: 'angle',
+			label: __( 'Vanishing point', 'wunderpaint' ),
+			min: 0,
+			max: 360,
+		},
+	],
 	longShadow: [
 		{
 			key: 'angle',
@@ -952,6 +1264,8 @@ export const FX_PARAMS = {
 		},
 	],
 	marker: [
+		INK_WIDTH,
+		...INK_PARAMS,
 		{
 			// 0 band, 1 swipe, 2 double swipe, 3 scribble fill (v1.256.0).
 			key: 'style',
@@ -974,6 +1288,8 @@ export const FX_PARAMS = {
 		{ key: 'color', label: __( 'Color', 'wunderpaint' ), color: true },
 	],
 	circleMark: [
+		INK_WIDTH,
+		...INK_PARAMS,
 		{
 			// 0 oval, 1 double loop, 2 sketchy box (v1.256.0).
 			key: 'style',
@@ -996,6 +1312,8 @@ export const FX_PARAMS = {
 		{ key: 'color', label: __( 'Color', 'wunderpaint' ), color: true },
 	],
 	strikeFx: [
+		INK_WIDTH,
+		...INK_PARAMS,
 		{
 			key: 'style',
 			label: __( 'Style', 'wunderpaint' ),
@@ -1017,6 +1335,8 @@ export const FX_PARAMS = {
 		},
 	],
 	scribbleUnder: [
+		INK_WIDTH,
+		...INK_PARAMS,
 		{
 			// 0 wave, 1 double, 2 zigzag, 3 cursive loops (v1.256.0).
 			key: 'style',
@@ -1219,6 +1539,7 @@ export const FX_PARAMS = {
 		{ key: 'color', label: __( 'Color', 'wunderpaint' ), color: true },
 	],
 	highlight: [
+		...INK_PARAMS,
 		{
 			key: 'pad',
 			label: __( 'Padding', 'wunderpaint' ),
@@ -1240,6 +1561,7 @@ export const FX_PARAMS = {
 		{ key: 'color', label: __( 'Color', 'wunderpaint' ), color: true },
 	],
 	underlineFx: [
+		...INK_PARAMS,
 		{
 			key: 'style',
 			label: __( 'Style', 'wunderpaint' ),
@@ -1872,4 +2194,4 @@ export const FX_PARAMS = {
 			color: true,
 		},
 	],
-};
+} );

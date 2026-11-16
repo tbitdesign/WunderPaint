@@ -1,10 +1,24 @@
+import { BucketPanel } from './panels/bucket-panel';
+import { ColorPanel } from './panels/color-panel';
+import { ThemePanel } from './panels/theme-panel';
+import { MaskPanel } from './panels/mask-panel';
+import { TextPanel } from './panels/text-panel';
+import { useToolPanelPosition } from './panels/use-tool-panel-position';
+import { renderMaskCoverage } from '../lib/raster/mask';
+import {
+	SelectionTransformOverlay,
+	DraftSizeBadge,
+} from './canvas/selection-transform-overlay';
+import { SelectionPanel } from './panels/selection-panel';
+import { StampPanel } from './panels/stamp-panel';
+import { StampPreview } from './canvas/stamp-preview';
+import { isGradientEditing } from '../lib/gradient-render-state';
 /**
  * Canvas area (spec 05): ONE <canvas> rendered through the shared
  * renderSync pipeline (viewport-sized, DPR-aware, rAF-throttled) + DOM/SVG
  * interaction overlays. All 15 tools route through TOOL_HANDLERS.
  */
 
-import { hasPivot } from '../lib/pivot';
 import {
 	useRef,
 	useState,
@@ -17,19 +31,40 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEditor, activeLayerOf } from '../store/editor-context';
 import { makeText } from '../store/document';
 import { isEasyMode } from '../lib/easy-mode';
-import { recentColors } from '../lib/user-swatches';
+import { recentColors, pushRecentColor } from '../lib/user-swatches';
 import { FloatPanel } from './panels/float-panel';
+import { useToolPanelPins } from './panels/use-tool-panel-pins';
 import { BrushPanel } from './panels/brush-panel';
 import { ShapePanel } from './panels/shape-panel';
+import { PenPanel } from './panels/pen-panel';
+import { FxBrushPanel } from './panels/fxbrush-panel';
+import { CropPanel } from './panels/crop-panel';
+import { cropRatioValue, resizeCropCorner } from '../lib/crop-geometry';
+import { lineDeviation, straightenLine } from '../lib/straighten';
+import { heicToJpegFile, isHeicFile } from '../lib/heic';
+import { GradientLayerOverlay } from './canvas/gradient-layer-overlay';
+import { RepeatOverlay } from './canvas/repeat-overlay';
+import { RepeatPanel } from './panels/repeat-panel';
+import {
+	repeatLayerOf,
+	sourceOf as repeatSourceOf,
+	isRepeatSource,
+} from '../lib/repeat-layer';
+import { gradientLayerOf, gradientPaint } from '../lib/gradient-layer';
+import { gradientFillLayerOf } from '../lib/gradient-fill-panel';
+import { PenEditOverlay } from './canvas/pen-edit-overlay';
+import { isPenLayer } from '../lib/pen-path';
 import { clampFloat, loadFloats, saveFloats } from '../lib/panel-floats';
 
 /**
  * Tools the brush panel belongs to. It is a TOOL panel, so it comes and
- * goes with the tool rather than sitting there while you move a shape.
+ * goes with the tool unless the user pins it open.
  */
 const PAINT_TOOLS = [ 'brush', 'pencil', 'eraser' ];
+const SELECTION_TOOLS = [ 'marquee', 'lasso', 'wand', 'smartselect' ];
 import { getExtensionGenerator } from '../lib/extensions';
 import { prefixVersions } from '../lib/prefix-cache';
+import { createGroupCache } from '../lib/raster/group-cache';
 import { I } from '../icons';
 import {
 	renderSync,
@@ -46,6 +81,7 @@ import {
 	insertAsset,
 	replaceImageOnLayer,
 	placeImageIntoShape,
+	isImageAsset,
 } from '../lib/asset-insert';
 import { resolveBindings, bindingLabel } from '../lib/dynamic-content';
 import { stripFitStyles } from '../lib/text-fit';
@@ -59,7 +95,9 @@ import {
 	zoomAboutPoint,
 	screenToDoc,
 	docToScreen,
+	RULER_SIZE,
 } from './canvas/use-viewport';
+import { Rulers, createPointerStore } from './canvas/rulers';
 import {
 	TOOL_HANDLERS,
 	topLayerAt,
@@ -67,6 +105,7 @@ import {
 	dropTargetsAt,
 	ancestorHidden,
 	hitTestLayer,
+	layersInPaintOrder,
 	transformGesture,
 	startTransform,
 	applyCrop,
@@ -89,13 +128,9 @@ import {
 	GridOverlay,
 	SmartGuides,
 	GuidesOverlay,
-	Rulers,
 	TipBox,
 	DistanceLabels,
-	selectionBox,
-	canvasEdgeRects,
 } from './canvas/overlays';
-import { SelectionActionsBar } from './canvas/selection-actions-bar';
 import { TextEditOverlay } from './canvas/text-edit-overlay';
 import { ImagePanOverlay } from './canvas/image-pan-overlay';
 import { PathEditOverlay } from './canvas/path-edit-overlay';
@@ -105,6 +140,7 @@ import {
 	wetOverlayLayer,
 	wetActive,
 	wetFlushNow,
+	wetPrewarm,
 } from './canvas/wet-controller';
 import { ScrubLabel } from '../components/scrub-label';
 import { ColorWheel } from '../components/color-wheel';
@@ -112,11 +148,12 @@ import { ContextBar } from './canvas/context-bar';
 import { SmartRefineBar } from './canvas/smart-refine-bar';
 import { TextFxPopover } from './canvas/text-fx-popover';
 import { socialCropById, safeZoneRect } from '../lib/safe-zones';
-import { edgeDistances } from '../lib/snap';
+import { altMeasure } from '../lib/snap';
 import { proofCssFilter } from '../lib/proof';
 import { gifFrameLayers } from '../lib/gif-export';
 import * as Ops from '../store/ops';
 import { importFiles } from '../lib/import-files';
+import { fitMenu } from '../lib/menu-place';
 
 // The Select tool gets its own white arrow (v1.127.0) - the same glyph as
 // its toolbar icon - so you can SEE you are in direct-selection mode.
@@ -256,6 +293,7 @@ function BrushHud( { hud, editor, onClose } ) {
 							) }
 						</span>
 						<ColorWheel
+							onCommit={ pushRecentColor }
 							color={ state.fgColor }
 							onChange={ ( c ) =>
 								dispatch( { type: 'SET_FG', color: c } )
@@ -413,13 +451,45 @@ function OnionSkin( { state, stageScreen } ) {
 	);
 }
 
-export function EditorCanvas( { viewApi, extras } ) {
+export function EditorCanvas( { viewApi, extras, easyMode = false } ) {
 	const editor = useEditor();
 	const activeLayer = activeLayerOf( editor.state );
+	const gradientLayer = gradientLayerOf( editor.state );
+	// The Repeat layer in play (v1.431): the active one, or the active layer's.
+	const repeatLayer = repeatLayerOf( editor.state );
+	const repeatSource = repeatSourceOf( editor.state.layers, repeatLayer );
+	const gradientFill = gradientFillLayerOf( editor.state );
+	const gradientTarget = gradientLayer || gradientFill;
+	const paintDispatch = editor.dispatch;
+	const gradientStop = editor.state.gradientStop || 0;
+	const setGradientStop = useCallback(
+		( index ) => paintDispatch( { type: 'SET_GRADIENT_STOP', index } ),
+		[ paintDispatch ]
+	);
+	const firstGradientPoint =
+		gradientLayer?.kind === 'mesh'
+			? Math.floor( ( ( gradientLayer.mesh?.rows || 3 ) - 1 ) / 2 ) *
+					( gradientLayer.mesh?.cols || 3 ) +
+			  Math.floor( ( ( gradientLayer.mesh?.cols || 3 ) - 1 ) / 2 )
+			: 0;
+	useEffect(
+		() => setGradientStop( firstGradientPoint ),
+		[
+			gradientTarget?.id,
+			gradientTarget?.kind,
+			gradientTarget?.gradientKind,
+			firstGradientPoint,
+			editor.state.paintTarget,
+			setGradientStop,
+		]
+	);
 	const [ measure, setMeasure ] = useState( null ); // Alt = measure (v0.7)
 	const [ altDown, setAltDown ] = useState( false ); // zoom-out cursor (v1.0.2)
 	const [ canvasMenu, setCanvasMenu ] = useState( null ); // right-click (v0.7)
 	const [ imagePanId, setImagePanId ] = useState( null ); // crop pan (v1.116)
+	const [ penEditMode, setPenEditMode ] = useState( 'points' );
+	const [ penSelection, setPenSelection ] = useState( null );
+	const penEditApi = useRef( null );
 	const [ pathEditId, setPathEditId ] = useState( null ); // anchors (v1.118)
 	// Layer a dragged-over file would replace or fill (v1.363.0).
 	const [ dropHint, setDropHint ] = useState( null );
@@ -494,6 +564,12 @@ export function EditorCanvas( { viewApi, extras } ) {
 		return () => window.removeEventListener( 'pointerdown', closer, true );
 	}, [ canvasMenu ] );
 	const prefixCache = useRef( null ); // v0.7 prefix compositing cache
+	// Finished generator groups as bitmaps while they stay unchanged: a pan
+	// places them, a moving zoom scales them (raster/group-cache.js).
+	const groupCache = useRef( null );
+	if ( ! groupCache.current ) {
+		groupCache.current = createGroupCache();
+	}
 
 	// Track Alt so the zoom tool can flip its cursor (v1.0.2).
 	useEffect( () => {
@@ -555,7 +631,47 @@ export function EditorCanvas( { viewApi, extras } ) {
 	}, [] );
 	const canvasRef = useRef( null );
 	const [ draft, setDraft ] = useState( null );
-	const [ guides, setGuides ] = useState( [] );
+	const [ selectionEditSession, setSelectionEditSession ] = useState( null );
+	const selectionEditing =
+		!! selection &&
+		selectionEditSession?.tool === tool &&
+		selectionEditSession?.doc === doc;
+	const setSelectionEditing = ( enabled ) => {
+		const target = SELECTION_TOOLS.includes( tool ) ? tool : 'marquee';
+		setSelectionEditSession( enabled ? { tool: target, doc } : null );
+		if ( enabled && target !== tool ) {
+			dispatch( {
+				type: 'SET_TOOL',
+				tool: target,
+				preserveSelectionMode: true,
+			} );
+		}
+	};
+	useEffect( () => {
+		setSelectionEditSession( ( session ) =>
+			session &&
+			( ! selection || session.tool !== tool || session.doc !== doc )
+				? null
+				: session
+		);
+	}, [ tool, doc, selection ] );
+	// Pen handles follow the current selection, without a modal edit session.
+	const penEditingId =
+		! draft &&
+		state.selectedIds.length === 1 &&
+		isPenLayer( activeLayer ) &&
+		! activeLayer.locked &&
+		[ 'pen', 'move', 'select' ].includes( state.tool ) &&
+		penEditMode !== 'move'
+			? activeLayer.id
+			: null;
+	const legacyPathEditId =
+		pathEditId &&
+		! isPenLayer( state.layers.find( ( l ) => l.id === pathEditId ) )
+			? pathEditId
+			: null;
+
+	const [ guides, setGuides ] = useState( null ); // smart guides of a drag
 	const [ editingTextId, setEditingTextId ] = useState( null );
 	const [ brushHud, setBrushHud ] = useState( null );
 	// Where the brush panel sits, remembered per browser exactly like the
@@ -575,9 +691,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 		setBrushPosRaw( at );
 		saveFloats( { ...loadFloats(), brush: at } );
 	}, [] );
-	// The shape panel opens where the brush panel opens. The two can never
-	// be up at once - one belongs to the paint tools, the other to the
-	// shape tool - so the same corner is the right corner for both.
+	// Tool panels share the left corner; pinned overlaps are staggered below.
 	const [ shapePos, setShapePosRaw ] = useState( () =>
 		clampFloat( loadFloats().shape || { x: 96, y: 120 } )
 	);
@@ -586,7 +700,157 @@ export function EditorCanvas( { viewApi, extras } ) {
 		setShapePosRaw( at );
 		saveFloats( { ...loadFloats(), shape: at } );
 	}, [] ); // v1.64 right-click size HUD
-	const [ rulerCursor, setRulerCursor ] = useState( null );
+	const [ penPos, setPenPosRaw ] = useState( () =>
+		clampFloat( loadFloats().pen || { x: 96, y: 120 } )
+	);
+	const setPenPos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setPenPosRaw( at );
+		saveFloats( { ...loadFloats(), pen: at } );
+	}, [] );
+	const [ selectionPos, setSelectionPosRaw ] = useState( () => {
+		// All toolbar panels start beside the left tool rail. Keep the
+		// wider selection panel's Deselect button inside the viewport.
+		const saved = loadFloats().selection;
+		const pos = clampFloat( saved || { x: 96, y: 120 } );
+		return {
+			...pos,
+			x: Math.max( 0, Math.min( pos.x, window.innerWidth - 432 ) ),
+		};
+	} );
+	const setSelectionPos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setSelectionPosRaw( at );
+		saveFloats( { ...loadFloats(), selection: at } );
+	}, [] );
+	const [ stampPos, setStampPosRaw ] = useState( () =>
+		clampFloat( loadFloats().stamp || { x: 96, y: 120 } )
+	);
+	const setStampPos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setStampPosRaw( at );
+		saveFloats( { ...loadFloats(), stamp: at } );
+	}, [] );
+	const [ fxBrushPos, setFxBrushPosRaw ] = useState( () =>
+		clampFloat( loadFloats().fxbrush || { x: 96, y: 120 } )
+	);
+	const setFxBrushPos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setFxBrushPosRaw( at );
+		saveFloats( { ...loadFloats(), fxbrush: at } );
+	}, [] );
+	const [ repeatPos, setRepeatPosRaw ] = useState( () =>
+		clampFloat( loadFloats().repeat || { x: 96, y: 120 } )
+	);
+	const setRepeatPos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setRepeatPosRaw( at );
+		saveFloats( { ...loadFloats(), repeat: at } );
+	}, [] );
+	const [ cropPos, setCropPosRaw ] = useState( () =>
+		clampFloat( loadFloats().crop || { x: 96, y: 120 } )
+	);
+	const setCropPos = useCallback( ( p ) => {
+		const at = clampFloat( p );
+		setCropPosRaw( at );
+		saveFloats( { ...loadFloats(), crop: at } );
+	}, [] );
+	const [ bucketPos, setBucketPos ] = useToolPanelPosition( 'bucket' );
+	const [ maskPos, setMaskPos ] = useToolPanelPosition( 'mask' );
+	const [ textPos, setTextPos ] = useToolPanelPosition( 'text' );
+	const [ themePos, setThemePos ] = useToolPanelPosition( 'themes' );
+	const [ themeSize, setThemeSize ] = useState( { width: 280, height: 600 } );
+	const [ themeCollapsed, setThemeCollapsed ] = useState( false );
+	const resizeTheme = useCallback( ( size ) => {
+		setThemeSize( ( previous ) =>
+			previous.width === size.width && previous.height === size.height
+				? previous
+				: size
+		);
+	}, [] );
+	const {
+		pins: panelPins,
+		unpin: unpinPanel,
+		brushTool,
+		panelProps,
+	} = useToolPanelPins(
+		tool,
+		{
+			themes: state.showThemePanel
+				? {
+						pos: themePos,
+						...themeSize,
+						height: themeCollapsed ? 40 : themeSize.height,
+						keepClear: ! themeCollapsed,
+				  }
+				: null,
+			brush: { pos: brushPos, width: 356 },
+			selection: { pos: selectionPos, width: 420 },
+			stamp: { pos: stampPos, width: 320 },
+			fxbrush: { pos: fxBrushPos, width: 320 },
+			shape: { pos: shapePos, width: 350 },
+			repeat: { pos: repeatPos, width: 340 },
+			pen: { pos: penPos, width: 350 },
+			crop: { pos: cropPos, width: 320 },
+			bucket: { pos: bucketPos, width: 330 },
+			mask: { pos: maskPos, width: 330 },
+			text: { pos: textPos, width: 300 },
+		},
+		easyMode
+	);
+	useEffect( () => {
+		if ( ! state.showColorPanel && panelPins.color ) {
+			unpinPanel( 'color' );
+		}
+	}, [ state.showColorPanel, panelPins.color, unpinPanel ] );
+	useEffect( () => {
+		if ( ! state.showThemePanel ) {
+			setThemeCollapsed( false );
+			if ( panelPins.themes ) {
+				unpinPanel( 'themes' );
+			}
+		}
+	}, [ state.showThemePanel, panelPins.themes, unpinPanel ] );
+	const textPanelVisible =
+		! easyMode &&
+		state.showTextPanel &&
+		( tool === 'text' ||
+			panelPins.text ||
+			( [ 'move', 'select' ].includes( tool ) &&
+				activeLayer?.type === 'text' ) );
+	const closeToolPanel = ( id, type ) => {
+		unpinPanel( id );
+		dispatch( { type, show: false } );
+	};
+	// Repeat tool on a plain active layer: it gets its Repeat layer at once
+	// (v1.431), so choosing the tool shows copies before any click.
+	useEffect( () => {
+		if ( 'repeat' !== tool ) {
+			return;
+		}
+		const st = editorRef.current.state;
+		const active = st.layers.find( ( l ) => l.id === st.activeId );
+		if (
+			active &&
+			isRepeatSource( active ) &&
+			( st.selectedIds || [] ).length <= 1 &&
+			! repeatLayerOf( st )
+		) {
+			Ops.ensureRepeatFor( editorRef.current, active );
+		}
+	}, [ tool ] );
+	useEffect( () => {
+		if ( draft?.kind === 'pen' && draft.finalizing ) {
+			const tc = buildToolCtx();
+			tc.opts = editorRef.current.state.toolOpts.pen;
+			finalizePen( tc, 'stroke' );
+		}
+		// The draft transition commits once; the tool context reads current refs.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ draft ] );
+	// The ruler marks follow the pointer without a render of this
+	// component (createPointerStore).
+	const [ rulerCursor ] = useState( createPointerStore );
 	const [ areaSize, setAreaSize ] = useState( { w: 0, h: 0 } );
 	const renderPending = useRef( false );
 	const paintSeq = useRef( 0 );
@@ -618,7 +882,9 @@ export function EditorCanvas( { viewApi, extras } ) {
 		}
 		const current = editorRef.current.state;
 		const currentDraft = draftRef.current;
-		let paintedLayers = current.layers;
+		const colorPreview = current.colorPreview;
+		const paintedDoc = colorPreview?.doc || current.doc;
+		let paintedLayers = colorPreview?.layers || current.layers;
 		if (
 			currentDraft &&
 			[ 'paint', 'shape' ].includes( currentDraft.kind )
@@ -626,39 +892,61 @@ export function EditorCanvas( { viewApi, extras } ) {
 			paintedLayers = [ ...paintedLayers, currentDraft.layer ];
 		}
 		if ( currentDraft && 'gradient' === currentDraft.kind ) {
-			paintedLayers = [
-				...paintedLayers,
-				{
-					id: '__gradient-draft',
-					type: 'gradient',
-					visible: true,
-					opacity: 0.9,
-					blend: 'normal',
-					x: 0,
-					y: 0,
-					w: current.doc.w,
-					h: current.doc.h,
-					rot: 0,
-					mask: null,
-					filter: 'none',
-					adjust: null,
-					styles: null,
-					parent: null,
-					kind: current.toolOpts.gradient.kind || 'linear',
-					from: currentDraft.from,
-					to: currentDraft.to,
-					stops: current.toolOpts.gradient.stops || [
-						{ color: current.fgColor, at: 0 },
-						{ color: 'rgba(0,0,0,0)', at: 1 },
-					],
-				},
-			];
+			const target =
+				currentDraft.targetId &&
+				current.layers.find( ( l ) => l.id === currentDraft.targetId );
+			const patch = { from: currentDraft.from, to: currentDraft.to };
+			if ( target ) {
+				paintedLayers = paintedLayers.map( ( l ) =>
+					l.id === target.id ? { ...l, ...patch } : l
+				);
+			} else if ( ! currentDraft.targetId ) {
+				paintedLayers = [
+					...paintedLayers,
+					{
+						id: '__gradient-draft',
+						type: 'gradient',
+						visible: true,
+						opacity: 1,
+						blend: 'normal',
+						x: 0,
+						y: 0,
+						w: current.doc.w,
+						h: current.doc.h,
+						rot: 0,
+						mask: null,
+						filter: 'none',
+						adjust: null,
+						styles: null,
+						parent: null,
+						...gradientPaint( current.toolOpts.gradient ),
+						...patch,
+					},
+				];
+			}
 		}
-		// Hide the text layer being edited (the DOM overlay shows it).
+		// Normally the DOM overlay shows the text being edited. Effect hovers
+		// temporarily render its current draft without committing the session.
 		if ( editingRef.current ) {
-			paintedLayers = paintedLayers.map( ( l ) =>
-				l.id === editingRef.current ? { ...l, visible: false } : l
-			);
+			const textDraft =
+				colorPreview?.scope === 'effects' &&
+				current.activeId === editingRef.current
+					? textDraftRef.current?.()
+					: null;
+			paintedLayers = paintedLayers.map( ( l ) => {
+				if ( l.id !== editingRef.current ) {
+					return l;
+				}
+				return textDraft
+					? {
+							...l,
+							...textDraft,
+							spans: l.textFit
+								? stripFitStyles( textDraft.spans )
+								: textDraft.spans,
+					  }
+					: { ...l, visible: false };
+			} );
 		}
 		// Dynamic templates E1: with an active post preview, bindings resolve
 		// at paint time only; the document and its history stay untouched.
@@ -722,7 +1010,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 			wetInPrefix = wIdx >= 0 && wIdx < activeIdx;
 		}
 		const sig =
-			! wetInPrefix && activeIdx > 0
+			! colorPreview && ! wetInPrefix && activeIdx > 0
 				? ( current.revealPasteboard ? 'pb|' : '' ) +
 				  topLevel
 						.slice( 0, activeIdx )
@@ -735,7 +1023,11 @@ export function EditorCanvas( { viewApi, extras } ) {
 				  ).join( ',' )
 				: null;
 		let base = null;
-		if ( sig && prefixCache.current?.sig === sig ) {
+		if (
+			sig &&
+			prefixCache.current?.sig === sig &&
+			prefixCache.current.doc === paintedDoc
+		) {
 			base = { canvas: prefixCache.current.canvas, fromIndex: activeIdx };
 		}
 		// The paint completes ASYNC after warm(); on a cold cache that can
@@ -748,13 +1040,24 @@ export function EditorCanvas( { viewApi, extras } ) {
 			if ( seq !== paintSeq.current ) {
 				return;
 			}
+			// While the zoom moves, a cached group may stand in scaled; the
+			// crisp paint follows once it has settled.
+			const gc = groupCache.current;
+			const scaleNow = current.zoom * dpr;
+			const now = window.performance.now();
+			if ( gc.scaleKey !== scaleNow ) {
+				gc.scaleKey = scaleNow;
+				gc.scaleAt = now;
+			}
+			gc.fast = now - ( gc.scaleAt || 0 ) < 200;
+			gc.scaledUsed = false;
 			if ( sig && ! base ) {
 				const cacheCanvas = document.createElement( 'canvas' );
 				cacheCanvas.width = canvas.width;
 				cacheCanvas.height = canvas.height;
 				renderSync(
 					cacheCanvas.getContext( '2d' ),
-					current.doc,
+					paintedDoc,
 					topLevel.slice( 0, activeIdx ),
 					{
 						scale: current.zoom * dpr,
@@ -763,19 +1066,48 @@ export function EditorCanvas( { viewApi, extras } ) {
 						revealPasteboard: current.revealPasteboard,
 						// Groups in the prefix must resolve their children.
 						allLayers: paintedLayers,
+						groupCache: gc,
+						// Plain rasters straight onto the composite.
+						direct: true,
 					}
 				);
-				prefixCache.current = { sig, canvas: cacheCanvas };
+				prefixCache.current = {
+					sig,
+					canvas: cacheCanvas,
+					doc: paintedDoc,
+				};
 				base = { canvas: cacheCanvas, fromIndex: activeIdx };
 			}
-			renderSync( ctx, current.doc, paintedLayers, {
+			renderSync( ctx, paintedDoc, paintedLayers, {
 				scale: current.zoom * dpr,
+				gradientQuality:
+					isGradientEditing() || currentDraft?.kind === 'gradient'
+						? 'draft'
+						: 'final',
 				viewport: view,
 				cache: sharedImageCache,
 				revealPasteboard: current.revealPasteboard,
 				base,
+				groupCache: gc,
+				// Plain rasters - the painted layer, the wet overlay -
+				// straight onto the composite, no scratch canvas a frame.
+				direct: true,
 			} );
 			paintMaskOverlay( ctx, current, view, dpr );
+			if ( gc.scaledUsed ) {
+				// A scaled stand-in went on screen: paint it sharp once the
+				// zoom rests. A cached prefix holding it must go too.
+				if ( base && base.canvas === prefixCache.current?.canvas ) {
+					prefixCache.current = null;
+				}
+				clearTimeout( gc.timer );
+				gc.timer = setTimeout( () => {
+					if ( ! renderPending.current ) {
+						renderPending.current = true;
+						window.requestAnimationFrame( paint );
+					}
+				}, 220 );
+			}
 		} );
 	}, [] );
 
@@ -791,12 +1123,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 		if ( ! mask || mask.enabled === false ) {
 			return;
 		}
-		const source =
-			mask.canvas ||
-			( 'string' === typeof mask.data
-				? sharedImageCache.get( mask.data )
-				: null );
-		if ( ! source ) {
+		if ( current.maskPreview === 'image' ) {
 			return;
 		}
 		const scale = current.zoom * dpr;
@@ -804,33 +1131,46 @@ export function EditorCanvas( { viewApi, extras } ) {
 		const docY = -view.y * scale;
 		const docW = current.doc.w * scale;
 		const docH = current.doc.h * scale;
+		const coverage = renderMaskCoverage(
+			layer,
+			{
+				doc: current.doc,
+				viewport: view,
+				scale,
+				cache: sharedImageCache,
+			},
+			{ x: 0, y: 0, w: ctx.canvas.width, h: ctx.canvas.height }
+		);
+		if ( ! coverage ) {
+			return;
+		}
 		let ruby = rubyRef.current;
 		if ( ! ruby ) {
 			ruby = document.createElement( 'canvas' );
 			rubyRef.current = ruby;
 		}
-		if (
-			ruby.width !== ctx.canvas.width ||
-			ruby.height !== ctx.canvas.height
-		) {
-			ruby.width = ctx.canvas.width;
-			ruby.height = ctx.canvas.height;
-		}
+		ruby.width = ctx.canvas.width;
+		ruby.height = ctx.canvas.height;
 		const rctx = ruby.getContext( '2d' );
-		rctx.setTransform( 1, 0, 0, 1, 0, 0 );
-		rctx.clearRect( 0, 0, ruby.width, ruby.height );
-		rctx.fillStyle = '#e5281e';
-		rctx.fillRect( docX, docY, docW, docH );
-		// The mask stores alpha = visibility: punch the visible part out of
-		// the red sheet (inverted masks keep it instead).
-		rctx.globalCompositeOperation = mask.inverted
-			? 'destination-in'
-			: 'destination-out';
-		rctx.drawImage( source, docX, docY, docW, docH );
-		rctx.globalCompositeOperation = 'source-over';
+		if ( current.maskPreview === 'mask' ) {
+			rctx.fillStyle = '#000';
+			rctx.fillRect( docX, docY, docW, docH );
+			rctx.save();
+			rctx.beginPath();
+			rctx.rect( docX, docY, docW, docH );
+			rctx.clip();
+			rctx.drawImage( coverage, 0, 0 );
+			rctx.restore();
+		} else {
+			rctx.fillStyle = '#e5281e';
+			rctx.fillRect( docX, docY, docW, docH );
+			rctx.globalCompositeOperation = 'destination-out';
+			rctx.drawImage( coverage, 0, 0 );
+		}
+
 		ctx.save();
 		ctx.setTransform( 1, 0, 0, 1, 0, 0 );
-		ctx.globalAlpha = 0.45;
+		ctx.globalAlpha = current.maskPreview === 'mask' ? 1 : 0.45;
 		ctx.drawImage( ruby, 0, 0 );
 		ctx.restore();
 	};
@@ -853,9 +1193,18 @@ export function EditorCanvas( { viewApi, extras } ) {
 			requestRender,
 		} );
 	}, [ requestRender ] );
+	// The island of a picked wet style gets built while nothing happens,
+	// not inside its first stroke (wetPrewarm).
+	const wetStyle = 'brush' === tool ? state.toolOpts.brush?.paintStyle : null;
+	useEffect( () => {
+		if ( wetStyle ) {
+			wetPrewarm( wetStyle, doc.paper );
+		}
+	}, [ wetStyle, doc.paper ] );
 	const draftRef = useRef( draft );
 	draftRef.current = draft;
 	const editingRef = useRef( editingTextId );
+	const textDraftRef = useRef( null );
 	editingRef.current = editingTextId;
 
 	useEffect( requestRender, [
@@ -866,6 +1215,8 @@ export function EditorCanvas( { viewApi, extras } ) {
 		draft,
 		editingTextId,
 		maskEditId,
+		state.maskPreview,
+		state.colorPreview,
 		requestRender,
 	] );
 
@@ -980,7 +1331,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 					finishPolygonLasso( buildToolCtx() );
 					return true;
 				}
-				if ( editorRef.current.state.crop ) {
+				if ( st.tool === 'crop' && st.crop ) {
 					return applyCrop( editorRef.current );
 				}
 				return false;
@@ -1050,6 +1401,10 @@ export function EditorCanvas( { viewApi, extras } ) {
 	const startGuideFromRuler = ( axis, e ) => {
 		e.preventDefault();
 		e.stopPropagation();
+		if ( e.button !== 0 ) {
+			return;
+		}
+		areaRef.current?.setPointerCapture?.( e.pointerId );
 		setDraft( { kind: 'guide', axis, index: -1, pos: null } );
 	};
 
@@ -1092,7 +1447,8 @@ export function EditorCanvas( { viewApi, extras } ) {
 		const rect = areaRef.current.getBoundingClientRect();
 		const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 		// Dropping back onto a ruler removes the guide.
-		const onRuler = 'v' === d.axis ? screen.x <= 16 : screen.y <= 16;
+		const onRuler =
+			'v' === d.axis ? screen.x <= RULER_SIZE : screen.y <= RULER_SIZE;
 		const guidesList = [ ...( current.doc.guides || [] ) ];
 		if ( -1 !== d.index && ( onRuler || null === d.pos ) ) {
 			guidesList.splice( d.index, 1 );
@@ -1102,6 +1458,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 
 	const buildToolCtx = () => ( {
 		editor: editorRef.current,
+		getState: () => editorRef.current.state,
 		extras,
 		doc: editorRef.current.state.doc,
 		layers: editorRef.current.state.layers,
@@ -1114,12 +1471,25 @@ export function EditorCanvas( { viewApi, extras } ) {
 		zoom: editorRef.current.state.zoom,
 		draft: draftRef.current,
 		setDraft,
+		// Document point of any pointer event (the pen tool reads a
+		// pen's coalesced events through it).
+		pointOf: ( ev ) => pointOf( ev ).p,
 		setGuides,
 		imageCache: sharedImageCache,
 		requestRender,
 		beginTextEdit: setEditingTextId,
 		beginImagePan: setImagePanId,
-		beginPathEdit: setPathEditId,
+		selectGradientPoint: setGradientStop,
+		beginPathEdit: ( id ) => {
+			setPenEditMode( 'points' );
+			setPathEditId( id );
+		},
+		beginPenEdit: () => {
+			dispatch( { type: 'SET_TOOL', tool: 'move' } );
+			setPenEditMode( 'points' );
+			setPathEditId( null );
+			setPenSelection( null );
+		},
 		viewApi: viewApi.current,
 	} );
 
@@ -1142,6 +1512,24 @@ export function EditorCanvas( { viewApi, extras } ) {
 		}
 		const tc = buildToolCtx();
 		const { p, screenP } = pointOf( e );
+		if (
+			editorRef.current.state.tool === 'pen' &&
+			! draftRef.current &&
+			! e.altKey
+		) {
+			const hit = topLayerAt( tc.layers, p.x, p.y, {
+				pixel: true,
+				cache: sharedImageCache,
+			} );
+			if ( isPenLayer( hit ) && ! hit.locked ) {
+				editorRef.current.dispatch( {
+					type: 'SET_ACTIVE',
+					id: hit.id,
+				} );
+				setPenEditMode( 'points' );
+				return;
+			}
+		}
 		// Grab an existing guide under the Move tool (v0.2).
 		if (
 			'move' === editorRef.current.state.tool &&
@@ -1180,29 +1568,16 @@ export function EditorCanvas( { viewApi, extras } ) {
 			setMeasure( ( cur ) => ( cur ? null : cur ) );
 			return;
 		}
-		const bbox = { x: active.x, y: active.y, w: active.w, h: active.h };
-		const rects = canvasEdgeRects( bbox, st.doc.w, st.doc.h );
 		// Pixel-accurate (v1.364.0): measure against the layer you SEE,
-		// not the box of a transparent overlay above it.
+		// not the box of a transparent overlay above it. From the selection
+		// frame since 1.431 - a group's own box is stale - and to what a
+		// click would pick, a card around the selection by its inner edges.
 		const hover = topLayerAt( st.layers, p.x, p.y, {
 			pixel: true,
 			cache: sharedImageCache,
 		} );
-		if ( hover && hover.id !== active.id ) {
-			const gaps = edgeDistances( bbox, {
-				x: hover.x,
-				y: hover.y,
-				w: hover.w,
-				h: hover.h,
-			} );
-			if ( gaps.xLine ) {
-				rects.push( { line: gaps.xLine, value: gaps.gapX } );
-			}
-			if ( gaps.yLine ) {
-				rects.push( { line: gaps.yLine, value: gaps.gapY } );
-			}
-		}
-		setMeasure( { rects } );
+		const rects = altMeasure( st, hover, e.metaKey || e.ctrlKey );
+		setMeasure( rects ? { rects } : null );
 	};
 
 	// Preview what a click would grab (v1.365.0): the pixel-accurate hit
@@ -1214,7 +1589,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 			! [ 'move', 'select' ].includes( st.tool ) ||
 			draftRef.current ||
 			editingTextId ||
-			pathEditId
+			legacyPathEditId
 		) {
 			setHoverId( ( cur ) => ( cur ? null : cur ) );
 			return;
@@ -1244,7 +1619,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 
 	const onMouseMove = ( e ) => {
 		const { p, screenP } = pointOf( e );
-		setRulerCursor( screenP );
+		rulerCursor.set( screenP );
 		updateMeasure( e, p );
 		updateHover( e, p );
 		const tc = buildToolCtx();
@@ -1254,6 +1629,10 @@ export function EditorCanvas( { viewApi, extras } ) {
 		}
 		if ( draftRef.current && 'cropHandle' === draftRef.current.kind ) {
 			moveCropHandle( tc, e, p );
+			return;
+		}
+		if ( draftRef.current && 'straightenLine' === draftRef.current.kind ) {
+			setDraft( { ...draftRef.current, b: p } );
 			return;
 		}
 		if ( draftRef.current && 'cropMove' === draftRef.current.kind ) {
@@ -1288,6 +1667,19 @@ export function EditorCanvas( { viewApi, extras } ) {
 			transformGesture.onUp( tc, e, p );
 			return;
 		}
+		if ( draftRef.current && 'straightenLine' === draftRef.current.kind ) {
+			const { a } = draftRef.current;
+			setDraft( null );
+			// A click or a tiny wobble is not a line (12 screen pixels).
+			if (
+				Math.hypot( p.x - a.x, p.y - a.y ) *
+					( editorRef.current.state.zoom || 1 ) >=
+				12
+			) {
+				straightenLine( editorRef.current, a, p );
+			}
+			return;
+		}
 		if (
 			draftRef.current &&
 			( 'cropHandle' === draftRef.current.kind ||
@@ -1317,22 +1709,13 @@ export function EditorCanvas( { viewApi, extras } ) {
 	// Crop-rect corner dragging.
 	const moveCropHandle = ( tc, e, p ) => {
 		const d = draftRef.current;
-		const crop = { ...tc.editor.state.crop };
-		if ( d.corner.includes( 'w' ) ) {
-			crop.w += crop.x - p.x;
-			crop.x = p.x;
-		}
-		if ( d.corner.includes( 'e' ) ) {
-			crop.w = p.x - crop.x;
-		}
-		if ( d.corner.includes( 'n' ) ) {
-			crop.h += crop.y - p.y;
-			crop.y = p.y;
-		}
-		if ( d.corner.includes( 's' ) ) {
-			crop.h = p.y - crop.y;
-		}
-		if ( crop.w > 1 && crop.h > 1 ) {
+		const crop = resizeCropCorner(
+			d.original || tc.editor.state.crop,
+			d.corner,
+			p,
+			cropRatioValue( tc.editor.state.toolOpts.crop.ratio, tc.doc )
+		);
+		if ( crop ) {
 			tc.editor.dispatch( { type: 'SET_CROP', crop } );
 		}
 	};
@@ -1379,7 +1762,10 @@ export function EditorCanvas( { viewApi, extras } ) {
 					TOOL_HANDLERS[ editorRef.current.state.tool ]?.onUp?.(
 						tc,
 						e,
-						{ x: 0, y: 0 }
+						{
+							x: 0,
+							y: 0,
+						}
 					);
 				}
 			}
@@ -1427,27 +1813,25 @@ export function EditorCanvas( { viewApi, extras } ) {
 			if ( assetJson ) {
 				try {
 					const asset = JSON.parse( assetJson );
-					if (
-						swapTarget &&
-						[ 'photo', 'upload' ].includes( asset.kind )
-					) {
+					if ( swapTarget && isImageAsset( asset ) ) {
 						replaceImageOnLayer(
 							editorRef.current,
 							extras,
 							swapTarget.id,
-							{ asset }
+							{
+								asset,
+							}
 						);
 						return;
 					}
-					if (
-						frameTarget &&
-						[ 'photo', 'upload' ].includes( asset.kind )
-					) {
+					if ( frameTarget && isImageAsset( asset ) ) {
 						placeImageIntoShape(
 							editorRef.current,
 							extras,
 							frameTarget.id,
-							{ asset }
+							{
+								asset,
+							}
 						);
 						return;
 					}
@@ -1458,32 +1842,52 @@ export function EditorCanvas( { viewApi, extras } ) {
 				return;
 			}
 			const files = Array.from( e.dataTransfer?.files || [] );
-			if (
-				swapTarget &&
-				1 === files.length &&
-				files[ 0 ].type.startsWith( 'image/' ) &&
-				'image/svg+xml' !== files[ 0 ].type
-			) {
-				replaceImageOnLayer( editorRef.current, extras, swapTarget.id, {
-					file: files[ 0 ],
-				} );
-				return;
-			}
-			if (
-				frameTarget &&
-				1 === files.length &&
-				files[ 0 ].type.startsWith( 'image/' ) &&
-				'image/svg+xml' !== files[ 0 ].type
-			) {
-				placeImageIntoShape(
-					editorRef.current,
-					extras,
-					frameTarget.id,
-					{ file: files[ 0 ] }
-				);
-				return;
-			}
-			importFiles( files, editorRef.current, extras, p );
+			// A HEIC photo dropped onto an image or into a shape is decoded
+			// first (lib/heic.js); importFiles does the same for the rest.
+			( async () => {
+				let first = files[ 0 ];
+				if (
+					( swapTarget || frameTarget ) &&
+					1 === files.length &&
+					( await isHeicFile( first ) )
+				) {
+					try {
+						first = await heicToJpegFile( first );
+					} catch ( err ) {
+						extras.toasts?.error( err.message );
+						return;
+					}
+				}
+				if (
+					swapTarget &&
+					1 === files.length &&
+					first.type.startsWith( 'image/' ) &&
+					'image/svg+xml' !== first.type
+				) {
+					replaceImageOnLayer(
+						editorRef.current,
+						extras,
+						swapTarget.id,
+						{ file: first }
+					);
+					return;
+				}
+				if (
+					frameTarget &&
+					1 === files.length &&
+					first.type.startsWith( 'image/' ) &&
+					'image/svg+xml' !== first.type
+				) {
+					placeImageIntoShape(
+						editorRef.current,
+						extras,
+						frameTarget.id,
+						{ file: first }
+					);
+					return;
+				}
+				importFiles( files, editorRef.current, extras, p );
+			} )();
 		};
 		// Live target hint while dragging a file over the canvas
 		// (v1.363.0): frame the layer the drop would replace or fill, so
@@ -1570,7 +1974,12 @@ export function EditorCanvas( { viewApi, extras } ) {
 	// Photoshop-style brush tip (v1.6): size-carrying tools show a circle
 	// of their actual on-canvas diameter instead of the OS cursor.
 	const BRUSH_TIP_TOOLS = [ 'brush', 'pencil', 'eraser', 'stamp', 'fxbrush' ];
-	const showBrushTip = BRUSH_TIP_TOOLS.includes( tool );
+	const showBrushTip =
+		BRUSH_TIP_TOOLS.includes( tool ) &&
+		! (
+			tool === 'stamp' &&
+			( altDown || state.toolOpts.stamp.pickingSource )
+		);
 	const brushDiameter = Math.max(
 		2,
 		( editor.state.toolOpts[ tool ]?.size || 0 ) * zoom
@@ -1651,7 +2060,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 				const { p } = pointOf( e );
 				// Rotation-aware (v1.130.0): the raw box test missed or
 				// mis-hit rotated layers; hitTestLayer un-rotates first.
-				const hits = st.layers
+				const hits = layersInPaintOrder( st.layers )
 					.filter(
 						( l ) =>
 							'group' !== l.type &&
@@ -1701,7 +2110,10 @@ export function EditorCanvas( { viewApi, extras } ) {
 			} }
 			onPointerMove={ onMouseMove }
 			onPointerUp={ onMouseUp }
-			onPointerLeave={ () => setHoverId( null ) }
+			onPointerLeave={ () => {
+				setHoverId( null );
+				rulerCursor.set( null );
+			} }
 			onDoubleClick={ onDblClick }
 		>
 			{ /* Stage backdrop: bg checkerboard + drop shadow behind the pixels. */ }
@@ -1770,6 +2182,9 @@ export function EditorCanvas( { viewApi, extras } ) {
 				/>
 			) }
 			<MarchingAnts
+				preview={ state.selectionPreview === 'mask' }
+				feather={ state.toolOpts[ tool ]?.feather || 0 }
+				doc={ doc }
 				selection={ selection }
 				draft={ draft }
 				zoom={ zoom }
@@ -1779,6 +2194,24 @@ export function EditorCanvas( { viewApi, extras } ) {
 					selection !== refineDismissed
 				}
 			/>
+			<DraftSizeBadge
+				draft={ draft }
+				zoom={ zoom }
+				pan={ pan }
+				areaRef={ areaRef }
+			/>
+			{ selectionEditing &&
+				[ 'marquee', 'lasso', 'wand', 'smartselect' ].includes(
+					tool
+				) &&
+				! draft && (
+					<SelectionTransformOverlay
+						editor={ editor }
+						zoom={ zoom }
+						pan={ pan }
+						areaRef={ areaRef }
+					/>
+				) }
 			<SmartPoints
 				selection={ selection }
 				tool={ tool }
@@ -1787,7 +2220,8 @@ export function EditorCanvas( { viewApi, extras } ) {
 			/>
 			{ [ 'move', 'select' ].includes( tool ) &&
 				! editingTextId &&
-				! pathEditId && (
+				! legacyPathEditId &&
+				! penEditingId && (
 					<SelectionBox
 						layers={ layers }
 						ids={ state.selectedIds }
@@ -1854,21 +2288,28 @@ export function EditorCanvas( { viewApi, extras } ) {
 							</span>
 						);
 					} ) }
-			{ /* Distance to each canvas edge while dragging a layer (v1.19). */ }
+			{ /* While dragging (v1.19, rebuilt 1.431): the gap to the nearest
+			     edge on every side - a neighbour, the card around the
+			     selection or the canvas - and equal gaps in the guide pink. */ }
 			{ draft &&
 				'move' === draft.kind &&
 				draft.moved &&
-				! editingTextId &&
-				( () => {
-					const box = selectionBox( layers, state.selectedIds );
-					return box ? (
+				guides &&
+				! editingTextId && (
+					<>
 						<DistanceLabels
-							rects={ canvasEdgeRects( box, doc.w, doc.h ) }
+							rects={ guides.distances }
 							zoom={ zoom }
 							pan={ pan }
 						/>
-					) : null;
-				} )() }
+						<DistanceLabels
+							rects={ guides.spacing }
+							zoom={ zoom }
+							pan={ pan }
+							tone="spacing"
+						/>
+					</>
+				) }
 			{ draft && 'rubber' === draft.kind && draft.rect.w > 1 && (
 				<div
 					style={ {
@@ -1901,22 +2342,47 @@ export function EditorCanvas( { viewApi, extras } ) {
 						} }
 					/>
 				) }
-			{ 'crop' === tool && (
+			{ ( 'crop' === tool ||
+				( state.crop && state.toolOpts.crop.preview ) ) && (
 				<>
 					<CropOverlay
 						crop={ state.crop }
+						interactive={ tool === 'crop' }
+						guides={
+							state.cropStraighten?.live ||
+							'straightenLine' === draft?.kind
+								? 'fine'
+								: state.toolOpts.crop.guides || 'thirds'
+						}
 						zoom={ zoom }
 						pan={ pan }
 						areaW={ areaSize.w }
 						areaH={ areaSize.h }
 						onHandleDown={ ( corner, e ) => {
 							areaRef.current?.setPointerCapture?.( e.pointerId );
-							setDraft( { kind: 'cropHandle', corner } );
+							setDraft( {
+								kind: 'cropHandle',
+								corner,
+								original: { ...editorRef.current.state.crop },
+							} );
 						} }
 						onRectDown={ ( e ) => {
 							const { p } = pointOf( e );
 							const c = editorRef.current.state.crop;
 							areaRef.current?.setPointerCapture?.( e.pointerId );
+							// Ctrl/Cmd + drag draws a straighten line instead
+							// of moving the crop (lib/straighten.js).
+							if (
+								( e.ctrlKey || e.metaKey ) &&
+								'crop' === editorRef.current.state.tool
+							) {
+								setDraft( {
+									kind: 'straightenLine',
+									a: p,
+									b: p,
+								} );
+								return;
+							}
 							setDraft( {
 								kind: 'cropMove',
 								dx: p.x - c.x,
@@ -1925,6 +2391,39 @@ export function EditorCanvas( { viewApi, extras } ) {
 						} }
 						onRectDblClick={ () => applyCrop( editorRef.current ) }
 					/>
+					{ 'straightenLine' === draft?.kind &&
+						( () => {
+							const ax = draft.a.x * zoom + pan.x,
+								ay = draft.a.y * zoom + pan.y,
+								bx = draft.b.x * zoom + pan.x,
+								by = draft.b.y * zoom + pan.y;
+							const dev = lineDeviation( draft.a, draft.b );
+							return (
+								<>
+									<svg
+										className="straighten-line"
+										width={ areaSize.w }
+										height={ areaSize.h }
+										aria-hidden="true"
+									>
+										<line
+											x1={ ax }
+											y1={ ay }
+											x2={ bx }
+											y2={ by }
+										/>
+									</svg>
+									{ Math.hypot( bx - ax, by - ay ) >= 12 && (
+										<span
+											className="straighten-angle"
+											style={ { left: bx, top: by } }
+										>
+											{ `${ ( -dev ).toFixed( 1 ) }°` }
+										</span>
+									) }
+								</>
+							);
+						} )() }
 					{ state.crop &&
 						String( state.toolOpts.crop.ratio ).startsWith(
 							'social:'
@@ -1971,14 +2470,11 @@ export function EditorCanvas( { viewApi, extras } ) {
 				</>
 			) }
 			<PenOverlay
+				opts={ state.toolOpts.pen }
+				color={ state.fgColor }
 				draft={ draft }
 				zoom={ zoom }
 				pan={ pan }
-				onFinalize={ ( mode ) =>
-					mode
-						? finalizePen( buildToolCtx(), mode )
-						: setDraft( null )
-				}
 			/>
 			{ state.showGuides && (
 				<GuidesOverlay
@@ -1989,20 +2485,28 @@ export function EditorCanvas( { viewApi, extras } ) {
 					areaH={ areaSize.h }
 				/>
 			) }
-			<SmartGuides
-				guides={ guides }
-				zoom={ zoom }
-				pan={ pan }
-				areaW={ areaSize.w }
-				areaH={ areaSize.h }
-			/>
+			{ draft && 'move' === draft.kind && draft.moved && guides && (
+				<SmartGuides
+					guides={ guides.lines }
+					zoom={ zoom }
+					pan={ pan }
+				/>
+			) }
 			{ state.showRulers && (
 				<Rulers
 					doc={ doc }
 					zoom={ zoom }
 					pan={ pan }
-					cursor={ rulerCursor }
+					cursorStore={ rulerCursor }
+					areaW={ areaSize.w }
+					areaH={ areaSize.h }
+					layers={ layers }
+					ids={ state.selectedIds }
 					onStartGuide={ startGuideFromRuler }
+					onUnitChange={ ( rulerUnit ) => {
+						dispatch( { type: 'SET_DOC', doc: { rulerUnit } } );
+						editor.commit( __( 'Ruler units', 'wunderpaint' ) );
+					} }
 				/>
 			) }
 			{ editingLayer && (
@@ -2011,6 +2515,11 @@ export function EditorCanvas( { viewApi, extras } ) {
 					zoom={ zoom }
 					pan={ pan }
 					richTextRef={ extras.richText }
+					getDraftRef={ textDraftRef }
+					previewingEffects={
+						state.colorPreview?.scope === 'effects' &&
+						state.activeId === editingTextId
+					}
 					onCommit={ ( { text, spans } ) => {
 						setEditingTextId( null );
 						// A fresh text layer left empty is useless, drop it (B4).
@@ -2085,15 +2594,43 @@ export function EditorCanvas( { viewApi, extras } ) {
 					} }
 				/>
 			) }
-			{ pathEditId && (
+			{ penEditingId ? (
+				<PenEditOverlay
+					editor={ editor }
+					layerId={ penEditingId }
+					zoom={ zoom }
+					pan={ pan }
+					mode={ penEditMode }
+					apiRef={ penEditApi }
+					onSelection={ setPenSelection }
+					onContinue={ ( next ) => {
+						setDraft( {
+							...next,
+							mode: state.toolOpts.pen?.mode || 'curve',
+						} );
+						dispatch( {
+							type: 'SET_TOOL_OPTS',
+							tool: 'pen',
+							patch: { style: activeLayer.penPath.style },
+						} );
+						dispatch( { type: 'SET_TOOL', tool: 'pen' } );
+					} }
+					onDone={ () => {
+						setPenEditMode( 'move' );
+						setPenSelection( null );
+						dispatch( { type: 'SET_TOOL', tool: 'move' } );
+					} }
+				/>
+			) : legacyPathEditId ? (
 				<PathEditOverlay
 					editor={ editor }
-					layerId={ pathEditId }
+					layerId={ legacyPathEditId }
 					zoom={ zoom }
 					pan={ pan }
 					onDone={ () => setPathEditId( null ) }
 				/>
-			) }
+			) : null }
+
 			{ 'stamp' === tool && state.toolOpts.stamp.source && (
 				<div
 					style={ {
@@ -2132,28 +2669,24 @@ export function EditorCanvas( { viewApi, extras } ) {
 						onClose={ () => setRefineDismissed( state.selection ) }
 					/>
 				) }
-			{ /* Plain selections get their next steps spelled out (v1.365.0). */ }
-			{ state.selection &&
-				( state.selection.source !== 'smart' ||
-					state.selection === refineDismissed ) &&
-				! draft &&
-				! editingTextId && (
-					<SelectionActionsBar editor={ editor } extras={ extras } />
+			{ fxPopover &&
+				! textPanelVisible &&
+				'text' === activeLayer?.type && (
+					<TextFxPopover
+						editor={ editor }
+						layer={ activeLayer }
+						fxId={ fxPopover }
+						onClose={ () => setFxPopover( null ) }
+					/>
 				) }
-			{ fxPopover && 'text' === activeLayer?.type && (
-				<TextFxPopover
-					editor={ editor }
-					layer={ activeLayer }
-					fxId={ fxPopover }
-					onClose={ () => setFxPopover( null ) }
-				/>
-			) }
-			{ [ 'move', 'select' ].includes( tool ) &&
+			{ ! easyMode &&
+				[ 'move', 'select' ].includes( tool ) &&
 				activeLayer &&
 				! draft &&
 				! editingTextId &&
 				! imagePanId &&
-				! pathEditId &&
+				! legacyPathEditId &&
+				! penEditingId &&
 				! state.crop && (
 					<ContextBar
 						editor={ editor }
@@ -2300,25 +2833,17 @@ export function EditorCanvas( { viewApi, extras } ) {
 					className="ctx-menu"
 					style={ {
 						position: 'fixed',
-						left: Math.min( canvasMenu.x, window.innerWidth - 240 ),
+						left: canvasMenu.x,
 						top: Math.max( 8, canvasMenu.y ),
 						zIndex: 650,
 					} }
-					// The menu's height depends on the layer under the
-					// cursor, so it is measured once mounted and lifted
-					// until its bottom edge is on screen.
-					ref={ ( el ) => {
-						if ( ! el ) {
-							return;
-						}
-						const r = el.getBoundingClientRect();
-						if ( r.bottom > window.innerHeight - 8 ) {
-							el.style.top = `${ Math.max(
-								8,
-								window.innerHeight - 8 - r.height
-							) }px`;
-						}
-					} }
+					// The menu's size depends on the layer under the cursor,
+					// so it is measured once mounted and kept on screen: to
+					// the left of the pointer at the right edge, lifted at
+					// the bottom (lib/menu-place.js; it used to guess 240 px).
+					ref={ ( el ) =>
+						el && fitMenu( el, canvasMenu.x, canvasMenu.y )
+					}
 					onPointerDown={ ( e ) => e.stopPropagation() }
 					onMouseDown={ ( e ) => e.stopPropagation() }
 				>
@@ -2866,18 +3391,6 @@ export function EditorCanvas( { viewApi, extras } ) {
 											Ops.rotateLayersOp( editor, -90 ),
 									},
 								] );
-								if ( hasPivot( target ) ) {
-									add(
-										'rotateCw',
-										__( 'Radial Repeat…', 'wunderpaint' ),
-										() => Ops.radialRepeatPrompt( editor )
-									);
-								}
-								add(
-									'grid',
-									__( 'Grid Repeat…', 'wunderpaint' ),
-									() => Ops.gridRepeatPrompt( editor )
-								);
 							} );
 							section(
 								__( 'Group & Mask', 'wunderpaint' ),
@@ -3011,7 +3524,7 @@ export function EditorCanvas( { viewApi, extras } ) {
 							if ( item.head ) {
 								return (
 									<div key={ i } className="ctx-head">
-										{ item.head }
+										<span>{ item.head }</span>
 									</div>
 								);
 							}
@@ -3067,40 +3580,185 @@ export function EditorCanvas( { viewApi, extras } ) {
 					pan={ pan }
 				/>
 			) }
-			{ state.showBrushPanel && PAINT_TOOLS.includes( tool ) && (
+			{ /* Easy Mode uses the right panel without changing full-editor preferences. */ }
+			{ ! easyMode &&
+				state.showSelectionPanel &&
+				tool !== 'crop' &&
+				( panelPins.selection ||
+					selection ||
+					state.lastSelection ||
+					SELECTION_TOOLS.includes( tool ) ) && (
+					<FloatPanel
+						title={ __( 'Selection', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 420 }
+						height="min(680px, calc(100vh - 140px))"
+						{ ...panelProps( 'selection' ) }
+						onMove={ setSelectionPos }
+						onClose={ () =>
+							closeToolPanel(
+								'selection',
+								'TOGGLE_SELECTION_PANEL'
+							)
+						}
+					>
+						<SelectionPanel
+							editor={ editor }
+							extras={ extras }
+							editing={ selectionEditing }
+							onEditingChange={ setSelectionEditing }
+							onCancelDraft={ () => setDraft( null ) }
+						/>
+					</FloatPanel>
+				) }
+			{ ! easyMode &&
+				state.showBucketPanel &&
+				( tool === 'bucket' || panelPins.bucket ) && (
+					<FloatPanel
+						title={ __( 'Paint Bucket', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 330 }
+						height="min(590px, calc(100vh - 140px))"
+						{ ...panelProps( 'bucket' ) }
+						onMove={ setBucketPos }
+						onClose={ () =>
+							closeToolPanel( 'bucket', 'TOGGLE_BUCKET_PANEL' )
+						}
+					>
+						<BucketPanel editor={ editor } />
+					</FloatPanel>
+				) }
+			{ ! easyMode &&
+				state.showMaskPanel &&
+				( maskEditId || ( panelPins.mask && activeLayer?.mask ) ) && (
+					<FloatPanel
+						title={ __( 'Mask', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 330 }
+						height="min(730px, calc(100vh - 140px))"
+						{ ...panelProps( 'mask' ) }
+						onMove={ setMaskPos }
+						onClose={ () => {
+							closeToolPanel( 'mask', 'TOGGLE_MASK_PANEL' );
+							dispatch( {
+								type: 'SET_MASK_PREVIEW',
+								value: 'image',
+							} );
+						} }
+					>
+						<MaskPanel editor={ editor } />
+					</FloatPanel>
+				) }
+			{ textPanelVisible && (
 				<FloatPanel
-					// One panel serves all three paint tools, so it says
-					// which one you are holding rather than always "Brush".
-					title={
-						'pencil' === tool
-							? __( 'Pencil', 'wunderpaint' )
-							: 'eraser' === tool
-							? __( 'Eraser', 'wunderpaint' )
-							: __( 'Brush', 'wunderpaint' )
-					}
+					title={ __( 'Text', 'wunderpaint' ) }
 					icon={ I.brand( { size: 15 } ) }
-					// Two columns for the tools that have tips, one for the
-					// rest. 300 rather than less because that is the
-					// floating panel's own min-width; going under it just
-					// gets ignored. The strip and this number move together,
-					// or the right side gets clipped - and the TOTAL stays
-					// compact: the panel has to stay usable on small
-					// monitors. It was 350 against a 134px strip; the strip
-					// went to 150 on 29.08. so four 30px tips fit in a row,
-					// and this followed it by the same six pixels.
-					width={
-						undefined === state.toolOpts[ tool ]?.tip ? 300 : 356
-					}
-					pos={ brushPos }
-					onMove={ setBrushPos }
-					onFront={ () => {} }
+					width={ 300 }
+					height="min(740px, calc(100vh - 140px))"
+					{ ...panelProps( 'text' ) }
+					onMove={ setTextPos }
 					onClose={ () =>
-						editor.dispatch( { type: 'TOGGLE_BRUSH_PANEL' } )
+						closeToolPanel( 'text', 'TOGGLE_TEXT_PANEL' )
 					}
 				>
-					<BrushPanel editor={ editor } />
+					<TextPanel
+						editor={ editor }
+						extras={ extras }
+						fxId={ fxPopover }
+						onCloseFx={ () => setFxPopover( null ) }
+					/>
 				</FloatPanel>
 			) }
+			{ ! easyMode &&
+				state.showCropPanel &&
+				( tool === 'crop' || panelPins.crop ) && (
+					<FloatPanel
+						title={ __( 'Crop', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 320 }
+						height="min(700px, calc(100vh - 140px))"
+						{ ...panelProps( 'crop' ) }
+						onMove={ setCropPos }
+						onClose={ () =>
+							closeToolPanel( 'crop', 'TOGGLE_CROP_PANEL' )
+						}
+					>
+						<CropPanel editor={ editor } />
+					</FloatPanel>
+				) }
+			{ ! easyMode &&
+				state.showStampPanel &&
+				( panelPins.stamp || tool === 'stamp' ) && (
+					<FloatPanel
+						title={ __( 'Clone Stamp', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 320 }
+						height="min(650px, calc(100vh - 140px))"
+						{ ...panelProps( 'stamp' ) }
+						onMove={ setStampPos }
+						onClose={ () =>
+							closeToolPanel( 'stamp', 'TOGGLE_STAMP_PANEL' )
+						}
+					>
+						<StampPanel editor={ editor } />
+					</FloatPanel>
+				) }
+			{ ! easyMode &&
+				state.showFxBrushPanel &&
+				( panelPins.fxbrush || tool === 'fxbrush' ) && (
+					<FloatPanel
+						title={ __( 'Effect Brush', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 320 }
+						height="min(530px, calc(100vh - 140px))"
+						{ ...panelProps( 'fxbrush' ) }
+						onMove={ setFxBrushPos }
+						onClose={ () =>
+							closeToolPanel( 'fxbrush', 'TOGGLE_FXBRUSH_PANEL' )
+						}
+					>
+						<FxBrushPanel editor={ editor } />
+					</FloatPanel>
+				) }
+			{ ! easyMode &&
+				state.showBrushPanel &&
+				( panelPins.brush ||
+					( PAINT_TOOLS.includes( tool ) &&
+						! ( maskEditId && state.showMaskPanel ) ) ) && (
+					<FloatPanel
+						// One panel serves all three paint tools, so it says
+						// which one you are holding rather than always "Brush".
+						title={
+							'pencil' === brushTool
+								? __( 'Pencil', 'wunderpaint' )
+								: 'eraser' === brushTool
+								? __( 'Eraser', 'wunderpaint' )
+								: __( 'Brush', 'wunderpaint' )
+						}
+						icon={ I.brand( { size: 15 } ) }
+						// Two columns for the tools that have tips, one for the
+						// rest. 300 rather than less because that is the
+						// floating panel's own min-width; going under it just
+						// gets ignored. The strip and this number move together,
+						// or the right side gets clipped - and the TOTAL stays
+						// compact: the panel has to stay usable on small
+						// monitors. It was 350 against a 134px strip; the strip
+						// went to 150 on 29.08. so four 30px tips fit in a row,
+						// and this followed it by the same six pixels.
+						width={
+							undefined === state.toolOpts[ brushTool ]?.tip
+								? 300
+								: 356
+						}
+						{ ...panelProps( 'brush' ) }
+						onMove={ setBrushPos }
+						onClose={ () =>
+							closeToolPanel( 'brush', 'TOGGLE_BRUSH_PANEL' )
+						}
+					>
+						<BrushPanel editor={ editor } tool={ brushTool } />
+					</FloatPanel>
+				) }
 			{ /* Up when the shape tool is held, and up when a shape layer
 			     is selected under move/select - which is EXACTLY when its
 			     handles and on-canvas grips are drawn (SelectionBox, a few
@@ -3108,9 +3766,12 @@ export function EditorCanvas( { viewApi, extras } ) {
 			     the panel re-reads them every render, so a grip drag moves
 			     its slider and the other way round. Not on the paint tools:
 			     there the brush panel owns this corner. */ }
-			{ state.showShapePanel &&
-				( 'shape' === tool ||
+			{ ! easyMode &&
+				state.showShapePanel &&
+				( panelPins.shape ||
+					'shape' === tool ||
 					( 'shape' === activeLayer?.type &&
+						! isPenLayer( activeLayer ) &&
 						[ 'move', 'select' ].includes( tool ) ) ) && (
 					<FloatPanel
 						// The head says WHICH shape you are turning: the layer
@@ -3130,34 +3791,193 @@ export function EditorCanvas( { viewApi, extras } ) {
 						// of them hopped on every single pick.
 						width={ 350 }
 						height={ 650 }
-						pos={ shapePos }
+						{ ...panelProps( 'shape' ) }
 						onMove={ setShapePos }
-						onFront={ () => {} }
 						action={ {
 							icon: I.popout( { size: 14 } ),
 							label: __( 'Larger view', 'wunderpaint' ),
 							onClick: () => extras?.openShapeStudioModal?.(),
 						} }
 						onClose={ () =>
-							editor.dispatch( { type: 'TOGGLE_SHAPE_PANEL' } )
+							closeToolPanel( 'shape', 'TOGGLE_SHAPE_PANEL' )
 						}
 					>
 						<ShapePanel editor={ editor } />
 					</FloatPanel>
 				) }
-			{ state.showNavigator && (
+			{ repeatLayer &&
+				repeatSource &&
+				! draft &&
+				( tool === 'repeat' ||
+					( state.activeId === repeatLayer.id &&
+						[ 'move', 'select' ].includes( tool ) ) ) && (
+					<RepeatOverlay
+						key={ repeatLayer.id }
+						editor={ editor }
+						layer={ repeatLayer }
+						source={ repeatSource }
+						zoom={ zoom }
+						pan={ pan }
+					/>
+				) }
+			{ ! easyMode &&
+				state.showRepeatPanel &&
+				( panelPins.repeat ||
+					tool === 'repeat' ||
+					( repeatLayer &&
+						state.activeId === repeatLayer.id &&
+						[ 'move', 'select' ].includes( tool ) ) ) && (
+					<FloatPanel
+						title={ __( 'Repeat', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 340 }
+						height="min(600px, calc(100vh - 140px))"
+						{ ...panelProps( 'repeat' ) }
+						onMove={ setRepeatPos }
+						onClose={ () =>
+							closeToolPanel( 'repeat', 'TOGGLE_REPEAT_PANEL' )
+						}
+					>
+						<RepeatPanel
+							key={ repeatLayer?.id || 'none' }
+							editor={ editor }
+						/>
+					</FloatPanel>
+				) }
+			{ gradientLayer &&
+				! draft &&
+				[ 'gradient', 'move', 'select' ].includes( tool ) && (
+					<GradientLayerOverlay
+						key={ gradientLayer.id }
+						editor={ editor }
+						layer={ gradientLayer }
+						zoom={ zoom }
+						pan={ pan }
+						selectedStop={ gradientStop }
+						onSelectStop={ setGradientStop }
+					/>
+				) }
+			{ ! easyMode &&
+				state.showPenPanel &&
+				( panelPins.pen ||
+					tool === 'pen' ||
+					( isPenLayer( activeLayer ) &&
+						[ 'move', 'select' ].includes( tool ) ) ) && (
+					<FloatPanel
+						title={ __( 'Pen', 'wunderpaint' ) }
+						icon={ I.brand( { size: 15 } ) }
+						width={ 350 }
+						height={ 620 }
+						{ ...panelProps( 'pen' ) }
+						onMove={ setPenPos }
+						onClose={ () =>
+							closeToolPanel( 'pen', 'TOGGLE_PEN_PANEL' )
+						}
+					>
+						<PenPanel
+							editor={ editor }
+							draft={
+								draft?.kind === 'pen' ||
+								draft?.kind === 'penFree'
+									? draft
+									: null
+							}
+							editMode={ penEditMode }
+							selection={ penSelection }
+							editApi={ penEditApi }
+							onEdit={ ( mode ) => {
+								if ( activeLayer && ! activeLayer.locked ) {
+									setPenEditMode( mode );
+									setPathEditId( null );
+									dispatch( {
+										type: 'SET_TOOL',
+										tool: 'move',
+									} );
+								}
+							} }
+							onNew={ () => {
+								setPenEditMode( 'points' );
+								setPathEditId( null );
+								setPenSelection( null );
+								setDraft( null );
+								dispatch( { type: 'SET_ACTIVE', id: null } );
+								dispatch( { type: 'SET_TOOL', tool: 'pen' } );
+							} }
+							onDraft={ ( action ) => {
+								if ( action === 'cancel' ) {
+									setDraft( null );
+								} else if ( action === 'finish' ) {
+									finalizePen(
+										{
+											...buildToolCtx(),
+											opts: state.toolOpts.pen,
+										},
+										'stroke'
+									);
+								} else if ( draft?.anchors ) {
+									setDraft( {
+										...draft,
+										anchors:
+											draft.continuation &&
+											draft.anchors.length <= 1
+												? draft.anchors
+												: draft.anchors.slice( 0, -1 ),
+										finalizing: false,
+									} );
+								}
+							} }
+						/>
+					</FloatPanel>
+				) }
+			{ ! easyMode && state.showThemePanel && (
+				<ThemePanel
+					editor={ editor }
+					extras={ extras }
+					{ ...panelProps( 'themes' ) }
+					width={ themeSize.width }
+					height={ themeSize.height }
+					onMove={ setThemePos }
+					onResize={ resizeTheme }
+					onCollapse={ setThemeCollapsed }
+					onClose={ () =>
+						closeToolPanel( 'themes', 'TOGGLE_THEME_PANEL' )
+					}
+				/>
+			) }
+			{
+				<ColorPanel
+					easyMode={ easyMode }
+					onNewGradient={ () => {
+						setDraft( null );
+						dispatch( { type: 'SET_ACTIVE', id: null } );
+						dispatch( { type: 'SET_TOOL', tool: 'gradient' } );
+						dispatch( { type: 'SET_GRADIENT_STOP', index: 0 } );
+					} }
+					editor={ editor }
+					extras={ extras }
+					pointOf={ pointOf }
+					{ ...panelProps( 'color' ) }
+					onClose={ () =>
+						closeToolPanel( 'color', 'TOGGLE_COLOR_PANEL' )
+					}
+				/>
+			}
+			{ ! easyMode && state.showNavigator && (
 				<Navigator
 					editor={ editor }
 					areaSize={ areaSize }
 					viewApi={ extras.viewApi }
 				/>
 			) }
-			<TipBox
-				tool={ tool }
-				opts={ state.toolOpts[ tool ] || {} }
-				fg={ state.fgColor }
-				selection={ selection }
-			/>
+			{ tool !== 'pen' && ! penEditingId && (
+				<TipBox
+					gradientKind={ gradientLayer?.kind }
+					tool={ tool }
+					opts={ state.toolOpts[ tool ] || {} }
+					fg={ state.fgColor }
+					selection={ selection }
+				/>
+			) }
 			{ showBrushTip && (
 				<div
 					ref={ brushTipRef }
@@ -3167,7 +3987,15 @@ export function EditorCanvas( { viewApi, extras } ) {
 						height: brushDiameter,
 						visibility: 'hidden',
 					} }
-				/>
+				>
+					{ tool === 'stamp' && (
+						<StampPreview
+							areaRef={ areaRef }
+							editorRef={ editorRef }
+							altDown={ altDown }
+						/>
+					) }
+				</div>
 			) }
 		</div>
 	);

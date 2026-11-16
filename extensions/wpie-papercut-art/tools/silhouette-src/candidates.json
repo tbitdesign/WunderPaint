@@ -936,5 +936,895 @@
 			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
 			"attribution": "Caleb M. Gordon"
 		}
+	],
+	"elephant": [
+		{
+			"uuid": "51c89c19-6ef1-4d8e-8de6-2a4b6e8f66c8",
+			"title": "Loxodonta africana",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "910d853a-1a15-4953-a1d3-b81208994d35",
+			"title": "Loxodonta africana",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Chuanixn Yu"
+		},
+		{
+			"uuid": "2a070808-0874-409d-81c0-d0c1995e54bb",
+			"title": "Loxodonta africana",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "62398ac0-f0c3-48f8-8455-53512a05fbc4",
+			"title": "Loxodonta africana africana",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "91e44407-08f2-4b96-b8a6-ab4ce6d4d38d",
+			"title": "Elephas maximus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Kai Caspar"
+		},
+		{
+			"uuid": "db278f3b-d8c1-47e9-afce-0478980f5875",
+			"title": "Elephas maximus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "73eca225-efca-4943-9724-25aa292ca4c3",
+			"title": "Elephas maximus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "6e47a104-e62a-4901-81f7-fca2ecacdb0e",
+			"title": "Elephas maximus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		}
+	],
+	"giraffe": [
+		{
+			"uuid": "bbce74cf-4df3-4b7d-8b1d-f5b24dd3264a",
+			"title": "Giraffa",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "a0b3548c-3757-48e5-8b3f-5c42d212a4a8",
+			"title": "Giraffa",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		}
+	],
+	"lion": [
+		{
+			"uuid": "76a5e7ce-53fa-46ae-af9e-fabd8b863dcf",
+			"title": "Panthera leo",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "cb70ae6c-345f-4aaf-a262-1e5eeac67400",
+			"title": "Panthera leo",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "9f33e613-944c-483d-8275-cc59a1b470c2",
+			"title": "Panthera pardus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "a8be3867-83d4-4614-9fed-9bcd2546dd5b",
+			"title": "Panthera pardus japonensis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Kai Caspar"
+		},
+		{
+			"uuid": "9e2e1fe6-694c-43db-bd98-a9b945724815",
+			"title": "Panthera leo",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "b2ea5bb0-2208-4b2d-8734-0432be9b9ce8",
+			"title": "Panthera leo",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "dd7c7bc6-2c6d-48e4-860b-02bf37886b5b",
+			"title": "Panthera leo",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "78dbe564-bcba-4dc3-8bdc-fb95fc288580",
+			"title": "Panthera pardus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		}
+	],
+	"zebra": [
+		{
+			"uuid": "22f808e2-da14-4bfe-9672-0e5422d27212",
+			"title": "Equus quagga chapmani",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "f7d817d0-d733-493d-bd4a-3f178e0760a8",
+			"title": "Equus quagga chapmani",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "2adcd232-33de-4f81-9c2a-a0ff6054102d",
+			"title": "Equus quagga burchellii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "e1beb953-7ca6-47d1-913a-68bba423f9a1",
+			"title": "Equus zebra zebra",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Rae Smith"
+		},
+		{
+			"uuid": "fc76cee5-c346-4041-bea4-75fd103250fa",
+			"title": "Equus zebra hartmannae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Christophe Mallet"
+		},
+		{
+			"uuid": "6f55522e-264a-430a-9d52-f14c31055f3c",
+			"title": "Equus grevyi",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Kai Caspar"
+		},
+		{
+			"uuid": "81caf94e-5cbe-4e5e-8101-545abea2bfc0",
+			"title": "Equus quagga",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "a31e7527-3203-4233-b0da-c415cc7d1664",
+			"title": "Equus quagga quagga",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Zimices"
+		}
+	],
+	"rhino": [
+		{
+			"uuid": "55b24c01-3552-4c09-a485-087e4d2c4889",
+			"title": "Ceratotherium simum",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Christophe Mallet"
+		},
+		{
+			"uuid": "7f867be1-815c-4fe4-a341-be7c22970890",
+			"title": "Ceratotherium simum simum",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Kai Caspar"
+		},
+		{
+			"uuid": "74542562-bb0f-4323-b85d-6056c2729db8",
+			"title": "Ceratotherium simum",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "8896498f-faf5-47df-82eb-1d7db9cbbf6f",
+			"title": "Ceratotherium simum",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "fdfaac80-2382-4d80-888b-bca2ca3ca2e7",
+			"title": "Ceratotherium simum simum",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Oscar Sanisidro"
+		},
+		{
+			"uuid": "0f140008-ea45-48a8-b868-9235db6fbddb",
+			"title": "Diceros bicornis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Christophe Mallet"
+		},
+		{
+			"uuid": "6fdf83e3-7155-41d6-b6d1-3fba78bc1a6e",
+			"title": "Diceros bicornis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "90839fda-8f63-4609-abed-25a7fb73c39c",
+			"title": "Diceros bicornis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		}
+	],
+	"camel": [
+		{
+			"uuid": "93c5e5b0-6606-4e10-97e8-699156c57042",
+			"title": "Camelus dromedarius",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Katy Lawler"
+		},
+		{
+			"uuid": "d3aa9186-85bf-466d-8810-79c690b2f38d",
+			"title": "Camelus dromedarius",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "e52676dd-272c-4b14-8c99-ea5dc98942e5",
+			"title": "Camelus dromedarius",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "b41ebd3e-e4a0-43f3-b9f1-74e8943c4149",
+			"title": "Camelus bactrianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "799065e8-f7a7-4581-8af5-7fe70165fa8a",
+			"title": "Camelus bactrianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "nicubunu"
+		}
+	],
+	"penguin": [
+		{
+			"uuid": "f2e02022-2700-484d-a66d-b2a900030371",
+			"title": "Aptenodytes forsteri",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "4c20cc68-1acd-4c5a-adfe-86a61609748b",
+			"title": "Aptenodytes patagonicus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Alexandre Vong"
+		},
+		{
+			"uuid": "21c50828-58d8-42df-9219-2c1b0fb57c99",
+			"title": "Aptenodytes patagonicus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "1ff908e9-98c3-40ec-91f1-1baffb90de58",
+			"title": "Spheniscus demersus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "0fd4eee8-0b5d-494f-9dac-fcef225983a4",
+			"title": "Spheniscus demersus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "8bcb272d-05d9-4fa2-82ed-8c00f87d9924",
+			"title": "Pygoscelis adeliae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		}
+	],
+	"polarbear": [
+		{
+			"uuid": "35fbff4d-c0e6-4c53-9f27-f0a6ecbe7720",
+			"title": "Ursus maritimus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "a12876cb-0930-4310-8ea8-2378df8164e3",
+			"title": "Ursus maritimus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "c11b4873-aa21-4394-9f5e-6996033c379f",
+			"title": "Ursus maritimus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Tracy A. Heath"
+		}
+	],
+	"seal": [
+		{
+			"uuid": "1925a9aa-bf33-4270-824c-b8f781f8ec82",
+			"title": "Phoca vitulina",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "2cb70775-9086-496a-8d86-5191ddd4791b",
+			"title": "Halichoerus grypus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "44ee07ec-f829-49f9-b242-f4b92bb9cf73",
+			"title": "Halichoerus grypus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "665024bb-fc3a-4a1a-8682-5d8cc2ff4416",
+			"title": "Australophoca changorum",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "5a79b072-fee4-46c4-bf13-a74c9c54e857",
+			"title": "Piscophoca pacifica",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "10d73995-c697-405e-8ffd-fc9900d3a3cb",
+			"title": "Phocidae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		}
+	],
+	"cow": [
+		{
+			"uuid": "8a2d5863-cd6c-4158-a164-d62e789c2210",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "ac286b37-bd95-4f39-8d81-756ec348beb9",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Katy Lawler"
+		},
+		{
+			"uuid": "cba95817-8806-49c2-932c-fb69a644c53d",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Katy Lawler"
+		},
+		{
+			"uuid": "9ce6352d-597c-409c-bc31-7cc60b8e1134",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "aae1d17f-149f-41fd-b14b-72f1c95e3f28",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Mariana Ruiz Villarreal"
+		},
+		{
+			"uuid": "938008ab-0501-4c4d-88c5-fee17189ead3",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Tracy A. Heath"
+		},
+		{
+			"uuid": "415714b4-859c-4d1c-9ce0-9e1081613df7",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "dab069c2-7664-4569-97be-11b38fe77cc2",
+			"title": "Bos primigenius taurus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andreas Preuss / marauder"
+		}
+	],
+	"sheep": [
+		{
+			"uuid": "d9c0cddb-6f19-4570-94f4-60316d3f3051",
+			"title": "Ovis aries",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "fbe25684-0b48-4569-947b-2702822cf5b0",
+			"title": "Ovis aries",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "cd7c624f-d93d-45fb-86a3-052885af2471",
+			"title": "Ovis aries",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Laura Barbero-Palacios"
+		},
+		{
+			"uuid": "14012740-e356-464b-b84d-fa6c4a0b34a9",
+			"title": "Ovis aries",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Katy Lawler"
+		}
+	],
+	"rooster": [
+		{
+			"uuid": "f16a316c-6580-4cc0-b6b5-fd2e895ba225",
+			"title": "Gallus gallus domesticus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Arcadia Science"
+		},
+		{
+			"uuid": "2de1c95c-7e1f-429b-9c08-17f0a27d176f",
+			"title": "Gallus gallus domesticus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "aff847b0-ecbd-4d41-98ce-665921a6d96e",
+			"title": "Gallus gallus domesticus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		}
+	],
+	"flamingo": [
+		{
+			"uuid": "a1244226-f2c2-41dc-b113-f1c6545958ce",
+			"title": "Phoenicopterus roseus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Ferran Sayol"
+		},
+		{
+			"uuid": "0fd55b33-e756-4b66-bb60-a917ddeb56a8",
+			"title": "Phoenicopterus ruber",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Kai Caspar"
+		},
+		{
+			"uuid": "28473411-c079-4654-bbb7-34a5615bb414",
+			"title": "Phoenicopterus ruber",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "13c0e1b9-e3b2-461d-ba61-1ff8b9daee39",
+			"title": "Phoenicopterus chilensis",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		}
+	],
+	"swan": [
+		{
+			"uuid": "0f9d6b91-1a7c-4743-a6d8-64391c25a95c",
+			"title": "Cygnus columbianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "197883f7-80d0-4d27-b1a0-c3c5d7d8dfa3",
+			"title": "Cygnus olor",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Caleb M. Gordon"
+		},
+		{
+			"uuid": "5fa31c76-161d-4f37-91d4-57c389dee1ae",
+			"title": "Cygnus olor",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "5949e04c-5ffd-4851-940c-629700a98c56",
+			"title": "Cygnus olor",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "b0420177-022d-4386-8bac-ba23fbdad6c6",
+			"title": "Cygnus columbianus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "95f4447f-2ef4-4061-ad9f-3de17e71afeb",
+			"title": "Cygnus olor",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "05cd7d8c-6b2c-4b97-b7b8-053559019eeb",
+			"title": "Cygnus olor",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "An Ignorant Atheist"
+		},
+		{
+			"uuid": "c47d5b30-4459-4b49-9cf1-692bd83e46bf",
+			"title": "Cygnus buccinator",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Xavier Giroux-Bougard"
+		}
+	],
+	"hedgehog": [
+		{
+			"uuid": "049203c6-9bcd-4345-a47f-19eb2cce2792",
+			"title": "Erinaceus europaeus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "6ecff71e-fcfc-4cb9-b773-9e6e21607587",
+			"title": "Erinaceus europaeus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "2af612b1-f081-4cd5-b6f2-8cae1ca2936c",
+			"title": "Erinaceus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Adriana K."
+		}
+	],
+	"frog": [
+		{
+			"uuid": "e73c5c1c-7727-4687-bf0b-3957343edfc3",
+			"title": "Rana temporaria",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Beth Reinke"
+		},
+		{
+			"uuid": "77f50b2e-9679-4ded-9faf-ff77d490c40a",
+			"title": "Rana catesbeiana",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Chuanixn Yu"
+		},
+		{
+			"uuid": "104e8d55-3704-4c15-bade-2dfe3731f073",
+			"title": "Rana sierrae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Beth Reinke"
+		},
+		{
+			"uuid": "4042ad12-98d4-4761-becc-9684dc071f43",
+			"title": "Rana aurora",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Michael Scroggie, from original photograph by John Bettaso, USFWS (original photograph in public domain)."
+		}
+	],
+	"turtle": [
+		{
+			"uuid": "6cebfd77-1ad5-449f-8440-c6f9f18f41d8",
+			"title": "Chelonia mydas",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "b76ae98d-894d-4490-a587-edf66650bc25",
+			"title": "Chelonia mydas",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "09e1c81c-459f-4b44-b475-546380fa1998",
+			"title": "Chelonia mydas",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Edwin Price"
+		},
+		{
+			"uuid": "95a56d8c-896f-44ed-bf00-5f07d64ca6f8",
+			"title": "Chelonia mydas",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "James R. Spotila and Ray Chatterji"
+		},
+		{
+			"uuid": "d3c269f4-05cf-4c22-9a71-8d6912fe50ec",
+			"title": "Caretta caretta",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Caleb M. Gordon"
+		},
+		{
+			"uuid": "3eb3d3d1-4db5-458a-ab03-c1092fbff140",
+			"title": "Caretta caretta",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Andy Wilson"
+		},
+		{
+			"uuid": "72d7055f-8f18-4efb-a597-1ea554dbbf49",
+			"title": "Caretta caretta",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "b3e35f7c-af3b-44dc-9680-82bd2d6392fb",
+			"title": "Caretta caretta",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "James R. Spotila and Ray Chatterji"
+		}
+	],
+	"octopus": [
+		{
+			"uuid": "f400b519-3564-4183-b4bd-c3b922cc7c5e",
+			"title": "Octopus vulgaris",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "f060bcc7-5725-46f7-8276-14553af3707f",
+			"title": "Octopus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "fe5e4006-1639-44f8-8faf-34840a1f1072",
+			"title": "Octopus rubescens",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "85a4f59d-7a2e-4399-98e2-38d0edc75996",
+			"title": "Octopus bimaculatus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "d115b40d-efe3-487e-bed1-4f6aace5c814",
+			"title": "Octopus bimaculatus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": ""
+		}
+	],
+	"jellyfish": [
+		{
+			"uuid": "f0494167-77f6-46eb-841d-c4cefb683bbd",
+			"title": "Aurelia aurita",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "47b45e45-c107-44a5-8a47-dc3bcf9f751f",
+			"title": "Chrysaora fuscescens",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Caleb M. Gordon"
+		},
+		{
+			"uuid": "23ae0ed5-fc9d-42a5-bb85-95456e092c16",
+			"title": "Chrysaora plocamia",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Edwin Price"
+		},
+		{
+			"uuid": "dc3464f9-04ba-4757-8de1-195e05772753",
+			"title": "Chrysaora",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Levi Simons and Kurtis Wothe"
+		},
+		{
+			"uuid": "6f25228d-34f6-4a84-b52d-ce03d3fcd152",
+			"title": "Chrysaora quinquecirrha",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "8cdceee1-5d41-4bd3-9464-0d4b453f1d00",
+			"title": "Chrysaora",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "4e532190-2618-4bbb-b1e1-ae417b6e3751",
+			"title": "Chrysaora hysoscella",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		}
+	],
+	"seahorse": [
+		{
+			"uuid": "6cf73e55-4e10-47ad-9b7e-33645536863f",
+			"title": "Hippocampus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "1ce0d9a9-c644-4cc6-b4b3-02e2e7aa2266",
+			"title": "Hippocampus",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "Kelly"
+		}
+	],
+	"shark": [
+		{
+			"uuid": "00f208a3-887d-4ae8-838c-2124f53b9fc1",
+			"title": "Carcharodon carcharias",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "36d54b94-35a6-4a66-a41e-b8f28534e70c",
+			"title": "Carcharodon carcharias",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "545d45f0-0dd1-4cfd-aad6-2b835223ea0d",
+			"title": "Carcharodon carcharias",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Steven Traver"
+		},
+		{
+			"uuid": "2e07c00d-1b73-4b6f-b3b5-63ade2c7909c",
+			"title": "Galeocerdo cuvier",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Amy Beauvois"
+		},
+		{
+			"uuid": "f9d9e345-5d79-4df0-b259-e7ab88e48854",
+			"title": "Galeocerdo cuvier",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "fc816f8b-005d-4414-b962-1b99ed5129fe",
+			"title": "Rhincodon typus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "07a435aa-0db6-4054-8854-2db3010c8162",
+			"title": "Rhincodon typus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Christoph Schomburg"
+		}
+	],
+	"trex": [
+		{
+			"uuid": "ccb9b896-20b5-4e0b-8979-001742a884c5",
+			"title": "Tyrannosaurus rex",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Richard Rich"
+		},
+		{
+			"uuid": "6a38b924-85c4-46b6-a04a-0e53f2f4d77f",
+			"title": "Tyrannosaurus rex",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Manuel Brea Lueiro"
+		},
+		{
+			"uuid": "0c393043-8916-49b7-95df-5216285e7d17",
+			"title": "Tyrannosaurus rex",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "artrociraptor"
+		}
+	],
+	"longneck": [
+		{
+			"uuid": "2003b4f6-7b8d-4c98-9797-1aca028dc2ac",
+			"title": "Brachiosaurus altithorax",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Amy Beauvois"
+		},
+		{
+			"uuid": "2431b273-7b21-482e-b971-70377686335d",
+			"title": "Brachiosaurus altithorax",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Michael P. Taylor"
+		},
+		{
+			"uuid": "1e6b0240-6249-4149-8499-5f1c08079bcc",
+			"title": "Giraffatitan brancai",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Amy Beauvois"
+		},
+		{
+			"uuid": "72f60e5d-9337-4252-a536-8c37f1739541",
+			"title": "Diplodocus carnegii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		},
+		{
+			"uuid": "aae9fef6-0845-4842-8537-1dc418f27c94",
+			"title": "Diplodocus carnegii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		},
+		{
+			"uuid": "e3c44862-20f0-407c-9776-bcbbadf87229",
+			"title": "Diplodocus carnegii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		},
+		{
+			"uuid": "ae6de50f-1533-498a-9581-033d9b970707",
+			"title": "Diplodocus carnegii",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		},
+		{
+			"uuid": "5f5acec8-704e-49c4-bcd5-d827283a4998",
+			"title": "Apatosaurus ajax",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "845f10ca-0c90-4f65-b277-c7ae6faae1f7",
+			"title": "Apatosaurus louisae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		},
+		{
+			"uuid": "daadaf00-bc7e-46e5-b443-d3db19a565dd",
+			"title": "Apatosaurus louisae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		},
+		{
+			"uuid": "5d8e8e61-a876-4398-8bf3-81e683f7128a",
+			"title": "Apatosaurus louisae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		},
+		{
+			"uuid": "0a53dee8-ea6a-44f9-95b1-d142846110cd",
+			"title": "Apatosaurus louisae",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Jagged Fang Designs"
+		}
+	],
+	"stegosaurus": [
+		{
+			"uuid": "429d71d8-2940-449b-838b-a5b7f1733eba",
+			"title": "Stegosaurus stenops",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "caba4158-01c7-4dfe-a02c-b136852a4b68",
+			"title": "Stegosaurus stenops",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "artrociraptor"
+		}
+	],
+	"bat": [
+		{
+			"uuid": "fb007db0-cc86-4215-afdd-18f954244e2f",
+			"title": "Pipistrellus pipistrellus",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "a9e7b688-7921-4038-92df-62c8699f8489",
+			"title": "Myotis myotis",
+			"license": "https://creativecommons.org/publicdomain/mark/1.0/",
+			"attribution": "August Specht"
+		},
+		{
+			"uuid": "bfe2f90b-136c-4199-9552-9f85287df468",
+			"title": "Chiroptera",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Lucas Damásio"
+		},
+		{
+			"uuid": "78213f34-703a-4730-87c9-fdc933a3e00b",
+			"title": "Asellia tridens",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": ""
+		},
+		{
+			"uuid": "bcc27c65-924f-4149-bd39-585a1f8b5fb4",
+			"title": "Macroderma gigas",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		},
+		{
+			"uuid": "0d386ce5-28e2-407c-b985-c1aac350bd1a",
+			"title": "Rhinolophus hipposideros",
+			"license": "https://creativecommons.org/publicdomain/zero/1.0/",
+			"attribution": "Margot Michaud"
+		}
 	]
 }

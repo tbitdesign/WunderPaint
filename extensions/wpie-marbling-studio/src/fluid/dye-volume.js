@@ -86,20 +86,40 @@ export class DyeVolume extends THREE.Mesh {
 		this.texture = texture;
 		this.field = new Float32Array( size ** 3 );
 		this.palette = new Float32Array( size ** 3 * 3 );
+		this.touched = new Uint32Array( size ** 3 );
+		this.touchedCount = 0;
 		this.count = 36;
 		this.renderOrder = 2;
 	}
 	reset() {
-		this.field.fill( 0 );
-		this.palette.fill( 0 );
+		const pixels = this.texture.image.data;
+		for ( let k = 0; k < this.touchedCount; k++ ) {
+			const i = this.touched[ k ];
+			this.field[ i ] = 0;
+			this.palette[ i * 3 ] =
+				this.palette[ i * 3 + 1 ] =
+				this.palette[ i * 3 + 2 ] =
+					0;
+			pixels[ i * 4 ] =
+				pixels[ i * 4 + 1 ] =
+				pixels[ i * 4 + 2 ] =
+				pixels[ i * 4 + 3 ] =
+					0;
+		}
+		this.touchedCount = 0;
 	}
 	update() {
 		const pixels = this.texture.image.data,
 			half = THREE.DataUtils.toHalfFloat;
-		for ( let i = 0; i < this.field.length; i++ ) {
-			pixels[ i * 4 ] = half( this.palette[ i * 3 ] );
-			pixels[ i * 4 + 1 ] = half( this.palette[ i * 3 + 1 ] );
-			pixels[ i * 4 + 2 ] = half( this.palette[ i * 3 + 2 ] );
+		for ( let k = 0; k < this.touchedCount; k++ ) {
+			const i = this.touched[ k ];
+			const amount = this.field[ i ];
+			for ( let channel = 0; channel < 3; channel++ ) {
+				this.palette[ i * 3 + channel ] /= amount;
+				pixels[ i * 4 + channel ] = half(
+					this.palette[ i * 3 + channel ]
+				);
+			}
 			pixels[ i * 4 + 3 ] = half( Math.min( 8, this.field[ i ] ) );
 		}
 		this.texture.needsUpdate = true;

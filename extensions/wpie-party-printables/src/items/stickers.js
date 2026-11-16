@@ -33,7 +33,7 @@ function stickerShape( kind, d ) {
 export const ITEM = {
 	id: 'stickers',
 	label: 'Sticker sheet',
-	hint: 'A sheet of stickers: a photo in a shape, or the motif and a word on colour.',
+	hint: 'A sheet of stickers: a photo in a shape, or the motif and a word on color.',
 	group: 'gifts',
 	uses: { text: true, names: false, photo: 'optional', event: [] },
 	sizes: [

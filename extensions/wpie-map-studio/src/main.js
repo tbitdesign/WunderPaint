@@ -28,6 +28,7 @@ import {
 	makeUnprojector,
 	paletteFor,
 	formatCoords,
+	letterAspect,
 } from './map-engine.js';
 
 const GEN_ID = 'wpie-map-studio/map';
@@ -72,7 +73,34 @@ const DEFAULTS = {
 	font: '',
 	useBrand: false,
 	brandKitId: '',
+	// v2.1: the poster type, its own settings and the map details.
+	type: 'classic',
+	letters: { text: '', font: 'Bebas Neue', outline: true },
+	places: [],
+	activePlace: 0,
+	north: false,
+	scaleBar: false,
+	ticks: false,
+	numbered: false,
+	rings: false,
+	rose: true,
 };
+
+/*
+ * Poster types (v2.1). `kind` is what the engine draws; lettering and
+ * several places are compositions of the classic map.
+ */
+const TYPE_KIND = {
+	classic: 'classic',
+	lettering: 'classic',
+	places: 'classic',
+	figure: 'figure',
+	water: 'water',
+	compass: 'compass',
+	antique: 'antique',
+	directions: 'directions',
+};
+const MAX_PLACES = 4;
 
 // Opening onto an empty search field made every first impression depend
 // on a live Overpass round trip. Instead the studio opens on the last
@@ -105,7 +133,7 @@ const SCRIPT_BASE = ( () => {
 } )();
 
 import { t } from './i18n.js';
-
+import { studioUndo } from '../../shared/studio-undo.js';
 
 /* ------------------------------ DOM helpers ------------------------------ */
 
@@ -123,21 +151,33 @@ function el( tag, cls, parent ) {
 const svgIc = ( d ) =>
 	`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ d }</svg>`;
 const SEC_ICONS = {
-	location: svgIc( '<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' ),
-	theme: svgIc( '<path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2c0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2a2 2 0 0 1 2-2h1.5A3.5 3.5 0 0 0 21 8c0-2.8-4-5-9-5z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/>' ),
+	location: svgIc(
+		'<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>'
+	),
+	theme: svgIc(
+		'<path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2c0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2a2 2 0 0 1 2-2h1.5A3.5 3.5 0 0 0 21 8c0-2.8-4-5-9-5z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/>'
+	),
 	colors: svgIc( '<path d="M12 3v18M5 8l7-5 7 5v8l-7 5-7-5z"/>' ),
 	brand: svgIc( '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>' ),
-	map: svgIc( '<path d="M9 4l6 2 6-2v14l-6 2-6-2-6 2V6z"/><path d="M9 4v14M15 6v14"/>' ),
+	map: svgIc(
+		'<path d="M9 4l6 2 6-2v14l-6 2-6-2-6 2V6z"/><path d="M9 4v14M15 6v14"/>'
+	),
 	pins: svgIc( '<path d="M12 21s-6-5-6-10a6 6 0 0 1 12 0c0 5-6 10-6 10z"/>' ),
 	text: svgIc( '<path d="M4 7V5h16v2M9 19h6M12 5v14"/>' ),
-	font: svgIc( '<path d="M4 20l5-14 5 14M6 15h6M15 20l4-11 4 11M16.5 16h5"/>' ),
+	font: svgIc(
+		'<path d="M4 20l5-14 5 14M6 15h6M15 20l4-11 4 11M16.5 16h5"/>'
+	),
 	dot: svgIc( '<circle cx="12" cy="12" r="7"/>' ),
 };
 function section( parent, label, iconKey ) {
 	const card = el( 'div', 'dsm-card wpiemap-card', parent );
 	if ( label ) {
 		const head = el( 'div', 'dsm-card-head wpiemap-card-head', card );
-		head.innerHTML = ( SEC_ICONS[ iconKey ] || SEC_ICONS.dot ) + '<span>' + label + '</span>';
+		head.innerHTML =
+			( SEC_ICONS[ iconKey ] || SEC_ICONS.dot ) +
+			'<span>' +
+			label +
+			'</span>';
 	}
 	return el( 'div', 'dsm-card-body wpiemap-card-body', card );
 }
@@ -188,9 +228,7 @@ async function openStudio( { editor, extras, layer } ) {
 	if ( ! geo ) {
 		if ( extras && extras.toasts ) {
 			extras.toasts.error(
-				t(
-					'Map Posters needs WunderPaint 1.144 or newer (geo proxy).'
-				)
+				t( 'Map Posters needs WunderPaint 1.144 or newer (geo proxy).' )
 			);
 		}
 		return;
@@ -209,6 +247,14 @@ async function openStudio( { editor, extras, layer } ) {
 	params.overrides = { ...( params.overrides || {} ) };
 	params.textColors = { ...( params.textColors || {} ) };
 	params.pins = ( params.pins || [] ).map( ( p ) => ( { ...p } ) );
+	params.letters = { ...DEFAULTS.letters, ...( params.letters || {} ) };
+	params.places = ( params.places || [] ).map( ( p ) => ( {
+		...p,
+		place: p.place ? { ...p.place } : null,
+	} ) );
+	if ( ! TYPE_KIND[ params.type ] ) {
+		params.type = 'classic';
+	}
 
 	let seededDefault = false;
 	if ( ! editing && null === params.lat ) {
@@ -244,7 +290,7 @@ async function openStudio( { editor, extras, layer } ) {
 	const ICON_CLOSE =
 		'<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>';
 
-		// Mount inside the editor root: the modal then follows the editor's
+	// Mount inside the editor root: the modal then follows the editor's
 	// modal design (dsm family), theme variables and custom scrollbars.
 	const host = document.getElementById( 'wpie-root' ) || document.body;
 	const backdrop = el( 'div', 'modal-backdrop', host );
@@ -267,6 +313,8 @@ async function openStudio( { editor, extras, layer } ) {
 	closeBtn.setAttribute( 'aria-label', t( 'Close' ) );
 	closeBtn.innerHTML = ICON_CLOSE;
 	const body = el( 'div', 'wpiemap-body', dialog );
+	// v2.1: the poster types live in a left column, as in every studio.
+	const left = el( 'div', 'wpiemap-left', body );
 	const view = el( 'div', 'wpiemap-view', body );
 	const canvas = el( 'canvas', null, view );
 	const empty = el( 'div', 'wpiemap-empty', view );
@@ -276,6 +324,82 @@ async function openStudio( { editor, extras, layer } ) {
 	const loading = el( 'div', 'wpiemap-loading', view );
 	loading.appendChild( document.createTextNode( t( 'Loading map data' ) ) );
 	const side = el( 'div', 'wpiemap-side', body );
+
+	/* ---------------------------- poster types --------------------------- */
+
+	const typeIc = ( d ) =>
+		`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ d }</svg>`;
+	const TYPES = [
+		[
+			'classic',
+			t( 'Street map' ),
+			t( 'The classic poster: streets, water and parks' ),
+			'<path d="M9 4l6 2 6-2v14l-6 2-6-2-6 2V6z"/><path d="M9 4v14M15 6v14"/>',
+		],
+		[
+			'lettering',
+			t( 'Lettering' ),
+			t( 'The map inside big letters: a name, a word, a date' ),
+			'<path d="M4 7V5h16v2M9 19h6M12 5v14"/>',
+		],
+		[
+			'places',
+			t( 'Several places' ),
+			t( 'Several places side by side, each with its name and date' ),
+			'<circle cx="7" cy="8" r="3.5"/><circle cx="17" cy="8" r="3.5"/><circle cx="12" cy="17" r="3.5"/>',
+		],
+		[
+			'figure',
+			t( 'Figure-ground' ),
+			t( 'Only the buildings in ink, the streets as white space' ),
+			'<path d="M4 20V9l5-3v14M9 20V4l6 3v13M15 20v-9l5 2v7M3 20h18"/>',
+		],
+		[
+			'water',
+			t( 'Water network' ),
+			t( 'Only rivers, lakes and the sea' ),
+			'<path d="M3 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
+		],
+		[
+			'compass',
+			t( 'Street compass' ),
+			t( 'Every street in the color of its direction' ),
+			'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+		],
+		[
+			'antique',
+			t( 'Old map' ),
+			t( 'Aged paper, engraved lines and a compass rose' ),
+			'<path d="M8 4h11a2 2 0 0 1 0 4H8M8 4a2 2 0 0 0-2 2v12a2 2 0 0 1-2 2h11a2 2 0 0 0 2-2V8M4 20a2 2 0 0 1-2-2v-1h4"/>',
+		],
+		[
+			'directions',
+			t( 'Directions sketch' ),
+			t( 'Main roads, a pin and distance rings' ),
+			'<path d="M12 3v18M12 5h7l2 2-2 2h-7M12 13H5l-2 2 2 2h7"/>',
+		],
+	];
+	const typeSec = section( left, t( 'Poster type' ), 'map' );
+	const typeList = bridge.ui.picklist( typeSec, 'wpiemap-types' );
+	const typeCards = new Map();
+	for ( const [ id, name, text, icon ] of TYPES ) {
+		const card = bridge.ui.pickrow( typeList, {
+			title: name,
+			text,
+			icon: typeIc( icon ),
+			on: id === params.type,
+			cls: 'wpiemap-type',
+			onClick: () => setType( id ),
+		} );
+		card.node.dataset.type = id;
+		typeCards.set( id, card.node );
+	}
+	const syncTypeCards = () =>
+		typeCards.forEach( ( node, id ) => {
+			const on = id === params.type;
+			node.classList.toggle( 'is-on', on );
+			node.setAttribute( 'aria-pressed', on ? 'true' : 'false' );
+		} );
 
 	/* ------------------------------- search ------------------------------ */
 
@@ -297,6 +421,76 @@ async function openStudio( { editor, extras, layer } ) {
 			( text ? ' on' : '' ) +
 			( isError ? ' err' : '' );
 	};
+
+	/* ------------------------- lettering (v2.1) -------------------------- */
+
+	const letterSec = section( side, t( 'Lettering' ), 'text' );
+	const letterRow = el( 'div', 'wpiemap-text-row', letterSec );
+	el( 'span', 'dsm-fieldlabel', letterRow ).textContent = t( 'Letters' );
+	const letterInput = el(
+		'input',
+		null,
+		el( 'div', 'wpiemap-var-wrap', letterRow )
+	);
+	letterInput.type = 'text';
+	letterInput.value = params.letters.text;
+	letterInput.placeholder = t( 'A name, a word, a date' );
+	letterInput.oninput = () => {
+		params.letters.text = letterInput.value;
+		paint();
+		scheduleFetch();
+	};
+	let letterFontRef = null;
+	if ( bridge.components && bridge.components.mountFontPicker ) {
+		letterFontRef = bridge.components.mountFontPicker(
+			el( 'div', 'wpiemap-letterfont', letterSec ),
+			{
+				value: params.letters.font || 'Bebas Neue',
+				onChange: ( fam ) => {
+					params.letters.font = fam;
+					const done = () => {
+						paint();
+						scheduleFetch();
+					};
+					if ( bridge.fonts && bridge.fonts.ensureFont ) {
+						bridge.fonts
+							.ensureFont( fam )
+							.then( done )
+							.catch( done );
+					} else {
+						done();
+					}
+				},
+			}
+		);
+	}
+	const outlineRow = el( 'label', 'dsm-checkrow wpiemap-check', letterSec );
+	const outlineInput = el( 'input', null, outlineRow );
+	outlineInput.type = 'checkbox';
+	outlineInput.checked = false !== params.letters.outline;
+	el( 'span', null, outlineRow ).textContent = t( 'Outline the letters' );
+	outlineInput.onchange = () => {
+		params.letters.outline = outlineInput.checked;
+		paint();
+	};
+
+	/* ----------------------- several places (v2.1) ----------------------- */
+
+	const placesSec = section( side, t( 'Places' ), 'pins' );
+	el( 'div', 'dsm-note wpiemap-coords', placesSec ).textContent = t(
+		'Click a map on the poster or a row here to edit it - the search above sets its place.'
+	);
+	const placeList = el( 'div', 'wpiemap-places', placesSec );
+	const addPlaceBtn = el(
+		'button',
+		'ai-btn secondary wpiemap-btn wpiemap-addpin',
+		placesSec
+	);
+	addPlaceBtn.type = 'button';
+	addPlaceBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>${ t(
+		'Add place'
+	) }</span>`;
+	addPlaceBtn.onclick = () => addPlace();
 
 	/* ------------------------------- themes ------------------------------ */
 
@@ -333,7 +527,12 @@ async function openStudio( { editor, extras, layer } ) {
 	// growing a second, slightly different colour control. The swatch, the
 	// popover and the Auto reset must behave identically wherever they
 	// appear; two implementations drift.
-	const colorRow = ( key, label, into = params.overrides, where = colorSec ) => {
+	const colorRow = (
+		key,
+		label,
+		into = params.overrides,
+		where = colorSec
+	) => {
 		const row = el( 'div', 'wpiemap-row', where );
 		const span = el( 'span', 'dsm-rowline-label', row );
 		span.textContent = label;
@@ -376,7 +575,8 @@ async function openStudio( { editor, extras, layer } ) {
 
 	// v2.0 - foil / gradient roads (gold streets on black) + glow.
 	const gradRow = el( 'div', 'wpiemap-gradrow', colorSec );
-	el( 'span', 'dsm-fieldlabel wpiemap-gradlbl', gradRow ).textContent = t( 'Road foil' );
+	el( 'span', 'dsm-fieldlabel wpiemap-gradlbl', gradRow ).textContent =
+		t( 'Road foil' );
 	const gradWrap = el( 'div', 'wpiemap-grads', gradRow );
 	const gradBtns = new Map();
 	const gradTile = ( id, label, background ) => {
@@ -398,7 +598,11 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 	gradTile( '', t( 'Auto' ), '' );
 	for ( const g of GRADIENTS ) {
-		gradTile( g.id, g.label, `linear-gradient(90deg, ${ g.stops.join( ', ' ) })` );
+		gradTile(
+			g.id,
+			g.label,
+			`linear-gradient(90deg, ${ g.stops.join( ', ' ) })`
+		);
 	}
 	const flowRow = el( 'label', 'wpiemap-row', colorSec );
 	el( 'span', 'dsm-rowline-label', flowRow ).textContent = t( 'Color flow' );
@@ -438,17 +642,17 @@ async function openStudio( { editor, extras, layer } ) {
 		paint();
 	};
 
-	const brandKits = ( bridge.brand
-		? bridge.brand.kits()
-		: window.WPIE.brandKits || []
-	).filter(
-		( k ) => k && Array.isArray( k.colors ) && k.colors.length
-	);
+	const brandKits = (
+		bridge.brand ? bridge.brand.kits() : window.WPIE.brandKits || []
+	).filter( ( k ) => k && Array.isArray( k.colors ) && k.colors.length );
 	const brandColorsFor = () => {
 		if ( ! brandKits.length ) {
 			return ( window.WPIE.brand && window.WPIE.brand.colors ) || [];
 		}
-		const chosen = brandKits.find( ( k ) => String( k.id ) === String( params.brandKitId ) ) || brandKits[ 0 ];
+		const chosen =
+			brandKits.find(
+				( k ) => String( k.id ) === String( params.brandKitId )
+			) || brandKits[ 0 ];
 		return chosen.colors || [];
 	};
 	// Brand colors map onto every editable map color, in order of visual
@@ -466,7 +670,10 @@ async function openStudio( { editor, extras, layer } ) {
 			}
 		} );
 	};
-	if ( brandKits.length || ( ( window.WPIE.brand && window.WPIE.brand.colors ) || [] ).length ) {
+	if (
+		brandKits.length ||
+		( ( window.WPIE.brand && window.WPIE.brand.colors ) || [] ).length
+	) {
 		const brandLbl = el( 'label', 'dsm-checkrow wpiemap-check', colorSec );
 		const brandCb = el( 'input', null, brandLbl );
 		brandCb.type = 'checkbox';
@@ -518,18 +725,29 @@ async function openStudio( { editor, extras, layer } ) {
 	const fontSec = section( side, t( 'Typography' ), 'font' );
 	// Central font picker (bridge API 2.9); the plain select stays as
 	// the fallback on older editors (default family: Montserrat).
+	let fontPickerRef = null;
 	if ( bridge.components && bridge.components.mountFontPicker ) {
-		bridge.components.mountFontPicker( el( 'div', null, fontSec ), {
-			value: params.font || 'Montserrat',
-			onChange: ( fam ) => {
-				params.font = 'Montserrat' === fam ? '' : fam;
-				if ( params.font && bridge.fonts && bridge.fonts.ensureFont ) {
-					bridge.fonts.ensureFont( params.font ).then( paint ).catch( paint );
-				} else {
-					paint();
-				}
-			},
-		} );
+		fontPickerRef = bridge.components.mountFontPicker(
+			el( 'div', null, fontSec ),
+			{
+				value: params.font || 'Montserrat',
+				onChange: ( fam ) => {
+					params.font = 'Montserrat' === fam ? '' : fam;
+					if (
+						params.font &&
+						bridge.fonts &&
+						bridge.fonts.ensureFont
+					) {
+						bridge.fonts
+							.ensureFont( params.font )
+							.then( paint )
+							.catch( paint );
+					} else {
+						paint();
+					}
+				},
+			}
+		);
 	} else {
 		const fontSel = el( 'select', 'dsm-select', fontSec );
 		const fontFamilies = ( () => {
@@ -557,7 +775,10 @@ async function openStudio( { editor, extras, layer } ) {
 		fontSel.onchange = () => {
 			params.font = fontSel.value;
 			if ( params.font && bridge.fonts && bridge.fonts.ensureFont ) {
-				bridge.fonts.ensureFont( params.font ).then( paint ).catch( paint );
+				bridge.fonts
+					.ensureFont( params.font )
+					.then( paint )
+					.catch( paint );
 			} else {
 				paint();
 			}
@@ -575,6 +796,11 @@ async function openStudio( { editor, extras, layer } ) {
 	zoomInput.min = '0';
 	zoomInput.max = String( RADII.length - 1 );
 	const zoomOut = el( 'output', null, zoomRow );
+	window.WPIE.bridge.ui.numeric?.( zoomInput, {
+		toDisplay: ( value ) => RADII[ Math.round( value ) ] / 1000,
+		parse: ( value ) => nearestRadiusIndex( value * 1000 ),
+		unit: 'km',
+	} );
 	const syncZoom = () => {
 		zoomInput.value = String( nearestRadiusIndex( params.radius ) );
 		zoomOut.textContent = radiusLabel( params.radius );
@@ -588,7 +814,8 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 
 	const weightRow = el( 'label', 'wpiemap-row', optSec );
-	el( 'span', 'dsm-rowline-label', weightRow ).textContent = t( 'Line weight' );
+	el( 'span', 'dsm-rowline-label', weightRow ).textContent =
+		t( 'Line weight' );
 	const weightInput = el( 'input', null, weightRow );
 	weightInput.type = 'range';
 	weightInput.min = '50';
@@ -669,6 +896,26 @@ async function openStudio( { editor, extras, layer } ) {
 	checkRow( 'rail', t( 'Railways' ) );
 	checkRow( 'paths', t( 'Footpaths' ) );
 	checkRow( 'buildings', t( 'Buildings' ) );
+
+	// v2.1: cartographic details, for every poster type.
+	const flags = {};
+	const flagRow = ( key, label, parent ) => {
+		const row = el( 'label', 'dsm-checkrow wpiemap-check', parent );
+		const input = el( 'input', null, row );
+		input.type = 'checkbox';
+		input.checked = !! params[ key ];
+		el( 'span', null, row ).textContent = label;
+		input.onchange = () => {
+			params[ key ] = input.checked;
+			paint();
+		};
+		flags[ key ] = { row, input };
+	};
+	flagRow( 'north', t( 'North arrow' ), optSec );
+	flagRow( 'scaleBar', t( 'Scale bar' ), optSec );
+	flagRow( 'ticks', t( 'Coordinate ticks on the edge' ), optSec );
+	flagRow( 'rings', t( 'Distance rings' ), optSec );
+	flagRow( 'rose', t( 'Direction rose' ), optSec );
 	const syncBuildingsState = () => {
 		const ok = buildingsAvailable( params.radius );
 		checks.buildings.input.disabled = ! ok;
@@ -681,8 +928,14 @@ async function openStudio( { editor, extras, layer } ) {
 	/* -------------------------------- pins ------------------------------- */
 
 	const pinSec = section( side, t( 'Pins' ), 'pins' );
-	const pinBtn = el( 'button', 'ai-btn secondary wpiemap-btn wpiemap-addpin', pinSec );
-	pinBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>${ t( 'Add pin' ) }</span>`;
+	const pinBtn = el(
+		'button',
+		'ai-btn secondary wpiemap-btn wpiemap-addpin',
+		pinSec
+	);
+	pinBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>${ t(
+		'Add pin'
+	) }</span>`;
 	const pinNote = el( 'div', 'dsm-note wpiemap-coords', pinSec );
 	pinNote.textContent = t(
 		'Pins land in the middle of the map, drag them into place.'
@@ -701,7 +954,11 @@ async function openStudio( { editor, extras, layer } ) {
 				pin.label = label.value;
 				paint();
 			};
-			const remove = el( 'button', 'ai-btn secondary wpiemap-reset', row );
+			const remove = el(
+				'button',
+				'ai-btn secondary wpiemap-reset',
+				row
+			);
 			remove.textContent = '✕';
 			remove.title = t( 'Remove pin' );
 			remove.onclick = () => {
@@ -745,6 +1002,7 @@ async function openStudio( { editor, extras, layer } ) {
 		params.route = routeSelect.value;
 		paint();
 	};
+	flagRow( 'numbered', t( 'Numbered pins with a legend' ), pinSec );
 	const distRow = el( 'label', 'dsm-checkrow wpiemap-check', pinSec );
 	const distInput = el( 'input', null, distRow );
 	distInput.type = 'checkbox';
@@ -764,7 +1022,8 @@ async function openStudio( { editor, extras, layer } ) {
 	if ( ! editing ) {
 		const textSec = section( side, t( 'Text block' ), 'text' );
 		const layoutRow = el( 'label', 'wpiemap-row', textSec );
-		el( 'span', 'dsm-rowline-label', layoutRow ).textContent = t( 'Layout' );
+		el( 'span', 'dsm-rowline-label', layoutRow ).textContent =
+			t( 'Layout' );
 		layoutRow.style.gridTemplateColumns = '78px 1fr';
 		layoutSelect = el( 'select', 'dsm-select wpiemap-select', layoutRow );
 		for ( const [ value, label ] of [
@@ -786,7 +1045,8 @@ async function openStudio( { editor, extras, layer } ) {
 		// Placement of the on-map title/coords: a 3x3 alignment grid, shown
 		// only for the "On the map" layout. Value is <v><h> (t|m|b, l|c|r).
 		const anchorRow = el( 'div', 'wpiemap-anchorrow', textSec );
-		el( 'span', 'dsm-fieldlabel', anchorRow ).textContent = t( 'Alignment' );
+		el( 'span', 'dsm-fieldlabel', anchorRow ).textContent =
+			t( 'Alignment' );
 		const anchorGrid = el( 'div', 'wpiemap-anchors', anchorRow );
 		const anchorTiles = new Map();
 		const anchorIcon = ( h, v ) => {
@@ -800,7 +1060,11 @@ async function openStudio( { editor, extras, layer } ) {
 		for ( const v of [ 't', 'm', 'b' ] ) {
 			for ( const h of [ 'l', 'c', 'r' ] ) {
 				const value = v + h;
-				const tile = el( 'button', 'dsm-mini wpiemap-anchor', anchorGrid );
+				const tile = el(
+					'button',
+					'dsm-mini wpiemap-anchor',
+					anchorGrid
+				);
 				tile.setAttribute( 'aria-label', value );
 				tile.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">${ anchorIcon(
 					h,
@@ -907,7 +1171,8 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 
 		const sizeRow2 = el( 'label', 'wpiemap-row', textSec );
-		el( 'span', 'dsm-rowline-label', sizeRow2 ).textContent = t( 'Text size' );
+		el( 'span', 'dsm-rowline-label', sizeRow2 ).textContent =
+			t( 'Text size' );
 		const sizeInput2 = el( 'input', null, sizeRow2 );
 		sizeInput2.type = 'range';
 		sizeInput2.min = '60';
@@ -929,6 +1194,345 @@ async function openStudio( { editor, extras, layer } ) {
 		el( 'span', null, coordsRow ).textContent = t( 'Coordinates line' );
 	}
 
+	/* ------------------------- type switching (v2.1) ---------------------- */
+
+	/**
+	 * Each type starts from what suits it - once, when it is picked; every
+	 * setting stays the user's afterwards.
+	 */
+	function applyTypeDefaults( id ) {
+		if ( 'figure' === id ) {
+			params.show.buildings = true;
+			if ( params.radius > 2500 ) {
+				params.radius = 1300;
+			}
+		} else if ( 'antique' === id ) {
+			params.themeId = 'vintage';
+			params.overrides = {};
+			if ( ! params.font ) {
+				params.font = 'Playfair Display';
+			}
+		} else if ( 'directions' === id ) {
+			params.themeId = 'minimal';
+			params.overrides = {};
+			params.north = true;
+			params.scaleBar = true;
+			if ( ! params.pins.length && null !== params.lat ) {
+				params.pins.push( {
+					lat: params.lat,
+					lon: params.lon,
+					label: t( 'We are here' ),
+				} );
+			}
+		} else if ( 'compass' === id ) {
+			params.rose = true;
+		} else if ( 'lettering' === id && ! params.letters.text.trim() ) {
+			params.letters.text = (
+				( params.place && params.place.name ) ||
+				t( 'Map' )
+			).toUpperCase();
+		} else if ( 'places' === id && ! params.places.length ) {
+			params.places = [ placeFromParams() ];
+			params.activePlace = 0;
+			if ( titleInput && ! titleDirty ) {
+				titleInput.value = t( 'Our places' );
+				subtitleInput.value = '';
+			}
+		}
+	}
+
+	function setType( id ) {
+		if ( id === params.type || ! TYPE_KIND[ id ] ) {
+			return;
+		}
+		if ( 'places' === params.type ) {
+			storeActive();
+		}
+		params.type = id;
+		applyTypeDefaults( id );
+		syncControls();
+		paint();
+		scheduleFetch();
+		if ( 'places' === id ) {
+			loadOtherPlaces();
+		}
+		if ( 'figure' === id ) {
+			setStatus(
+				t( 'Buildings appear close up - zoom in for the full plan.' )
+			);
+		}
+	}
+
+	/** Every control back in line with params (after a type switch). */
+	function syncControls() {
+		syncTypeCards();
+		letterSec.parentElement.style.display =
+			'lettering' === params.type ? '' : 'none';
+		placesSec.parentElement.style.display =
+			'places' === params.type ? '' : 'none';
+		flags.rose.row.style.display = 'compass' === params.type ? '' : 'none';
+		shapeRow.style.display = 'lettering' === params.type ? 'none' : '';
+		for ( const key of Object.keys( flags ) ) {
+			flags[ key ].input.checked = !! params[ key ];
+		}
+		letterInput.value = params.letters.text;
+		outlineInput.checked = false !== params.letters.outline;
+		if ( letterFontRef && letterFontRef.set ) {
+			letterFontRef.set( params.letters.font || 'Bebas Neue' );
+		}
+		syncThemeSel();
+		applyBrand();
+		syncColorInputs();
+		syncZoom();
+		syncBuildingsState();
+		checks.buildings.input.checked = !! params.show.buildings;
+		if ( fontPickerRef && fontPickerRef.set ) {
+			fontPickerRef.set( params.font || 'Montserrat' );
+		}
+		if ( params.font && bridge.fonts && bridge.fonts.ensureFont ) {
+			bridge.fonts
+				.ensureFont( params.font )
+				.then( paint )
+				.catch( () => {} );
+		}
+		if (
+			'lettering' === params.type &&
+			bridge.fonts &&
+			bridge.fonts.ensureFont
+		) {
+			// The letters' proportions set the map's: measure again once
+			// the face is in, and fetch for the new width.
+			bridge.fonts
+				.ensureFont( params.letters.font || 'Bebas Neue' )
+				.then( () => {
+					paint();
+					scheduleFetch();
+				} )
+				.catch( () => {} );
+		}
+		renderPinList();
+		renderPlaceList();
+	}
+
+	/* ---------------------- several places: the slots --------------------- */
+
+	// The active place uses the studio's one fetch machinery (mapData,
+	// scene, fetched); the others keep their data in a slot each and swap
+	// in when they are clicked.
+	const slots = new Map();
+	const placeFromParams = () => ( {
+		lat: params.lat,
+		lon: params.lon,
+		radius: params.radius,
+		place: params.place ? { ...params.place } : null,
+		label: ( params.place && params.place.name ) || '',
+		date: '',
+	} );
+	const placesMode = () =>
+		'places' === params.type && params.places.length > 0;
+
+	/** Write the active place's view and data back into its record. */
+	function storeActive() {
+		if ( ! placesMode() ) {
+			return;
+		}
+		const p = params.places[ params.activePlace ];
+		if ( ! p ) {
+			return;
+		}
+		p.lat = params.lat;
+		p.lon = params.lon;
+		p.radius = params.radius;
+		p.place = params.place ? { ...params.place } : null;
+		if ( mapData ) {
+			slots.set( params.activePlace, { scene, fetched, mapData } );
+		}
+	}
+
+	function activatePlace( i ) {
+		if ( ! params.places[ i ] || i === params.activePlace ) {
+			return;
+		}
+		storeActive();
+		params.activePlace = i;
+		const p = params.places[ i ];
+		params.lat = p.lat;
+		params.lon = p.lon;
+		params.radius = p.radius;
+		params.place = p.place ? { ...p.place } : null;
+		const slot = slots.get( i );
+		scene = slot ? slot.scene : buildScene( null );
+		fetched = slot ? slot.fetched : null;
+		mapData = slot ? slot.mapData : null;
+		searchInput.value = ( p.place && p.place.name ) || '';
+		syncZoom();
+		renderPlaceList();
+		paint();
+		fetchData();
+	}
+
+	function addPlace() {
+		if ( params.places.length >= MAX_PLACES ) {
+			return;
+		}
+		storeActive();
+		const base = params.places[ params.activePlace ] || placeFromParams();
+		params.places.push( {
+			...base,
+			place: base.place ? { ...base.place } : null,
+			label: '',
+			date: '',
+		} );
+		const i = params.places.length - 1;
+		const slot = slots.get( params.activePlace );
+		if ( slot ) {
+			slots.set( i, slot );
+		}
+		activatePlace( i );
+		setStatus( t( 'Search for the next place.' ) );
+		searchInput.focus();
+	}
+
+	function removePlace( i ) {
+		if ( params.places.length < 2 ) {
+			return;
+		}
+		storeActive();
+		params.places.splice( i, 1 );
+		const moved = new Map();
+		slots.forEach( ( v, k ) => {
+			if ( k !== i ) {
+				moved.set( k > i ? k - 1 : k, v );
+			}
+		} );
+		slots.clear();
+		moved.forEach( ( v, k ) => slots.set( k, v ) );
+		const next = Math.min(
+			params.activePlace > i
+				? params.activePlace - 1
+				: params.activePlace,
+			params.places.length - 1
+		);
+		params.activePlace = -1;
+		activatePlace( next );
+	}
+
+	function renderPlaceList() {
+		placeList.textContent = '';
+		params.places.forEach( ( p, i ) => {
+			const row = el( 'div', 'wpiemap-place', placeList );
+			row.classList.toggle( 'is-on', i === params.activePlace );
+			row.onclick = ( e ) => {
+				if ( e.target === row ) {
+					activatePlace( i );
+				}
+			};
+			const name = el( 'input', null, row );
+			name.type = 'text';
+			name.value = p.label || '';
+			name.placeholder = ( p.place && p.place.name ) || t( 'Name' );
+			name.onfocus = () => activatePlace( i );
+			name.oninput = () => {
+				p.label = name.value;
+				paint();
+			};
+			const date = el( 'input', null, row );
+			date.type = 'text';
+			date.value = p.date || '';
+			date.placeholder = t( 'Date' );
+			date.onfocus = () => activatePlace( i );
+			date.oninput = () => {
+				p.date = date.value;
+				paint();
+			};
+			const remove = el(
+				'button',
+				'ai-btn secondary wpiemap-reset',
+				row
+			);
+			remove.type = 'button';
+			remove.textContent = '✕';
+			remove.title = t( 'Remove place' );
+			remove.disabled = params.places.length < 2;
+			remove.onclick = () => removePlace( i );
+		} );
+		addPlaceBtn.disabled = params.places.length >= MAX_PLACES;
+	}
+
+	/**
+	 * Load the places that are not active, one after the other (the map
+	 * service rate-limits). Same cache as the active fetch.
+	 */
+	let loadingOthers = false;
+	async function loadOtherPlaces() {
+		if ( loadingOthers || ! placesMode() ) {
+			return;
+		}
+		loadingOthers = true;
+		try {
+			for ( let i = 0; i < params.places.length; i++ ) {
+				if (
+					i === params.activePlace ||
+					( slots.get( i ) && slots.get( i ).mapData )
+				) {
+					continue;
+				}
+				const p = params.places[ i ];
+				if ( 'number' !== typeof p.lat ) {
+					continue;
+				}
+				const vp = viewportBBox( { lat: p.lat, lon: p.lon }, p.radius );
+				const detail = detailForRadius( p.radius );
+				const cap = SPAN_CAPS[ detail ] * 0.98;
+				const midCos = Math.max(
+					0.05,
+					Math.cos( ( p.lat * Math.PI ) / 180 )
+				);
+				const halfLat =
+					Math.min( ( vp.north - vp.south ) * 1.6, cap ) / 2;
+				const halfLon =
+					Math.min( ( vp.east - vp.west ) * 1.6, cap / midCos ) / 2;
+				const bbox = {
+					south: p.lat - halfLat,
+					north: p.lat + halfLat,
+					west: p.lon - halfLon,
+					east: p.lon + halfLon,
+				};
+				const key = [
+					bbox.south.toFixed( 4 ),
+					bbox.west.toFixed( 4 ),
+					bbox.north.toFixed( 4 ),
+					bbox.east.toFixed( 4 ),
+					detail,
+					0,
+				].join( '|' );
+				let data = cache.get( key );
+				if ( ! data ) {
+					try {
+						data = await geo.map( {
+							...bbox,
+							detail,
+							buildings: false,
+						} );
+						cache.set( key, data );
+					} catch ( e ) {
+						continue;
+					}
+				}
+				if ( i !== params.activePlace ) {
+					slots.set( i, {
+						scene: buildScene( data ),
+						fetched: { bbox, detail, buildings: false },
+						mapData: data,
+					} );
+					paint();
+				}
+			}
+		} finally {
+			loadingOthers = false;
+		}
+	}
+
 	/* ------------------------------- footer ------------------------------ */
 
 	const attrNote = el( 'div', 'dsm-note wpiemap-attr', side );
@@ -948,8 +1552,61 @@ async function openStudio( { editor, extras, layer } ) {
 
 	/* ----------------------------- data + paint -------------------------- */
 
+	// v2.1: the lettering sets the map's proportions (a wide word gets a
+	// wide map, so the letters fill the poster rather than a band of it).
+	const measureCtx = document.createElement( 'canvas' ).getContext( '2d' );
+	const mapAspect = () => {
+		if ( 'lettering' !== params.type || ! params.letters.text.trim() ) {
+			return 1;
+		}
+		try {
+			// The engine fits the letters into 94 % of the width and 90 % of
+			// the height; the map takes the same proportions.
+			const a =
+				letterAspect( measureCtx, params.letters ) * ( 0.9 / 0.94 );
+			return Math.max( 1, Math.min( 4, a ) );
+		} catch ( e ) {
+			return 1;
+		}
+	};
 	const currentBBox = () =>
-		viewportBBox( { lat: params.lat, lon: params.lon }, params.radius );
+		viewportBBox(
+			{ lat: params.lat, lon: params.lon },
+			params.radius,
+			mapAspect()
+		);
+
+	/** Everything the engine needs to draw this poster's map. */
+	const drawOpts = ( bbox, extra = {} ) => ( {
+		bbox,
+		theme: themeOf(),
+		overrides: params.overrides,
+		// Both save paths are explicit allowlists, so a new key that is
+		// not named here is silently dropped on save and gone on reopen.
+		textColors: params.textColors,
+		show: params.show,
+		lineScale: params.lineScale,
+		roadGradientId: params.roadGradientId || '',
+		roadMap: params.roadMap || 'class',
+		glow: ( params.glow || 0 ) / 100,
+		mask: params.mask,
+		pins: params.pins,
+		route: params.route,
+		showDistance: params.showDistance,
+		kind: TYPE_KIND[ params.type ] || 'classic',
+		letters: 'lettering' === params.type ? params.letters : null,
+		north: params.north,
+		scale: params.scaleBar,
+		ticks: params.ticks,
+		numbered: params.numbered,
+		rings: params.rings,
+		rose: params.rose,
+		...extra,
+	} );
+
+	/** A place's own square view (several places). */
+	const placeBBox = ( p ) =>
+		viewportBBox( { lat: p.lat, lon: p.lon }, p.radius );
 
 	/**
 	 * The final composition in DOCUMENT coordinates, shared verbatim by
@@ -964,22 +1621,111 @@ async function openStudio( { editor, extras, layer } ) {
 		const placeName = ( titleInput && titleInput.value.trim() ) || '';
 		const regionName =
 			( subtitleInput && subtitleInput.value.trim() ) || '';
-		const withText = 'none' !== layout && !! placeName;
-		const wantCoords = !! ( coordsCheck && coordsCheck.checked );
-		const mapSize = Math.round(
-			Math.min(
-				docW * 0.86,
-				docH * ( withText && 'classic' === layout ? 0.6 : 0.86 )
-			)
-		);
-		const mapX = Math.round( ( docW - mapSize ) / 2 );
-		const mapY =
-			withText && 'classic' === layout
-				? Math.round( docH * 0.07 )
-				: Math.round( ( docH - mapSize ) / 2 );
-
+		// v2.1: the lettering already spells the name - the title under
+		// it would say it twice, so it steps back when they match.
+		const lettered =
+			'lettering' === params.type &&
+			params.letters.text.trim().toLowerCase() ===
+				placeName.toLowerCase();
+		const withText =
+			'none' !== layout &&
+			( !! placeName || ( lettered && !! regionName ) );
+		// One coordinate line cannot speak for several places.
+		const wantCoords =
+			!! ( coordsCheck && coordsCheck.checked ) &&
+			'places' !== params.type;
 		const items = [];
 		const text = ( spec ) => items.push( { kind: 'text', ...spec } );
+		const titleInk = params.textColors.title || pal.text;
+		const subInk = params.textColors.subtitle || pal.text;
+		const classicText = withText && 'classic' === layout;
+		const room = docH * ( classicText ? 0.6 : 0.86 );
+
+		let mapW;
+		let mapH;
+		let tiles = null;
+		if ( placesMode() ) {
+			// Several places: the maps in a row (two by two for four), each
+			// with its name and date underneath.
+			const n = params.places.length;
+			const cols = 4 === n ? 2 : n;
+			const rows = 4 === n ? 2 : 1;
+			const gap = Math.round( docW * 0.035 );
+			const labelH = Math.round( docW * 0.07 );
+			const size = Math.floor(
+				Math.min(
+					( docW * 0.86 - gap * ( cols - 1 ) ) / cols,
+					( room - labelH * rows - gap * ( rows - 1 ) ) / rows
+				)
+			);
+			mapW = cols * size + ( cols - 1 ) * gap;
+			mapH = rows * ( size + labelH ) + ( rows - 1 ) * gap;
+			tiles = params.places.map( ( p, i ) => ( {
+				i,
+				x: ( i % cols ) * ( size + gap ),
+				y: Math.floor( i / cols ) * ( size + labelH + gap ),
+				size,
+				labelH,
+			} ) );
+		} else {
+			const aspect = mapAspect();
+			mapW = Math.round( Math.min( docW * 0.86, room * aspect ) );
+			mapH = Math.round( mapW / aspect );
+		}
+		const mapX = Math.round( ( docW - mapW ) / 2 );
+		const mapY = classicText
+			? Math.round( docH * 0.07 )
+			: Math.round( ( docH - mapH ) / 2 );
+		const mapSize = Math.min( mapW, mapH );
+		if ( tiles ) {
+			for ( const tile of tiles ) {
+				const p = params.places[ tile.i ];
+				const name = (
+					p.label ||
+					( p.place && p.place.name ) ||
+					''
+				).trim();
+				const fs = Math.round( tile.size * 0.085 * ts );
+				const ty =
+					mapY +
+					tile.y +
+					tile.size +
+					Math.round( tile.labelH * 0.16 );
+				if ( name ) {
+					text( {
+						name: t( 'Place name' ),
+						text: name.toUpperCase(),
+						x: mapX + tile.x,
+						y: ty,
+						w: tile.size,
+						h: Math.round( fs * 1.3 ),
+						fontSize: fs,
+						fontFamily: params.font || 'Montserrat',
+						weight: 700,
+						color: titleInk,
+						align: 'center',
+						letterSpacing: Math.round( fs * 0.1 ),
+					} );
+				}
+				if ( p.date ) {
+					const ds = Math.round( fs * 0.62 );
+					text( {
+						name: t( 'Date' ),
+						text: p.date,
+						x: mapX + tile.x,
+						y: ty + Math.round( fs * 1.35 ),
+						w: tile.size,
+						h: Math.round( ds * 1.4 ),
+						fontSize: ds,
+						fontFamily: 'Inter',
+						weight: 400,
+						color: subInk,
+						align: 'center',
+						letterSpacing: Math.round( ds * 0.2 ),
+					} );
+				}
+			}
+		}
 
 		// Two inks, not four. The divider is the rule under the headline and
 		// belongs to the title lockup; the coordinates share the subtitle's
@@ -987,15 +1733,16 @@ async function openStudio( { editor, extras, layer } ) {
 		// on the theme colour while its neighbour is gold does not read as a
 		// choice, it reads as something that was forgotten. The attribution
 		// stays on the theme deliberately: it is a legal line, not styling.
-		const titleInk = params.textColors.title || pal.text;
-		const subInk = params.textColors.subtitle || pal.text;
 		const attrFs = Math.max( 9, Math.round( mapSize * 0.014 ) );
+		const attrBottom = tiles
+			? mapY + tiles[ tiles.length - 1 ].y + tiles[ 0 ].size
+			: mapY + mapH;
 		text( {
 			name: t( 'Attribution' ),
 			text: ATTRIBUTION,
 			x: mapX,
-			y: mapY + mapSize - Math.round( attrFs * 1.9 ),
-			w: mapSize - Math.round( attrFs * 0.9 ),
+			y: attrBottom - Math.round( attrFs * 1.9 ),
+			w: mapW - Math.round( attrFs * 0.9 ),
 			h: Math.round( attrFs * 1.5 ),
 			fontSize: attrFs,
 			fontFamily: 'Inter',
@@ -1010,32 +1757,34 @@ async function openStudio( { editor, extras, layer } ) {
 			const titleFs = Math.round(
 				Math.min( docW * 0.072, docH * 0.085 ) * ts
 			);
-			let y = mapY + mapSize + Math.round( docH * 0.05 );
-			text( {
-				name: t( 'Title' ),
-				text: placeName.toUpperCase(),
-				x: 0,
-				y,
-				w: docW,
-				h: Math.round( titleFs * 1.25 ),
-				fontSize: titleFs,
-				fontFamily: params.font || 'Montserrat',
-				weight: 700,
-				color: titleInk,
-				align: 'center',
-				letterSpacing: Math.round( titleFs * 0.14 ),
-			} );
-			y += Math.round( titleFs * 1.5 );
-			items.push( {
-				kind: 'rect',
-				name: t( 'Divider' ),
-				x: Math.round( docW / 2 - docW * 0.05 ),
-				y,
-				w: Math.round( docW * 0.1 ),
-				h: Math.max( 2, Math.round( docH * 0.0035 ) ),
-				fill: titleInk,
-			} );
-			y += Math.round( docH * 0.022 );
+			let y = mapY + mapH + Math.round( docH * 0.05 );
+			if ( ! lettered ) {
+				text( {
+					name: t( 'Title' ),
+					text: placeName.toUpperCase(),
+					x: 0,
+					y,
+					w: docW,
+					h: Math.round( titleFs * 1.25 ),
+					fontSize: titleFs,
+					fontFamily: params.font || 'Montserrat',
+					weight: 700,
+					color: titleInk,
+					align: 'center',
+					letterSpacing: Math.round( titleFs * 0.14 ),
+				} );
+				y += Math.round( titleFs * 1.5 );
+				items.push( {
+					kind: 'rect',
+					name: t( 'Divider' ),
+					x: Math.round( docW / 2 - docW * 0.05 ),
+					y,
+					w: Math.round( docW * 0.1 ),
+					h: Math.max( 2, Math.round( docH * 0.0035 ) ),
+					fill: titleInk,
+				} );
+				y += Math.round( docH * 0.022 );
+			}
 			const subFs = Math.round( docW * 0.023 * ts );
 			if ( regionName ) {
 				text( {
@@ -1075,6 +1824,7 @@ async function openStudio( { editor, extras, layer } ) {
 			const titleFs = Math.round( mapSize * 0.055 * ts );
 			const pad = Math.round( mapSize * 0.045 );
 			const coordFs = Math.round( mapSize * 0.02 * ts );
+			const mapSizeH = mapH;
 			const anchor = params.textAnchor || 'bl';
 			const vpos = anchor.charAt( 0 ); // t | m | b
 			const hpos = anchor.charAt( 1 ); // l | c | r
@@ -1087,14 +1837,14 @@ async function openStudio( { editor, extras, layer } ) {
 				't' === vpos
 					? mapY + pad
 					: 'm' === vpos
-					? Math.round( mapY + ( mapSize - blockH ) / 2 )
-					: mapY + mapSize - pad - blockH;
+					? Math.round( mapY + ( mapSizeH - blockH ) / 2 )
+					: mapY + mapSizeH - pad - blockH;
 			text( {
 				name: t( 'Title' ),
 				text: placeName.toUpperCase(),
 				x: mapX + pad,
 				y: top,
-				w: mapSize - pad * 2,
+				w: mapW - pad * 2,
 				h: titleLineH,
 				fontSize: titleFs,
 				fontFamily: params.font || 'Montserrat',
@@ -1109,7 +1859,7 @@ async function openStudio( { editor, extras, layer } ) {
 					text: formatCoords( params.lat, params.lon ),
 					x: mapX + pad,
 					y: top + titleLineH,
-					w: mapSize - pad * 2,
+					w: mapW - pad * 2,
 					h: coordsLineH,
 					fontSize: coordFs,
 					fontFamily: 'Inter',
@@ -1120,11 +1870,47 @@ async function openStudio( { editor, extras, layer } ) {
 				} );
 			}
 		}
-		return { mapX, mapY, mapSize, items };
+		// v2.1: numbered pins get their legend - after the title block of
+		// a classic poster, under the map otherwise.
+		if ( params.numbered && params.pins.length && 'none' !== layout ) {
+			const legend = params.pins
+				.map( ( p, i ) => `${ i + 1 }  ${ p.label || '' }`.trim() )
+				.join( '     ' );
+			const ls = Math.round( docW * 0.017 * ts );
+			const last = items
+				.filter(
+					( it ) =>
+						'text' === it.kind && it.name !== t( 'Attribution' )
+				)
+				.pop();
+			const ly =
+				classicText && last
+					? last.y + last.h + Math.round( ls * 1.2 )
+					: mapY + mapH + Math.round( ls * 1.4 );
+			if ( ly + ls * 1.5 <= docH ) {
+				text( {
+					name: t( 'Legend' ),
+					text: legend,
+					x: Math.round( docW * 0.07 ),
+					y: ly,
+					w: Math.round( docW * 0.86 ),
+					h: Math.round( ls * 1.5 ),
+					fontSize: ls,
+					fontFamily: 'Inter',
+					weight: 500,
+					color: subInk,
+					align: 'center',
+					letterSpacing: 0,
+				} );
+			}
+		}
+		return { mapX, mapY, mapW, mapH, mapSize, tiles, items };
 	}
 
-	// Where the map sits inside the preview canvas, for pointer mapping.
+	// Where the map sits inside the preview canvas, for pointer mapping
+	// (the active place's map when there are several).
 	let mapRectPx = null;
+	let tileRectsPx = null;
 
 	function paintNow() {
 		const doc = editor.state.doc;
@@ -1146,33 +1932,65 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 		empty.style.display = 'none';
 		const L = layoutPoster( doc.w, doc.h );
-		mapRectPx = {
-			x: L.mapX * s,
-			y: L.mapY * s,
-			w: L.mapSize * s,
-			h: L.mapSize * s,
-		};
-		lastBBox = currentBBox();
-		ctx.save();
-		ctx.translate( mapRectPx.x, mapRectPx.y );
-		drawScene( ctx, mapRectPx.w, mapRectPx.h, scene, {
-			bbox: lastBBox,
-			theme: themeOf(),
-			overrides: params.overrides,
-			// Both save paths are explicit allowlists, so a new key that is
-			// not named here is silently dropped on save and gone on reopen.
-			textColors: params.textColors,
-			show: params.show,
-			lineScale: params.lineScale,
-			roadGradientId: params.roadGradientId || '',
-			roadMap: params.roadMap || 'class',
-			glow: ( params.glow || 0 ) / 100,
-			mask: params.mask,
-			pins: params.pins,
-			route: params.route,
-			showDistance: params.showDistance,
-		} );
-		ctx.restore();
+		if ( L.tiles ) {
+			// Several places: every map from its own data; the active one
+			// takes the pointer and carries a quiet ring in the preview.
+			storeActive();
+			tileRectsPx = L.tiles.map( ( tile ) => ( {
+				i: tile.i,
+				x: ( L.mapX + tile.x ) * s,
+				y: ( L.mapY + tile.y ) * s,
+				w: tile.size * s,
+				h: tile.size * s,
+			} ) );
+			for ( const r of tileRectsPx ) {
+				const p = params.places[ r.i ];
+				const active = r.i === params.activePlace;
+				const slot = active ? { scene } : slots.get( r.i );
+				const bbox = active ? currentBBox() : placeBBox( p );
+				if ( active ) {
+					mapRectPx = r;
+					lastBBox = bbox;
+				}
+				ctx.save();
+				ctx.translate( r.x, r.y );
+				drawScene(
+					ctx,
+					r.w,
+					r.h,
+					( slot && slot.scene ) || buildScene( null ),
+					drawOpts( bbox )
+				);
+				ctx.restore();
+				if ( active && L.tiles.length > 1 ) {
+					ctx.save();
+					ctx.strokeStyle = 'rgba(59,102,255,0.9)';
+					ctx.lineWidth = 2;
+					ctx.setLineDash( [ 6, 4 ] );
+					ctx.strokeRect( r.x - 3, r.y - 3, r.w + 6, r.h + 6 );
+					ctx.restore();
+				}
+			}
+		} else {
+			tileRectsPx = null;
+			mapRectPx = {
+				x: L.mapX * s,
+				y: L.mapY * s,
+				w: L.mapW * s,
+				h: L.mapH * s,
+			};
+			lastBBox = currentBBox();
+			ctx.save();
+			ctx.translate( mapRectPx.x, mapRectPx.y );
+			drawScene(
+				ctx,
+				mapRectPx.w,
+				mapRectPx.h,
+				scene,
+				drawOpts( lastBBox )
+			);
+			ctx.restore();
+		}
 		// The text block exactly as it will be inserted (transparent
 		// document background shows the checker pattern through).
 		for ( const item of L.items ) {
@@ -1398,6 +2216,10 @@ async function openStudio( { editor, extras, layer } ) {
 					: ''
 			);
 			paint();
+			if ( placesMode() ) {
+				storeActive();
+				loadOtherPlaces();
+			}
 		} catch ( e ) {
 			if ( seq === fetchSeq ) {
 				const code = ( e && e.code ) || '';
@@ -1495,6 +2317,17 @@ async function openStudio( { editor, extras, layer } ) {
 
 	function selectPlace( hit ) {
 		const firstPlace = null === params.lat;
+		// Several places: the search sets the active one, and its name
+		// follows unless the user wrote one.
+		if ( placesMode() ) {
+			const ap = params.places[ params.activePlace ];
+			if (
+				ap &&
+				( ! ap.label || ap.label === ( ap.place && ap.place.name ) )
+			) {
+				ap.label = hit.name;
+			}
+		}
 		params.lat = hit.lat;
 		params.lon = hit.lon;
 		params.place = { name: hit.name, region: hit.region || '' };
@@ -1508,11 +2341,15 @@ async function openStudio( { editor, extras, layer } ) {
 			};
 			params.radius = zoomByType[ hit.type ] || params.radius;
 		}
-		if ( titleInput && ! titleDirty ) {
+		if ( titleInput && ! titleDirty && ! placesMode() ) {
 			titleInput.value = hit.name;
 		}
-		if ( subtitleInput && ! subtitleDirty ) {
+		if ( subtitleInput && ! subtitleDirty && ! placesMode() ) {
 			subtitleInput.value = hit.region || '';
+		}
+		if ( placesMode() ) {
+			storeActive();
+			renderPlaceList();
 		}
 		results.style.display = 'none';
 		searchInput.value = hit.name;
@@ -1560,6 +2397,19 @@ async function openStudio( { editor, extras, layer } ) {
 	canvas.onpointerdown = ( e ) => {
 		if ( null === params.lat || ! mapRectPx ) {
 			return;
+		}
+		if ( tileRectsPx ) {
+			const rect = canvas.getBoundingClientRect();
+			const cx = e.clientX - rect.left;
+			const cy = e.clientY - rect.top;
+			const hitTile = tileRectsPx.find(
+				( r ) =>
+					cx >= r.x && cy >= r.y && cx <= r.x + r.w && cy <= r.y + r.h
+			);
+			if ( hitTile && hitTile.i !== params.activePlace ) {
+				activatePlace( hitTile.i );
+				return;
+			}
 		}
 		const p = mapPos( e );
 		const inside =
@@ -1646,6 +2496,7 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 	};
 	function close() {
+		history.dispose();
 		window.removeEventListener( 'resize', onResize );
 		document.removeEventListener( 'keydown', onKey );
 		Object.values( colorControls ).forEach( ( c ) => {
@@ -1663,6 +2514,18 @@ async function openStudio( { editor, extras, layer } ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: poster
+	// type, place, look and texts; a moved map goes back too.
+	const history = studioUndo( {
+		backdrop,
+		read: () => params,
+		write: ( data ) => {
+			Object.assign( params, data );
+			syncControls();
+			paint();
+			scheduleFetch();
+		},
+	} );
 
 	/* -------------------------------- insert ----------------------------- */
 
@@ -1690,40 +2553,72 @@ async function openStudio( { editor, extras, layer } ) {
 	};
 
 	async function insertOrUpdate() {
+		const doc = editor.state.doc;
+		const L = layoutPoster( doc.w, doc.h );
+		storeActive();
+		// The longer side bakes at OUT_SIZE; the map keeps its proportions
+		// (a lettering map is wide, several places are a row of maps).
+		const k = OUT_SIZE / Math.max( L.mapW, L.mapH );
+		const bakeW = Math.max( 1, Math.round( L.mapW * k ) );
+		const bakeH = Math.max( 1, Math.round( L.mapH * k ) );
 		const bake = document.createElement( 'canvas' );
-		bake.width = OUT_SIZE;
-		bake.height = OUT_SIZE;
-		drawScene( bake.getContext( '2d' ), OUT_SIZE, OUT_SIZE, scene, {
-			bbox: currentBBox(),
-			theme: themeOf(),
-			overrides: params.overrides,
-			// Both save paths are explicit allowlists, so a new key that is
-			// not named here is silently dropped on save and gone on reopen.
-			textColors: params.textColors,
-			show: params.show,
-			lineScale: params.lineScale,
-			roadGradientId: params.roadGradientId || '',
-			roadMap: params.roadMap || 'class',
-			glow: ( params.glow || 0 ) / 100,
-			mask: params.mask,
-			pins: params.pins,
-			route: params.route,
-			showDistance: params.showDistance,
-		} );
+		bake.width = bakeW;
+		bake.height = bakeH;
+		const bctx = bake.getContext( '2d' );
+		if ( L.tiles ) {
+			for ( const tile of L.tiles ) {
+				const p = params.places[ tile.i ];
+				const slot =
+					tile.i === params.activePlace
+						? { scene }
+						: slots.get( tile.i );
+				if ( ! slot || ! slot.scene || ! slot.scene.n ) {
+					throw new Error( t( 'The map data is still loading.' ) );
+				}
+				bctx.save();
+				bctx.translate( tile.x * k, tile.y * k );
+				drawScene(
+					bctx,
+					tile.size * k,
+					tile.size * k,
+					slot.scene,
+					drawOpts(
+						tile.i === params.activePlace
+							? currentBBox()
+							: placeBBox( p )
+					)
+				);
+				bctx.restore();
+			}
+		} else {
+			drawScene( bctx, bakeW, bakeH, scene, drawOpts( currentBBox() ) );
+		}
 		const url = bake.toDataURL( 'image/png' );
 		const stored = {
 			...params,
 			pins: params.pins.map( ( p ) => ( { ...p } ) ),
+			letters: { ...params.letters },
+			places: params.places.map( ( p ) => ( {
+				...p,
+				place: p.place ? { ...p.place } : null,
+			} ) ),
 		};
 
 		if ( editing ) {
+			// A changed proportion (other letters, another place count)
+			// keeps the layer's width and follows with its height.
+			const ratio = bakeH / bakeW;
+			const oldRatio = ( layer.naturalH || 1 ) / ( layer.naturalW || 1 );
 			editor.dispatch( {
 				type: 'UPDATE_LAYER',
 				id: layer.id,
 				patch: {
 					src: url,
-					naturalW: OUT_SIZE,
-					naturalH: OUT_SIZE,
+					naturalW: bakeW,
+					naturalH: bakeH,
+					...( Math.abs( ratio - oldRatio ) > 0.001
+						? { h: Math.round( layer.w * ratio ) }
+						: {} ),
 					generator: { id: GEN_ID, params: stored },
 				},
 			} );
@@ -1732,8 +2627,6 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 
 		const { makeImage, makeText, makeShape, makeGroup } = bridge.documents;
-		const doc = editor.state.doc;
-		const L = layoutPoster( doc.w, doc.h );
 
 		const children = [];
 		const mapLayer = makeImage( {
@@ -1742,11 +2635,11 @@ async function openStudio( { editor, extras, layer } ) {
 			}`.trim(),
 			x: L.mapX,
 			y: L.mapY,
-			w: L.mapSize,
-			h: L.mapSize,
+			w: L.mapW,
+			h: L.mapH,
 			src: url,
-			naturalW: OUT_SIZE,
-			naturalH: OUT_SIZE,
+			naturalW: bakeW,
+			naturalH: bakeH,
 		} );
 		mapLayer.generator = { id: GEN_ID, params: stored };
 		children.push( mapLayer );
@@ -1813,10 +2706,15 @@ async function openStudio( { editor, extras, layer } ) {
 	applyBrand();
 	syncColorInputs();
 	if ( params.font && bridge.fonts && bridge.fonts.ensureFont ) {
-		bridge.fonts.ensureFont( params.font ).then( paint ).catch( () => {} );
+		bridge.fonts
+			.ensureFont( params.font )
+			.then( paint )
+			.catch( () => {} );
 	}
 	syncZoom();
 	syncBuildingsState();
+	// v2.1: the type's sections and every control in line with params.
+	syncControls();
 	if ( params.place ) {
 		searchInput.value = params.place.name || '';
 	}
@@ -1824,7 +2722,11 @@ async function openStudio( { editor, extras, layer } ) {
 	// real faces, not the fallback.
 	bridge.fonts
 		.ensureFontsForLayers( [
-			{ type: 'text', fontFamily: params.font || 'Montserrat', weight: 700 },
+			{
+				type: 'text',
+				fontFamily: params.font || 'Montserrat',
+				weight: 700,
+			},
 			{ type: 'text', fontFamily: 'Inter', weight: 400 },
 		] )
 		.then( () => paint() )

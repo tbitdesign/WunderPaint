@@ -24,7 +24,7 @@ export const plane = compileFigure( {
 	view: { yaw: -40, pitch: 50, zoom: 1.2 },
 	steps: [
 		{
-			text: 'Fold both edges at the nose corner in to the centre line.',
+			text: 'Fold both edges at the nose corner in to the center line.',
 			folds: [
 				{
 					line: [
@@ -47,7 +47,7 @@ export const plane = compileFigure( {
 			],
 		},
 		{
-			text: 'Fold the slanted edges in to the centre line again - the dart.',
+			text: 'Fold the slanted edges in to the center line again - the dart.',
 			folds: [
 				{
 					line: [
@@ -70,7 +70,7 @@ export const plane = compileFigure( {
 			],
 		},
 		{
-			text: 'Fold the dart in half along the centre line, away from you.',
+			text: 'Fold the dart in half along the center line, away from you.',
 			folds: [
 				{
 					line: [

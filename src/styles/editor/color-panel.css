@@ -1,0 +1,1305 @@
+#wpie-root .ed-float-panel.color-panel-window {
+	min-width: 320px;
+	max-width: 560px;
+	min-height: 400px;
+	max-height: calc(100vh - 140px);
+}
+
+#wpie-root .color-panel-window > .ed-float-body {
+	overflow: hidden;
+}
+
+#wpie-root .color-panel-window.is-collapsed {
+	min-height: 0;
+}
+
+#wpie-root .global-color-panel {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	color: var(--text-primary);
+	font-size: 11px;
+}
+
+#wpie-root .color-panel-target {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) 26px;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+}
+
+#wpie-root .global-color-panel select,
+#wpie-root .global-color-panel input[type="text"] {
+	width: 100%;
+	min-width: 0;
+	height: 26px;
+	font-size: 11px;
+	color: var(--text-primary);
+}
+
+#wpie-root .global-color-panel .color-panel-tabs {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	background: transparent;
+}
+
+#wpie-root .global-color-panel .color-panel-tabs button {
+	flex: 1;
+	flex-direction: row;
+	font-size: 11px;
+	text-transform: none;
+	letter-spacing: 0;
+	padding: 7px 3px;
+	border: 0;
+	border-bottom: 2px solid transparent;
+}
+
+#wpie-root .global-color-panel .color-panel-tabs button.active {
+	color: var(--text-primary);
+	background: transparent;
+	border-bottom-color: var(--accent);
+	box-shadow: none;
+}
+
+#wpie-root .color-panel-main {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	margin: 0;
+	border: 0;
+	padding: 0 10px 10px;
+	overflow-y: auto;
+}
+
+#wpie-root .color-panel-visual {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	margin: 0;
+}
+
+#wpie-root .color-panel-visual .hsv-picker,
+#wpie-root .color-panel-channels,
+#wpie-root .color-panel-gray {
+	width: 100%;
+}
+
+#wpie-root .color-panel-visual .hsv-sv {
+	height: 112px;
+}
+
+#wpie-root .color-panel-hex {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	min-width: 0;
+	align-items: center;
+	gap: 5px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .global-color-panel .tool-setting {
+	grid-template-columns: 54px minmax(24px, 1fr) 64px;
+	gap: 6px;
+	margin-top: 0;
+	min-width: 0;
+}
+
+#wpie-root .global-color-panel .tool-setting-number input {
+	width: 48px;
+	height: 26px;
+}
+
+#wpie-root .global-color-panel .tool-setting label {
+	color: var(--text-secondary);
+}
+
+#wpie-root .color-panel-preview,
+#wpie-root .color-panel-gray-ramp {
+	height: 32px;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	margin: 12px 0 8px;
+}
+
+#wpie-root .color-panel-gray-ramp {
+	margin: 0 0 8px;
+	height: 24px;
+	background: linear-gradient(90deg, #000, #fff);
+}
+
+#wpie-root .color-panel-harmony {
+	display: grid;
+	gap: 6px;
+	margin-top: 10px;
+}
+
+#wpie-root .color-panel-tiles {
+	display: grid;
+	grid-template-columns: repeat(8, minmax(0, 28px));
+	gap: 4px;
+	align-content: start;
+}
+
+#wpie-root .color-panel-main > .color-panel-tiles,
+#wpie-root .color-panel-gray > .color-panel-tiles {
+	margin-top: 10px;
+}
+
+#wpie-root .color-panel-tones {
+	grid-template-columns: repeat(8, minmax(0, 28px));
+}
+
+#wpie-root .color-panel-swatch,
+#wpie-root .color-panel-current {
+	position: relative;
+	display: block;
+	min-width: 0;
+	height: 25px;
+	padding: 0;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: repeating-conic-gradient(#d1d5db 0% 25%, #fff 0% 50%) 50% / 8px
+		8px;
+}
+
+#wpie-root .color-panel-swatch span,
+#wpie-root .color-panel-current span {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border-radius: 2px;
+}
+
+#wpie-root .color-panel-swatch[aria-pressed="true"] {
+	border-color: var(--accent);
+}
+
+#wpie-root .color-panel-swatch:hover {
+	border-color: var(--text-primary);
+}
+
+#wpie-root .color-panel-recent {
+	flex: none;
+	padding: 8px 10px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .color-panel-recent .color-panel-tiles {
+	min-height: 24px;
+}
+
+#wpie-root .color-panel-label {
+	display: block;
+	margin-bottom: 6px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .color-panel-note {
+	color: var(--text-secondary);
+	line-height: 1.5;
+	margin: 12px 0;
+}
+
+#wpie-root .color-panel-extract {
+	display: flex;
+	justify-content: flex-start;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 12px;
+}
+
+#wpie-root .color-panel-footer {
+	display: flex;
+	flex: none;
+	gap: 6px;
+	padding: 8px 10px;
+	border-top: 1px solid var(--ed-border);
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .color-panel-footer > button {
+	flex: 1;
+	min-width: 0;
+	padding: 4px 5px;
+}
+
+#wpie-root .color-panel-footer button[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--text-primary);
+}
+
+#wpie-root .color-panel-pick-surface {
+	position: absolute;
+	inset: 0;
+	z-index: 89;
+	cursor: crosshair;
+}
+
+#wpie-root .color-panel-pick-hint {
+	position: absolute;
+	bottom: 16px;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 8px 12px;
+	border: 1px solid var(--ed-border);
+	border-radius: 6px;
+	background: var(--ed-panel);
+	color: var(--text-primary);
+	font-size: 12px;
+	pointer-events: none;
+}
+
+#wpie-root .color-panel-extra {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-top: 10px;
+}
+
+#wpie-root .color-panel-extra .color-panel-note {
+	margin: 0;
+}
+
+#wpie-root .color-panel-stack {
+	display: grid;
+	gap: 5px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .color-panel-actions {
+	display: flex;
+	gap: 6px;
+}
+
+#wpie-root .color-panel-actions > button {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .color-panel-switch {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text-primary);
+}
+
+#wpie-root .color-panel-mix-strip {
+	display: flex;
+	height: 28px;
+	overflow: hidden;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+}
+
+#wpie-root .color-panel-mix-strip > span {
+	flex: 1;
+}
+
+#wpie-root .color-panel-result {
+	display: grid;
+	grid-template-columns: 32px minmax(0, 1fr);
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	line-height: 1.5;
+}
+
+#wpie-root .color-panel-coordinate {
+	color: var(--text-secondary);
+}
+
+#wpie-root .color-panel-point {
+	position: absolute;
+	z-index: 88;
+	width: 9px;
+	height: 9px;
+	transform: translate(-50%, -50%);
+	border: 1px solid #fff;
+	outline: 1px solid #000;
+	border-radius: 50%;
+	pointer-events: none;
+}
+
+#wpie-root .color-panel-picking {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 6px 8px;
+	padding: 0 10px 8px;
+}
+
+#wpie-root .color-panel-picking > .eyedropper-options {
+	display: contents;
+}
+
+#wpie-root .eyedropper-sample {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+#wpie-root .color-panel-picking .eyedropper-sample > span {
+	min-width: 38px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .color-panel-picking .eyedropper-canvas {
+	grid-column: 1;
+	grid-row: 2;
+}
+
+#wpie-root .color-panel-picking .eyedropper-screen {
+	grid-column: 2;
+	grid-row: 2;
+}
+
+#wpie-root .color-panel-picking .ai-btn {
+	white-space: nowrap;
+}
+
+#wpie-root
+	.color-panel-picking:not(:has(.eyedropper-screen))
+	.eyedropper-canvas {
+	grid-column: 1 / -1;
+}
+
+#wpie-root .eyedropper-sample > div {
+	display: flex;
+	flex: 1;
+}
+
+#wpie-root .color-panel-picking .dsm-seg button {
+	flex: 1;
+	border: 1px solid transparent;
+}
+
+#wpie-root .color-panel-picking .dsm-seg button.active {
+	border-color: var(--accent);
+	color: var(--text-primary);
+	background: var(--ed-panel);
+	box-shadow: none;
+}
+
+#wpie-root .eyedropper-options.is-compact {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+#wpie-root .eyedropper-options.is-compact .eyedropper-sample > span {
+	display: none;
+}
+
+#wpie-root .color-panel-tile {
+	aspect-ratio: 1;
+	position: relative;
+	min-width: 0;
+}
+
+#wpie-root .color-panel-tile > .color-panel-swatch {
+	width: 100%;
+}
+
+#wpie-root .color-tile-remove {
+	position: absolute;
+	right: -3px;
+	top: -3px;
+	width: 14px;
+	height: 14px;
+	padding: 0;
+	display: grid;
+	place-items: center;
+	border: 1px solid var(--ed-border);
+	border-radius: 50%;
+	background: var(--ed-panel);
+	color: var(--text-primary);
+}
+
+#wpie-root .color-harmony-actions {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .color-harmony-actions .ai-btn {
+	flex: 1;
+	min-width: 0;
+	padding: 4px;
+}
+
+#wpie-root .color-harmony-actions .ai-btn[aria-expanded] {
+	flex: 0 0 auto;
+}
+
+#wpie-root .color-harmony-base {
+	display: grid;
+	grid-template-columns: 56px minmax(0, 1fr);
+	gap: 6px;
+	align-items: center;
+}
+
+#wpie-root .color-harmony-tune {
+	display: grid;
+	gap: 6px;
+	padding-top: 4px;
+}
+
+#wpie-root .color-pixel-loupe {
+	position: fixed;
+	z-index: 92;
+	pointer-events: none;
+	width: 136px;
+	padding: 7px;
+	box-sizing: border-box;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 8px;
+	background: var(--ed-panel);
+	color: var(--text-primary);
+	box-shadow: 0 4px 18px #0005;
+	font-size: 11px;
+}
+
+#wpie-root .color-pixel-loupe canvas {
+	display: block;
+	width: 120px;
+	height: 120px;
+	image-rendering: pixelated;
+	background: repeating-conic-gradient(#d1d5db 0% 25%, #fff 0% 50%) 50% / 16px
+		16px;
+}
+
+#wpie-root .color-pixel-loupe > div {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	margin: 5px 0 3px;
+}
+
+#wpie-root .color-pixel-loupe > div > span {
+	width: 16px;
+	height: 16px;
+	border: 1px solid var(--ed-border);
+}
+
+#wpie-root .color-pixel-loupe small {
+	color: var(--text-secondary);
+}
+
+#wpie-root .ed-canvas-area:has(.color-panel-pick-surface) .fab-hint {
+	display: none !important;
+}
+
+/* Dialogs temporarily hide Color, including pinned panels. Visibility keeps
+ * its measured size intact, unlike display:none and the resize observer. */
+#wpie-root:has(.modal-backdrop)
+	:is(.color-panel-window, .color-panel-pick-surface, .color-panel-point),
+#wpie-root:has([role="dialog"][aria-modal="true"]:not(.ed-float-panel))
+	:is(.color-panel-window, .color-panel-pick-surface, .color-panel-point) {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+/* Optional workflows stay inside the existing narrow panel and scroll body. */
+#wpie-root .color-panel-details {
+	margin-top: 10px;
+	border-top: 1px solid var(--ed-border);
+	padding-top: 8px;
+}
+
+#wpie-root .color-panel-details > summary {
+	cursor: pointer;
+	color: var(--text-primary);
+	line-height: 24px;
+}
+
+#wpie-root .color-panel-details[open] > summary {
+	margin-bottom: 6px;
+}
+
+#wpie-root .color-panel-details .color-panel-note,
+#wpie-root .color-panel-comparison .color-panel-note {
+	margin: 6px 0;
+}
+
+#wpie-root .color-panel-comparison {
+	margin-top: 10px;
+}
+
+#wpie-root .color-panel-comparison > button {
+	width: 100%;
+}
+
+#wpie-root .color-compare-slots {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 4px;
+}
+
+#wpie-root .color-compare-slots button {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
+	padding: 4px;
+}
+
+#wpie-root .color-compare-chip,
+#wpie-root .color-gradient-preview {
+	overflow: hidden;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: repeating-conic-gradient(#d1d5db 0% 25%, #fff 0% 50%) 50% / 8px
+		8px;
+}
+
+#wpie-root .color-compare-chip {
+	height: 18px;
+	display: block;
+	flex: none;
+}
+
+#wpie-root .color-compare-chip i,
+#wpie-root .color-gradient-preview > span {
+	display: block;
+	height: 100%;
+	width: 100%;
+}
+
+#wpie-root .color-gradient-preview {
+	height: 36px;
+}
+
+#wpie-root .global-color-panel .ai-btn[aria-pressed="true"],
+#wpie-root .color-swatch-actions button.active {
+	border-color: var(--accent);
+	color: var(--text-primary);
+	background: var(--ed-panel);
+	box-shadow: none;
+}
+
+#wpie-root .color-backgrounds {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 5px;
+	margin-bottom: 8px;
+}
+
+#wpie-root .color-backgrounds > div > span {
+	display: block;
+	text-align: center;
+	color: var(--text-secondary);
+	margin-top: 4px;
+}
+
+#wpie-root .color-background-sample {
+	height: 62px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+}
+
+#wpie-root .color-background-sample > span {
+	font-size: 23px;
+	line-height: 26px;
+	font-weight: 600;
+}
+
+#wpie-root .color-background-sample > i {
+	width: 70%;
+	height: 10px;
+	border-radius: 2px;
+}
+
+#wpie-root .color-palette-paste textarea {
+	box-sizing: border-box;
+	display: block;
+	width: 100%;
+	min-width: 0;
+	resize: vertical;
+	font: inherit;
+	line-height: 1.5;
+}
+
+#wpie-root .color-palette-paste .color-panel-mix-strip {
+	margin-top: 8px;
+}
+
+#wpie-root .color-swatch-actions {
+	display: flex;
+	margin: 8px 0;
+}
+
+#wpie-root .color-swatch-actions button {
+	flex: 1;
+	min-width: 0;
+	padding: 4px;
+	border: 1px solid transparent;
+}
+
+#wpie-root .color-gradient-stops {
+	display: grid;
+	grid-template-columns: repeat(8, minmax(0, 1fr));
+	gap: 4px;
+}
+
+#wpie-root .color-gradient-stops b {
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	padding: 0 2px;
+	color: #fff;
+	background: #000b;
+	font-size: 9px;
+	line-height: 12px;
+	font-weight: 400;
+	border-radius: 2px 0;
+}
+
+#wpie-root .color-gradient-order {
+	display: flex;
+	gap: 5px;
+	align-items: center;
+}
+
+#wpie-root .color-gradient-order .ai-btn {
+	flex: 1;
+	min-width: 0;
+	padding: 4px;
+}
+
+#wpie-root .color-arrow-left {
+	display: flex;
+	transform: rotate(180deg);
+}
+
+#wpie-root .color-usage-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 88;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+#wpie-root .color-usage-overlay > div {
+	position: absolute;
+	box-sizing: border-box;
+	border: 2px dashed var(--accent);
+	box-shadow:
+		0 0 0 1px #fff,
+		inset 0 0 0 1px #fff;
+}
+
+#wpie-root .color-sample-line {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+#wpie-root .color-sample-line line {
+	stroke: #000;
+	stroke-width: 3;
+}
+
+#wpie-root .color-sample-line line + line {
+	stroke: #fff;
+	stroke-width: 1;
+	stroke-dasharray: 5 4;
+}
+
+#wpie-root:has(.modal-backdrop) .color-usage-overlay,
+#wpie-root:has([role="dialog"][aria-modal="true"]:not(.ed-float-panel))
+	.color-usage-overlay {
+	visibility: hidden;
+}
+
+#wpie-root .global-color-panel .color-compare-slots .ai-btn {
+	height: auto;
+	min-height: 46px;
+}
+
+#wpie-root .color-editor-target > span {
+	font-weight: 600;
+}
+
+#wpie-root .color-editor-scope,
+#wpie-root .color-editor-stroke {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 10px 8px;
+	color: var(--text-secondary);
+	font-size: 11px;
+}
+
+#wpie-root .color-editor-scope select {
+	flex: 1;
+}
+
+#wpie-root .color-editor-stroke label {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+#wpie-root .color-editor-stroke input {
+	width: 52px;
+}
+
+#wpie-root .color-editor-stroke select {
+	flex: 1;
+}
+
+#wpie-root .color-editor-pattern {
+	display: grid;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+/* A swatch opened explicitly inside this dialog belongs to that dialog. */
+#wpie-root .color-panel-window.color-editor-in-dialog {
+	visibility: visible;
+	pointer-events: auto;
+	position: fixed;
+}
+
+#wpie-root .color-panel-window.color-editor-anchored {
+	max-height: calc(100vh - 24px);
+}
+
+#wpie-root .color-panel-picking summary,
+#wpie-root .color-editor-explore > summary {
+	cursor: pointer;
+	color: var(--text-secondary);
+	font-size: 11px;
+	padding: 3px 0;
+}
+
+#wpie-root .color-editor-hex-row {
+	display: grid;
+	grid-template-columns: 26px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+#wpie-root .color-editor-explore {
+	margin-top: 8px;
+}
+
+#wpie-root .color-editor-target {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-height: 40px;
+	padding: 6px 10px;
+	color: var(--text-primary);
+	font-size: 11px;
+}
+
+#wpie-root .color-editor-object {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+#wpie-root .color-editor-sides {
+	flex: none;
+}
+
+#wpie-root .color-editor-sides button {
+	min-width: 58px;
+	height: 26px;
+	font-size: 11px;
+}
+
+#wpie-root .color-editor-aux .color-editor-target {
+	justify-content: flex-start;
+}
+
+#wpie-root .color-panel-paint {
+	display: grid;
+	gap: 8px;
+	padding: 0 10px 8px;
+	flex: none;
+}
+
+#wpie-root .color-panel-main .color-panel-picking {
+	display: block;
+	padding: 8px 0 0;
+}
+
+#wpie-root .color-panel-picking[open] > .eyedropper-options {
+	margin-top: 6px;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px;
+}
+
+#wpie-root .color-panel-picking .eyedropper-sample {
+	grid-row: 1;
+	grid-column: 1 / -1;
+}
+
+#wpie-root:has(.modal-backdrop) .color-panel-window.color-editor-in-dialog,
+#wpie-root:has([role="dialog"][aria-modal="true"]:not(.ed-float-panel))
+	.color-panel-window.color-editor-in-dialog {
+	visibility: visible;
+	pointer-events: auto;
+}
+
+/* Keep the originating helper mounted while its color uses the same window. */
+.global-color-panel.is-editing-aux > :not(.color-editor-aux) {
+	display: none;
+}
+
+.color-editor-aux {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+	height: 100%;
+}
+
+.color-editor-aux .color-editor-target {
+	justify-content: flex-start;
+}
+
+.color-editor-back svg {
+	transform: rotate(180deg);
+}
+
+/* Presets stay visible beside the controls; changing views never changes width. */
+#wpie-root .color-editor-body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+}
+
+#wpie-root .color-editor-body > .color-panel-main {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .color-editor-library {
+	flex: 0 0 80px;
+	box-sizing: border-box;
+	padding: 0 5px 8px 6px;
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .color-editor-library.gp {
+	height: auto;
+	padding: 0 0 8px 6px;
+}
+
+#wpie-root .color-editor-library .gp-library {
+	height: 100%;
+	border: 0;
+	padding-right: 5px;
+}
+
+#wpie-root .color-editor-library .gp-presets {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 4px;
+}
+
+#wpie-root .color-editor-library .gp-presets button {
+	aspect-ratio: 1;
+}
+
+#wpie-root .color-editor-library .gp-tile-paint {
+	height: 100%;
+	object-fit: cover;
+}
+
+#wpie-root .color-editor-library .gp-tile-name,
+#wpie-root .color-editor-library .gp-group-count {
+	display: none;
+}
+
+#wpie-root .color-editor-library .gp-tabs button {
+	white-space: normal;
+	height: auto;
+	min-height: 24px;
+	font-size: 10px;
+	line-height: 14px;
+}
+
+#wpie-root .color-editor-library .gp-library-scroll {
+	padding-right: 1px;
+}
+
+#wpie-root .color-gradient-kind {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	color: var(--text-secondary);
+}
+
+#wpie-root .color-library-scroll {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 0;
+}
+
+#wpie-root .color-swatch-library .color-panel-tiles {
+	grid-template-columns: repeat(2, minmax(0, 28px));
+}
+
+#wpie-root .color-swatch-library .color-panel-label {
+	margin: 0;
+}
+
+#wpie-root .global-color-panel .gp.gp-controls {
+	height: auto;
+	padding: 0;
+	container-type: normal;
+}
+
+#wpie-root .global-color-panel .gp-controls .color-editor-values {
+	margin: 0;
+}
+
+#wpie-root .color-editor-values {
+	min-width: 0;
+}
+
+#wpie-root .global-color-panel.is-editing-aux > .color-editor-body {
+	display: none;
+}
+
+#wpie-root .global-color-panel .gp-controls fieldset {
+	gap: 5px;
+}
+
+#wpie-root .global-color-panel .gp-controls .gp-preview canvas {
+	height: 28px;
+}
+
+#wpie-root .global-color-panel .gp-controls .gp-dial {
+	grid-template-columns: minmax(48px, auto) minmax(30px, 1fr) auto;
+	column-gap: 6px;
+}
+
+#wpie-root .global-color-panel .gp-controls .gp-dial > span:first-child {
+	max-width: 80px;
+}
+
+#wpie-root .global-color-panel .gp-controls .gp-dial > input {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+#wpie-root .global-color-panel .gp-controls .gp-number {
+	grid-column: 3;
+	grid-row: 1;
+}
+
+#wpie-root
+	.global-color-panel
+	.gp-controls
+	.color-panel-visual.is-compact
+	.hsv-sv {
+	height: 76px;
+}
+
+#wpie-root .global-color-panel .gp-typebar .ai-tile-icon {
+	min-height: 24px;
+}
+
+#wpie-root .global-color-panel .gp-typebar .ai-tile-name {
+	min-height: 14px;
+	line-height: 14px;
+	padding: 0 2px;
+}
+
+#wpie-root .ed-float-panel.color-panel-window:not(.has-library) {
+	max-width: 480px;
+}
+
+/* The three paint cards are the primary choice; the underlined tabs are secondary. */
+#wpie-root .color-panel-navigation {
+	display: flex;
+	align-items: center;
+	flex: none;
+	gap: 6px;
+	padding: 0 10px;
+	margin-bottom: 10px;
+}
+
+#wpie-root .color-value-controls,
+#wpie-root .color-section-content {
+	display: grid;
+	gap: 8px;
+	min-width: 0;
+}
+
+#wpie-root .color-value-heading {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+#wpie-root .color-value-heading > strong {
+	font-size: 11px;
+	font-weight: 600;
+}
+
+#wpie-root .color-editor-section + .color-editor-section,
+#wpie-root .global-color-panel .gp-controls .color-editor-values {
+	padding-top: 10px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .color-panel-channels {
+	display: grid;
+	gap: 8px;
+}
+
+#wpie-root .color-editor-hex-row .color-panel-current {
+	width: 26px;
+	height: 26px;
+	box-sizing: border-box;
+}
+
+#wpie-root .color-panel-swatch {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+	box-sizing: border-box;
+}
+
+#wpie-root .color-panel-visual.is-compact .color-panel-tiles {
+	margin-top: 8px;
+}
+
+#wpie-root .color-editor-details,
+#wpie-root .color-editor-explore,
+#wpie-root .color-panel-main .color-panel-picking {
+	margin-top: 10px;
+	padding: 0;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .color-editor-details > summary,
+#wpie-root .color-editor-explore > summary,
+#wpie-root .color-panel-main .color-panel-picking > summary {
+	padding: 9px 0;
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--text-primary);
+	cursor: pointer;
+}
+
+#wpie-root .global-color-panel .gp-typebar > .color-panel-label {
+	margin: 0;
+}
+
+#wpie-root .color-pattern-library input[type="search"] {
+	min-width: 0;
+	width: 100%;
+	height: 26px;
+	padding: 4px;
+	font-size: 11px;
+}
+
+#wpie-root .color-pattern-library .color-panel-label {
+	margin: 0;
+}
+
+#wpie-root .color-pattern-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+#wpie-root .color-pattern-card {
+	padding: 0;
+	overflow: hidden;
+	min-width: 0;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: var(--surface-panel);
+	color: var(--text-secondary);
+	cursor: pointer;
+}
+
+#wpie-root .color-pattern-card:hover {
+	border-color: var(--text-secondary);
+	color: var(--text-primary);
+}
+
+#wpie-root .color-pattern-card[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--text-primary);
+}
+
+#wpie-root .color-pattern-tile {
+	display: block;
+	aspect-ratio: 1;
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .color-pattern-tile canvas,
+#wpie-root .color-pattern-preview canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+#wpie-root .color-pattern-heading {
+	display: block;
+	font-weight: 500;
+	margin: 12px 0 6px;
+	font-size: 11px;
+}
+
+#wpie-root .color-pattern-library > .ai-btn {
+	font-size: 10px;
+	padding: 5px;
+	white-space: normal;
+	height: auto;
+}
+
+#wpie-root .color-pattern-preview {
+	height: 48px;
+	overflow: hidden;
+	border: 1px solid var(--ed-border);
+	border-radius: 4px;
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .global-color-panel .color-panel-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+#wpie-root .color-panel-window {
+	container-type: inline-size;
+	container-name: color-window;
+}
+
+#wpie-root .color-editor-details .color-editor-stroke {
+	padding: 0 0 6px;
+}
+
+#wpie-root .global-color-panel .gp-controls .color-value-controls {
+	gap: 6px;
+}
+
+#wpie-root .global-color-panel .gp-controls .color-editor-details {
+	margin-top: 4px;
+}
+
+#wpie-root .global-color-panel .gp-controls .color-editor-details > summary {
+	padding: 8px 0;
+}
+
+#wpie-root .color-editor-library > .ai-btn {
+	height: auto;
+	min-height: 26px;
+	white-space: normal;
+	padding: 4px;
+	font-size: 10px;
+	line-height: 14px;
+}
+
+#wpie-root .global-color-panel .color-editor-library .gp-save.ai-btn {
+	padding-inline: 4px;
+	white-space: nowrap;
+}
+
+/* Color is a main panel; its canvas controller portals into this one host. */
+#wpie-root .right-panel-content[data-right-panel="layers"] {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+
+#wpie-root .right-panel-content[hidden] {
+	display: none !important;
+}
+
+#wpie-root .ed-right-body.has-color-panel {
+	overflow: hidden;
+	padding: 0;
+}
+
+#wpie-root .right-panel-content[data-right-panel="color"],
+#wpie-root .color-panel-dock,
+#wpie-root .color-panel-docked {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+}
+
+#wpie-root .color-panel-docked > .global-color-panel {
+	height: 100%;
+	min-width: 0;
+}
+
+#wpie-root .color-panel-detached > .ed-float-body {
+	overflow: hidden;
+}
+
+#wpie-root .ed-float-panel.color-panel-window.color-picker-window {
+	min-width: 250px;
+	max-width: 250px;
+	min-height: 0;
+	max-height: calc(100vh - 32px);
+	resize: none;
+}
+
+#wpie-root .color-picker-content {
+	padding: 10px;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+#wpie-root .color-picker-content .color-panel-recent {
+	padding: 8px 0;
+}
+
+#wpie-root .color-picker-content .color-panel-footer {
+	padding: 8px 0 0;
+}
+
+#wpie-root .color-picker-content .color-editor-scope {
+	padding: 0 0 8px;
+}
+
+#wpie-root .history-panel-window > .ed-float-body {
+	overflow: auto;
+}

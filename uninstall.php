@@ -52,7 +52,11 @@ function wpie_uninstall_site() {
 	// The Pro rows are here for the same reason as the two above them: Pro
 	// ships no uninstall.php, and its own cleanup hangs on a Freemius hook
 	// that never registers when the SDK is missing or the dev mode is on.
-	foreach ( array( 'wpie_templates', 'wpie_designs', 'wpie_user_library', 'wpie_palettes', 'wpie_3d_models', 'wpie_ai_usage_log', 'wpie_extensions_disabled', 'wpie_content_cache_ver', 'wpie_upload_guard_version', 'wpie_quarantine_rescued', 'wpie_usage_scan', 'wpie_usage_last', 'wpie_usage_dirty', 'wpie_orphan_hold', 'wpie_content_templates', 'wpie_automation_settings', 'wpie_pro_blocks', 'wpie_pro_elementor', 'wpie_dyn_bake_queue', 'wpie_s3_last', 'wpie_pro_catalog_generated' ) as $option ) {
+	//
+	// 24.09.2026: the AI Presets (wpie_ai_buttons, 16.09.) had joined
+	// Backup::OPTIONS but not this list, and two rows that Pro's own cleanup
+	// names were missing here: the legacy job option and the live-badge index.
+	foreach ( array( 'wpie_templates', 'wpie_designs', 'wpie_user_library', 'wpie_palettes', 'wpie_ai_buttons', 'wpie_3d_models', 'wpie_ai_usage_log', 'wpie_extensions_disabled', 'wpie_content_cache_ver', 'wpie_upload_guard_version', 'wpie_quarantine_rescued', 'wpie_usage_scan', 'wpie_usage_last', 'wpie_usage_dirty', 'wpie_orphan_hold', 'wpie_content_templates', 'wpie_automation_settings', 'wpie_automation_jobs', 'wpie_live_badge_index', 'wpie_pro_blocks', 'wpie_pro_elementor', 'wpie_dyn_bake_queue', 'wpie_s3_last', 'wpie_pro_catalog_generated' ) as $option ) {
 		delete_option( $option );
 	}
 
@@ -104,6 +108,9 @@ function wpie_uninstall_site() {
 	delete_metadata( 'user', 0, 'wpie_editor_locale', '', true );
 	delete_metadata( 'user', 0, 'wpie_smart_folders', '', true );
 	delete_metadata( 'user', 0, 'wpie_health_dismissed', '', true );
+	// Pro's personal batch defaults (PRO-S03, 15.09.2026) are a user option,
+	// kept per site under this site's table prefix.
+	delete_metadata( 'user', 0, $wpdb->get_blog_prefix() . 'wpie_automation_preferences', '', true );
 
 	// Pro schedules two cron events of its own and, without its Freemius hook,
 	// never unschedules them: they would keep firing for a plugin that is gone.

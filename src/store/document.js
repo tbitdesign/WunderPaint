@@ -5,6 +5,7 @@
 import { __ } from '@wordpress/i18n';
 
 import { sizedSvgUrl } from '../lib/svg-intrinsic';
+import { heicUrlToImage, isHeicUrl } from '../lib/heic';
 
 export const uid = () => Math.random().toString( 36 ).slice( 2, 9 );
 
@@ -50,6 +51,7 @@ export const makeShape = ( opts = {} ) => ( {
 	fill: opts.fill || '#3b66ff',
 	stroke: opts.stroke ?? null,
 	strokeW: opts.strokeW || 0,
+	...( opts.strokeGradient ? { strokeGradient: opts.strokeGradient } : {} ),
 	// Stroke position (v1.430): inside | outside; only stored when set.
 	...( opts.strokeAlign ? { strokeAlign: opts.strokeAlign } : {} ),
 	...( opts.strokeCap ? { strokeCap: opts.strokeCap } : {} ),
@@ -76,7 +78,11 @@ export const makeShape = ( opts = {} ) => ( {
 	gradientStops: opts.gradientStops || null,
 	gradientAngle: opts.gradientAngle || 0,
 	...( opts.gradientKind ? { gradientKind: opts.gradientKind } : {} ),
+	// Fill rule (v1.431): only 'evenodd' is ever stored; nonzero is the default.
+	...( 'evenodd' === opts.fillRule ? { fillRule: 'evenodd' } : {} ),
 	...( opts.pathD ? { pathD: opts.pathD } : {} ),
+	// The visible path stays portable; penPath retains the editable centerline.
+	...( opts.penPath ? { penPath: opts.penPath } : {} ),
 } );
 
 export const makeText = ( opts = {} ) => ( {
@@ -112,6 +118,7 @@ export const makeText = ( opts = {} ) => ( {
 	fixedWidth: !! opts.fixedWidth,
 	outlineColor: opts.outlineColor || null,
 	outlineW: opts.outlineW || 0,
+	...( opts.strokeGradient ? { strokeGradient: opts.strokeGradient } : {} ),
 	...( opts.outlineDash ? { outlineDash: opts.outlineDash } : {} ),
 	...( opts.outlineDashLen ? { outlineDashLen: opts.outlineDashLen } : {} ),
 	...( opts.outlineDashGap ? { outlineDashGap: opts.outlineDashGap } : {} ),
@@ -120,6 +127,7 @@ export const makeText = ( opts = {} ) => ( {
 	bgColor: opts.bgColor || null,
 	bgRadius: opts.bgRadius ?? 8,
 	fillType: opts.fillType || 'solid',
+	...( opts.gradientKind ? { gradientKind: opts.gradientKind } : {} ),
 	gradientStops: opts.gradientStops || null,
 	gradientAngle: opts.gradientAngle || 0,
 	pattern: opts.pattern || 'none',
@@ -139,6 +147,9 @@ export const makeStroke = ( opts = {} ) => ( {
 export const makeGradient = ( opts = {} ) => ( {
 	...base( 'gradient', opts.name || 'Gradient', opts ),
 	kind: opts.kind || 'linear',
+	spread: opts.spread || 'pad',
+	...( opts.freeform ? { freeform: opts.freeform } : {} ),
+	...( opts.mesh ? { mesh: opts.mesh } : {} ),
 	stops: opts.stops || [
 		{ color: '#3b66ff', at: 0 },
 		{ color: 'rgba(59,102,255,0)', at: 1 },
@@ -190,6 +201,22 @@ export const makeRaster = ( opts = {} ) => ( {
 	...base( 'raster', opts.name || 'Layer', opts ),
 	canvas: opts.canvas || null,
 	dataUrl: opts.dataUrl || null,
+} );
+
+/**
+ * A Repeat layer (v1.431): stamps its source after a rule. The box is
+ * derived from the copies (store/repeat-sync.js keeps it current); the
+ * defaults for rule and progression come from lib/repeat-layer.js, passed
+ * in by the op that creates the layer, so this module stays free of that
+ * import.
+ * @param opts
+ */
+export const makeRepeat = ( opts = {} ) => ( {
+	...base( 'repeat', opts.name || 'Repeat', opts ),
+	sourceId: opts.sourceId || null,
+	stack: 'front' === opts.stack ? 'front' : 'behind',
+	rule: opts.rule || { mode: 'row', count: 3, dx: 40, dy: 0 },
+	progression: opts.progression || null,
 } );
 
 /**
@@ -332,16 +359,32 @@ export async function createDocFromBootstrap( WPIE, loaders = {} ) {
 
 	// 2. Existing attachment image.
 	if ( boot.img ) {
-		const src =
+		let src =
 			boot.imgCrossOrigin && WPIE.proxyUrl
 				? `${ WPIE.proxyUrl }?src=${ encodeURIComponent(
 						boot.img
 				  ) }&_wpnonce=${ WPIE.nonce }`
 				: boot.img;
+		let w = boot.w,
+			h = boot.h;
+		// A HEIC attachment (WordPress counts it as an image, but only Safari
+		// can show it): decoded once here, the layer carries a JPEG. Its size
+		// comes from the pixels, because a server without HEIC support saved
+		// no width or height for it.
+		if ( isHeicUrl( boot.img ) ) {
+			try {
+				const pic = await heicUrlToImage( src );
+				src = pic.src;
+				w = pic.width;
+				h = pic.height;
+			} catch ( e ) {
+				// Fall through: the layer shows the usual "could not load".
+			}
+		}
 		const doc = createBlankDoc( {
 			name: boot.name,
-			w: boot.w,
-			h: boot.h,
+			w,
+			h,
 			bg: boot.bg || 'transparent',
 			attachmentId: WPIE.attachmentId,
 			isNew: false,
@@ -364,8 +407,8 @@ export async function createDocFromBootstrap( WPIE, loaders = {} ) {
 				w: doc.w,
 				h: doc.h,
 				src,
-				naturalW: boot.w,
-				naturalH: boot.h,
+				naturalW: w,
+				naturalH: h,
 				crossOrigin: 'anonymous',
 			} ),
 		];
@@ -408,58 +451,304 @@ export function serializeLayers( layers ) {
 	return layers.map( ( layer ) => {
 		const cached = serializeCache.get( layer );
 		if ( cached ) {
-			return cached;
+			return settleLayer( cached );
 		}
-		const copy = { ...layer };
-		delete copy.previewEffect; // transient (effect dialog live preview)
-		if ( copy.canvas ) {
-			if ( typeof copy.canvas.toDataURL === 'function' ) {
-				copy.dataUrl = copy.canvas.toDataURL( 'image/png' );
-			}
-			delete copy.canvas;
-		}
-		if ( copy.mask ) {
-			copy.mask = { ...copy.mask };
-			if ( copy.mask.canvas ) {
-				if ( typeof copy.mask.canvas.toDataURL === 'function' ) {
-					copy.mask.data = copy.mask.canvas.toDataURL( 'image/png' );
-				}
-				delete copy.mask.canvas;
-			}
-		}
-		if ( copy.paths ) {
-			copy.paths = copy.paths.map( ( p ) => ( { ...p } ) );
-		}
-		if ( copy.lineStyles ) {
-			copy.lineStyles = copy.lineStyles.map( ( s ) =>
-				s ? { ...s } : s
-			);
-		}
-		if ( copy.stops ) {
-			copy.stops = copy.stops.map( ( s ) => ( { ...s } ) );
-		}
-		if ( copy.adjust ) {
-			copy.adjust = { ...copy.adjust };
-		}
-		if ( copy.styles ) {
-			copy.styles = JSON.parse( JSON.stringify( copy.styles ) );
-		}
-		if ( copy.children ) {
-			copy.children = [ ...copy.children ];
-		}
-		if ( copy.smartFilters ) {
-			copy.smartFilters = copy.smartFilters.map( ( f ) => ( {
-				...f,
-				params: { ...f.params },
-			} ) );
-		}
-		if ( copy.embedded && copy.embedded.bytes ) {
-			// ArrayBuffers survive by reference (immutable for our purposes).
-			copy.embedded = { ...copy.embedded };
-		}
+		const copy = serializeCopy( settleLayer( layer ), false );
 		serializeCache.set( layer, copy );
 		return copy;
 	} );
+}
+
+/*
+ * HISTORY SNAPSHOTS WITHOUT A PNG IN THE WAY (Thomas, 16.10.2026: the
+ * brushes "haken"). A commit serialized every changed raster to PNG on the
+ * spot, on the main thread: 22 to 40 ms for a fresh paint layer, a quarter
+ * to half a second for a photo-sized one (measured 241 ms at 3000 x 2000,
+ * 486 ms at 4000 x 3000) - after every stroke, every bake of a drying
+ * wash, right when the hand starts the next one. snapshotLayers() freezes
+ * a COPY of the pixels instead (one blit) and the PNG is made in the
+ * background, in a worker where the browser has one. Whoever needs the
+ * data URL before that - save, export, a page switch - settles the copy
+ * on the spot, exactly the old cost and nothing more; undo gets the frozen
+ * pixels back as a live canvas without decoding anything.
+ */
+const encodeQueue = [];
+let encodeBusy = false;
+// Frozen pixels waiting for their PNG, in bytes, and the canvases they
+// are. Past the cap a commit encodes on the spot again, as it always did:
+// a document of fifty photo layers must not hold fifty raw copies at once.
+const FROZEN_CAP = 192 * 1024 * 1024;
+let frozenBytes = 0;
+const frozenPending = new WeakSet();
+
+/**
+ * A frozen copy for a snapshot, counted against the cap; null past it.
+ *
+ * @param {HTMLCanvasElement} canvas Source.
+ * @return {HTMLCanvasElement|null} The copy.
+ */
+function freezePending( canvas ) {
+	const bytes = canvas.width * canvas.height * 4;
+	if ( frozenBytes + bytes > FROZEN_CAP ) {
+		return null;
+	}
+	const copy = freezeCanvas( canvas );
+	if ( copy ) {
+		frozenBytes += bytes;
+		frozenPending.add( copy );
+	}
+	return copy;
+}
+
+/**
+ * A frozen copy got its PNG (or was dropped): off the count.
+ *
+ * @param {HTMLCanvasElement} canvas The frozen copy.
+ */
+function thaw( canvas ) {
+	if ( canvas && frozenPending.delete( canvas ) ) {
+		frozenBytes -= canvas.width * canvas.height * 4;
+	}
+}
+
+/**
+ * A private copy of a canvas, or null where the environment cannot make
+ * one (the caller then encodes on the spot, as before).
+ *
+ * @param {HTMLCanvasElement} canvas Source.
+ * @return {HTMLCanvasElement|null} The copy.
+ */
+function freezeCanvas( canvas ) {
+	try {
+		const copy = document.createElement( 'canvas' );
+		copy.width = canvas.width;
+		copy.height = canvas.height;
+		const ctx = copy.getContext( '2d' );
+		if ( ! ctx ) {
+			return null;
+		}
+		ctx.drawImage( canvas, 0, 0 );
+		return copy;
+	} catch ( e ) {
+		return null;
+	}
+}
+
+/**
+ * Encode a serialized layer's frozen pixels now, if any wait (layer and
+ * mask). Safe on anything: a layer without frozen pixels comes back as is.
+ *
+ * @param {Object} copy A serialized layer.
+ * @return {Object} The same object, settled.
+ */
+export function settleLayer( copy ) {
+	if ( copy?.pixels ) {
+		copy.dataUrl = copy.pixels.toDataURL( 'image/png' );
+		thaw( copy.pixels );
+		delete copy.pixels;
+	}
+	if ( copy?.mask?.pixels ) {
+		copy.mask.data = copy.mask.pixels.toDataURL( 'image/png' );
+		thaw( copy.mask.pixels );
+		delete copy.mask.pixels;
+	}
+	return copy;
+}
+
+/**
+ * Serialize layers for a HISTORY snapshot: like serializeLayers, but a
+ * raster that needs encoding keeps frozen pixels (`pixels`, `mask.pixels`)
+ * until the background encoder - or the first caller that needs the data
+ * URL - turns them into one. Shares serializeLayers' cache, so a later
+ * save of the same layer object finds the work done.
+ *
+ * @param {Array} layers Live layers.
+ * @return {Array} Snapshot layers.
+ */
+export function snapshotLayers( layers ) {
+	return layers.map( ( layer ) => {
+		const cached = serializeCache.get( layer );
+		if ( cached ) {
+			return cached;
+		}
+		const copy = serializeCopy( settleLayer( layer ), true );
+		serializeCache.set( layer, copy );
+		if ( copy.pixels || copy.mask?.pixels ) {
+			encodeQueue.push( copy );
+			encodeLater();
+		}
+		return copy;
+	} );
+}
+
+/**
+ * Layers of a history snapshot, ready to be live again. Frozen pixels
+ * (snapshotLayers, still encoding) come back as live canvases at once - a
+ * COPY, so painting on the restored layer can never reach into history.
+ * Everything else is as before: data URLs, hydrated afterwards.
+ *
+ * @param {Array} layers Snapshot layers.
+ * @return {Array} Layers for the live state.
+ */
+export function restoreLayers( layers ) {
+	return layers.map( ( copy ) => {
+		if ( copy.pixels && 'raster' !== copy.type ) {
+			// Only rasters come back as canvases, as hydrateLayers does it.
+			settleLayer( copy );
+		}
+		if ( ! copy.pixels && ! copy.mask?.pixels ) {
+			return copy;
+		}
+		const live = { ...copy };
+		if ( live.pixels ) {
+			live.canvas = freezeCanvas( live.pixels );
+			delete live.pixels;
+			if ( ! live.canvas ) {
+				return settleLayer( copy );
+			}
+		}
+		if ( live.mask?.pixels ) {
+			const canvas = freezeCanvas( live.mask.pixels );
+			live.mask = { ...live.mask, canvas };
+			delete live.mask.pixels;
+			if ( ! canvas ) {
+				return settleLayer( copy );
+			}
+		}
+		// Until something changes it, the restored layer IS that snapshot.
+		serializeCache.set( live, copy );
+		return live;
+	} );
+}
+
+function encodeLater() {
+	if ( encodeBusy || ! encodeQueue.length ) {
+		return;
+	}
+	encodeBusy = true;
+	const idle =
+		'function' === typeof window.requestIdleCallback
+			? ( fn ) => window.requestIdleCallback( fn, { timeout: 2000 } )
+			: ( fn ) => window.setTimeout( fn, 100 );
+	idle( () => {
+		const copy = encodeQueue.shift();
+		encodeInBackground( copy )
+			.catch( () => {} )
+			.then( () => {
+				encodeBusy = false;
+				encodeLater();
+			} );
+	} );
+}
+
+/**
+ * Turn a snapshot copy's frozen pixels into data URLs off the main thread
+ * where possible; a copy settled meanwhile (save, export) keeps that.
+ *
+ * @param {Object} copy A snapshot layer.
+ */
+async function encodeInBackground( copy ) {
+	const { encodeCanvasBlob } = require( '../lib/raster/encode-worker' );
+	for ( const [ holder, out ] of [
+		[ copy, 'dataUrl' ],
+		[ copy.mask, 'data' ],
+	] ) {
+		const pixels = holder?.pixels;
+		if ( ! pixels ) {
+			continue;
+		}
+		const blob = await encodeCanvasBlob( pixels, 'image/png' );
+		if ( ! blob ) {
+			continue;
+		}
+		const url = await new Promise( ( resolve, reject ) => {
+			const reader = new window.FileReader();
+			reader.onload = () => resolve( reader.result );
+			reader.onerror = reject;
+			reader.readAsDataURL( blob );
+		} );
+		if ( holder.pixels === pixels && 'string' === typeof url ) {
+			holder[ out ] = url;
+			thaw( pixels );
+			delete holder.pixels;
+		}
+	}
+}
+
+/**
+ * One layer as plain data; `deferred` keeps frozen pixels instead of
+ * encoding them (snapshotLayers).
+ *
+ * @param {Object}  layer    Live layer.
+ * @param {boolean} deferred Freeze instead of encode.
+ * @return {Object} The serialized copy.
+ */
+function serializeCopy( layer, deferred ) {
+	const copy = { ...layer };
+	delete copy.previewEffect; // transient (effect dialog live preview)
+	if ( copy.canvas ) {
+		if ( typeof copy.canvas.toDataURL === 'function' ) {
+			const frozen = deferred ? freezePending( copy.canvas ) : null;
+			if ( frozen ) {
+				copy.pixels = frozen;
+				delete copy.dataUrl;
+			} else {
+				copy.dataUrl = copy.canvas.toDataURL( 'image/png' );
+			}
+		}
+		delete copy.canvas;
+	}
+	if ( copy.mask ) {
+		copy.mask = { ...copy.mask };
+		if ( copy.mask.canvas ) {
+			if ( typeof copy.mask.canvas.toDataURL === 'function' ) {
+				const frozen = deferred
+					? freezePending( copy.mask.canvas )
+					: null;
+				if ( frozen ) {
+					copy.mask.pixels = frozen;
+					delete copy.mask.data;
+				} else {
+					copy.mask.data = copy.mask.canvas.toDataURL( 'image/png' );
+				}
+			}
+			delete copy.mask.canvas;
+		}
+	}
+	if ( copy.paths ) {
+		copy.paths = copy.paths.map( ( p ) => ( { ...p } ) );
+	}
+	if ( copy.lineStyles ) {
+		copy.lineStyles = copy.lineStyles.map( ( s ) => ( s ? { ...s } : s ) );
+	}
+	if ( copy.stops ) {
+		copy.stops = copy.stops.map( ( s ) => ( { ...s } ) );
+	}
+	for ( const key of [ 'freeform', 'mesh', 'colorLinks' ] ) {
+		if ( copy[ key ] ) {
+			copy[ key ] = JSON.parse( JSON.stringify( copy[ key ] ) );
+		}
+	}
+	if ( copy.adjust ) {
+		copy.adjust = { ...copy.adjust };
+	}
+	if ( copy.styles ) {
+		copy.styles = JSON.parse( JSON.stringify( copy.styles ) );
+	}
+	if ( copy.children ) {
+		copy.children = [ ...copy.children ];
+	}
+	if ( copy.smartFilters ) {
+		copy.smartFilters = copy.smartFilters.map( ( f ) => ( {
+			...f,
+			params: { ...f.params },
+		} ) );
+	}
+	if ( copy.embedded && copy.embedded.bytes ) {
+		// ArrayBuffers survive by reference (immutable for our purposes).
+		copy.embedded = { ...copy.embedded };
+	}
+	return copy;
 }
 
 /**
@@ -528,6 +817,24 @@ export async function hydrateLayers( layers ) {
 				copy.lineStyles = copy.lineStyles.map( ( ls ) =>
 					ls ? sanitizeSpanStyle( ls ) : ls
 				);
+			}
+			// A snapshot still encoding (snapshotLayers) has its pixels at
+			// hand: a copy of them, nothing to decode.
+			if ( copy.pixels ) {
+				if ( 'raster' === copy.type && ! copy.canvas ) {
+					copy.canvas = freezeCanvas( copy.pixels );
+					delete copy.pixels;
+				} else {
+					copy.dataUrl = copy.pixels.toDataURL( 'image/png' );
+					delete copy.pixels;
+				}
+			}
+			if ( copy.mask?.pixels && ! copy.mask.canvas ) {
+				copy.mask = {
+					...copy.mask,
+					canvas: freezeCanvas( copy.mask.pixels ),
+				};
+				delete copy.mask.pixels;
 			}
 			if ( 'raster' === copy.type && copy.dataUrl && ! copy.canvas ) {
 				try {

@@ -1,11 +1,18 @@
 /**
- * Right panel tab host (spec 06): Layers · Props · Adjust · History · AI,
- * plus extension panels (v0.4).
+ * Main tabs: Layers · Properties · Color · Adjust · Effects · AI Studio.
+ * History floats independently; extensions may register additional tabs.
  */
 
 import { siteStorage } from '../../lib/local-storage';
 import { __ } from '@wordpress/i18n';
-import { useRef, useEffect, useState } from '@wordpress/element';
+import {
+	useCallback,
+	useLayoutEffect,
+	useRef,
+	useEffect,
+	useState,
+} from '@wordpress/element';
+import { colorEditorSession } from '../../lib/color-editor-session';
 
 import { I } from '../../icons';
 import { useEditor } from '../../store/editor-context';
@@ -22,11 +29,23 @@ import { loadFloats, saveFloats, clampFloat } from '../../lib/panel-floats';
 const TABS = [
 	{ id: 'layers', label: __( 'Layers', 'wunderpaint' ), icon: 'layers' },
 	{ id: 'props', label: __( 'Properties', 'wunderpaint' ), icon: 'sliders' },
+	{ id: 'color', label: __( 'Color', 'wunderpaint' ), icon: 'palette' },
 	{ id: 'adjust', label: __( 'Adjust', 'wunderpaint' ), icon: 'adjust' },
 	{ id: 'effects', label: __( 'Effects', 'wunderpaint' ), icon: 'fx' },
-	{ id: 'history', label: __( 'History', 'wunderpaint' ), icon: 'history' },
 	{ id: 'ai', label: __( 'AI Studio', 'wunderpaint' ), icon: 'sparkles' },
 ];
+
+// The old `color` position belongs to the former tool window, not a detached tab.
+const floatKey = ( id ) => ( id === 'color' ? 'colorDock' : id );
+
+function ColorDock() {
+	const { dispatch } = useEditor();
+	const attach = useCallback(
+		( node ) => colorEditorSession( dispatch ).setDock( node ),
+		[ dispatch ]
+	);
+	return <div className="color-panel-dock" ref={ attach } />;
+}
 
 /** Framework-free host: extensions render into a plain DOM node. */
 function ExtensionPanelHost( { panel, extras } ) {
@@ -76,6 +95,12 @@ const applyWidth = ( w, persist ) => {
 
 export function RightPanel( { extras } ) {
 	const { state, dispatch } = useEditor();
+	const colorSession = colorEditorSession( dispatch );
+	const [ , refreshColor ] = useState( 0 );
+	useLayoutEffect(
+		() => colorSession.subscribe( () => refreshColor( ( n ) => n + 1 ) ),
+		[ colorSession ]
+	);
 	const [ , setTick ] = useState( 0 );
 	useEffect(
 		() => subscribeExtensions( () => setTick( ( t ) => t + 1 ) ),
@@ -132,6 +157,26 @@ export function RightPanel( { extras } ) {
 	// leave via their dock button - never by clicking elsewhere.
 	const [ floats, setFloats ] = useState( () => loadFloats() );
 	useEffect( () => saveFloats( floats ), [ floats ] );
+	useLayoutEffect( () => {
+		if ( !! floats.colorDock !== state.colorPanelDetached ) {
+			dispatch( {
+				type: 'SET_COLOR_PANEL_DETACHED',
+				detached: !! floats.colorDock,
+			} );
+		}
+	}, [ floats.colorDock, state.colorPanelDetached, dispatch ] );
+	// A bound field in Properties must keep updating while Color edits it.
+	// Only that owner stays mounted; other inactive panels remain lazy.
+	const request = colorSession.request?.nested
+		? colorSession.request.parent
+		: colorSession.request;
+	const ownerTab = ! request?.binding.current.documentTarget
+		? request?.anchor?.closest?.( '[data-right-panel]' )?.dataset.rightPanel
+		: null;
+	const retainedTab = ownerTab && ownerTab !== 'color' ? ownerTab : null;
+	const visibleTabs = [
+		...new Set( [ state.rightTab, retainedTab ].filter( Boolean ) ),
+	];
 
 	const extensionPanels = listExtensionPanels();
 	const allTabs = [
@@ -155,8 +200,8 @@ export function RightPanel( { extras } ) {
 		if ( 'effects' === id ) {
 			return <EffectsPanel extras={ extras } />;
 		}
-		if ( 'history' === id ) {
-			return <HistoryPanel extras={ extras } />;
+		if ( 'color' === id ) {
+			return <ColorDock />;
 		}
 		if ( 'ai' === id ) {
 			return <AIPanel extras={ extras } />;
@@ -169,10 +214,15 @@ export function RightPanel( { extras } ) {
 	const dockBack = ( id ) => {
 		setFloats( ( f ) => {
 			const next = { ...f };
-			delete next[ id ];
+			delete next[ floatKey( id ) ];
 			return next;
 		} );
-		dispatch( { type: 'SET_RIGHT_TAB', tab: id } );
+		if ( id === 'color' ) {
+			colorSession.setDockCollapsed( false );
+			dispatch( { type: 'SET_COLOR_PANEL_DETACHED', detached: false } );
+		} else {
+			dispatch( { type: 'SET_RIGHT_TAB', tab: id } );
+		}
 	};
 	// Dragging a tab detaches its panel right at the pointer (v1.265.1 -
 	// the extra strip row wasted panel height); a plain click keeps its
@@ -183,12 +233,12 @@ export function RightPanel( { extras } ) {
 		}
 		const startX = e.clientX;
 		const startY = e.clientY;
-		const wasFloating = !! floats[ tab.id ];
+		const wasFloating = !! floats[ floatKey( tab.id ) ];
 		let dragging = false;
 		const place = ( ev ) =>
 			setFloats( ( f ) => ( {
 				...f,
-				[ tab.id ]: clampFloat( {
+				[ floatKey( tab.id ) ]: clampFloat( {
 					x: ev.clientX - 60,
 					y: ev.clientY - 14,
 				} ),
@@ -202,7 +252,7 @@ export function RightPanel( { extras } ) {
 				dragging = true;
 				if ( ! wasFloating && state.rightTab === tab.id ) {
 					const next = allTabs.find(
-						( t ) => t.id !== tab.id && ! floats[ t.id ]
+						( t ) => t.id !== tab.id && ! floats[ floatKey( t.id ) ]
 					);
 					if ( next ) {
 						dispatch( { type: 'SET_RIGHT_TAB', tab: next.id } );
@@ -228,7 +278,7 @@ export function RightPanel( { extras } ) {
 		window.addEventListener( 'pointermove', move );
 		window.addEventListener( 'pointerup', up );
 	};
-	const activeFloating = !! floats[ state.rightTab ];
+	const activeFloating = !! floats[ floatKey( state.rightTab ) ];
 
 	return (
 		<div className="ed-right">
@@ -246,10 +296,12 @@ export function RightPanel( { extras } ) {
 						aria-selected={ state.rightTab === tab.id }
 						className={
 							( state.rightTab === tab.id ? 'active' : '' ) +
-							( floats[ tab.id ] ? ' is-floating' : '' )
+							( floats[ floatKey( tab.id ) ]
+								? ' is-floating'
+								: '' )
 						}
 						title={
-							floats[ tab.id ]
+							floats[ floatKey( tab.id ) ]
 								? __(
 										'Floating - click to dock back',
 										'wunderpaint'
@@ -263,37 +315,80 @@ export function RightPanel( { extras } ) {
 							? {}
 							: { 'data-ws': 'panel.' + tab.id } ) }
 						onPointerDown={ tabPointerDown( tab ) }
+						onClick={ ( e ) => {
+							if ( e.detail === 0 ) {
+								if ( floats[ floatKey( tab.id ) ] ) {
+									dockBack( tab.id );
+								} else {
+									dispatch( {
+										type: 'SET_RIGHT_TAB',
+										tab: tab.id,
+									} );
+								}
+							}
+						} }
 					>
 						{ I[ tab.icon ]( { size: 13 } ) } { tab.label }
 					</button>
 				) ) }
 			</div>
-			<div className="ed-right-body" ref={ bodyRef }>
-				{ activeFloating ? (
-					<div className="ed-right-floatnote">
-						{ __(
-							'This panel floats in its own window. Click its tab to dock it back.',
-							'wunderpaint'
+			<div
+				className={ `ed-right-body${
+					state.rightTab === 'color' && ! activeFloating
+						? ' has-color-panel'
+						: ''
+				}` }
+				ref={ bodyRef }
+			>
+				{ visibleTabs.map( ( id ) => (
+					<div
+						key={ id }
+						data-right-panel={ id }
+						className="right-panel-content"
+						hidden={ id !== state.rightTab }
+					>
+						{ floats[ floatKey( id ) ] ? (
+							<div className="ed-right-floatnote">
+								{ __(
+									'This panel floats in its own window. Click its tab to dock it back.',
+									'wunderpaint'
+								) }
+							</div>
+						) : (
+							renderPanel( id )
 						) }
 					</div>
-				) : (
-					renderPanel( state.rightTab )
-				) }
+				) ) }
 			</div>
 			{ Object.entries( floats ).map( ( [ id, pos ] ) => {
-				const tab = allTabs.find( ( t ) => t.id === id );
-				if ( ! tab ) {
+				const tab = allTabs.find( ( t ) => floatKey( t.id ) === id );
+				if (
+					! tab ||
+					( tab.id === 'color' && ! state.showColorPanel )
+				) {
 					return null;
 				}
 				return (
 					<FloatPanel
 						key={ id }
 						title={ tab.label }
+						{ ...( tab.id === 'color'
+							? {
+									icon: I.brand( { size: 15 } ),
+									className: 'color-panel-detached',
+									revealKey: state.colorPanelReveal,
+									width: 320,
+									height: 'min(740px, calc(100vh - 140px))',
+									modal: false,
+									onCollapse: ( value ) =>
+										colorSession.setDockCollapsed( value ),
+							  }
+							: {} ) }
 						pos={ pos }
 						onMove={ ( p ) =>
 							setFloats( ( f ) => ( { ...f, [ id ]: p } ) )
 						}
-						onDock={ () => dockBack( id ) }
+						onDock={ () => dockBack( tab.id ) }
 						onFront={ () =>
 							setFloats( ( f ) => {
 								const { [ id ]: me, ...rest } = f;
@@ -301,10 +396,37 @@ export function RightPanel( { extras } ) {
 							} )
 						}
 					>
-						{ renderPanel( id ) }
+						{ renderPanel( tab.id ) }
 					</FloatPanel>
 				);
 			} ) }
+			{ state.showHistoryPanel && (
+				<FloatPanel
+					title={ __( 'History', 'wunderpaint' ) }
+					icon={ I.brand( { size: 15 } ) }
+					className="history-panel-window"
+					modal={ false }
+					width={ 320 }
+					height="min(600px, calc(100vh - 140px))"
+					pos={
+						floats.history || {
+							x: Math.max( 96, window.innerWidth - 660 ),
+							y: 120,
+						}
+					}
+					onMove={ ( pos ) =>
+						setFloats( ( f ) => ( { ...f, history: pos } ) )
+					}
+					onClose={ () =>
+						dispatch( {
+							type: 'TOGGLE_HISTORY_PANEL',
+							show: false,
+						} )
+					}
+				>
+					<HistoryPanel extras={ extras } />
+				</FloatPanel>
+			) }
 		</div>
 	);
 }

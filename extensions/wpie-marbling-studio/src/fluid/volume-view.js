@@ -185,12 +185,17 @@ export class VolumeView {
 			size = this.size,
 			[ sx, sy, sz ] = this.extent;
 		for ( const mesh of this.meshes ) {
-			mesh.reset();
+			if ( mesh.visible ) {
+				mesh.reset();
+			}
 		}
 		const color = [ 1, 1, 1 ],
 			linear = this.color;
 		const support = sim.spacing * 1.7;
-		const active = [ true, true, true, true, false, false ];
+		const active = [ false, false, false, false, false, false ];
+		const rx = ( support / sx ) * size,
+			ry = ( support / sy ) * size,
+			rz = ( support / sz ) * size;
 		let waxAmount = 0,
 			waxLiquid = 0;
 		for ( let i = 0; i < sim.count; i++ ) {
@@ -200,9 +205,6 @@ export class VolumeView {
 			const px = ( ( sim.x[ i ] + 0.12 ) / sx ) * size;
 			const py = ( ( 1.12 - sim.y[ i ] ) / sy ) * size;
 			const pz = ( ( sim.z[ i ] + 0.08 ) / sz ) * size;
-			const rx = ( support / sx ) * size,
-				ry = ( support / sy ) * size,
-				rz = ( support / sz ) * size;
 			if ( phase === 4 ) {
 				const melt = waxMelt(
 					sim.temperature[ i ],
@@ -256,6 +258,10 @@ export class VolumeView {
 						if ( cloud > 0.001 ) {
 							const dye = this.meshes[ 3 ],
 								amount = value * cloud;
+							if ( dye.field[ j ] === 0 ) {
+								dye.touched[ dye.touchedCount++ ] = j;
+							}
+							active[ 3 ] = true;
 							dye.field[ j ] += amount;
 							dye.palette[ j * 3 ] += amount * linear.r;
 							dye.palette[ j * 3 + 1 ] += amount * linear.g;
@@ -274,7 +280,7 @@ export class VolumeView {
 			if ( phase !== 3 ) {
 				this.contact.extend( mesh );
 			}
-			if ( phase !== 0 ) {
+			if ( phase !== 0 && phase !== 3 ) {
 				for ( let j = 0; j < mesh.field.length; j++ ) {
 					if ( mesh.field[ j ] > 0 ) {
 						for ( let k = 0; k < 3; k++ ) {
@@ -381,11 +387,17 @@ export class VolumeView {
 			this.depthTarget.setSize( width, height );
 		}
 		const cloud = this.meshes[ 3 ];
+		if ( ! cloud.visible ) {
+			engine.render( this.scene, this.camera );
+			return;
+		}
 		cloud.material.uniforms.resolution.value.set( width, height );
 		this.camera.getWorldDirection(
 			cloud.material.uniforms.direction.value
 		);
 		const previous = engine.getRenderTarget();
+		const waterVisible = this.meshes[ 0 ].visible;
+		const bubblesVisible = this.bubbles.visible;
 		try {
 			this.meshes[ 0 ].visible =
 				cloud.visible =
@@ -397,10 +409,9 @@ export class VolumeView {
 		} finally {
 			engine.setRenderTarget( previous );
 			this.scene.overrideMaterial = null;
-			this.meshes[ 0 ].visible =
-				cloud.visible =
-				this.bubbles.visible =
-					true;
+			this.meshes[ 0 ].visible = waterVisible;
+			cloud.visible = true;
+			this.bubbles.visible = bubblesVisible;
 		}
 		engine.render( this.scene, this.camera );
 	}

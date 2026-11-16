@@ -1,8 +1,8 @@
 /**
  * Client wrappers for the guaranteed-local image operations (spec 11.1):
- * remove background (U2-Netp worker), Lanczos upscale (worker), auto
- * enhance (kernels), each with a main-thread fallback when workers /
- * OffscreenCanvas are unavailable (older Safari).
+ * remove background (U2-Netp worker, BiRefNet when downloaded), upscale
+ * (workers), auto enhance (kernels), each with a main-thread fallback when
+ * workers / OffscreenCanvas are unavailable (older Safari).
  */
 
 import { __ } from '@wordpress/i18n';
@@ -21,7 +21,10 @@ import { gaussianBlur, unsharpMask } from './effects';
 import { applyAdjustmentsPixels } from './color';
 import { loadImage } from '../store/document';
 import { cachedRuntimeBuffer, ORT_WASM_FILE } from './ml-cache';
-import { assertLocalRuntime } from './ml';
+import { assertLocalRuntime, isModelInstalled, modelsBaseUrl } from './ml';
+import { subjectMaskCanvas } from './subject-mask';
+import { CUTOUT_MODEL, foundSubject, subjectAnswer } from './subject-model';
+import { logEvent } from './debug-log';
 
 const supportsWorkers = () =>
 	'undefined' !== typeof window.Worker &&
@@ -49,26 +52,8 @@ export async function removeBackgroundLocal( imageUrl ) {
 	const w = img.naturalWidth;
 	const h = img.naturalHeight;
 
-	const alphaMap = await computeSubjectAlpha( img );
-
-	// Upscale the 320×320 alpha map to image size and apply it.
-	const alphaCanvas = createCanvas( alphaMap.size, alphaMap.size );
-	const actx = alphaCanvas.getContext( '2d' );
-	const alphaImage = actx.createImageData( alphaMap.size, alphaMap.size );
-	for ( let i = 0; i < alphaMap.alpha.length; i++ ) {
-		alphaImage.data[ i * 4 + 3 ] = Math.round( alphaMap.alpha[ i ] * 255 );
-		alphaImage.data[ i * 4 ] = 255;
-		alphaImage.data[ i * 4 + 1 ] = 255;
-		alphaImage.data[ i * 4 + 2 ] = 255;
-	}
-	actx.putImageData( alphaImage, 0, 0 );
-
-	// Slight blur on the mask smooths staircase edges from the 320px map.
-	const smooth = createCanvas( w, h );
-	const sctx = smooth.getContext( '2d' );
-	sctx.imageSmoothingEnabled = true;
-	sctx.imageSmoothingQuality = 'high';
-	sctx.drawImage( alphaCanvas, 0, 0, w, h );
+	// The model's mask, refined against the picture (lib/subject-mask.js).
+	const smooth = await subjectMask( img, w, h );
 
 	const out = createCanvas( w, h );
 	const octx = out.getContext( '2d' );
@@ -79,7 +64,7 @@ export async function removeBackgroundLocal( imageUrl ) {
 }
 
 /**
- * Portrait-mode background blur (v0.4): subject stays sharp (U2-Netp
+ * Portrait-mode background blur (v0.4): subject stays sharp (the subject
  * mask), everything else gets a gaussian blur. Fully local.
  *
  * @param {string} imageUrl Source data URL / same-origin URL.
@@ -92,27 +77,13 @@ export async function blurBackgroundLocal( imageUrl, { radius = 18 } = {} ) {
 	const w = img.naturalWidth;
 	const h = img.naturalHeight;
 
-	const alphaMap = await computeSubjectAlpha( img );
-
-	// Sharp subject cut-out (same masking as removeBackgroundLocal).
-	const alphaCanvas = createCanvas( alphaMap.size, alphaMap.size );
-	const actx = alphaCanvas.getContext( '2d' );
-	const alphaImage = actx.createImageData( alphaMap.size, alphaMap.size );
-	for ( let i = 0; i < alphaMap.alpha.length; i++ ) {
-		alphaImage.data[ i * 4 + 3 ] = Math.round( alphaMap.alpha[ i ] * 255 );
-		alphaImage.data[ i * 4 ] = 255;
-		alphaImage.data[ i * 4 + 1 ] = 255;
-		alphaImage.data[ i * 4 + 2 ] = 255;
-	}
-	actx.putImageData( alphaImage, 0, 0 );
-
-	const subject = createCanvas( w, h );
-	const sctx = subject.getContext( '2d' );
-	sctx.drawImage( img, 0, 0 );
-	sctx.globalCompositeOperation = 'destination-in';
-	sctx.imageSmoothingEnabled = true;
-	sctx.imageSmoothingQuality = 'high';
-	sctx.drawImage( alphaCanvas, 0, 0, w, h );
+	// Sharp subject cut-out (same mask as removeBackgroundLocal).
+	const subject = subjectCanvasFor(
+		img,
+		await subjectMask( img, w, h ),
+		w,
+		h
+	);
 
 	// Blurred background (pixel kernel, same one the effects use).
 	const out = createCanvas( w, h );
@@ -131,7 +102,7 @@ export async function blurBackgroundLocal( imageUrl, { radius = 18 } = {} ) {
 
 /**
  * Color Pop (v1.375.1): the subject keeps its colors, everything else
- * drops to black and white. Fully local - same U2-Netp mask as Remove
+ * drops to black and white. Fully local - same subject mask as Remove
  * BG, soft edges blend instead of cutting.
  *
  * @param {string} imageUrl Source data URL / same-origin URL.
@@ -142,62 +113,81 @@ export async function colorPopLocal( imageUrl ) {
 	const w = img.naturalWidth;
 	const h = img.naturalHeight;
 
-	const alphaMap = await computeSubjectAlpha( img );
-
-	// The 320px alpha map, smoothed up to image size (same recipe as
-	// removeBackgroundLocal, the soft edge is the point here).
-	const alphaCanvas = createCanvas( alphaMap.size, alphaMap.size );
-	const actx = alphaCanvas.getContext( '2d' );
-	const alphaImage = actx.createImageData( alphaMap.size, alphaMap.size );
-	for ( let i = 0; i < alphaMap.alpha.length; i++ ) {
-		alphaImage.data[ i * 4 + 3 ] = Math.round( alphaMap.alpha[ i ] * 255 );
-		alphaImage.data[ i * 4 ] = 255;
-		alphaImage.data[ i * 4 + 1 ] = 255;
-		alphaImage.data[ i * 4 + 2 ] = 255;
-	}
-	actx.putImageData( alphaImage, 0, 0 );
-	const smooth = createCanvas( w, h );
-	const sctx = smooth.getContext( '2d' );
-	sctx.imageSmoothingEnabled = true;
-	sctx.imageSmoothingQuality = 'high';
-	sctx.drawImage( alphaCanvas, 0, 0, w, h );
+	// The refined subject mask (lib/subject-mask.js).
+	const smooth = await subjectMask( img, w, h );
 
 	const out = createCanvas( w, h );
 	const octx = out.getContext( '2d' );
 	octx.drawImage( img, 0, 0 );
 	const pixels = octx.getImageData( 0, 0, w, h );
-	const mask = sctx.getImageData( 0, 0, w, h );
+	const mask = smooth.getContext( '2d' ).getImageData( 0, 0, w, h );
 	popPixels( pixels.data, mask.data );
 	octx.putImageData( pixels, 0, 0 );
 	return out.toDataURL( 'image/png' );
 }
 
 /**
- * The 320px alpha map as a smooth, image-sized mask canvas - the shared
- * first step of every subject look (v1.376).
+ * The subject mask of a picture as an image-sized canvas, refined against
+ * the picture (lib/subject-mask.js) - the shared first step of every
+ * subject look. The model's own map comes along for callers that need a
+ * bounding box.
  *
- * @param {Object} alphaMap computeSubjectAlpha() result.
- * @param {number} w        Image width.
- * @param {number} h        Image height.
- * @return {HTMLCanvasElement} w×h mask, subject = opaque.
+ * @param {HTMLImageElement|HTMLCanvasElement} img      The picture.
+ * @param {number}                             w        Width.
+ * @param {number}                             h        Height.
+ * @param {Object}                             alphaMap computeCutoutAlpha() result, when already at hand.
+ * @return {Promise<HTMLCanvasElement>} w x h mask, subject = opaque.
  */
-function maskCanvasFor( alphaMap, w, h ) {
-	const alphaCanvas = createCanvas( alphaMap.size, alphaMap.size );
-	const actx = alphaCanvas.getContext( '2d' );
-	const alphaImage = actx.createImageData( alphaMap.size, alphaMap.size );
-	for ( let i = 0; i < alphaMap.alpha.length; i++ ) {
-		alphaImage.data[ i * 4 + 3 ] = Math.round( alphaMap.alpha[ i ] * 255 );
-		alphaImage.data[ i * 4 ] = 255;
-		alphaImage.data[ i * 4 + 1 ] = 255;
-		alphaImage.data[ i * 4 + 2 ] = 255;
+export async function subjectMask( img, w, h, alphaMap = null ) {
+	const map = alphaMap || ( await computeCutoutAlpha( img ) );
+	return subjectMaskCanvas( img, w, h, map );
+}
+
+/** Whether the better cutout model (BiRefNet) can run here. */
+export function canCutWithModel() {
+	return isModelInstalled( 'cutout' ) && supportsWorkers();
+}
+
+/**
+ * The subject map for a cutout: BiRefNet when it is downloaded and finds
+ * something (lib/subject-model.js), U2-Netp otherwise, also when BiRefNet
+ * fails (a browser that cannot give it the memory). Bounding-box users that
+ * must stay quick (Crop to Subject, thumbnail framing) call
+ * computeSubjectAlpha() directly.
+ *
+ * @param {HTMLImageElement|HTMLCanvasElement} img Source.
+ * @return {Promise<{alpha: Float32Array, size: number, refine?: boolean}>} Square map.
+ */
+export async function computeCutoutAlpha( img ) {
+	assertLocalRuntime();
+	if ( canCutWithModel() ) {
+		try {
+			const bitmap = await window.createImageBitmap( img );
+			// The worker spawn lives in its own module (import.meta, webpack
+			// only), loaded on demand like migan-worker-client.js.
+			const { runCutoutWorker } = await import(
+				'./birefnet-worker-client'
+			);
+			const map = await runCutoutWorker( {
+				bitmap,
+				wasmPath: ortBase(),
+				modelUrl: modelsBaseUrl() + CUTOUT_MODEL,
+				version: window.WPIE?.version || '',
+			} );
+			if ( foundSubject( map.alpha ) ) {
+				return { alpha: map.alpha, size: map.size, refine: false };
+			}
+			logEvent( 'info', 'ml', 'BiRefNet found no subject, U2-Netp used' );
+		} catch ( e ) {
+			logEvent(
+				'warn',
+				'ml',
+				'BiRefNet failed, U2-Netp used',
+				e?.message
+			);
+		}
 	}
-	actx.putImageData( alphaImage, 0, 0 );
-	const smooth = createCanvas( w, h );
-	const sctx = smooth.getContext( '2d' );
-	sctx.imageSmoothingEnabled = true;
-	sctx.imageSmoothingQuality = 'high';
-	sctx.drawImage( alphaCanvas, 0, 0, w, h );
-	return smooth;
+	return computeSubjectAlpha( img );
 }
 
 /** Subject-only canvas (image masked by the smooth alpha). */
@@ -221,14 +211,14 @@ export async function productShotLocal( imageUrl ) {
 	const img = await loadImage( imageUrl );
 	const w = img.naturalWidth;
 	const h = img.naturalHeight;
-	const alphaMap = await computeSubjectAlpha( img );
+	const alphaMap = await computeCutoutAlpha( img );
 	const bbox = alphaBBox( alphaMap, w, h );
 	if ( ! bbox ) {
 		throw new Error(
 			__( 'No clear subject was detected.', 'wunderpaint' )
 		);
 	}
-	const mask = maskCanvasFor( alphaMap, w, h );
+	const mask = await subjectMask( img, w, h, alphaMap );
 	const subject = subjectCanvasFor( img, mask, w, h );
 	const out = createCanvas( w, h );
 	const octx = out.getContext( '2d' );
@@ -274,8 +264,8 @@ export async function neonRimLocal( imageUrl, { color = '#00e5ff' } = {} ) {
 	const img = await loadImage( imageUrl );
 	const w = img.naturalWidth;
 	const h = img.naturalHeight;
-	const alphaMap = await computeSubjectAlpha( img );
-	const mask = maskCanvasFor( alphaMap, w, h );
+	const alphaMap = await computeCutoutAlpha( img );
+	const mask = await subjectMask( img, w, h, alphaMap );
 	const subject = subjectCanvasFor( img, mask, w, h );
 	// Colored silhouette that carries the glow.
 	const sil = createCanvas( w, h );
@@ -313,8 +303,8 @@ export async function speedBlurLocal( imageUrl, { strength = 0.14 } = {} ) {
 	const img = await loadImage( imageUrl );
 	const w = img.naturalWidth;
 	const h = img.naturalHeight;
-	const alphaMap = await computeSubjectAlpha( img );
-	const mask = maskCanvasFor( alphaMap, w, h );
+	const alphaMap = await computeCutoutAlpha( img );
+	const mask = await subjectMask( img, w, h, alphaMap );
 	const subject = subjectCanvasFor( img, mask, w, h );
 	const bbox = alphaBBox( alphaMap, w, h );
 	const cx = bbox ? bbox.x + bbox.w / 2 : w / 2;
@@ -369,8 +359,8 @@ export async function depthFogLocal( imageUrl, { strength = 1 } = {} ) {
 }
 
 /**
- * Subject segmentation alpha map (U2-Netp) for an image element, shared by
- * Remove BG and Select Subject (v0.2).
+ * Subject segmentation alpha map (U2-Netp) for an image element: the quick
+ * map for bounding boxes and the fallback of computeCutoutAlpha().
  *
  * @param {HTMLImageElement|HTMLCanvasElement} img Source.
  * @return {Promise<{alpha: Float32Array, size: number}>} 320×320 alpha map.
@@ -479,19 +469,223 @@ async function removeBgOnMainThread( img ) {
 	for ( let i = 0; i < alpha.length; i++ ) {
 		alpha[ i ] = ( output[ i ] - min ) / range;
 	}
-	return { alpha, size: SIZE };
+	return { alpha, size: SIZE, min, max };
+}
+
+/**
+ * The subject of a live view, look after look (ml.subjectWatch, API 2.26).
+ *
+ * computeSubjectAlpha() starts a worker, loads the model, answers once and
+ * ends: right for one picture, wasteful for a camera, where the next look
+ * follows the last. This keeps one worker with its loaded model until
+ * close(). Looks wait for each other, the runtime runs one at a time.
+ *
+ * @return {{look: Function, close: Function}} `look( source )` resolves to
+ *         `{ w, h, subject: Uint8Array, top }` (subject-model.js
+ *         subjectAnswer); `close()` ends the worker and frees the model.
+ */
+export function watchSubject() {
+	assertLocalRuntime();
+	let worker = null;
+	let closed = false;
+	let abort = null;
+	let queue = Promise.resolve();
+
+	const drop = () => {
+		if ( worker ) {
+			worker.terminate();
+			worker = null;
+		}
+	};
+
+	const ask = ( bitmap ) =>
+		new Promise( ( resolve, reject ) => {
+			if ( ! worker ) {
+				// Literal `new Worker( new URL( … ) )`, see psd-worker-client.js.
+				worker = new Worker(
+					new URL( './removebg.worker.js', import.meta.url )
+				);
+			}
+			const w = worker;
+			const done = ( fn, value ) => {
+				window.clearTimeout( timeout );
+				abort = null;
+				fn( value );
+			};
+			const timeout = window.setTimeout( () => {
+				drop();
+				done( reject, new Error( 'subject look timed out' ) );
+			}, 120000 );
+			// close() during a look: the worker is gone, so nothing would
+			// ever answer and the caller would wait out the timeout.
+			abort = () =>
+				done( reject, new Error( 'subject watch is closed' ) );
+			w.onmessage = ( event ) => {
+				if ( event.data.error ) {
+					drop();
+					done( reject, new Error( event.data.error ) );
+				} else {
+					done( resolve, event.data );
+				}
+			};
+			w.onerror = ( err ) => {
+				drop();
+				done( reject, new Error( err.message || 'worker failed' ) );
+			};
+			w.postMessage(
+				{
+					bitmap,
+					wasmPath: ortBase(),
+					modelUrl: assetUrl( 'assets/models/u2netp.onnx' ),
+					version: window.WPIE?.version || '',
+				},
+				[ bitmap ]
+			);
+		} );
+
+	const look = ( source ) => {
+		const run = queue.then( async () => {
+			if ( closed ) {
+				throw new Error( 'subject watch is closed' );
+			}
+			const src =
+				'string' === typeof source ? await loadImage( source ) : source;
+			// A bitmap on both paths: it takes every kind of source (an
+			// image, a video's current frame, a canvas, ImageData, a Blob).
+			const bitmap = await window.createImageBitmap( src );
+			if ( closed ) {
+				bitmap.close();
+				throw new Error( 'subject watch is closed' );
+			}
+			if ( ! supportsWorkers() ) {
+				try {
+					return subjectAnswer(
+						await removeBgOnMainThread( bitmap )
+					);
+				} finally {
+					bitmap.close();
+				}
+			}
+			return subjectAnswer( await ask( bitmap ) );
+		} );
+		queue = run.catch( () => {} );
+		return run;
+	};
+
+	return {
+		look,
+		close() {
+			closed = true;
+			drop();
+			if ( abort ) {
+				abort();
+			}
+		},
+	};
+}
+
+/**
+ * The subject of one picture as one grayscale channel (ml.subjectMap,
+ * API 2.26): watchSubject() for a single look.
+ *
+ * @param {string|HTMLImageElement|HTMLVideoElement|HTMLCanvasElement|ImageData|Blob} source Picture.
+ * @return {Promise<{w: number, h: number, subject: Uint8Array, top: number}>} Map.
+ */
+export async function subjectMap( source ) {
+	const eye = watchSubject();
+	try {
+		return await eye.look( source );
+	} finally {
+		eye.close();
+	}
 }
 
 /* ------------------------------- upscale -------------------------------- */
 
 /**
- * Lanczos upscale (2×/4×) locally.
+ * Largest picture the AI upscaler takes (20.10.2026). Real-ESRGAN costs
+ * about a minute per megapixel on one browser thread (measured on the
+ * plugin's runtime); beyond this the plain Lanczos path answers at once.
+ */
+export const AI_UPSCALE_MAX_PIXELS = 1500000;
+
+/**
+ * Real-ESRGAN in its worker (esrgan.worker.js), tile by tile.
+ *
+ * @param {Uint8ClampedArray} rgba   Pixels.
+ * @param {number}            w      Width.
+ * @param {number}            h      Height.
+ * @param {number}            factor 2 | 4.
+ * @param {Object}            opts   Options.
+ * @param {Function}          opts.onProgress ( done, total ) per tile.
+ * @param {AbortSignal}       opts.signal     Stops the run.
+ * @return {Promise<{data: Uint8ClampedArray, width: number, height: number}>} Result.
+ */
+function upscaleWithModel( rgba, w, h, factor, { onProgress, signal } = {} ) {
+	return new Promise( ( resolve, reject ) => {
+		// Literal `new Worker( new URL( … ) )`, see psd-worker-client.js.
+		const worker = new Worker(
+			new URL( './esrgan.worker.js', import.meta.url )
+		);
+		const stop = () => {
+			worker.terminate();
+			const err = new Error(
+				__( 'Upscale was canceled.', 'wunderpaint' )
+			);
+			err.canceled = true;
+			reject( err );
+		};
+		if ( signal?.aborted ) {
+			stop();
+			return;
+		}
+		signal?.addEventListener( 'abort', stop, { once: true } );
+		worker.onmessage = ( event ) => {
+			if ( event.data.progress ) {
+				onProgress?.( ...event.data.progress );
+				return;
+			}
+			signal?.removeEventListener( 'abort', stop );
+			worker.terminate();
+			if ( event.data.error ) {
+				reject( new Error( event.data.error ) );
+			} else {
+				resolve( event.data );
+			}
+		};
+		worker.onerror = ( err ) => {
+			signal?.removeEventListener( 'abort', stop );
+			worker.terminate();
+			reject( new Error( err.message || 'worker failed' ) );
+		};
+		const copy = new Uint8ClampedArray( rgba );
+		worker.postMessage(
+			{
+				data: copy,
+				width: w,
+				height: h,
+				factor,
+				wasmPath: ortBase(),
+				modelUrl: assetUrl( 'assets/models/realesr-general-x4v3.onnx' ),
+				version: window.WPIE?.version || '',
+			},
+			[ copy.buffer ]
+		);
+	} );
+}
+
+/**
+ * Upscale (2x / 4x) locally: Real-ESRGAN up to AI_UPSCALE_MAX_PIXELS, which
+ * draws real detail instead of only enlarging, Lanczos above that or where
+ * workers are missing. Nothing leaves the browser either way.
  *
  * @param {string} imageUrl Source data URL.
  * @param {number} factor   2 | 4.
- * @return {Promise<{url: string, width: number, height: number}>} Result.
+ * @param {Object} opts     { onProgress( done, total ), signal }, passed on to
+ *                          the model run.
+ * @return {Promise<{url: string, width: number, height: number, ai: boolean}>} Result.
  */
-export async function upscaleLocal( imageUrl, factor = 2 ) {
+export async function upscaleLocal( imageUrl, factor = 2, opts = {} ) {
 	const img = await loadImage( imageUrl );
 	const w = img.naturalWidth;
 	const h = img.naturalHeight;
@@ -499,8 +693,21 @@ export async function upscaleLocal( imageUrl, factor = 2 ) {
 	source.getContext( '2d' ).drawImage( img, 0, 0 );
 	const rgba = source.getContext( '2d' ).getImageData( 0, 0, w, h ).data;
 
-	let result;
-	if ( supportsWorkers() ) {
+	let result = null;
+	let ai = false;
+	if ( supportsWorkers() && w * h <= AI_UPSCALE_MAX_PIXELS ) {
+		try {
+			result = await upscaleWithModel( rgba, w, h, factor, opts );
+			ai = true;
+		} catch ( err ) {
+			if ( err.canceled ) {
+				throw err;
+			}
+			// The model could not run (old browser, memory): Lanczos below.
+			result = null;
+		}
+	}
+	if ( ! result && supportsWorkers() ) {
 		result = await new Promise( ( resolve, reject ) => {
 			// Literal `new Worker( new URL( … ) )`, see psd-worker-client.js.
 			const worker = new Worker(
@@ -523,7 +730,7 @@ export async function upscaleLocal( imageUrl, factor = 2 ) {
 				copy.buffer,
 			] );
 		} );
-	} else {
+	} else if ( ! result ) {
 		const { lanczosResize } = await import( './upscale.worker.js' );
 		result = {
 			data: lanczosResize(
@@ -547,6 +754,7 @@ export async function upscaleLocal( imageUrl, factor = 2 ) {
 		url: out.toDataURL( 'image/png' ),
 		width: result.width,
 		height: result.height,
+		ai,
 	};
 }
 

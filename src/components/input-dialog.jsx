@@ -41,6 +41,7 @@ export function DialogHost() {
 		);
 	const queue = useRef( [] );
 	const inputRef = useRef( null );
+	const cancelRef = useRef( null );
 
 	const initialFor = ( req ) =>
 		null !== ( req.opts.defaultValue ?? null )
@@ -92,6 +93,10 @@ export function DialogHost() {
 		if ( request && 'prompt' === request.kind ) {
 			inputRef.current?.focus();
 			inputRef.current?.select?.();
+		} else if ( request ) {
+			// A confirmation has no input. Move focus inside so Escape reaches
+			// this dialog instead of the extension that opened it.
+			cancelRef.current?.focus();
 		}
 	}, [ request ] );
 
@@ -263,6 +268,7 @@ export function DialogHost() {
 							<label className="wpie-input-dialog-check">
 								<input
 									type="checkbox"
+									data-checkbox="selection"
 									checked={ checkValue }
 									onChange={ ( e ) =>
 										setCheckValue( e.target.checked )
@@ -274,7 +280,11 @@ export function DialogHost() {
 					</form>
 				) }
 				<div className="wpie-input-dialog-buttons">
-					<button className="ai-btn secondary" onClick={ cancel }>
+					<button
+						ref={ cancelRef }
+						className="ai-btn secondary"
+						onClick={ cancel }
+					>
 						{ opts.cancelLabel || __( 'Cancel', 'wunderpaint' ) }
 					</button>
 					<button

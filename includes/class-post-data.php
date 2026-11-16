@@ -18,6 +18,9 @@ defined( 'ABSPATH' ) || exit;
  */
 class Post_Data {
 
+	/** Maximum response bytes for both JSON and SimplePie feed requests. */
+	const MAX_FEED_BYTES = 2 * MB_IN_BYTES;
+
 	/** ACF field types resolved as plain text. */
 	const ACF_TEXT_TYPES = array( 'text', 'textarea', 'number', 'range', 'email', 'url', 'select', 'radio', 'button_group', 'date_picker', 'date_time_picker', 'time_picker', 'true_false' );
 
@@ -462,10 +465,15 @@ class Post_Data {
 			$url,
 			array(
 				'timeout'             => 10,
-				'limit_response_size' => 2 * MB_IN_BYTES,
+				'limit_response_size' => self::MAX_FEED_BYTES + 1,
 			)
 		);
 		if ( ! is_wp_error( $raw ) ) {
+			// FREE-S01: the extra byte distinguishes an oversized response
+			// from one that fits exactly. Never parse a truncated JSON prefix.
+			if ( strlen( (string) wp_remote_retrieve_body( $raw ) ) > self::MAX_FEED_BYTES ) {
+				return new \WP_Error( 'wpie_feed_failed', __( 'The feed could not be loaded.', 'wunderpaint' ), array( 'status' => 400 ) );
+			}
 			$body  = trim( (string) wp_remote_retrieve_body( $raw ) );
 			$first = substr( $body, 0, 1 );
 			if ( '{' === $first || '[' === $first ) {
@@ -483,9 +491,24 @@ class Post_Data {
 		$fifteen = static function () {
 			return 15 * MINUTE_IN_SECONDS;
 		};
+		// FREE-S01: SimplePie fetches again and may discover another feed.
+		// Bound its own transport as well, retaining WordPress' safe HTTP,
+		// charset handling, cache and sanitization for all discovered URLs.
+		$bounded = static function ( $feed, $feed_url ) use ( $url ) {
+			if ( $url === $feed_url ) {
+				self::register_feed_transport( $feed );
+			}
+		};
 		add_filter( 'wp_feed_cache_transient_lifetime', $fifteen );
-		$feed = fetch_feed( $url );
-		remove_filter( 'wp_feed_cache_transient_lifetime', $fifteen );
+		add_action( 'wp_feed_options', $bounded, PHP_INT_MAX, 2 );
+		try {
+			$feed = fetch_feed( $url );
+		} catch ( \RuntimeException $e ) {
+			$feed = new \WP_Error( 'wpie_feed_transport_failed', 'The bounded feed transport failed.' );
+		} finally {
+			remove_action( 'wp_feed_options', $bounded, PHP_INT_MAX );
+			remove_filter( 'wp_feed_cache_transient_lifetime', $fifteen );
+		}
 		if ( is_wp_error( $feed ) ) {
 			return new \WP_Error( 'wpie_feed_failed', __( 'The feed could not be loaded.', 'wunderpaint' ), array( 'status' => 400 ) );
 		}
@@ -563,6 +586,24 @@ class Post_Data {
 				'items' => $items,
 			)
 		);
+	}
+
+	/**
+	 * Register the bounded transport for the actual SimplePie generation.
+	 *
+	 * WordPress 6.4 still uses SimplePie_Registry's short 'File' key; the
+	 * namespaced key is ignored there. Use the instance's class, so a modern
+	 * class loaded by another plugin cannot change a legacy feed's API.
+	 *
+	 * @param object $feed SimplePie feed instance.
+	 * @throws \RuntimeException When registration fails, before SimplePie fetches.
+	 */
+	private static function register_feed_transport( $feed ) {
+		require_once __DIR__ . '/class-feed-file.php';
+		$type = $feed instanceof \SimplePie\SimplePie ? \SimplePie\File::class : 'File';
+		if ( ! $feed->get_registry()->register( $type, Feed_File::class, true ) ) {
+			throw new \RuntimeException( 'The bounded feed transport could not be registered.' );
+		}
 	}
 
 	/**

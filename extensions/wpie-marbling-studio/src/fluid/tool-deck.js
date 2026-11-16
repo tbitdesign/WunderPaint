@@ -1,25 +1,22 @@
 import { labT as t } from './i18n.js';
+import { TOOL_GROUPS } from './tool-groups.js';
 
-const GROUPS = [
-	[ 'apply', 'Apply liquid', [ 'pipette', 'pour', 'spray', 'ring' ], 'drop' ],
-	[ 'flow', 'Flow', [ 'stir', 'air', 'vortex', 'comb' ], 'wave' ],
-	[
-		'sources',
-		'Sources',
-		[ 'heat', 'cool', 'magnet', 'removeSource' ],
-		'magnet',
-	],
-	[
-		'obstacles',
-		'Obstacles',
-		[ 'wall', 'draw', 'duplicate', 'erase' ],
-		'comb',
-	],
-	[ 'depth', 'Depth', [ 'lift', 'drain' ], 'wave' ],
-];
+// The deck's groups live in tool-groups.js (plain data, so node can count
+// them for the browser QA without loading the translations).
+const GROUPS = TOOL_GROUPS;
 
 // Labels remain visible; the longer explanations describe the actual gesture.
 const TOOLS = {
+	rotor: [
+		'Vortex source',
+		'vortex',
+		'Click to place a lasting vortex. Drag its handle to move it; choose its rotation on the right.',
+	],
+	jet: [
+		'Current jet',
+		'wave',
+		'Click to place a lasting current. Drag its handle to move it; set the flow direction on the right.',
+	],
 	pipette: [
 		'Pipette',
 		'drop',
@@ -113,7 +110,9 @@ const TOOLS = {
 	],
 };
 
-/** DOM adapter for the host's existing .ai-tip appearance, with a 3s delay. */
+/**
+ * DOM adapter for the host's existing .ai-tip appearance, with a 3s delay.
+ */
 function toolTips( ui, root ) {
 	let timer = 0,
 		hideTimer = 0,
@@ -205,7 +204,9 @@ function toolTips( ui, root ) {
 	};
 }
 
-/** Buttons are mounted once so changing tools preserves keyboard focus. */
+/**
+ * Buttons are mounted once so changing tools preserves keyboard focus.
+ */
 export function mountToolDeck( parent, { ui, icons, onSelect, tooltipRoot } ) {
 	const deck = ui.el( 'div', 'wpiemb-lab-tool-deck', parent );
 	deck.setAttribute( 'role', 'group' );

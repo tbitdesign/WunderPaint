@@ -1,4 +1,6 @@
+import { premiumTextReach } from './text-premium';
 import { createCanvas } from './env';
+import { textBodyReach } from './text-surfaces';
 import { stampTextWithShadow } from './text-paint';
 import { maxTextSize } from './text-metrics';
 
@@ -102,9 +104,9 @@ export function textFxReach( layer ) {
 	if ( ! layer.textFX && ! spanMark ) {
 		return 0;
 	}
-	let r = 0;
+	let r = Math.max( premiumTextReach( layer ), textBodyReach( layer ) );
 	if ( spanMark ) {
-		r = Math.ceil( maxTextSize( layer ) * 0.5 ) + 6;
+		r = Math.max( r, Math.ceil( maxTextSize( layer ) * 0.5 ) + 6 );
 	}
 	if ( fx.longShadow ) {
 		r = Math.max( r, Math.min( 400, fx.longShadow.length ?? 20 ) );
@@ -113,12 +115,15 @@ export function textFxReach( layer ) {
 		r = Math.max( r, Math.min( 400, fx.extrude.depth ?? 20 ) );
 	}
 	if ( fx.glow ) {
-		r = Math.max( r, Math.ceil( Math.min( 60, fx.glow.size || 14 ) ) + 2 );
+		r = Math.max(
+			r,
+			Math.ceil( Math.min( 60, fx.glow.size ?? 20 ) * 1.6 ) + 4
+		);
 	}
 	if ( fx.neon ) {
 		r = Math.max(
 			r,
-			Math.ceil( Math.min( 60, fx.neon.size || 18 ) * 1.4 ) + 2
+			Math.ceil( Math.min( 60, fx.neon.size ?? 22 ) * 1.6 ) + 4
 		);
 	}
 	if ( fx.echo ) {
@@ -135,7 +140,12 @@ export function textFxReach( layer ) {
 		);
 	}
 	if ( fx.splice ) {
-		r = Math.max( r, Math.min( 80, fx.splice.offset || 10 ) + 6 );
+		r = Math.max(
+			r,
+			Math.min( 80, fx.splice.offset ?? 7 ) +
+				Math.min( 8, fx.splice.width ?? 2 ) +
+				4
+		);
 	}
 	if ( fx.dotShadow ) {
 		r = Math.max( r, Math.min( 80, fx.dotShadow.offset || 14 ) + 2 );
@@ -167,8 +177,8 @@ export function textFxReach( layer ) {
 		r = Math.max(
 			r,
 			Math.ceil(
-				( Math.min( 100, fx.jitter.amount || 50 ) / 100 ) *
-					0.3 *
+				( Math.min( 100, fx.jitter.amount ?? 42 ) / 100 ) *
+					0.65 *
 					maxTextSize( layer )
 			) + 2
 		);
@@ -207,7 +217,10 @@ export function textFxReach( layer ) {
 	if ( fx.neonTube ) {
 		r = Math.max(
 			r,
-			Math.ceil( Math.min( 60, fx.neonTube.glow ?? 16 ) * 1.4 ) + 2
+			Math.ceil(
+				Math.min( 60, fx.neonTube.glow ?? 24 ) * 1.8 +
+					Math.min( 10, fx.neonTube.width ?? 3 )
+			) + 4
 		);
 	}
 	if ( fx.motionBlur ) {
@@ -219,7 +232,50 @@ export function textFxReach( layer ) {
 	if ( fx.paperCut ) {
 		r = Math.max(
 			r,
-			Math.ceil( Math.min( 60, fx.paperCut.pad ?? 14 ) ) + 2
+			Math.ceil(
+				Math.min( 80, fx.paperCut.pad ?? 18 ) +
+					Math.min( 24, fx.paperCut.depth ?? 4 ) * 2
+			) + 12
+		);
+	}
+	if ( fx.knockout ) {
+		r = Math.max(
+			r,
+			Math.ceil(
+				Math.min( 80, fx.knockout.pad ?? 18 ) +
+					Math.min( 100, fx.knockout.relief ?? 30 ) / 6
+			) + 12
+		);
+	}
+	if ( fx.wireframe ) {
+		r = Math.max(
+			r,
+			Math.ceil(
+				Math.min( 24, fx.wireframe.depth ?? 9 ) +
+					Math.min( 5, fx.wireframe.width ?? 1 )
+			) + 3
+		);
+	}
+	if ( fx.contour ) {
+		r = Math.max(
+			r,
+			Math.ceil(
+				Math.min( 4, fx.contour.count ?? 4 ) *
+					Math.min( 30, fx.contour.gap ?? 7 ) +
+					Math.min( 6, fx.contour.width ?? 1 )
+			) + 4
+		);
+	}
+	if ( fx.gradientOutline ) {
+		r = Math.max(
+			r,
+			Math.ceil( Math.min( 20, fx.gradientOutline.width ?? 5 ) ) + 4
+		);
+	}
+	if ( fx.sparkle ) {
+		r = Math.max(
+			r,
+			Math.ceil( Math.min( 30, fx.sparkle.size ?? 12 ) * 1.2 ) + 2
 		);
 	}
 	if ( fx.sketch ) {
@@ -255,7 +311,10 @@ export function textFxReach( layer ) {
 	if ( fx.highlight ) {
 		r = Math.max(
 			r,
-			Math.ceil( Math.min( 40, fx.highlight.pad ?? 14 ) ) + 6
+			Math.ceil(
+				maxTextSize( layer ) * 0.6 +
+					Math.min( 40, fx.highlight.pad ?? 14 )
+			) + 6
 		);
 	}
 	if ( fx.underlineFx ) {
@@ -276,6 +335,9 @@ export function textFxReach( layer ) {
 				Math.ceil( Math.min( 40, fx.sticker.size ?? 12 ) * 0.6 ) +
 				8
 		);
+	}
+	if ( fx.seal ) {
+		r = Math.max( r, Math.ceil( Math.min( 80, fx.seal.pad ?? 26 ) ) + 4 );
 	}
 	if ( fx.burst ) {
 		r = Math.max(
@@ -410,7 +472,7 @@ export function warpText( ctx, layer, warpId, bend, env ) {
 	// Pad the stamp buffer by the non-warp effect reach (shadows, glows …)
 	// so those effects survive the mesh warp instead of clipping at the box.
 	const p = Math.min(
-		200,
+		600,
 		textFxReach( {
 			...layer,
 			textFX: { ...( layer.textFX || {} ), warp: null, skew: null },

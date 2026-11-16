@@ -19,6 +19,14 @@ Key idea: `bridge.ui` is NOT mocked - the kit bundles the editor's REAL
   the extension's `tools/preview/setup.js`, writes index.html.
   `launchQA({stage})` starts Chromium and returns
   `{ page, check, shot, failures, finish }`.
+- `doc-preview-qa.mjs <key> [new]` - "Show document" for one studio: the
+  layer above the studio's layer must lie in front of the preview, for an
+  edited layer or (`new`) a new one inserted above the background.
+- `doc-preview-all.mjs [key ...]` - the same for every studio in BOTH
+  cases, one run after the other. Run it after any change to
+  `shared/doc-preview.js`, to where the editor inserts new layers, or to a
+  studio's preview code. Until 20.10.2026 only the editing case was run,
+  and Solar shipped a preview that dropped the layers above a new image.
 
 ## Per-extension usage
 
@@ -45,7 +53,8 @@ Key idea: `bridge.ui` is NOT mocked - the kit bundles the editor's REAL
   the editor's real `shapeToPathD` (Type Flow Studio turns document layers
   into lanes, so a stub would have tested nothing). Anything truly extension-specific goes into
   that extension's `setup.js` via `patch`.
-- Migrated so far: **wpie-diagram-studio** (full 60-check suite green).
+- Migrated so far: **wpie-diagram-studio** (full 60-check suite green),
+  **wpie-3d-effects-studio** (qa-dialog, sheet, verify-globals; 20.10.2026).
   The remaining extensions migrate incrementally: replace the stage/mock
   boilerplate in their qa-dialog.mjs, move mock extras into setup.js,
   run their QA to prove parity, delete the old dialog-mock.js.

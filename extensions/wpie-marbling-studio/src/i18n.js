@@ -119,12 +119,12 @@ const DE = {
 	'Ring comb': 'Ringkamm',
 	Splatter: 'Spritzer',
 	Force: 'Kraft',
-	'Press at the centre, drag out to the radius; right pulls clockwise.':
+	'Press at the center, drag out to the radius; right pulls clockwise.':
 		'Im Zentrum ansetzen, bis zum Radius ziehen; rechts zieht im Uhrzeigersinn.',
 	'Flick across the bath to spray a fan of tiny drops.':
 		'Übers Becken schnippen, um einen Fächer feiner Tröpfchen zu sprühen.',
 	'Gall (clear drop)': 'Galle (Klartropfen)',
-	'The gall drop pushes the colours aside and leaves open water.':
+	'The gall drop pushes the colors aside and leaves open water.':
 		'Der Galletropfen schiebt die Farben beiseite und hinterlässt offenes Wasser.',
 	Pigment: 'Pigment',
 	'Paper grain': 'Papierkorn',
@@ -139,21 +139,13 @@ const DE = {
 		'Tropfen auf Tropfen, ungekämmt: der Steingrund.',
 	'Two combs back and forth: the classic zigzag.':
 		'Zwei Kämme hin und zurück: das klassische Zickzack.',
-	'Gel-git pulled through a fine comb, feather-tight.':
-		'Gel-git durch einen feinen Kamm gezogen, federdicht.',
-	'Nonpareil rocked into herringbone arrows.':
-		'Nonpareil zu Fischgrät-Pfeilen geschaukelt.',
 	'A wide comb, then a sway: fanned bouquets.':
 		'Ein breiter Kamm, dann eine Welle: gefächerte Sträuße.',
 	'A field of curls, turning left and right.':
 		'Ein Feld aus Locken, links und rechts gedreht.',
-	'A wave and a counter-comb open the eyes.':
-		'Eine Welle und ein Gegenkamm öffnen die Augen.',
 	'Long slanted folds over a fine comb.':
 		'Lange schräge Falten über einem feinen Kamm.',
-	'A shower of gall opens cells; thin veins between.':
-		'Ein Galle-Schauer öffnet Zellen, feine Adern dazwischen.',
-	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+	'Click to lay a drop shot through with gall: cells of water open inside it, the color between them turns to lace.':
 		'Klick legt einen von Galle durchschossenen Tropfen: Wasserzellen öffnen sich darin, die Farbe dazwischen wird zu Spitze.',
 	'Draw freely through the bath; the ink follows every bend of the line.':
 		'Zeichne frei durchs Bad; die Tinte folgt jeder Biegung der Linie.',
@@ -183,6 +175,58 @@ const DE = {
 	'Feather comb': 'Federkamm',
 	Rose: 'Rose',
 	Iris: 'Iris',
+	Suminagashi:
+		'Suminagashi',
+	Hatip:
+		'Hatip',
+	'Bird wing':
+		'Vogelschwinge',
+	Zebra:
+		'Zebra',
+	'French shell':
+		'Französische Muschel',
+	'Lying gel-git crossed once by a fine comb: rows of arches.':
+		'Liegendes Gel-git, einmal von einem feinen Kamm gekreuzt: Reihen kleiner Bögen.',
+	'A comb across and back, half a tooth apart: arrows.':
+		'Ein Kamm hin und zurück, um eine halbe Zinke versetzt: Pfeile.',
+	'A wide comb down and back opens fans; a fine comb feathers them.':
+		'Ein breiter Kamm hinab und zurück öffnet Fächer, ein feiner Kamm fiedert sie.',
+	'Drops squeeze a sheet of dark ink into thin veins.':
+		'Tropfen pressen eine Schicht dunkler Tinte zu feinen Adern.',
+	'Ink and clear water in turn: rings that drift.':
+		'Tusche und klares Wasser im Wechsel: Ringe, die treiben.',
+	'Small ebru flowers on a light stone ground.':
+		'Kleine Ebru-Blumen auf hellem Steingrund.',
+	'Nonpareil folded by a coarse comb into feathers.':
+		'Nonpareil, von einem groben Kamm zu Federn gefaltet.',
+	'Bands of two inks, rolled by sways and curls.':
+		'Bänder aus zwei Tinten, von Wellen und Wirbeln gerollt.',
+	'Every drop lies in a pale halo of its own.':
+		'Jeder Tropfen liegt in einem eigenen hellen Hof.',
+	'Picture on the water':
+		'Bild auf dem Wasser',
+	Document:
+		'Dokument',
+	'Media Library':
+		'Mediathek',
+	'Remove picture':
+		'Bild entfernen',
+	'With a picture on the water, every gesture marbles the picture.':
+		'Mit einem Bild auf dem Wasser marmoriert jede Geste das Bild.',
+	'Seamless tile':
+		'Nahtlose Kachel',
+	'A picture has edges of its own, so it cannot become a seamless tile.':
+		'Ein Bild hat eigene Ränder, darum kann es keine nahtlose Kachel werden.',
+	'Drops and strokes run over the edge and come back on the other side: the marbling repeats without a seam.':
+		'Tropfen und Züge laufen über den Rand und kommen auf der anderen Seite wieder herein: Die Marmorierung wiederholt sich ohne Naht.',
+	'The tile, repeated':
+		'Die Kachel, wiederholt',
+	'The picture could not be loaded.':
+		'Das Bild konnte nicht geladen werden.',
+	'Choose a picture':
+		'Bild wählen',
+	'Use picture':
+		'Bild verwenden',
 };
 
 const ES = {
@@ -290,12 +334,12 @@ const ES = {
 	'Ring comb': 'Peine circular',
 	Splatter: 'Salpicadura',
 	Force: 'Fuerza',
-	'Press at the centre, drag out to the radius; right pulls clockwise.':
+	'Press at the center, drag out to the radius; right pulls clockwise.':
 		'Pulsa en el centro y arrastra hasta el radio; a la derecha gira en sentido horario.',
 	'Flick across the bath to spray a fan of tiny drops.':
 		'Sacude sobre el baño para rociar un abanico de gotitas.',
 	'Gall (clear drop)': 'Hiel (gota clara)',
-	'The gall drop pushes the colours aside and leaves open water.':
+	'The gall drop pushes the colors aside and leaves open water.':
 		'La gota de hiel aparta los colores y deja agua abierta.',
 	Pigment: 'Pigmento',
 	'Paper grain': 'Grano del papel',
@@ -310,21 +354,13 @@ const ES = {
 		'Gotas sobre gotas, sin peinar: el fondo de guijarros.',
 	'Two combs back and forth: the classic zigzag.':
 		'Dos peines de ida y vuelta: el zigzag clásico.',
-	'Gel-git pulled through a fine comb, feather-tight.':
-		'Gel-git pasado por un peine fino, plumas apretadas.',
-	'Nonpareil rocked into herringbone arrows.':
-		'Nonpareil mecido en flechas de espiga.',
 	'A wide comb, then a sway: fanned bouquets.':
 		'Un peine ancho y un vaivén: ramos abiertos.',
 	'A field of curls, turning left and right.':
 		'Un campo de rizos, girando a izquierda y derecha.',
-	'A wave and a counter-comb open the eyes.':
-		'Una onda y un contrapeine abren los ojos.',
 	'Long slanted folds over a fine comb.':
 		'Pliegues largos e inclinados sobre un peine fino.',
-	'A shower of gall opens cells; thin veins between.':
-		'Una lluvia de hiel abre celdas; vetas finas entre ellas.',
-	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+	'Click to lay a drop shot through with gall: cells of water open inside it, the color between them turns to lace.':
 		'Clic para poner una gota atravesada de hiel: se abren celdas de agua dentro y el color entre ellas se vuelve encaje.',
 	'Draw freely through the bath; the ink follows every bend of the line.':
 		'Dibuja libremente por el baño; la tinta sigue cada curva de la línea.',
@@ -355,6 +391,58 @@ const ES = {
 	'Feather comb': 'Peine de plumas',
 	Rose: 'Rosa',
 	Iris: 'Iris',
+	Suminagashi:
+		'Suminagashi',
+	Hatip:
+		'Hatip',
+	'Bird wing':
+		'Ala de pájaro',
+	Zebra:
+		'Cebra',
+	'French shell':
+		'Concha francesa',
+	'Lying gel-git crossed once by a fine comb: rows of arches.':
+		'Gel-git tumbado, cruzado una vez por un peine fino: filas de arcos.',
+	'A comb across and back, half a tooth apart: arrows.':
+		'Un peine de ida y vuelta, desplazado medio diente: flechas.',
+	'A wide comb down and back opens fans; a fine comb feathers them.':
+		'Un peine ancho de ida y vuelta abre abanicos; uno fino les da plumas.',
+	'Drops squeeze a sheet of dark ink into thin veins.':
+		'Las gotas comprimen una capa de tinta oscura en vetas finas.',
+	'Ink and clear water in turn: rings that drift.':
+		'Tinta y agua clara alternadas: anillos que derivan.',
+	'Small ebru flowers on a light stone ground.':
+		'Pequeñas flores ebru sobre un fondo de piedra claro.',
+	'Nonpareil folded by a coarse comb into feathers.':
+		'Nonpareil plegado en plumas por un peine grueso.',
+	'Bands of two inks, rolled by sways and curls.':
+		'Bandas de dos tintas, enrolladas por ondas y remolinos.',
+	'Every drop lies in a pale halo of its own.':
+		'Cada gota descansa en su propio halo pálido.',
+	'Picture on the water':
+		'Imagen sobre el agua',
+	Document:
+		'Documento',
+	'Media Library':
+		'Biblioteca de medios',
+	'Remove picture':
+		'Quitar imagen',
+	'With a picture on the water, every gesture marbles the picture.':
+		'Con una imagen sobre el agua, cada gesto marmolea la imagen.',
+	'Seamless tile':
+		'Mosaico sin costuras',
+	'A picture has edges of its own, so it cannot become a seamless tile.':
+		'Una imagen tiene sus propios bordes, así que no puede ser un mosaico sin costuras.',
+	'Drops and strokes run over the edge and come back on the other side: the marbling repeats without a seam.':
+		'Las gotas y los trazos cruzan el borde y vuelven por el otro lado: el marmoleado se repite sin costura.',
+	'The tile, repeated':
+		'El mosaico, repetido',
+	'The picture could not be loaded.':
+		'No se pudo cargar la imagen.',
+	'Choose a picture':
+		'Elegir una imagen',
+	'Use picture':
+		'Usar imagen',
 };
 
 const FR = {
@@ -462,12 +550,12 @@ const FR = {
 	'Ring comb': 'Peigne circulaire',
 	Splatter: 'Éclaboussure',
 	Force: 'Force',
-	'Press at the centre, drag out to the radius; right pulls clockwise.':
+	'Press at the center, drag out to the radius; right pulls clockwise.':
 		"Appuyez au centre, glissez jusqu'au rayon ; à droite, rotation horaire.",
 	'Flick across the bath to spray a fan of tiny drops.':
 		'Fouettez le bain pour projeter un éventail de gouttelettes.',
 	'Gall (clear drop)': 'Fiel (goutte claire)',
-	'The gall drop pushes the colours aside and leaves open water.':
+	'The gall drop pushes the colors aside and leaves open water.':
 		"La goutte de fiel écarte les couleurs et laisse l'eau libre.",
 	Pigment: 'Pigment',
 	'Paper grain': 'Grain du papier',
@@ -482,21 +570,13 @@ const FR = {
 		'Gouttes sur gouttes, sans peigne : le fond caillouté.',
 	'Two combs back and forth: the classic zigzag.':
 		'Deux peignes aller-retour : le zigzag classique.',
-	'Gel-git pulled through a fine comb, feather-tight.':
-		'Gel-git tiré dans un peigne fin, plumes serrées.',
-	'Nonpareil rocked into herringbone arrows.':
-		'Nonpareil balancé en chevrons.',
 	'A wide comb, then a sway: fanned bouquets.':
 		'Un peigne large, puis un balancement : des bouquets en éventail.',
 	'A field of curls, turning left and right.':
 		'Un champ de boucles, à gauche et à droite.',
-	'A wave and a counter-comb open the eyes.':
-		'Une vague et un contre-peigne ouvrent les yeux.',
 	'Long slanted folds over a fine comb.':
 		'De longs plis obliques sur un peigne fin.',
-	'A shower of gall opens cells; thin veins between.':
-		'Une pluie de fiel ouvre des cellules ; de fines veines entre elles.',
-	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+	'Click to lay a drop shot through with gall: cells of water open inside it, the color between them turns to lace.':
 		"Cliquez pour poser une goutte criblée de fiel : des cellules d'eau s'ouvrent dedans, la couleur entre elles devient dentelle.",
 	'Draw freely through the bath; the ink follows every bend of the line.':
 		"Dessinez librement dans le bain ; l'encre suit chaque courbe du trait.",
@@ -526,6 +606,58 @@ const FR = {
 	'Feather comb': 'Peigne à plumes',
 	Rose: 'Rose',
 	Iris: 'Iris',
+	Suminagashi:
+		'Suminagashi',
+	Hatip:
+		'Hatip',
+	'Bird wing':
+		"Aile d'oiseau",
+	Zebra:
+		'Zèbre',
+	'French shell':
+		'Coquille française',
+	'Lying gel-git crossed once by a fine comb: rows of arches.':
+		"Gel-git couché, traversé une fois par un peigne fin : des rangées d'arches.",
+	'A comb across and back, half a tooth apart: arrows.':
+		"Un peigne aller-retour, décalé d'une demi-dent : des flèches.",
+	'A wide comb down and back opens fans; a fine comb feathers them.':
+		'Un large peigne aller-retour ouvre des éventails ; un peigne fin les emplume.',
+	'Drops squeeze a sheet of dark ink into thin veins.':
+		"Les gouttes pressent une nappe d'encre sombre en fines veines.",
+	'Ink and clear water in turn: rings that drift.':
+		'Encre et eau claire en alternance : des anneaux qui dérivent.',
+	'Small ebru flowers on a light stone ground.':
+		'De petites fleurs ebru sur un fond pierre clair.',
+	'Nonpareil folded by a coarse comb into feathers.':
+		'Nonpareil plié en plumes par un peigne grossier.',
+	'Bands of two inks, rolled by sways and curls.':
+		'Des bandes de deux encres, roulées par des vagues et des volutes.',
+	'Every drop lies in a pale halo of its own.':
+		'Chaque goutte repose dans son propre halo pâle.',
+	'Picture on the water':
+		"Image sur l'eau",
+	Document:
+		'Document',
+	'Media Library':
+		'Médiathèque',
+	'Remove picture':
+		"Retirer l'image",
+	'With a picture on the water, every gesture marbles the picture.':
+		"Avec une image sur l'eau, chaque geste marbre l'image.",
+	'Seamless tile':
+		'Motif raccordable',
+	'A picture has edges of its own, so it cannot become a seamless tile.':
+		'Une image a ses propres bords, elle ne peut donc pas devenir un motif raccordable.',
+	'Drops and strokes run over the edge and come back on the other side: the marbling repeats without a seam.':
+		"Gouttes et tracés passent le bord et reviennent de l'autre côté : le marbrage se répète sans raccord visible.",
+	'The tile, repeated':
+		'Le motif, répété',
+	'The picture could not be loaded.':
+		"L'image n'a pas pu être chargée.",
+	'Choose a picture':
+		'Choisir une image',
+	'Use picture':
+		"Utiliser l'image",
 };
 
 const PT = {
@@ -634,12 +766,12 @@ const PT = {
 	'Ring comb': 'Pente circular',
 	Splatter: 'Respingo',
 	Force: 'Força',
-	'Press at the centre, drag out to the radius; right pulls clockwise.':
+	'Press at the center, drag out to the radius; right pulls clockwise.':
 		'Pressione no centro e arraste até o raio; à direita gira em sentido horário.',
 	'Flick across the bath to spray a fan of tiny drops.':
 		'Sacuda sobre o banho para borrifar um leque de gotinhas.',
 	'Gall (clear drop)': 'Fel (gota clara)',
-	'The gall drop pushes the colours aside and leaves open water.':
+	'The gall drop pushes the colors aside and leaves open water.':
 		'A gota de fel afasta as cores e deixa água aberta.',
 	Pigment: 'Pigmento',
 	'Paper grain': 'Grão do papel',
@@ -654,21 +786,13 @@ const PT = {
 		'Gotas sobre gotas, sem pente: o fundo de seixos.',
 	'Two combs back and forth: the classic zigzag.':
 		'Dois pentes de ida e volta: o ziguezague clássico.',
-	'Gel-git pulled through a fine comb, feather-tight.':
-		'Gel-git puxado por um pente fino, plumas cerradas.',
-	'Nonpareil rocked into herringbone arrows.':
-		'Nonpareil embalado em setas de espinha.',
 	'A wide comb, then a sway: fanned bouquets.':
 		'Um pente largo e um balanço: ramos em leque.',
 	'A field of curls, turning left and right.':
 		'Um campo de caracóis, a rodar para a esquerda e a direita.',
-	'A wave and a counter-comb open the eyes.':
-		'Uma onda e um contrapente abrem os olhos.',
 	'Long slanted folds over a fine comb.':
 		'Dobras longas e oblíquas sobre um pente fino.',
-	'A shower of gall opens cells; thin veins between.':
-		'Uma chuva de fel abre células; veios finos entre elas.',
-	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+	'Click to lay a drop shot through with gall: cells of water open inside it, the color between them turns to lace.':
 		'Clique para pousar uma gota crivada de fel: abrem-se células de água lá dentro e a cor entre elas vira renda.',
 	'Draw freely through the bath; the ink follows every bend of the line.':
 		'Desenha livremente pelo banho; a tinta segue cada curva da linha.',
@@ -699,6 +823,58 @@ const PT = {
 	'Feather comb': 'Pente de plumas',
 	Rose: 'Rosa',
 	Iris: 'Íris',
+	Suminagashi:
+		'Suminagashi',
+	Hatip:
+		'Hatip',
+	'Bird wing':
+		'Asa de pássaro',
+	Zebra:
+		'Zebra',
+	'French shell':
+		'Concha francesa',
+	'Lying gel-git crossed once by a fine comb: rows of arches.':
+		'Gel-git deitado, cruzado uma vez por um pente fino: fileiras de arcos.',
+	'A comb across and back, half a tooth apart: arrows.':
+		'Um pente de ida e volta, deslocado meio dente: setas.',
+	'A wide comb down and back opens fans; a fine comb feathers them.':
+		'Um pente largo de ida e volta abre leques; um pente fino lhes dá penas.',
+	'Drops squeeze a sheet of dark ink into thin veins.':
+		'As gotas espremem uma camada de tinta escura em veios finos.',
+	'Ink and clear water in turn: rings that drift.':
+		'Tinta e água limpa alternadas: anéis que derivam.',
+	'Small ebru flowers on a light stone ground.':
+		'Pequenas flores ebru sobre um fundo de pedra claro.',
+	'Nonpareil folded by a coarse comb into feathers.':
+		'Nonpareil dobrado em penas por um pente grosso.',
+	'Bands of two inks, rolled by sways and curls.':
+		'Faixas de duas tintas, enroladas por ondas e redemoinhos.',
+	'Every drop lies in a pale halo of its own.':
+		'Cada gota repousa em seu próprio halo pálido.',
+	'Picture on the water':
+		'Imagem sobre a água',
+	Document:
+		'Documento',
+	'Media Library':
+		'Biblioteca de mídia',
+	'Remove picture':
+		'Remover imagem',
+	'With a picture on the water, every gesture marbles the picture.':
+		'Com uma imagem sobre a água, cada gesto marmoriza a imagem.',
+	'Seamless tile':
+		'Bloco sem emendas',
+	'A picture has edges of its own, so it cannot become a seamless tile.':
+		'Uma imagem tem bordas próprias, por isso não pode virar um bloco sem emendas.',
+	'Drops and strokes run over the edge and come back on the other side: the marbling repeats without a seam.':
+		'Gotas e traços passam pela borda e voltam do outro lado: o marmorizado se repete sem emenda.',
+	'The tile, repeated':
+		'O bloco, repetido',
+	'The picture could not be loaded.':
+		'Não foi possível carregar a imagem.',
+	'Choose a picture':
+		'Escolher uma imagem',
+	'Use picture':
+		'Usar imagem',
 };
 
 const IT = {
@@ -806,12 +982,12 @@ const IT = {
 	'Ring comb': 'Pettine circolare',
 	Splatter: 'Schizzo',
 	Force: 'Forza',
-	'Press at the centre, drag out to the radius; right pulls clockwise.':
+	'Press at the center, drag out to the radius; right pulls clockwise.':
 		'Premi al centro e trascina fino al raggio; a destra ruota in senso orario.',
 	'Flick across the bath to spray a fan of tiny drops.':
 		'Scuoti sulla vasca per spruzzare un ventaglio di goccioline.',
 	'Gall (clear drop)': 'Fiele (goccia chiara)',
-	'The gall drop pushes the colours aside and leaves open water.':
+	'The gall drop pushes the colors aside and leaves open water.':
 		'La goccia di fiele scosta i colori e lascia acqua aperta.',
 	Pigment: 'Pigmento',
 	'Paper grain': 'Grana della carta',
@@ -826,21 +1002,13 @@ const IT = {
 		'Gocce su gocce, senza pettine: il fondo a ciottoli.',
 	'Two combs back and forth: the classic zigzag.':
 		'Due pettini avanti e indietro: lo zigzag classico.',
-	'Gel-git pulled through a fine comb, feather-tight.':
-		'Gel-git tirato in un pettine fine, piume serrate.',
-	'Nonpareil rocked into herringbone arrows.':
-		'Nonpareil cullato in frecce a spina di pesce.',
 	'A wide comb, then a sway: fanned bouquets.':
 		"Un pettine largo, poi un'ondata: bouquet a ventaglio.",
 	'A field of curls, turning left and right.':
 		'Un campo di riccioli, a destra e a sinistra.',
-	'A wave and a counter-comb open the eyes.':
-		"Un'onda e un contropettine aprono gli occhi.",
 	'Long slanted folds over a fine comb.':
 		'Lunghe pieghe oblique su un pettine fine.',
-	'A shower of gall opens cells; thin veins between.':
-		'Una pioggia di fiele apre celle; vene sottili in mezzo.',
-	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+	'Click to lay a drop shot through with gall: cells of water open inside it, the color between them turns to lace.':
 		"Clic per posare una goccia crivellata di fiele: dentro si aprono celle d'acqua e il colore tra loro diventa pizzo.",
 	'Draw freely through the bath; the ink follows every bend of the line.':
 		"Disegna liberamente nel bagno; l'inchiostro segue ogni curva della linea.",
@@ -871,6 +1039,58 @@ const IT = {
 	'Feather comb': 'Pettine a piume',
 	Rose: 'Rosa',
 	Iris: 'Iris',
+	Suminagashi:
+		'Suminagashi',
+	Hatip:
+		'Hatip',
+	'Bird wing':
+		"Ala d'uccello",
+	Zebra:
+		'Zebra',
+	'French shell':
+		'Conchiglia francese',
+	'Lying gel-git crossed once by a fine comb: rows of arches.':
+		'Gel-git coricato, attraversato una volta da un pettine fine: file di archi.',
+	'A comb across and back, half a tooth apart: arrows.':
+		'Un pettine andata e ritorno, sfalsato di mezzo dente: frecce.',
+	'A wide comb down and back opens fans; a fine comb feathers them.':
+		'Un pettine largo andata e ritorno apre ventagli; un pettine fine li rende piumati.',
+	'Drops squeeze a sheet of dark ink into thin veins.':
+		'Le gocce stringono uno strato di inchiostro scuro in vene sottili.',
+	'Ink and clear water in turn: rings that drift.':
+		'Inchiostro e acqua limpida a turno: anelli che vanno alla deriva.',
+	'Small ebru flowers on a light stone ground.':
+		'Piccoli fiori ebru su un fondo a pietra chiaro.',
+	'Nonpareil folded by a coarse comb into feathers.':
+		'Nonpareil piegato in piume da un pettine grosso.',
+	'Bands of two inks, rolled by sways and curls.':
+		'Fasce di due inchiostri, arrotolate da onde e vortici.',
+	'Every drop lies in a pale halo of its own.':
+		'Ogni goccia giace in un proprio alone chiaro.',
+	'Picture on the water':
+		"Immagine sull'acqua",
+	Document:
+		'Documento',
+	'Media Library':
+		'Libreria media',
+	'Remove picture':
+		'Rimuovi immagine',
+	'With a picture on the water, every gesture marbles the picture.':
+		"Con un'immagine sull'acqua, ogni gesto marmorizza l'immagine.",
+	'Seamless tile':
+		'Tessera senza giunture',
+	'A picture has edges of its own, so it cannot become a seamless tile.':
+		"Un'immagine ha bordi propri, quindi non può diventare una tessera senza giunture.",
+	'Drops and strokes run over the edge and come back on the other side: the marbling repeats without a seam.':
+		"Gocce e tratti escono dal bordo e rientrano dall'altro lato: la marmorizzazione si ripete senza giunture.",
+	'The tile, repeated':
+		'La tessera, ripetuta',
+	'The picture could not be loaded.':
+		"Impossibile caricare l'immagine.",
+	'Choose a picture':
+		"Scegli un'immagine",
+	'Use picture':
+		'Usa immagine',
 };
 
 export const NL = {
@@ -978,12 +1198,12 @@ export const NL = {
 	'Ring comb': 'Ringkam',
 	Splatter: 'Spetter',
 	Force: 'Kracht',
-	'Press at the centre, drag out to the radius; right pulls clockwise.':
+	'Press at the center, drag out to the radius; right pulls clockwise.':
 		'Druk in het midden en sleep naar buiten tot de straal; naar rechts draait met de klok mee.',
 	'Flick across the bath to spray a fan of tiny drops.':
 		'Zwiep over het bad om een waaier van fijne druppeltjes te sproeien.',
 	'Gall (clear drop)': 'Gal (heldere druppel)',
-	'The gall drop pushes the colours aside and leaves open water.':
+	'The gall drop pushes the colors aside and leaves open water.':
 		'De galdruppel duwt de kleuren opzij en laat open water achter.',
 	Pigment: 'Pigment',
 	'Paper grain': 'Papierkorrel',
@@ -998,21 +1218,13 @@ export const NL = {
 		'Druppels op druppels, ongekamd: de kiezelgrond.',
 	'Two combs back and forth: the classic zigzag.':
 		'Twee kammen heen en terug: de klassieke zigzag.',
-	'Gel-git pulled through a fine comb, feather-tight.':
-		'Gel-git door een fijne kam getrokken, veerdicht.',
-	'Nonpareil rocked into herringbone arrows.':
-		'Nonpareil gewiegd tot visgraatpijlen.',
 	'A wide comb, then a sway: fanned bouquets.':
 		'Een brede kam, dan een deining: waaierende boeketten.',
 	'A field of curls, turning left and right.':
 		'Een veld van krullen, links- en rechtsom.',
-	'A wave and a counter-comb open the eyes.':
-		'Een golf en een tegenkam openen de ogen.',
 	'Long slanted folds over a fine comb.':
 		'Lange schuine plooien over een fijne kam.',
-	'A shower of gall opens cells; thin veins between.':
-		'Een regen van gal opent cellen; dunne aders ertussen.',
-	'Click to lay a drop shot through with gall: cells of water open inside it, the colour between them turns to lace.':
+	'Click to lay a drop shot through with gall: cells of water open inside it, the color between them turns to lace.':
 		'Klik voor een druppel doorschoten met gal: er openen zich watercellen in, de kleur ertussen wordt kant.',
 	'Draw freely through the bath; the ink follows every bend of the line.':
 		'Teken vrij door het bad; de inkt volgt elke bocht van de lijn.',
@@ -1042,6 +1254,58 @@ export const NL = {
 	'Feather comb': 'Verenkam',
 	Rose: 'Roos',
 	Iris: 'Iris',
+	Suminagashi:
+		'Suminagashi',
+	Hatip:
+		'Hatip',
+	'Bird wing':
+		'Vogelvleugel',
+	Zebra:
+		'Zebra',
+	'French shell':
+		'Franse schelp',
+	'Lying gel-git crossed once by a fine comb: rows of arches.':
+		'Liggende gel-git, één keer door een fijne kam gekruist: rijen boogjes.',
+	'A comb across and back, half a tooth apart: arrows.':
+		'Een kam heen en terug, een halve tand verschoven: pijlen.',
+	'A wide comb down and back opens fans; a fine comb feathers them.':
+		'Een brede kam heen en terug opent waaiers; een fijne kam geeft ze veren.',
+	'Drops squeeze a sheet of dark ink into thin veins.':
+		'Druppels persen een laag donkere inkt tot dunne aders.',
+	'Ink and clear water in turn: rings that drift.':
+		'Inkt en helder water om beurten: ringen die drijven.',
+	'Small ebru flowers on a light stone ground.':
+		'Kleine ebru-bloemen op een lichte steengrond.',
+	'Nonpareil folded by a coarse comb into feathers.':
+		'Nonpareil door een grove kam tot veren gevouwen.',
+	'Bands of two inks, rolled by sways and curls.':
+		'Banen van twee inkten, gerold door golven en krullen.',
+	'Every drop lies in a pale halo of its own.':
+		'Elke druppel ligt in een eigen lichte stralenkrans.',
+	'Picture on the water':
+		'Afbeelding op het water',
+	Document:
+		'Document',
+	'Media Library':
+		'Mediabibliotheek',
+	'Remove picture':
+		'Afbeelding verwijderen',
+	'With a picture on the water, every gesture marbles the picture.':
+		'Met een afbeelding op het water marmert elk gebaar de afbeelding.',
+	'Seamless tile':
+		'Naadloze tegel',
+	'A picture has edges of its own, so it cannot become a seamless tile.':
+		'Een afbeelding heeft eigen randen en kan dus geen naadloze tegel worden.',
+	'Drops and strokes run over the edge and come back on the other side: the marbling repeats without a seam.':
+		'Druppels en halen lopen over de rand en komen aan de andere kant terug: de marmering herhaalt zich zonder naad.',
+	'The tile, repeated':
+		'De tegel, herhaald',
+	'The picture could not be loaded.':
+		'De afbeelding kon niet worden geladen.',
+	'Choose a picture':
+		'Kies een afbeelding',
+	'Use picture':
+		'Afbeelding gebruiken',
 };
 
 const DICTS = { de: DE, es: ES, fr: FR, pt: PT, it: IT, nl: NL };

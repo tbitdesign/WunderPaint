@@ -25,6 +25,8 @@ import { comboToLayers } from './content-io';
 import { loadCombos, loadElements, loadGradients } from '../content';
 import { stock } from './api';
 import { createCanvas } from './raster';
+import { archiveLibrary } from './local-archive';
+import { importFiles } from './import-files';
 
 const RECENT_KEY = 'wpie-recent-assets';
 const RECENT_MAX = 20;
@@ -84,7 +86,31 @@ const photoFillsDocument = ( asset ) =>
  * @param {Object} source { file } | { asset }.
  * @return {Promise<{src: string, w: number, h: number}|null>} Image.
  */
-async function loadDroppedImage( source ) {
+/** The picture behind a My Archive tile as a { file } source, or null. */
+const archiveSource = async ( asset ) => {
+	const file = await archiveLibrary().openFile( asset.archiveId, asset.path );
+	return file ? { file } : null;
+};
+
+/**
+ * Kinds that carry a picture (v1.431.0): they swap into an image layer,
+ * fill a frame and announce themselves during a drag. One list, so the
+ * canvas, the layer panel and the tray cannot drift apart.
+ */
+export const IMAGE_ASSET_KINDS = [ 'photo', 'upload', 'archive' ];
+export const isImageAsset = ( asset ) =>
+	IMAGE_ASSET_KINDS.includes( asset?.kind );
+
+async function loadDroppedImage( input ) {
+	// A tile from My Archive names a file on the visitor's disk; resolve
+	// it first, the rest of the pipeline sees an ordinary dropped file.
+	const source =
+		'archive' === input.asset?.kind
+			? await archiveSource( input.asset )
+			: input;
+	if ( ! source ) {
+		return null;
+	}
 	let img;
 	let mime = 'image/png';
 	if ( source.file ) {
@@ -517,6 +543,32 @@ export async function insertAsset( editor, extras, asset, point = null ) {
 			break;
 		}
 
+		case 'archive': {
+			// My Archive (v1.431.0): a file on the visitor's disk, placed
+			// like File > Place. The bytes go into the layer and nowhere
+			// else.
+			const file = await archiveLibrary().openFile(
+				asset.archiveId,
+				asset.path
+			);
+			if ( ! file ) {
+				extras?.toasts?.error(
+					__(
+						'Could not open this image. Choose the folder again.',
+						'wunderpaint'
+					)
+				);
+				return false;
+			}
+			await importFiles(
+				[ file ],
+				editor,
+				extras || { toasts: { error: () => {} } },
+				point
+			);
+			break;
+		}
+
 		case 'photo': {
 			try {
 				stock.countDownload( asset.downloadLocation );
@@ -678,8 +730,12 @@ export async function insertAsset( editor, extras, asset, point = null ) {
 	// positioned right away.
 	dispatch( { type: 'SET_TOOL', tool: 'move' } );
 	// User-library items have their own sections and carry a bulky descriptor,
-	// so keep them out of the Recent strip.
-	if ( ! String( asset.kind ).startsWith( 'user-' ) ) {
+	// so keep them out of the Recent strip. Archive tiles too: their picture
+	// lives on the visitor's disk, the strip could show them no preview.
+	if (
+		! String( asset.kind ).startsWith( 'user-' ) &&
+		'archive' !== asset.kind
+	) {
 		rememberAsset( asset );
 	}
 	return true;

@@ -7,9 +7,11 @@
 import { __ } from '@wordpress/i18n';
 import { scalePathD, offsetPathD } from '../lib/path';
 import { recordStep } from '../lib/macro-recorder';
+import { scaleLayer } from '../lib/layer-scale';
 
 import { createCanvas, renderToCanvas, sharedImageCache } from '../lib/raster';
 import { makeRaster, uid } from './document';
+import { backgroundForSize, fillsDocument } from '../lib/background-layers';
 
 // Path transforms live in lib/path since v1.4 (the reducer needs them too);
 // re-exported so existing `from doc-ops` imports keep working.
@@ -18,7 +20,7 @@ export { scalePathD, offsetPathD };
 /**
  * Deep-copy layer subtrees for duplicate/paste: every layer of the trees
  * gets a fresh id, parent/children references are remapped onto the copies,
- * and live raster canvases are cloned so a duplicate never shares pixels
+ * and live raster and mask canvases are cloned so a duplicate never shares pixels
  * with its original. Roots keep their original `parent` id untouched; the
  * caller decides group membership (duplicate keeps it, paste clears it).
  *
@@ -61,11 +63,43 @@ export function cloneLayerTree( layers, rootIds ) {
 					// No 2d context (tests): the shared canvas stays.
 				}
 			}
+			if ( copy.mask ) {
+				// Mask painting writes pixels in place. Duplicate and each paste
+				// need their own mask, including its original sampling anchor.
+				copy.mask = { ...copy.mask };
+				if ( copy.mask.anchor ) {
+					copy.mask.anchor = { ...copy.mask.anchor };
+				}
+				if ( copy.mask.canvas ) {
+					const mask = createCanvas(
+						copy.mask.canvas.width,
+						copy.mask.canvas.height
+					);
+					mask.getContext( '2d' ).drawImage( copy.mask.canvas, 0, 0 );
+					copy.mask.canvas = mask;
+				}
+			}
 			return copy;
 		} );
 	for ( const copy of copies ) {
 		if ( copy.parent && idMap.has( copy.parent ) ) {
 			copy.parent = idMap.get( copy.parent );
+		}
+		// A Repeat layer copied together with its source repeats the copy
+		// of the source, not the original (v1.431).
+		if ( 'repeat' === copy.type && idMap.has( copy.sourceId ) ) {
+			copy.sourceId = idMap.get( copy.sourceId );
+		}
+		if ( copy.colorLinks ) {
+			copy.colorLinks = Object.fromEntries(
+				Object.entries( copy.colorLinks ).map( ( [ field, link ] ) => [
+					field,
+					{
+						...link,
+						sourceId: idMap.get( link?.sourceId ) || link?.sourceId,
+					},
+				] )
+			);
 		}
 		if ( 'group' === copy.type ) {
 			copy.children = ( copy.children || [] )
@@ -153,7 +187,10 @@ function scaleCanvas( canvas, w, h ) {
 
 /**
  * Image Size: resample the whole document (spec 04.2), doc + every layer's
- * geometry, raster buffers, text sizes, stroke paths, gradients, masks.
+ * geometry, raster buffers and masks. Every pixel a layer carries besides
+ * its box (type, strokes, styles, text effects, spacing, paths, corners)
+ * scales through scaleLayer() in layer-scale.js, the same scaler Magic
+ * Resize and the library insert use (24.09.2026).
  */
 export function scaleDoc( editor, newW, newH ) {
 	recordStep( 'resizeImage', { w: newW, h: newH } );
@@ -163,38 +200,16 @@ export function scaleDoc( editor, newW, newH ) {
 	if ( ! isFinite( sx ) || ! isFinite( sy ) || sx <= 0 || sy <= 0 ) {
 		return false;
 	}
-	const fontScale = ( sx + sy ) / 2;
 
 	dispatch( {
 		type: 'SET_LAYERS',
 		layers: state.layers.map( ( layer ) => {
-			const patch = {
-				...layer,
-				x: layer.x * sx,
-				y: layer.y * sy,
-				w: layer.w * sx,
-				h: layer.h * sy,
-			};
-			if ( 'text' === layer.type ) {
-				patch.fontSize = layer.fontSize * fontScale;
-				patch.letterSpacing = ( layer.letterSpacing || 0 ) * fontScale;
+			// A generated background is drawn again at the new size, not
+			// resampled (see background-layers.js).
+			if ( fillsDocument( layer, state.doc ) ) {
+				return backgroundForSize( layer, newW, newH );
 			}
-			if ( 'stroke' === layer.type ) {
-				patch.x0 = ( layer.x0 ?? layer.x ) * sx;
-				patch.y0 = ( layer.y0 ?? layer.y ) * sy;
-				patch.paths = layer.paths.map( ( p ) => ( {
-					...p,
-					d: scalePathD( p.d, sx, sy ),
-					size: p.size * fontScale,
-				} ) );
-			}
-			if ( 'gradient' === layer.type ) {
-				patch.from = { x: layer.from.x * sx, y: layer.from.y * sy };
-				patch.to = { x: layer.to.x * sx, y: layer.to.y * sy };
-			}
-			if ( 'shape' === layer.type && layer.pathD ) {
-				patch.pathD = scalePathD( layer.pathD, sx, sy );
-			}
+			const patch = scaleLayer( layer, { sx, sy } );
 			if ( 'raster' === layer.type && layer.canvas ) {
 				patch.canvas = scaleCanvas(
 					layer.canvas,
@@ -204,7 +219,7 @@ export function scaleDoc( editor, newW, newH ) {
 			}
 			if ( layer.mask?.canvas ) {
 				patch.mask = {
-					...layer.mask,
+					...patch.mask,
 					canvas: scaleCanvas( layer.mask.canvas, newW, newH ),
 				};
 			}
@@ -239,7 +254,13 @@ export function resizeCanvasDoc( editor, newW, newH, anchor = 'center' ) {
 	const dy = Math.round( ( newH - state.doc.h ) * fy );
 	dispatch( {
 		type: 'SET_LAYERS',
-		layers: state.layers.map( ( l ) => offsetLayer( l, dx, dy ) ),
+		// A generated background fills the new canvas instead of leaving a
+		// bare margin (see background-layers.js).
+		layers: state.layers.map( ( l ) =>
+			fillsDocument( l, state.doc )
+				? backgroundForSize( l, newW, newH )
+				: offsetLayer( l, dx, dy )
+		),
 	} );
 	dispatch( {
 		type: 'SET_DOC',
@@ -478,40 +499,12 @@ export function magicResizeDoc( editor, newW, newH ) {
 	dispatch( {
 		type: 'SET_LAYERS',
 		layers: state.layers.map( ( layer ) => {
-			const patch = {
-				...layer,
-				x: layer.x * s + dx,
-				y: layer.y * s + dy,
-				w: layer.w * s,
-				h: layer.h * s,
-			};
-			if ( 'text' === layer.type ) {
-				patch.fontSize = layer.fontSize * s;
-				patch.letterSpacing = ( layer.letterSpacing || 0 ) * s;
+			// The background fills the new format rather than being
+			// letterboxed into it (see background-layers.js).
+			if ( fillsDocument( layer, state.doc ) ) {
+				return backgroundForSize( layer, newW, newH );
 			}
-			if ( layer.strokeW ) {
-				patch.strokeW = layer.strokeW * s;
-			}
-			if ( 'stroke' === layer.type ) {
-				patch.x0 = ( layer.x0 ?? layer.x ) * s + dx;
-				patch.y0 = ( layer.y0 ?? layer.y ) * s + dy;
-				patch.paths = layer.paths.map( ( p ) => ( {
-					...p,
-					d: offsetPathD( scalePathD( p.d, s, s ), dx, dy ),
-					size: p.size * s,
-				} ) );
-			}
-			if ( 'gradient' === layer.type ) {
-				patch.from = {
-					x: layer.from.x * s + dx,
-					y: layer.from.y * s + dy,
-				};
-				patch.to = { x: layer.to.x * s + dx, y: layer.to.y * s + dy };
-			}
-			if ( 'shape' === layer.type && layer.pathD ) {
-				// pathD is layer-local, scale only, the offset lives in x/y.
-				patch.pathD = scalePathD( layer.pathD, s, s );
-			}
+			const patch = scaleLayer( layer, { sx: s, sy: s, dx, dy } );
 			if ( 'raster' === layer.type && layer.canvas ) {
 				patch.canvas = scaleCanvas(
 					layer.canvas,
@@ -529,7 +522,7 @@ export function magicResizeDoc( editor, newW, newH ) {
 					state.doc.w * s,
 					state.doc.h * s
 				);
-				patch.mask = { ...layer.mask, canvas: scaled };
+				patch.mask = { ...patch.mask, canvas: scaled };
 			}
 			return patch;
 		} ),

@@ -740,3 +740,221 @@
 #wpie-root .library-tpl[draggable='true'] {
 	cursor: grab;
 }
+
+/* AI Presets (spec 2026-09-16): the quiet door to the manager at the foot
+ * of the AI Studio panel. */
+#wpie-root .ai-panel-foot {
+	display: flex;
+	justify-content: flex-end;
+	padding-top: 10px;
+	margin-top: 14px;
+	border-top: 1px solid var(--ed-border);
+}
+
+#wpie-root .ai-panel-link {
+	padding: 0;
+	font: inherit;
+	font-size: 11px;
+	color: var(--ed-text-muted);
+	cursor: pointer;
+	background: none;
+	border: 0;
+}
+
+#wpie-root .ai-panel-link:hover {
+	color: var(--ed-text);
+	text-decoration: underline;
+}
+
+/* AI Presets in the panel (block C try-out): the site's own presets as
+ * list cards, fixed height, reference image as the thumb. */
+#wpie-root .ai-presets-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+#wpie-root .ai-presets {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 16px;
+}
+
+#wpie-root .ai-preset {
+	display: flex;
+	gap: 9px;
+	align-items: center;
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 46px;
+	padding: 0 8px 0 6px;
+	font: inherit;
+	color: var(--ed-text);
+	text-align: left;
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--ed-border);
+	border-radius: 8px;
+}
+
+#wpie-root .ai-preset:hover:not( :disabled ) {
+	border-color: var(--ed-border-strong);
+}
+
+#wpie-root .ai-preset:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+#wpie-root .ai-preset-add {
+	background: transparent;
+	border-style: dashed;
+}
+
+#wpie-root .ai-preset-thumb {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	overflow: hidden;
+	color: var(--ed-text-muted);
+	background: var(--ed-panel);
+	border-radius: 6px;
+}
+
+#wpie-root .ai-preset-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+#wpie-root .ai-preset-text {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+/* Never cut (Thomas' rule): title and description wrap, the card grows. */
+#wpie-root .ai-preset-text b {
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.25;
+	overflow-wrap: anywhere;
+}
+
+#wpie-root .ai-preset-text small {
+	font-size: 10.5px;
+	line-height: 1.3;
+	color: var(--ed-text-muted);
+	overflow-wrap: anywhere;
+}
+
+#wpie-root .ai-preset .spin {
+	margin-left: auto;
+}
+
+/* Block C try-out: icon tiles for the first buttons of a section, sized
+ * like the library tray's cards (76px, caption in the smallest size). */
+
+/* Tiles fill the panel's width (Thomas, 16.09.2026: the gaps were too
+ * wide): at least 84px each, growing to share the row, three per row in
+ * the 312px panel and two when it gets narrower. A deliberate exception
+ * to the fixed-size rule for small elements, asked for by name. */
+#wpie-root .ai-tiles {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 84px, 1fr ) );
+	gap: 6px;
+	align-items: stretch;
+	margin-bottom: 8px;
+}
+
+#wpie-root .ai-tiles:empty {
+	display: none;
+}
+
+#wpie-root .ai-tile {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	min-width: 0;
+	min-height: 80px;
+	padding: 4px;
+	overflow: hidden;
+	font: inherit;
+	color: var(--text-secondary);
+	cursor: pointer;
+	background: var(--ed-panel-alt);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+}
+
+#wpie-root .ai-tile:hover:not( :disabled ) {
+	color: var(--text-primary);
+	border-color: var(--accent);
+}
+
+#wpie-root .ai-tile:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* The icon well is the darkest surface the editor has, so a tile reads as
+ * a tile against the panel (Thomas, 16.09.2026). */
+#wpie-root .ai-tile-icon {
+	display: grid;
+	flex: 1;
+	place-items: center;
+	min-height: 44px;
+	color: var(--ed-text-muted);
+	background: var(--ed-bg);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .ai-tile:hover:not( :disabled ) .ai-tile-icon {
+	color: var(--text-primary);
+}
+
+/* The caption wraps and is never cut: titles get long in some languages
+ * (Thomas, 16.09.2026). The grid row stretches to the tallest tile. */
+#wpie-root .ai-tile-name {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+
+	/* Room for two lines on every tile, one-liners centred in it, so a
+	 * row never grows because one caption wrapped (Thomas, 16.09.2026). */
+	min-height: calc( 2 * var(--fs-xs) * var(--lh-tight) );
+	padding: 3px 2px 1px;
+	font-size: var(--fs-xs);
+	line-height: var(--lh-tight);
+	color: inherit;
+	text-align: center;
+	overflow-wrap: anywhere;
+	hyphens: auto;
+}
+
+/* The same icon cards also select Gradient and Pen modes. Selection keeps
+ * the neutral surfaces, a one-pixel accent border and theme-aware type. */
+#wpie-root .ai-tile[aria-pressed="true"],
+#wpie-root .ai-tile[aria-pressed="true"]:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--accent);
+}
+
+#wpie-root .ai-tile[aria-pressed="true"] .ai-tile-icon,
+#wpie-root .ai-tile[aria-pressed="true"]:hover:not(:disabled) .ai-tile-icon {
+    color: var(--text-primary);
+}
+
+/* Compact mode rows in the Gradient and Pen tool panels (Thomas, 17.09.2026). */
+#wpie-root .ai-tile-compact {
+    min-height: 64px;
+}
+
+#wpie-root .ai-tile-compact .ai-tile-icon {
+    min-height: 28px;
+}

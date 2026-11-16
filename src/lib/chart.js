@@ -7,7 +7,7 @@
  * and the Edit Chart rebuild always agree.
  */
 
-import { __ } from '@wordpress/i18n';
+import { __, _x, sprintf } from '@wordpress/i18n';
 
 import { makeShape, makeText, makeGroup } from '../store/document';
 import { tightenPathLayer } from './path-edit';
@@ -302,7 +302,20 @@ export function buildChart( spec ) {
 	const colors = spec.colors?.length ? spec.colors : CHART_COLORS;
 	const colorAt = ( i ) => colors[ i % colors.length ];
 	const seriesColor = ( s ) => s.color || colorAt( s.index );
-	const group = makeGroup( { name: `Chart (${ type })`, x, y, w, h } );
+	const group = makeGroup( {
+		name: sprintf(
+			/* translators: %s: a label from the chart data. */ _x(
+				'Chart (%s)',
+				'chart part',
+				'wunderpaint'
+			),
+			type
+		),
+		x,
+		y,
+		w,
+		h,
+	} );
 	const layers = [];
 	const push = ( layer ) => {
 		// Slices, rings, lines and areas are built as doc-space paths in a
@@ -340,7 +353,7 @@ export function buildChart( spec ) {
 	if ( 'none' !== o.card ) {
 		push(
 			makeShape( {
-				name: 'Card',
+				name: _x( 'Card', 'chart part', 'wunderpaint' ),
 				shape: 'rect',
 				x,
 				y,
@@ -365,7 +378,7 @@ export function buildChart( spec ) {
 		const size = Math.round( baseSize * 1.7 );
 		push(
 			makeText( {
-				name: 'Title',
+				name: _x( 'Title', 'chart part', 'wunderpaint' ),
 				text: o.title,
 				x,
 				y: top,
@@ -384,7 +397,7 @@ export function buildChart( spec ) {
 		const size = Math.round( baseSize * 1.05 );
 		push(
 			makeText( {
-				name: 'Subtitle',
+				name: _x( 'Subtitle', 'chart part', 'wunderpaint' ),
 				text: o.subtitle,
 				x,
 				y: Math.round( top ),
@@ -442,7 +455,14 @@ export function buildChart( spec ) {
 		legendItems.forEach( ( it, i ) => {
 			push(
 				makeShape( {
-					name: `Legend ${ it.label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Legend %s',
+							'chart part',
+							'wunderpaint'
+						),
+						it.label
+					),
 					shape: 'rect',
 					x: Math.round( lx ),
 					y: Math.round( ly ),
@@ -454,7 +474,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeText( {
-					name: `Legend label ${ it.label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Legend label %s',
+							'chart part',
+							'wunderpaint'
+						),
+						it.label
+					),
 					text: it.label,
 					x: Math.round( lx + sw + gapX / 2 ),
 					y: Math.round( ly - size * 0.15 ),
@@ -559,7 +586,14 @@ export function buildChart( spec ) {
 			const gy = plot.y + plot.h - ( plot.h * g ) / 4;
 			push(
 				makeShape( {
-					name: `Grid ${ g }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Grid %s',
+							'chart part',
+							'wunderpaint'
+						),
+						g
+					),
 					shape: 'rect',
 					x: plot.x,
 					y: Math.round( gy ),
@@ -571,7 +605,14 @@ export function buildChart( spec ) {
 			if ( g > 0 && o.axes ) {
 				push(
 					makeText( {
-						name: `Tick ${ g }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Tick %s',
+								'chart part',
+								'wunderpaint'
+							),
+							g
+						),
 						text: fmtValue( ( axisMax * g ) / 4, o ),
 						x,
 						y: Math.round( gy - baseSize * 0.55 ),
@@ -594,7 +635,14 @@ export function buildChart( spec ) {
 	const catLabel = ( text, cx2, yTop, wBox ) =>
 		push(
 			makeText( {
-				name: `Label ${ text }`,
+				name: sprintf(
+					/* translators: %s: a label from the chart data. */ _x(
+						'Label %s',
+						'chart part',
+						'wunderpaint'
+					),
+					text
+				),
 				text,
 				x: Math.round( cx2 - wBox / 2 ),
 				y: Math.round( yTop ),
@@ -669,7 +717,14 @@ export function buildChart( spec ) {
 				if ( 'off' !== o.values ) {
 					push(
 						makeText( {
-							name: `Value ${ label }`,
+							name: sprintf(
+								/* translators: %s: a label from the chart data. */ _x(
+									'Value %s',
+									'chart part',
+									'wunderpaint'
+								),
+								label
+							),
 							text: valueText( stackSum( i ), rawMax ),
 							x: Math.round( cx0 - perBar / 2 ),
 							y: Math.round(
@@ -713,7 +768,15 @@ export function buildChart( spec ) {
 					if ( 'off' !== o.values ) {
 						push(
 							makeText( {
-								name: `Value ${ label } ${ si }`,
+								name: sprintf(
+									/* translators: 1: a label from the chart data, 2: a series name or number. */ _x(
+										'Value %1$s %2$s',
+										'chart part',
+										'wunderpaint'
+									),
+									label,
+									si
+								),
 								text: valueText( v, rawMax ),
 								x: Math.round( bx - perBar / 2 ),
 								y: Math.round(
@@ -773,7 +836,15 @@ export function buildChart( spec ) {
 				if ( 'off' !== o.values ) {
 					push(
 						makeText( {
-							name: `Value ${ label } ${ si }`,
+							name: sprintf(
+								/* translators: 1: a label from the chart data, 2: a series name or number. */ _x(
+									'Value %1$s %2$s',
+									'chart part',
+									'wunderpaint'
+								),
+								label,
+								si
+							),
 							text: valueText( v, rawMax ),
 							x: Math.round( plot.x + bw + baseSize * 0.4 ),
 							y: Math.round( by + perBar / 2 - baseSize * 0.65 ),
@@ -790,7 +861,14 @@ export function buildChart( spec ) {
 			if ( o.axes ) {
 				push(
 					makeText( {
-						name: `Label ${ label }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Label %s',
+								'chart part',
+								'wunderpaint'
+							),
+							label
+						),
 						text: label,
 						x,
 						y: Math.round( cy0 + innerH / 2 - baseSize * 0.65 ),
@@ -825,7 +903,14 @@ export function buildChart( spec ) {
 				push(
 					Object.assign(
 						makeShape( {
-							name: `Area ${ s.name || s.index + 1 }`,
+							name: sprintf(
+								/* translators: %s: a label from the chart data. */ _x(
+									'Area %s',
+									'chart part',
+									'wunderpaint'
+								),
+								s.name || s.index + 1
+							),
 							x: 0,
 							y: 0,
 							w: Math.round( x + w ),
@@ -843,7 +928,14 @@ export function buildChart( spec ) {
 			}
 			push(
 				makeShape( {
-					name: `Line ${ s.name || s.index + 1 }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Line %s',
+							'chart part',
+							'wunderpaint'
+						),
+						s.name || s.index + 1
+					),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -907,7 +999,16 @@ export function buildChart( spec ) {
 			const sweep = ( v / total ) * 2 * Math.PI;
 			push(
 				makeShape( {
-					name: labels[ i ] || `Slice ${ i + 1 }`,
+					name:
+						labels[ i ] ||
+						sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Slice %s',
+								'chart part',
+								'wunderpaint'
+							),
+							i + 1
+						),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -921,7 +1022,14 @@ export function buildChart( spec ) {
 				const lr = inner ? ( r + inner ) / 2 : r * 0.66;
 				push(
 					makeText( {
-						name: `Value ${ labels[ i ] }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Value %s',
+								'chart part',
+								'wunderpaint'
+							),
+							labels[ i ]
+						),
 						text: valueText( v, total ),
 						x: Math.round( cx + lr * Math.cos( mid ) - 40 ),
 						y: Math.round(
@@ -955,7 +1063,14 @@ export function buildChart( spec ) {
 			const pts = labels.map( ( _, i ) => spoke( i, rr ) );
 			push(
 				makeShape( {
-					name: `Grid ring ${ ring }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Grid ring %s',
+							'chart part',
+							'wunderpaint'
+						),
+						ring
+					),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -976,7 +1091,14 @@ export function buildChart( spec ) {
 			push(
 				Object.assign(
 					makeShape( {
-						name: `Radar ${ s.name || s.index + 1 }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Radar %s',
+								'chart part',
+								'wunderpaint'
+							),
+							s.name || s.index + 1
+						),
 						x: 0,
 						y: 0,
 						w: Math.round( x + w ),
@@ -996,7 +1118,14 @@ export function buildChart( spec ) {
 			const p = spoke( i, r + baseSize );
 			push(
 				makeText( {
-					name: `Label ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Label %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					text: label,
 					x: Math.round( p.x - 60 ),
 					y: Math.round( p.y - baseSize * 0.7 ),
@@ -1033,7 +1162,14 @@ export function buildChart( spec ) {
 			push(
 				Object.assign(
 					makeShape( {
-						name: `Ring bg ${ labels[ i ] }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Ring bg %s',
+								'chart part',
+								'wunderpaint'
+							),
+							labels[ i ]
+						),
 						x: 0,
 						y: 0,
 						w: Math.round( x + w ),
@@ -1054,7 +1190,14 @@ export function buildChart( spec ) {
 			if ( pct > 0 ) {
 				push(
 					makeShape( {
-						name: `Ring ${ labels[ i ] }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Ring %s',
+								'chart part',
+								'wunderpaint'
+							),
+							labels[ i ]
+						),
 						x: 0,
 						y: 0,
 						w: Math.round( x + w ),
@@ -1073,7 +1216,14 @@ export function buildChart( spec ) {
 			}
 			push(
 				makeText( {
-					name: `Ring value ${ labels[ i ] }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Ring value %s',
+							'chart part',
+							'wunderpaint'
+						),
+						labels[ i ]
+					),
 					text:
 						'value' === o.values
 							? fmtValue( v, o )
@@ -1090,7 +1240,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeText( {
-					name: `Ring label ${ labels[ i ] }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Ring label %s',
+							'chart part',
+							'wunderpaint'
+						),
+						labels[ i ]
+					),
 					text: labels[ i ],
 					x: Math.round( cx - cellW / 2 ),
 					y: Math.round( cy + r + baseSize * 0.4 ),
@@ -1117,7 +1274,14 @@ export function buildChart( spec ) {
 				const gy = plot.y + plot.h - ( plot.h * g ) / 4;
 				push(
 					makeShape( {
-						name: `Grid ${ g }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Grid %s',
+								'chart part',
+								'wunderpaint'
+							),
+							g
+						),
 						shape: 'rect',
 						x: plot.x,
 						y: Math.round( gy ),
@@ -1129,7 +1293,14 @@ export function buildChart( spec ) {
 				if ( g > 0 && o.axes ) {
 					push(
 						makeText( {
-							name: `Tick ${ g }`,
+							name: sprintf(
+								/* translators: %s: a label from the chart data. */ _x(
+									'Tick %s',
+									'chart part',
+									'wunderpaint'
+								),
+								g
+							),
 							text: fmtValue( ( maxY * g ) / 4, o ),
 							x,
 							y: Math.round( gy - baseSize * 0.55 ),
@@ -1162,7 +1333,16 @@ export function buildChart( spec ) {
 				: Math.max( 4, Math.round( unit / 50 ) );
 			push(
 				makeShape( {
-					name: label || `Point ${ i + 1 }`,
+					name:
+						label ||
+						sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Point %s',
+								'chart part',
+								'wunderpaint'
+							),
+							i + 1
+						),
 					shape: 'ellipse',
 					x: Math.round( px - r ),
 					y: Math.round( py - r ),
@@ -1173,7 +1353,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeText( {
-					name: `Label ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Label %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					text: label,
 					x: Math.round( px + r + 3 ),
 					y: Math.round( py - baseSize * 0.65 ),
@@ -1217,7 +1404,7 @@ export function buildChart( spec ) {
 		const totC = colors[ 2 ] || dark;
 		push(
 			makeShape( {
-				name: 'Zero line',
+				name: _x( 'Zero line', 'chart part', 'wunderpaint' ),
 				shape: 'rect',
 				x: plot.x,
 				y: Math.round( yFor( 0 ) ),
@@ -1245,7 +1432,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeShape( {
-					name: `Connector ${ i + 1 }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Connector %s',
+							'chart part',
+							'wunderpaint'
+						),
+						i + 1
+					),
 					shape: 'rect',
 					x: Math.round( bx + barW ),
 					y: Math.round( yFor( t.to ) ),
@@ -1257,7 +1451,14 @@ export function buildChart( spec ) {
 			if ( 'off' !== o.values ) {
 				push(
 					makeText( {
-						name: `Value ${ labels[ i ] }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Value %s',
+								'chart part',
+								'wunderpaint'
+							),
+							labels[ i ]
+						),
 						text:
 							( vals[ i ] > 0 ? '+' : '' ) +
 							fmtValue( vals[ i ], o ),
@@ -1285,7 +1486,7 @@ export function buildChart( spec ) {
 		const tName = __( 'Total', 'wunderpaint' );
 		push(
 			makeShape( {
-				name: 'Total',
+				name: _x( 'Total', 'chart part', 'wunderpaint' ),
 				shape: 'rect',
 				x: Math.round( tx ),
 				y: Math.round( yFor( Math.max( run, 0 ) ) ),
@@ -1301,7 +1502,7 @@ export function buildChart( spec ) {
 		if ( 'off' !== o.values ) {
 			push(
 				makeText( {
-					name: 'Value Total',
+					name: _x( 'Value Total', 'chart part', 'wunderpaint' ),
 					text: fmtValue( run, o ),
 					x: Math.round( tx - barW / 2 ),
 					y: Math.round(
@@ -1349,7 +1550,14 @@ export function buildChart( spec ) {
 			const y1 = y0 + rowH - gapY;
 			push(
 				makeShape( {
-					name: `Segment ${ labels[ i ] }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Segment %s',
+							'chart part',
+							'wunderpaint'
+						),
+						labels[ i ]
+					),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -1364,7 +1572,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeText( {
-					name: `Label ${ labels[ i ] }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Label %s',
+							'chart part',
+							'wunderpaint'
+						),
+						labels[ i ]
+					),
 					text: labels[ i ],
 					x: Math.round( cx - Math.max( wTop, baseSize * 6 ) / 2 ),
 					y: Math.round( ( y0 + y1 ) / 2 - baseSize * 0.7 ),
@@ -1379,7 +1594,14 @@ export function buildChart( spec ) {
 			if ( 'off' !== o.values ) {
 				push(
 					makeText( {
-						name: `Value ${ labels[ i ] }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Value %s',
+								'chart part',
+								'wunderpaint'
+							),
+							labels[ i ]
+						),
 						text:
 							'percent' === o.values
 								? Math.round(
@@ -1413,7 +1635,7 @@ export function buildChart( spec ) {
 		push(
 			Object.assign(
 				makeShape( {
-					name: 'Gauge bg',
+					name: _x( 'Gauge bg', 'chart part', 'wunderpaint' ),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -1434,7 +1656,14 @@ export function buildChart( spec ) {
 		if ( pct > 0 ) {
 			push(
 				makeShape( {
-					name: `Gauge ${ labels[ 0 ] }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Gauge %s',
+							'chart part',
+							'wunderpaint'
+						),
+						labels[ 0 ]
+					),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -1453,7 +1682,7 @@ export function buildChart( spec ) {
 		}
 		push(
 			makeText( {
-				name: 'Gauge value',
+				name: _x( 'Gauge value', 'chart part', 'wunderpaint' ),
 				text:
 					'value' === o.values
 						? fmtValue( v, o )
@@ -1470,7 +1699,14 @@ export function buildChart( spec ) {
 		);
 		push(
 			makeText( {
-				name: `Gauge label ${ labels[ 0 ] }`,
+				name: sprintf(
+					/* translators: %s: a label from the chart data. */ _x(
+						'Gauge label %s',
+						'chart part',
+						'wunderpaint'
+					),
+					labels[ 0 ]
+				),
 				text: labels[ 0 ],
 				x: Math.round( cx - r ),
 				y: Math.round( cy + baseSize * 0.4 ),
@@ -1485,7 +1721,7 @@ export function buildChart( spec ) {
 		if ( o.axes ) {
 			push(
 				makeText( {
-					name: 'Gauge min',
+					name: _x( 'Gauge min', 'chart part', 'wunderpaint' ),
 					text: fmtValue( 0, o ),
 					x: Math.round( cx - r ),
 					y: Math.round( cy + baseSize * 0.3 ),
@@ -1499,7 +1735,7 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeText( {
-					name: 'Gauge max',
+					name: _x( 'Gauge max', 'chart part', 'wunderpaint' ),
 					text: fmtValue( maxV, o ),
 					x: Math.round( cx + r - thick * 2 ),
 					y: Math.round( cy + baseSize * 0.3 ),
@@ -1522,7 +1758,7 @@ export function buildChart( spec ) {
 		const zone = bottom - top;
 		push(
 			makeText( {
-				name: 'KPI value',
+				name: _x( 'KPI value', 'chart part', 'wunderpaint' ),
 				text: fmtValue( last, o ),
 				x,
 				y: Math.round( top + zone * 0.08 ),
@@ -1537,7 +1773,7 @@ export function buildChart( spec ) {
 		);
 		push(
 			makeText( {
-				name: 'KPI label',
+				name: _x( 'KPI label', 'chart part', 'wunderpaint' ),
 				text: series[ 0 ].name || labels[ labels.length - 1 ],
 				x,
 				y: Math.round( top + zone * 0.44 ),
@@ -1553,7 +1789,7 @@ export function buildChart( spec ) {
 			const d = ( ( last - prev ) / Math.abs( prev ) ) * 100;
 			push(
 				makeText( {
-					name: 'Delta',
+					name: _x( 'Delta', 'chart part', 'wunderpaint' ),
 					text:
 						( d >= 0 ? '▲ ' : '▼ ' ) +
 						Math.abs( Math.round( d * 10 ) / 10 ) +
@@ -1581,7 +1817,11 @@ export function buildChart( spec ) {
 			push(
 				Object.assign(
 					makeShape( {
-						name: 'Sparkline fill',
+						name: _x(
+							'Sparkline fill',
+							'chart part',
+							'wunderpaint'
+						),
 						x: 0,
 						y: 0,
 						w: Math.round( x + w ),
@@ -1594,7 +1834,7 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeShape( {
-					name: 'Sparkline',
+					name: _x( 'Sparkline', 'chart part', 'wunderpaint' ),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -1659,7 +1899,14 @@ export function buildChart( spec ) {
 			} ) );
 			push(
 				makeShape( {
-					name: `Line ${ s.name || s.index + 1 }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Line %s',
+							'chart part',
+							'wunderpaint'
+						),
+						s.name || s.index + 1
+					),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -1709,7 +1956,14 @@ export function buildChart( spec ) {
 	const rowLabel = ( label, cy ) =>
 		push(
 			makeText( {
-				name: `Label ${ label }`,
+				name: sprintf(
+					/* translators: %s: a label from the chart data. */ _x(
+						'Label %s',
+						'chart part',
+						'wunderpaint'
+					),
+					label
+				),
 				text: label,
 				x,
 				y: Math.round( cy - baseSize * 0.65 ),
@@ -1725,7 +1979,14 @@ export function buildChart( spec ) {
 		'off' !== o.values &&
 		push(
 			makeText( {
-				name: `Value ${ label }`,
+				name: sprintf(
+					/* translators: %s: a label from the chart data. */ _x(
+						'Value %s',
+						'chart part',
+						'wunderpaint'
+					),
+					label
+				),
 				text: fmtValue( v, o ),
 				x: Math.round( px + baseSize * 0.4 ),
 				y: Math.round( cy - baseSize * 0.65 ),
@@ -1750,7 +2011,14 @@ export function buildChart( spec ) {
 			const len = ( vals[ i ] / maxV ) * pw;
 			push(
 				makeShape( {
-					name: `Stem ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Stem %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'rect',
 					x: Math.round( px0 ),
 					y: Math.round( cy - 1.5 ),
@@ -1762,7 +2030,14 @@ export function buildChart( spec ) {
 			const r = Math.max( 5, Math.round( unit / 40 ) );
 			push(
 				makeShape( {
-					name: `Head ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Head %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'ellipse',
 					x: Math.round( px0 + len - r ),
 					y: Math.round( cy - r ),
@@ -1793,7 +2068,14 @@ export function buildChart( spec ) {
 		series.forEach( ( s, ci ) =>
 			push(
 				makeText( {
-					name: `Col ${ s.name || ci + 1 }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Col %s',
+							'chart part',
+							'wunderpaint'
+						),
+						s.name || ci + 1
+					),
 					text: s.name || String( ci + 1 ),
 					x: Math.round( hx + ci * cw ),
 					y: Math.round( top ),
@@ -1817,7 +2099,15 @@ export function buildChart( spec ) {
 				);
 				push(
 					makeShape( {
-						name: `Cell ${ label }-${ s.name || ci + 1 }`,
+						name: sprintf(
+							/* translators: 1: a label from the chart data, 2: a series name or number. */ _x(
+								'Cell %1$s-%2$s',
+								'chart part',
+								'wunderpaint'
+							),
+							label,
+							s.name || ci + 1
+						),
 						shape: 'rect',
 						x: Math.round( hx + ci * cw + 1 ),
 						y: Math.round( hy + ri * ch + 1 ),
@@ -1830,7 +2120,15 @@ export function buildChart( spec ) {
 				if ( 'off' !== o.values ) {
 					push(
 						makeText( {
-							name: `Value ${ label }-${ s.name || ci + 1 }`,
+							name: sprintf(
+								/* translators: 1: a label from the chart data, 2: a series name or number. */ _x(
+									'Value %1$s-%2$s',
+									'chart part',
+									'wunderpaint'
+								),
+								label,
+								s.name || ci + 1
+							),
 							text: fmtValue( v, o ),
 							x: Math.round( hx + ci * cw ),
 							y: Math.round(
@@ -1865,7 +2163,14 @@ export function buildChart( spec ) {
 			const bandH = Math.min( rowH * 0.6, baseSize * 1.7 );
 			push(
 				makeShape( {
-					name: `Band ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Band %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'rect',
 					x: Math.round( px0 ),
 					y: Math.round( cy - bandH / 2 ),
@@ -1881,7 +2186,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeShape( {
-					name: `Measure ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Measure %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'rect',
 					x: Math.round( px0 ),
 					y: Math.round( cy - bandH * 0.22 ),
@@ -1896,7 +2208,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeShape( {
-					name: `Target ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Target %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'rect',
 					x: Math.round(
 						px0 + ( ( target[ i ] || 0 ) / mx ) * pw - 1.5
@@ -1954,7 +2273,14 @@ export function buildChart( spec ) {
 			if ( 'off' !== o.values && c > 0 ) {
 				push(
 					makeText( {
-						name: `Value bin ${ i + 1 }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Value bin %s',
+								'chart part',
+								'wunderpaint'
+							),
+							i + 1
+						),
 						text: String( c ),
 						x: Math.round( plot.x + i * bw ),
 						y: Math.round( plot.y + plot.h - bh - baseSize * 1.3 ),
@@ -1985,7 +2311,15 @@ export function buildChart( spec ) {
 			for ( let k = 0; k < full; k++ ) {
 				push(
 					makeShape( {
-						name: `Dot ${ label } ${ k + 1 }`,
+						name: sprintf(
+							/* translators: 1: a label from the chart data, 2: a series name or number. */ _x(
+								'Dot %1$s %2$s',
+								'chart part',
+								'wunderpaint'
+							),
+							label,
+							k + 1
+						),
 						shape: 'ellipse',
 						x: Math.round( px0 + k * r * 2.4 ),
 						y: Math.round( cy - r ),
@@ -1999,7 +2333,14 @@ export function buildChart( spec ) {
 				const cx = px0 + full * r * 2.4 + r;
 				push(
 					makeShape( {
-						name: `Dot ${ label } part`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Dot %s part',
+								'chart part',
+								'wunderpaint'
+							),
+							label
+						),
 						x: 0,
 						y: 0,
 						w: Math.round( x + w ),
@@ -2043,7 +2384,14 @@ export function buildChart( spec ) {
 			const x2 = px0 + ( ( ( to[ i ] || 0 ) - v0 ) / ( v1 - v0 ) ) * pw;
 			push(
 				makeShape( {
-					name: `Span ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Span %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'rect',
 					x: Math.round( Math.min( x1, x2 ) ),
 					y: Math.round( cy - 1.5 ),
@@ -2054,7 +2402,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeShape( {
-					name: `From ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'From %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'ellipse',
 					x: Math.round( x1 - r ),
 					y: Math.round( cy - r ),
@@ -2065,7 +2420,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeShape( {
-					name: `To ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'To %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					shape: 'ellipse',
 					x: Math.round( x2 - r ),
 					y: Math.round( cy - r ),
@@ -2119,7 +2481,14 @@ export function buildChart( spec ) {
 			const y2 = py( rightV[ i ] || 0 );
 			push(
 				makeShape( {
-					name: `Slope ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Slope %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -2132,7 +2501,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeText( {
-					name: `Label ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Label %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					text: label,
 					x: Math.round( x ),
 					y: Math.round( y1 - baseSize * 0.6 ),
@@ -2147,7 +2523,14 @@ export function buildChart( spec ) {
 			if ( 'off' !== o.values ) {
 				push(
 					makeText( {
-						name: `Value ${ label }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Value %s',
+								'chart part',
+								'wunderpaint'
+							),
+							label
+						),
 						text: fmtValue( rightV[ i ] || 0, o ),
 						x: Math.round( rx + baseSize * 0.5 ),
 						y: Math.round( y2 - baseSize * 0.6 ),
@@ -2168,7 +2551,14 @@ export function buildChart( spec ) {
 			] ) {
 				push(
 					makeText( {
-						name: `Axis label ${ s.name || '' }`.trim(),
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Axis label %s',
+								'chart part',
+								'wunderpaint'
+							),
+							s.name || ''
+						).trim(),
 						text: s.name || '',
 						x: Math.round( 'right' === align ? ax - w * 0.2 : ax ),
 						y: Math.round( bottom - baseSize * 1.6 ),
@@ -2206,7 +2596,14 @@ export function buildChart( spec ) {
 			} ) );
 			push(
 				makeShape( {
-					name: `Bump ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Bump %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					x: 0,
 					y: 0,
 					w: Math.round( x + w ),
@@ -2221,7 +2618,15 @@ export function buildChart( spec ) {
 			pts.forEach( ( p, ci ) =>
 				push(
 					makeShape( {
-						name: `Point ${ label } ${ ci + 1 }`,
+						name: sprintf(
+							/* translators: 1: a label from the chart data, 2: a series name or number. */ _x(
+								'Point %1$s %2$s',
+								'chart part',
+								'wunderpaint'
+							),
+							label,
+							ci + 1
+						),
 						shape: 'ellipse',
 						x: p.x - r,
 						y: p.y - r,
@@ -2233,7 +2638,14 @@ export function buildChart( spec ) {
 			);
 			push(
 				makeText( {
-					name: `Label ${ label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Label %s',
+							'chart part',
+							'wunderpaint'
+						),
+						label
+					),
 					text: label,
 					x: Math.round( pts[ pts.length - 1 ].x + r + 3 ),
 					y: Math.round( pts[ pts.length - 1 ].y - baseSize * 0.6 ),
@@ -2294,7 +2706,14 @@ export function buildChart( spec ) {
 			const fill = colorAt( t.i );
 			push(
 				makeShape( {
-					name: `Tile ${ t.label }`,
+					name: sprintf(
+						/* translators: %s: a label from the chart data. */ _x(
+							'Tile %s',
+							'chart part',
+							'wunderpaint'
+						),
+						t.label
+					),
 					shape: 'rect',
 					x: Math.round( t.x + 1 ),
 					y: Math.round( t.y + 1 ),
@@ -2307,7 +2726,14 @@ export function buildChart( spec ) {
 			if ( t.w > baseSize * 4 && t.h > baseSize * 2.6 ) {
 				push(
 					makeText( {
-						name: `Tile label ${ t.label }`,
+						name: sprintf(
+							/* translators: %s: a label from the chart data. */ _x(
+								'Tile label %s',
+								'chart part',
+								'wunderpaint'
+							),
+							t.label
+						),
 						text: t.label,
 						x: Math.round( t.x + baseSize * 0.5 ),
 						y: Math.round( t.y + baseSize * 0.4 ),
@@ -2322,7 +2748,14 @@ export function buildChart( spec ) {
 				if ( 'off' !== o.values ) {
 					push(
 						makeText( {
-							name: `Tile value ${ t.label }`,
+							name: sprintf(
+								/* translators: %s: a label from the chart data. */ _x(
+									'Tile value %s',
+									'chart part',
+									'wunderpaint'
+								),
+								t.label
+							),
 							text: fmtValue( t.v, o ),
 							x: Math.round( t.x + baseSize * 0.5 ),
 							y: Math.round( t.y + baseSize * 1.8 ),

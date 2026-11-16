@@ -12,7 +12,7 @@ export const GARLAND_SHAPES = [
 export const ITEM = {
 	id: 'garland',
 	label: 'Motif garland',
-	hint: 'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colours in turn.',
+	hint: 'Circles, hearts or stars with the motif and two holes to thread on a cord, in three colors in turn.',
 	group: 'decor',
 	uses: { text: false, names: false, photo: 'none', event: [] },
 	sizes: [

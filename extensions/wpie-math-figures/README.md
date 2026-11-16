@@ -4,8 +4,8 @@ One editable vector figure out of blocks: typeset formulas (with marked
 parts and labels), function graphs, geometry, number lines, fraction
 pictures, text with inline math, worked solutions aligned at the equals
 sign, and tables or value tables. A figure has a head (title, subtitle),
-stacked blocks, a foot (caption, footnote), typography per element and a
-paper. Inserted as ONE vector group (paths and text). Free, category tools.
+one to three columns of blocks, a foot (caption, footnote), typography per element and a
+paper. Inserted as ONE vector group (paths and text). Free, category data.
 Specs: `docs/superpowers/specs/2026-09-03-math-figures-design.md` (0.1)
 and `docs/superpowers/specs/2026-09-04-math-figures-figure-design.md`
 (0.2 figure layer, 0.3 primary school, 0.4 secondary school); plans next
@@ -13,10 +13,62 @@ to them under plans/.
 
 ## Scripts
 
-- `npm run build`  esbuild -> extension.js (~93 KB) and assets/mathjax.js (~1.6 MB, loaded on first formula)
+- `npm run build`  esbuild -> extension.js (~300 KB) and assets/mathjax.js (~1.6 MB, loaded on first formula)
 - `npm test`       node tests for every engine module (MathJax runs in node through the lite adaptor)
 - `npm run qa`     dialog QA on the shared mock (one headless browser)
+- `npm run qa:premium`  real editor reducer, SVG importer, dragging, linked data and six locales (one headless browser)
 - `npm run proof`  every starter rendered by the real engine -> dist/proof/sheet.png (look at it)
+
+## Version 1.0.0
+
+26 block types and 105 starters, including 28 new finished figures. The
+preview remains free of a drop shadow in light and dark mode.
+
+- **Visual geometry:** drag explicit points and point-label grips in the
+  preview, or edit x/y, length and angle in the selected block's controls.
+  The angle can refer to the positive x-axis or another point. Midpoints
+  and circle radii recompute from their source points. Derived points are
+  intentionally not directly movable. Dragging freezes the view range;
+  **Fit geometry** restores automatic framing. Arrow keys move a focused
+  grip, Shift uses a larger step, Alt bypasses snapping. Escape during a
+  drag restores its initial state. Grips never enter the exported artwork.
+- **Shared functions:** the shared library holds up to 24 named expressions
+  with individual colors and the common parameters a, b and c. Link a graph,
+  formula, value table or analysis through **Function source**. Local graph
+  material is retained when switching to and from a shared source. Linked
+  graph material accepts additional plot commands. `[[f]]` in text, titles
+  and captions inserts the same typeset definition; `[[f(2)]]` inserts its
+  computed value. `[[a]]`, `[[b]]` and `[[c]]` print the current parameter
+  values. Undefined references are reported rather than reused from
+  a previous preview. Function renaming does not silently retarget links.
+- **Function analysis:** roots (including touching roots), smooth extrema,
+  intersections, tangent, normal and absolute area between two curves.
+  Without a second function, area is relative to the x-axis. All values are
+  numerical approximations over the specified interval, not symbolic proofs.
+  Residual checks reject sign changes across poles; derivatives reject cusps
+  and unstable differences; adaptive integration returns no number when it
+  fails to converge. Finite sampling can miss very narrow or rapidly
+  oscillating features. A constant-zero function has no isolated root list.
+- **New diagrams:** implicit equations, intersections of inequality regions
+  (strict boundaries dashed), vector fields with magnitude colors and
+  optional normalized arrows, slope fields, labeled contour maps, complex
+  numbers in Cartesian/polar form, conjugates and roots of unity. These are
+  flat SVG paths and text, including the filled solution regions.
+- **Figure layout:** one, two or three columns, per-block column span and
+  title, optional equal-height panel frames, adjustable gutter, and common
+  coordinate limits for comparison plots. Full-width blocks mix with smaller
+  panels; every row advances by its tallest member.
+
+The saved parameter schema is v3. Existing v1/v2 figures retain their own
+material and one-column layout; shared definitions do not change an old
+block unless it is explicitly linked. Pending preview changes disable
+Insert/Update so saved parameters and the inserted artwork stay consistent.
+
+New modules: `engine/shared.js`, `engine/analysis.js`, `engine/advanced.js`,
+`engine/geometry-edit.js`, `premium-blocks.js`, `starters-premium.js`,
+`ui/math-tools.js` and `ui/geometry-tools.js`. `renderFigure()` also returns
+block placements and geometry handle metadata used only by the preview.
+All six translated interfaces are covered by the i18n test.
 
 ## How it is built
 

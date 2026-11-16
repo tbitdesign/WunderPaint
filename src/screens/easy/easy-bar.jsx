@@ -6,12 +6,40 @@
  */
 
 import { __ } from '@wordpress/i18n';
+import { useState, useRef, useEffect } from '@wordpress/element';
+import { Dropdown } from '../editor-menubar';
 
 import { I } from '../../icons';
 import { useEditor } from '../../store/editor-context';
 
 export function EasyBar( { extras } ) {
 	const editor = useEditor();
+	const [ helpOpen, setHelpOpen ] = useState( false );
+	const helpRef = useRef( null );
+	useEffect( () => {
+		if ( ! helpOpen ) {
+			return undefined;
+		}
+		const closeOutside = ( event ) => {
+			if ( ! helpRef.current?.contains( event.target ) ) {
+				setHelpOpen( false );
+			}
+		};
+		document.addEventListener( 'mousedown', closeOutside );
+		return () => document.removeEventListener( 'mousedown', closeOutside );
+	}, [ helpOpen ] );
+	const helpMenu = {
+		items: [
+			{
+				label: __( 'Handbook', 'wunderpaint' ),
+				run: () => extras.openHelp(),
+			},
+			{
+				label: __( 'Show Tour', 'wunderpaint' ),
+				run: () => extras.openTour(),
+			},
+		],
+	};
 	return (
 		<div className="ed-menubar ed-easy-bar">
 			<span className="ed-easy-badge">
@@ -38,17 +66,30 @@ export function EasyBar( { extras } ) {
 			</button>
 			<span className="ed-easy-hint">
 				{ __(
-					'Click an element to edit it, everything important appears on the right.',
+					'Start adds content. Edit changes it. Elements keeps your design organized.',
 					'wunderpaint'
 				) }
 			</span>
 			<span style={ { flex: 1 } } />
-			<button
-				className="ai-btn secondary ed-easy-help"
-				onClick={ () => extras.openHelp() }
-			>
-				{ __( 'Help', 'wunderpaint' ) }
-			</button>
+			<div className="ed-menu-wrap ed-easy-help-menu" ref={ helpRef }>
+				<button
+					type="button"
+					className="ai-btn secondary ed-easy-help"
+					data-menu="help"
+					aria-haspopup="menu"
+					aria-expanded={ helpOpen }
+					onClick={ () => setHelpOpen( ! helpOpen ) }
+				>
+					{ __( 'Help', 'wunderpaint' ) }
+				</button>
+				{ helpOpen && (
+					<Dropdown
+						menu={ helpMenu }
+						extras={ extras }
+						onClose={ () => setHelpOpen( false ) }
+					/>
+				) }
+			</div>
 			<button
 				className="ai-btn secondary ed-easy-help"
 				onClick={ () => extras.openHelpBot() }

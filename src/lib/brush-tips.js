@@ -398,7 +398,309 @@ export const BRUSH_TIPS = [
 		alphaJitter: 0.3,
 	},
 
-	// MEDIA BRUSHES: three tuned tips per paint style - organic masks,
+	// Additional independent recipes. Existing tip IDs keep their original marks.
+	{
+		id: 'firm-round',
+		label: __( 'Firm Round', 'wunderpaint' ),
+		render: 'round',
+		soft: 0.18,
+		shape: 'circle',
+		spacing: 0.12,
+	},
+	{
+		id: 'ribbon-liner',
+		label: __( 'Ribbon Liner', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.44,
+		eh: 0.065,
+		followDir: true,
+		spacing: 0.035,
+	},
+	{
+		id: 'dry-graphite',
+		label: __( 'Dry Graphite', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'circle',
+		markSize: 0.2,
+		spacing: 0.16,
+		count: 3,
+		scatter: 0.15,
+		alphaJitter: 0.7,
+		sizeJitter: 0.4,
+	},
+	{
+		id: 'chalk-block',
+		label: __( 'Chalk Block', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'square',
+		markSize: 0.68,
+		spacing: 0.23,
+		scatter: 0.11,
+		alphaJitter: 0.55,
+		sizeJitter: 0.25,
+		angle: 15,
+	},
+	{
+		id: 'charcoal-grit',
+		label: __( 'Charcoal Grit', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'diamond',
+		markSize: 0.19,
+		spacing: 0.13,
+		count: 5,
+		scatter: 0.36,
+		alphaJitter: 0.62,
+		sizeJitter: 0.65,
+		rotJitter: true,
+	},
+	{
+		id: 'dry-fibers',
+		label: __( 'Dry Fibers', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.16,
+		eh: 0.018,
+		spacing: 0.15,
+		count: 4,
+		scatter: 0.32,
+		alphaJitter: 0.45,
+		followDir: true,
+	},
+	{
+		id: 'pastel-grain',
+		label: __( 'Pastel Grain', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'circle',
+		markSize: 0.4,
+		spacing: 0.2,
+		count: 3,
+		scatter: 0.29,
+		alphaJitter: 0.65,
+		sizeJitter: 0.5,
+	},
+	{
+		id: 'broken-ink',
+		label: __( 'Broken Ink', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'square',
+		markSize: 0.38,
+		spacing: 0.4,
+		count: 2,
+		scatter: 0.17,
+		alphaJitter: 0.65,
+		sizeJitter: 0.45,
+		rotJitter: 0.25,
+	},
+	{
+		id: 'fine-script',
+		label: __( 'Fine Script', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.34,
+		eh: 0.045,
+		angle: -38,
+		spacing: 0.045,
+	},
+	{
+		id: 'broad-script',
+		label: __( 'Broad Script', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.72,
+		eh: 0.07,
+		angle: -30,
+		spacing: 0.065,
+	},
+	{
+		id: 'upright-nib',
+		label: __( 'Upright Nib', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.64,
+		eh: 0.11,
+		angle: 90,
+		spacing: 0.09,
+	},
+	{
+		id: 'reverse-nib',
+		label: __( 'Reverse Nib', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.62,
+		eh: 0.09,
+		angle: 42,
+		spacing: 0.085,
+	},
+	{
+		id: 'round-nib',
+		label: __( 'Rounded Nib', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.58,
+		eh: 0.31,
+		angle: -50,
+		spacing: 0.09,
+	},
+	{
+		id: 'air-dust',
+		label: __( 'Air Dust', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'circle',
+		markSize: 0.055,
+		spacing: 0.22,
+		count: 16,
+		scatter: 0.95,
+		alphaJitter: 0.72,
+		sizeJitter: 0.5,
+	},
+	{
+		id: 'coarse-droplets',
+		label: __( 'Coarse Droplets', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'circle',
+		markSize: 0.38,
+		spacing: 0.7,
+		count: 3,
+		scatter: 1.05,
+		alphaJitter: 0.2,
+		sizeJitter: 0.72,
+	},
+	{
+		id: 'mineral-grain',
+		label: __( 'Mineral Grain', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'diamond',
+		markSize: 0.24,
+		spacing: 0.45,
+		count: 7,
+		scatter: 0.8,
+		alphaJitter: 0.3,
+		sizeJitter: 0.6,
+		rotJitter: true,
+	},
+	{
+		id: 'ink-mist',
+		label: __( 'Ink Mist', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'circle',
+		markSize: 0.11,
+		spacing: 0.2,
+		count: 14,
+		scatter: 0.45,
+		alphaJitter: 0.82,
+		sizeJitter: 0.8,
+	},
+	{
+		id: 'dry-flecks',
+		label: __( 'Dry Flecks', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'square',
+		markSize: 0.11,
+		spacing: 0.5,
+		count: 6,
+		scatter: 0.9,
+		alphaJitter: 0.55,
+		sizeJitter: 0.65,
+		rotJitter: true,
+	},
+	{
+		id: 'soft-specks',
+		label: __( 'Soft Specks', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ring',
+		markSize: 0.22,
+		spacing: 0.7,
+		count: 5,
+		scatter: 0.65,
+		alphaJitter: 0.65,
+		sizeJitter: 0.55,
+	},
+	{
+		id: 'stitched-line',
+		label: __( 'Stitched Line', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.33,
+		eh: 0.055,
+		followDir: true,
+		spacing: 0.95,
+	},
+	{
+		id: 'beaded-line',
+		label: __( 'Beaded Line', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'circle',
+		markSize: 0.5,
+		spacing: 0.7,
+		sizeJitter: 0.55,
+	},
+	{
+		id: 'linked-rings',
+		label: __( 'Linked Rings', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ring',
+		markSize: 0.9,
+		spacing: 0.7,
+	},
+	{
+		id: 'six-point-stars',
+		label: __( 'Six-point Stars', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'star',
+		points: 6,
+		markSize: 0.85,
+		spacing: 1.2,
+		scatter: 0.15,
+		rotJitter: 0.2,
+	},
+	{
+		id: 'eight-point-stars',
+		label: __( 'Eight-point Stars', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'star',
+		points: 8,
+		markSize: 0.95,
+		spacing: 1.5,
+		sizeJitter: 0.3,
+	},
+	{
+		id: 'leaf-trail',
+		label: __( 'Leaf Trail', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'ellipse',
+		ew: 0.38,
+		eh: 0.095,
+		angle: -30,
+		spacing: 0.95,
+		rotJitter: 0.22,
+	},
+	{
+		id: 'diamond-confetti',
+		label: __( 'Diamond Confetti', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'diamond',
+		markSize: 0.42,
+		spacing: 0.75,
+		count: 4,
+		scatter: 0.7,
+		sizeJitter: 0.5,
+		rotJitter: true,
+	},
+	{
+		id: 'triangle-rain',
+		label: __( 'Triangle Rain', 'wunderpaint' ),
+		render: 'stamp',
+		shape: 'triangle',
+		markSize: 0.32,
+		spacing: 0.7,
+		count: 4,
+		scatter: 0.85,
+		sizeJitter: 0.6,
+		rotJitter: 0.25,
+	},
+
+	// MEDIA BRUSHES: tuned tips per paint style - organic masks,
 	// direction-following, tight spacing. Built in lib/media-tips.js.
 	...MEDIA_TIPS,
 ];
@@ -543,7 +845,11 @@ function drawStar( ctx, x, y, r, points ) {
 	ctx.fill();
 }
 
-function drawMark( ctx, x, y, size, tip, rnd, dir ) {
+// The smallest a media mask is asked for when it lands in an island's
+// grid (see drawMark).
+const MASK_MIN = 12;
+
+function drawMark( ctx, x, y, size, tip, rnd, dir, luma, grid ) {
 	const jitter = tip.sizeJitter ? 1 - tip.sizeJitter * rnd() : 1;
 	const s = Math.max( 0.5, size * ( tip.markSize || 1 ) * jitter );
 	const shape = tip.shape || 'circle';
@@ -567,7 +873,28 @@ function drawMark( ctx, x, y, size, tip, rnd, dir ) {
 		// from the mask CHANGING stamp to stamp.
 		const variant =
 			tip.variants > 1 ? Math.floor( rnd() * tip.variants ) : 0;
-		const m = mediaMask( tip.id, s, String( ctx.fillStyle ), variant );
+		// A profile is drawn into an island's grid, scaled down: ask for
+		// the mask at the size it LANDS at. Taken at the mark's document
+		// size it was minified two- to fourfold without care, and the thin
+		// bristles of a head aliased into dashes along the stroke.
+		let land = s;
+		if ( ( luma || grid ) && ctx.getTransform ) {
+			const m2 = ctx.getTransform();
+			land = s * ( Math.hypot( m2.a, m2.b ) || 1 );
+			// ... but never smaller than a mask that still HAS its shape:
+			// a nib three pixels wide is a hairline of a fraction of a
+			// cell, and a mask of three pixels has no hairline in it - the
+			// line came out in dashes, one per step of the grid. The
+			// island's scratch filters on the way down
+			// (imageSmoothingQuality 'high').
+			land = Math.max( land, MASK_MIN );
+		}
+		const m = mediaMask(
+			tip.id,
+			land,
+			luma ? 'luma' : String( ctx.fillStyle ),
+			variant
+		);
 		if ( m ) {
 			ctx.save();
 			ctx.translate( x, y );
@@ -914,6 +1241,17 @@ export function stampTipStroke( ctx, path ) {
 	ctx.save();
 	const base = path.color || '#000';
 	ctx.fillStyle = base;
+	// path.luma (the wet controller, coverage media): the marks go down
+	// as opaque grey and keep their MAXIMUM - the head's profile swept
+	// along the path, not its dabs piled up. Media masks only; the
+	// caller clears to black and reads a colour channel.
+	const luma = !! path.luma && 'media' === tip.shape;
+	// path.grid (the wet controller, every island): the marks land in a
+	// grid coarser than they were drawn for - see drawMark.
+	const grid = !! path.grid && 'media' === tip.shape;
+	if ( luma ) {
+		ctx.globalCompositeOperation = 'lighten';
+	}
 	// One decision for every tip that lays marks, soft round ones too.
 	const vary = markColour( { ...path, ...tip }, samples.length );
 	for ( let si = 0; si < samples.length; si++ ) {
@@ -945,7 +1283,7 @@ export function stampTipStroke( ctx, path ) {
 					ctx.globalAlpha *= shade.alpha;
 				}
 			}
-			drawMark( ctx, x, y, size, tip, rnd, dir );
+			drawMark( ctx, x, y, size, tip, rnd, dir, luma, grid );
 		}
 	}
 	ctx.restore();
@@ -973,17 +1311,48 @@ export const TIP_GROUPS = [
 	{
 		id: 'paint',
 		name: __( 'Paint', 'wunderpaint' ),
-		tips: [ 'round', 'soft', 'medium', 'flat', 'marker', 'ink-pen' ],
+		tips: [
+			'round',
+			'soft',
+			'medium',
+			'flat',
+			'marker',
+			'ink-pen',
+			'firm-round',
+			'ribbon-liner',
+		],
 	},
 	{
 		id: 'dry',
 		name: __( 'Dry media', 'wunderpaint' ),
-		tips: [ 'chalk', 'charcoal', 'crayon', 'grain', 'rough', 'pixel' ],
+		tips: [
+			'chalk',
+			'charcoal',
+			'crayon',
+			'grain',
+			'rough',
+			'pixel',
+			'dry-graphite',
+			'chalk-block',
+			'charcoal-grit',
+			'dry-fibers',
+			'pastel-grain',
+			'broken-ink',
+		],
 	},
 	{
 		id: 'calligraphy',
 		name: __( 'Calligraphy', 'wunderpaint' ),
-		tips: [ 'calligraphy', 'calligraphy-flat', 'calligraphy-steep' ],
+		tips: [
+			'calligraphy',
+			'calligraphy-flat',
+			'calligraphy-steep',
+			'fine-script',
+			'broad-script',
+			'upright-nib',
+			'reverse-nib',
+			'round-nib',
+		],
 	},
 	{
 		id: 'spray',
@@ -995,12 +1364,27 @@ export const TIP_GROUPS = [
 			'speckle',
 			'stipple',
 			'splatter',
+			'air-dust',
+			'coarse-droplets',
+			'mineral-grain',
+			'ink-mist',
+			'dry-flecks',
+			'soft-specks',
 		],
 	},
 	{
 		id: 'pattern',
 		name: __( 'Dots & pattern', 'wunderpaint' ),
-		tips: [ 'dots', 'fine-dots', 'halftone', 'rings', 'square-dash' ],
+		tips: [
+			'dots',
+			'fine-dots',
+			'halftone',
+			'rings',
+			'square-dash',
+			'stitched-line',
+			'beaded-line',
+			'linked-rings',
+		],
 	},
 	{
 		id: 'shapes',
@@ -1017,6 +1401,11 @@ export const TIP_GROUPS = [
 			'petals',
 			'bubbles',
 			'snow',
+			'six-point-stars',
+			'eight-point-stars',
+			'leaf-trail',
+			'diamond-confetti',
+			'triangle-rain',
 		],
 	},
 ];

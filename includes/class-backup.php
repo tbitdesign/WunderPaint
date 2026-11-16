@@ -27,7 +27,7 @@ class Backup {
 	const FORMAT = 'wpie-backup@1';
 
 	/**
-	 * The per-user extension stores inside the archive (F17, Codex' audit of
+	 * The per-user extension stores inside the archive (F17, the audit of
 	 * 10.09.2026). Studios keep what their users build - named Growth & Decay
 	 * recipes, Particle Strokes brushes and stamps - in `wpie_ext_store_<ns>`
 	 * user meta, and the archive never carried it: a move or a reinstall
@@ -47,6 +47,7 @@ class Backup {
 		'wpie_palettes',
 		'wpie_3d_models',
 		'wpie_ai_usage_log',
+		'wpie_ai_buttons',
 		'wpie_extensions_disabled',
 		'wpie_content_templates', // Pro, when present.
 		'wpie_automation_settings', // Pro, when present.
@@ -173,6 +174,21 @@ class Backup {
 			'versions'   => 0,
 			'presets'    => count( $ext_store['entries'] ),
 		);
+		/**
+		 * Add user profiles independently of optional extension packages.
+		 *
+		 * Callbacks may return WP_Error to refuse an incomplete backup. The
+		 * caller owns the open archive; callbacks must not close it.
+		 *
+		 * @param array|\WP_Error $counts Per-section counts or a failure.
+		 * @param \ZipArchive     $zip    Open archive.
+		 */
+		$counts = apply_filters( 'wpie_backup_collect_profiles', $counts, $zip );
+		if ( is_wp_error( $counts ) ) {
+			$zip->close();
+			wp_delete_file( $tmp );
+			return $counts;
+		}
 		foreach ( self::store_files( Templates::dir() ) as $file ) {
 			$zip->addFile( $file, 'templates/' . basename( $file ) );
 			++$counts['templates'];
@@ -360,7 +376,7 @@ class Backup {
 		// as the message promised - under an index that already described
 		// the archive's library. "The existing files were left untouched"
 		// was true and beside the point: the list the editor shows was
-		// already the other one (Codex C09).
+		// already the other one (audit C09).
 		//
 		// Now both stores are staged beside their old files; only when BOTH
 		// are complete are they swapped in, and only after a clean swap are
@@ -547,10 +563,20 @@ class Backup {
 		 *
 		 * @since 1.392.0
 		 *
-		 * @param array       $restored Per-section counts.
+		 * @param array       $restored Per-section counts. Pro may add extensions_failed.
 		 * @param \ZipArchive $zip      The open archive.
 		 */
 		$restored = apply_filters( 'wpie_backup_restore', $restored, $zip );
+		if ( ! empty( $restored['automation_preferences_failed'] ) ) {
+			$fehler[] = __( 'Some personal automation settings could not be restored.', 'wunderpaint' );
+		}
+		if ( ! empty( $restored['extensions_failed'] ) ) {
+			$fehler[] = sprintf(
+				/* translators: %d: number of extension packages that could not be restored. */
+				_n( '%d extension could not be restored. Existing files for that package were retained.', '%d extensions could not be restored. Existing files for those packages were retained.', (int) $restored['extensions_failed'], 'wunderpaint' ),
+				(int) $restored['extensions_failed']
+			);
+		}
 
 		$zip->close();
 		$meldung = sprintf(
@@ -564,6 +590,20 @@ class Backup {
 			(int) $restored['models'],
 			(int) $restored['presets']
 		);
+		if ( ! empty( $restored['automation_preferences'] ) ) {
+			$meldung .= ' ' . sprintf(
+				/* translators: %d: number of users whose personal automation settings were restored. */
+				_n( 'Personal automation settings restored for %d user.', 'Personal automation settings restored for %d users.', (int) $restored['automation_preferences'], 'wunderpaint' ),
+				(int) $restored['automation_preferences']
+			);
+		}
+		if ( ! empty( $restored['automation_preferences_skipped'] ) ) {
+			$meldung .= ' ' . sprintf(
+				/* translators: %d: number of users not present on this site. */
+				_n( 'Personal automation settings for %d unknown user were left out.', 'Personal automation settings for %d unknown users were left out.', (int) $restored['automation_preferences_skipped'], 'wunderpaint' ),
+				(int) $restored['automation_preferences_skipped']
+			);
+		}
 		if ( ! empty( $presets['skipped'] ) ) {
 			$meldung .= ' ' . sprintf(
 				/* translators: %d: number of studio presets. */

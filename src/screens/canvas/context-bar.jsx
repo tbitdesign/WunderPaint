@@ -3,13 +3,13 @@
  * active layer while the Move tool is up.
  */
 
-import { hasPivot } from '../../lib/pivot';
 import { useState, useRef, useEffect } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
 import { I } from '../../icons';
 import * as Ops from '../../store/ops';
-import { SwatchButton } from '../../components/color-popover';
+import { PaintSwatch } from '../../components/paint-controls';
+import { colorLayerLocked } from '../../lib/color-links';
 import { VarButton } from '../../components/var-picker';
 import { useHoverTip } from '../../components/hover-tip';
 import { getExtensionGenerator } from '../../lib/extensions';
@@ -460,17 +460,6 @@ export function ContextBar( {
 			run: editEntry.run,
 		} );
 	}
-	// Radial Repeat appears the moment a pivot has been moved (v1.372).
-	// It lived only in the Layer menu, where the person who had just
-	// dragged the pivot on the canvas never thought to look - reported by
-	// the user, and fair: the command belongs next to the thing it needs.
-	if ( hasPivot( layer ) ) {
-		actions.splice( 1, 0, {
-			icon: 'rotateCw',
-			label: __( 'Radial repeat around the pivot', 'wunderpaint' ),
-			run: () => Ops.radialRepeatPrompt( editor ),
-		} );
-	}
 	if ( 'text' === layer.type ) {
 		// Vertical alignment (v1.92.0, since v1.107.7 for point text too):
 		// one compact button cycling top -> middle -> bottom. Align &
@@ -559,6 +548,7 @@ export function ContextBar( {
 	}
 
 	const isText = 'text' === layer.type;
+	const textPanelOpen = isText && editor.state.showTextPanel;
 	const kits = window.WPIE?.brandKits || [];
 	const kit =
 		kits.find( ( k ) => k.id === editor.state.doc.brandKitId ) ||
@@ -574,13 +564,29 @@ export function ContextBar( {
 			role="toolbar"
 			aria-label={ __( 'Layer actions', 'wunderpaint' ) }
 		>
-			{ colorKey && (
-				<SwatchButton
+			{ colorKey && ! textPanelOpen && (
+				<PaintSwatch
 					size={ 14 }
-					color={ layer[ colorKey ] }
-					title={ __( 'Color', 'wunderpaint' ) }
-					tipProps={ tip.props( __( 'Color', 'wunderpaint' ) ) }
-					onChange={ ( c ) => {
+					layer={ layer }
+					target={
+						layer.type === 'shape' && layer.shape === 'line'
+							? 'stroke'
+							: 'fill'
+					}
+					followSelection={ false }
+					title={
+						editor.state.selectedIds.length > 1
+							? `${ __( 'Selection', 'wunderpaint' ) } · ${ __(
+									'Fill',
+									'wunderpaint'
+							  ) }`
+							: `${
+									layer.type === 'text'
+										? __( 'Text', 'wunderpaint' )
+										: __( 'Shape', 'wunderpaint' )
+							  } · ${ __( 'Fill', 'wunderpaint' ) }`
+					}
+					onChange={ ( patch ) => {
 						// The whole selection of this type (v1.429).
 						const ids = [
 							...new Set( [
@@ -592,20 +598,20 @@ export function ContextBar( {
 								( l ) =>
 									l.id === id &&
 									l.type === layer.type &&
-									! l.locked
+									! colorLayerLocked( editor.state.layers, l )
 							)
 						);
 						if ( ids.length > 1 ) {
 							dispatch( {
 								type: 'UPDATE_LAYERS',
 								ids,
-								patch: { [ colorKey ]: c },
+								patch,
 							} );
 						} else {
 							dispatch( {
 								type: 'UPDATE_LAYER',
 								id: layer.id,
-								patch: { [ colorKey ]: c },
+								patch,
 							} );
 						}
 						commit( __( 'Change color', 'wunderpaint' ) );
@@ -613,7 +619,23 @@ export function ContextBar( {
 				/>
 			) }
 			{ actions
-				.filter( ( a ) => 'trash' !== a.icon )
+				.filter(
+					( a ) =>
+						'trash' !== a.icon &&
+						( ! textPanelOpen ||
+							! [
+								'valignT',
+								'valignM',
+								'valignB',
+								'alignL',
+								'alignC',
+								'alignR',
+								'alignJustify',
+								'__align',
+								'fluidText',
+								'textLayout',
+							].includes( a.icon ) )
+				)
 				.map( ( action ) =>
 					'__align' === action.icon ? (
 						<AlignFlyout
@@ -642,7 +664,7 @@ export function ContextBar( {
 			{ ! isText && Ops.canCombineShapes( editor.state ) && (
 				<CombineFlyout editor={ editor } tip={ tip } />
 			) }
-			{ isText && (
+			{ isText && ! textPanelOpen && (
 				<VarButton
 					value={ layer.text || '' }
 					kit={ kit }
@@ -676,6 +698,18 @@ export function ContextBar( {
 						{ I[ action.icon ]( { size: 13 } ) }
 					</button>
 				) ) }
+			{ isText && (
+				<button
+					type="button"
+					aria-label={ __( 'Text Panel', 'wunderpaint' ) }
+					title={ __( 'Text Panel', 'wunderpaint' ) }
+					onClick={ () =>
+						dispatch( { type: 'TOGGLE_TEXT_PANEL', show: true } )
+					}
+				>
+					{ I.sliders( { size: 13 } ) }
+				</button>
+			) }
 			{ tip.node }
 			{ layoutAnchor && (
 				<LayoutPopover

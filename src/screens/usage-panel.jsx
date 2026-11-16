@@ -276,14 +276,14 @@ export function CreditsPanel( { id, bare } ) {
 	const fields = [
 		[ 'source', __( 'Source', 'wunderpaint' ) ],
 		[ 'author', __( 'Creator', 'wunderpaint' ) ],
-		[ 'licence', __( 'Licence', 'wunderpaint' ) ],
+		[ 'licence', __( 'License', 'wunderpaint' ) ],
 	];
 
 	return (
 		<div className={ 'wpie-usage wpie-credits' + ( bare ? ' bare' : '' ) }>
 			{ ! bare && (
 				<div className="wpie-usage-head">
-					{ __( 'Origin and licence', 'wunderpaint' ) }
+					{ __( 'Origin and license', 'wunderpaint' ) }
 				</div>
 			) }
 
@@ -291,7 +291,7 @@ export function CreditsPanel( { id, bare } ) {
 				<div className="wpie-usage-verdict warn">
 					{ I.alert( { size: 14 } ) }
 					<span>
-						{ __( 'This licence has expired.', 'wunderpaint' ) }
+						{ __( 'This license has expired.', 'wunderpaint' ) }
 					</span>
 				</div>
 			) }
@@ -299,7 +299,7 @@ export function CreditsPanel( { id, bare } ) {
 				<div className="wpie-usage-verdict warn">
 					{ I.alert( { size: 14 } ) }
 					<span>
-						{ __( 'This licence runs out soon.', 'wunderpaint' ) }
+						{ __( 'This license runs out soon.', 'wunderpaint' ) }
 					</span>
 				</div>
 			) }
@@ -315,7 +315,7 @@ export function CreditsPanel( { id, bare } ) {
 				</label>
 			) ) }
 			<label className="wpie-alt-field">
-				<span>{ __( 'Licence expires', 'wunderpaint' ) }</span>
+				<span>{ __( 'License expires', 'wunderpaint' ) }</span>
 				<input
 					type="date"
 					value={ rec.expires || '' }
@@ -325,7 +325,7 @@ export function CreditsPanel( { id, bare } ) {
 
 			{ dirty && (
 				<button className="ai-btn secondary sm" onClick={ save }>
-					{ __( 'Save licence details', 'wunderpaint' ) }
+					{ __( 'Save license details', 'wunderpaint' ) }
 				</button>
 			) }
 		</div>

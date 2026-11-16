@@ -16,7 +16,12 @@ import { aspectOf, frameSize } from './core/frame.js';
 import { makeCast, mixedVoice } from './flat/casting.js';
 
 const SNAP_EVERY = 2.5; // wall seconds
-const SNAP_EDGE = 1280;
+// A moment is kept at the sheet's full size (it may become the picture),
+// encoded off the frame by the browser; the strip shows a small copy.
+// Until 1.10 it was a 1280 px JPEG encoded in the frame - the moment you
+// chose went in at a third of the pixels, and the frame stuttered.
+const SNAP_THUMB = 360; // long edge of the strip's picture
+const SNAP_QUALITY = 0.92;
 // The society's clock against the wall clock. Thomas on the first
 // evening (02.09.): the old 300 % should be the new normal, nobody
 // wants to wait for a picture - so a sitting of a hundred world seconds
@@ -65,7 +70,13 @@ export class FlatEngine {
 		this.session = null;
 		this.world = null;
 		this.running = false;
-		this.ring = makeRing( 48 );
+		this.ring = makeRing( 48, ( item ) => {
+			if ( item.blob && item.url ) {
+				URL.revokeObjectURL( item.url );
+			}
+		} );
+		this._snapBusy = false;
+		this._gen = 0;
 		this.onFrame = null;
 		this.aspect = 1.5;
 		this.canvas = null;
@@ -82,6 +93,10 @@ export class FlatEngine {
 		// ring, the trace of a drawn stroke. Wall-clocked.
 		this.fx = { burst: null, trace: null };
 		this.calls = 0;
+		// Painted to a song: the player's clock (song seconds), and who to
+		// tell when the last note has sounded.
+		this.songClock = null;
+		this.onSongEnd = null;
 	}
 
 	mount( host, aspect ) {
@@ -153,16 +168,34 @@ export class FlatEngine {
 				! settings.params.autoPalette
 					? settings.params.colors
 					: null,
+			song: settings.song || null,
+			pace: PACE,
+			clear: settings.clear || [],
 		} );
 		this.world = this.session.world;
+		// In the dialog broad strokes are styled one at a time between
+		// frames (flat/stage.js), never all at once in one frame.
+		this.session.stage.realtime = true;
 		this.world.cursor.mode = 'attract';
 		writeRecent( settings.school.id, {
 			a: this.world.plan.archetype,
 			p: this.world.paletteMode,
 		} );
 		this.finishSpec = this.session.finishSpec();
+		this._gen++;
 		this.ring.clear();
 		this._snapAcc = 0;
+		this.dirty = true;
+	}
+
+	/**
+	 * The page's text zones (flat/clear.js), also while painting: the
+	 * next marks keep out of them, the stage shows where they are.
+	 */
+	setClear( zones ) {
+		if ( this.session ) {
+			this.session.setClear( zones );
+		}
 		this.dirty = true;
 	}
 
@@ -289,8 +322,19 @@ export class FlatEngine {
 		this._last = now;
 		let needSnap = false;
 		if ( this.session && this.running ) {
-			this.session.step( dt * PACE );
+			this.session.step(
+				dt * PACE,
+				this.songClock ? this.songClock() : undefined
+			);
 			this.dirty = true;
+			const music = this.session.world.music;
+			if ( music && music.ended ) {
+				// The last note: the painters stop, the dialog shows the moments.
+				this.running = false;
+				if ( this.onSongEnd ) {
+					this.onSongEnd();
+				}
+			}
 			this._snapAcc += dt;
 			if ( this._snapAcc >= SNAP_EVERY ) {
 				this._snapAcc = 0;
@@ -347,6 +391,29 @@ export class FlatEngine {
 		g.save();
 		g.lineCap = 'round';
 		g.lineJoin = 'round';
+		if ( w.clear && w.clear.length ) {
+			// Where the page's text sits: a dashed outline, dark under
+			// light, so it reads on every ground - only on the stage.
+			const dpr = W / Math.max( 1, this.canvas.clientWidth || W );
+			g.lineWidth = 1.5 * dpr;
+			g.setLineDash( [ 6 * dpr, 5 * dpr ] );
+			for ( const [ color, off ] of [
+				[ 'rgba(0,0,0,0.35)', 5 ],
+				[ 'rgba(255,255,255,0.7)', 0 ],
+			] ) {
+				g.strokeStyle = color;
+				g.lineDashOffset = off * dpr;
+				for ( const z of w.clear ) {
+					g.strokeRect(
+						z.x0 * sx,
+						z.y0 * H,
+						( z.x1 - z.x0 ) * sx,
+						( z.y1 - z.y0 ) * H
+					);
+				}
+			}
+			g.setLineDash( [] );
+		}
 		if ( w.cursor.active && this.running ) {
 			// The hand: a soft halo where the painters gather.
 			const x = w.cursor.point[ 0 ] * sx;
@@ -501,16 +568,56 @@ export class FlatEngine {
 	}
 
 	snapshot() {
-		if ( ! this.session ) {
+		if ( ! this.session || this._snapBusy ) {
 			return;
 		}
-		const url = this.thumbUrl( SNAP_EDGE );
-		this.ring.push( {
-			url,
-			w: this.snapCanvas.width,
-			h: this.snapCanvas.height,
+		const st = this.session.stage;
+		if ( ! this.snapFull ) {
+			this.snapFull = createCanvas( 2, 2 );
+		}
+		const full = this.snapFull;
+		if ( full.width !== st.W || full.height !== st.H ) {
+			full.width = st.W;
+			full.height = st.H;
+		}
+		st.render( full.getContext( '2d' ), st.W, st.H, this.finishSpec );
+		const k = Math.min( 1, SNAP_THUMB / Math.max( st.W, st.H ) );
+		const small = this.snapCanvas;
+		small.width = Math.max( 2, Math.round( st.W * k ) );
+		small.height = Math.max( 2, Math.round( st.H * k ) );
+		small
+			.getContext( '2d' )
+			.drawImage( full, 0, 0, small.width, small.height );
+		const item = {
+			thumb: small.toDataURL( 'image/jpeg', 0.8 ),
+			w: st.W,
+			h: st.H,
 			wall: this.world ? this.world.wall : 0,
-		} );
+			songAt: this.songTime(),
+		};
+		if ( 'function' !== typeof full.toBlob ) {
+			item.url = full.toDataURL( 'image/jpeg', SNAP_QUALITY );
+			this.ring.push( item );
+			return;
+		}
+		// The browser encodes it off this frame; the copy is taken now.
+		const gen = this._gen;
+		this._snapBusy = true;
+		full.toBlob(
+			( blob ) => {
+				this._snapBusy = false;
+				// A new piece, a closed dialog or a pause since: the moment
+				// would shift the strip under the hand that is choosing.
+				if ( ! blob || gen !== this._gen || ! this.running ) {
+					return;
+				}
+				item.blob = blob;
+				item.url = URL.createObjectURL( blob );
+				this.ring.push( item );
+			},
+			'image/jpeg',
+			SNAP_QUALITY
+		);
 	}
 
 	/** Copy the visible picture. Pending strokes belong to its future. */
@@ -521,16 +628,38 @@ export class FlatEngine {
 		const st = this.session.stage;
 		const c = createCanvas( st.W, st.H );
 		st.render( c.getContext( '2d' ), st.W, st.H, this.finishSpec );
-		return { url: c.toDataURL( 'image/png' ), w: st.W, h: st.H };
+		return {
+			url: c.toDataURL( 'image/png' ),
+			w: st.W,
+			h: st.H,
+			songAt: this.songTime(),
+		};
+	}
+
+	/** Where in the song the picture is (song seconds); none without one. */
+	songTime() {
+		const m = this.world && this.world.music;
+		return m ? m.t : undefined;
 	}
 
 	painted() {
 		return this.session ? this.session.painted : 0;
 	}
 
+	/** The player reports the end of the song (its own `ended`). */
+	endSong() {
+		if ( this.world && this.world.conductor ) {
+			this.world.conductor.finish();
+		}
+	}
+
 	dispose() {
 		cancelAnimationFrame( this._raf );
 		this.running = false;
+		this.songClock = null;
+		this.onSongEnd = null;
+		this._gen++;
+		this.ring.clear();
 		if ( this._ro ) {
 			this._ro.disconnect();
 		}

@@ -36,6 +36,7 @@ import {
 } from '../lib/media-library';
 import { COLOR_BUCKETS, COLOR_SWATCH } from '../lib/image-colors';
 import { checkDuplicate, importOne } from '../lib/smart-upload';
+import { HEIC_ACCEPT, normalizeImageFile } from '../lib/heic';
 import { VarButton } from '../components/var-picker';
 import { affixBindingGroups, expandTokens } from '../lib/dynamic-content';
 import {
@@ -1610,14 +1611,26 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 
 	/* ------------------------------ upload ----------------------------- */
 
-	const addFiles = ( fileList ) => {
-		// Images plus PDFs (v1.332); everything else stays out.
-		const files = [ ...( fileList || [] ) ].filter(
+	const addFiles = async ( fileList ) => {
+		// Images plus PDFs (v1.332); everything else stays out. HEIC photos
+		// often arrive without a type, so their name lets them in.
+		const picked = [ ...( fileList || [] ) ].filter(
 			( f ) =>
-				f.type &&
-				( f.type.startsWith( 'image/' ) ||
-					'application/pdf' === f.type )
+				( f.type &&
+					( f.type.startsWith( 'image/' ) ||
+						'application/pdf' === f.type ) ) ||
+				/\.(heic|heif)$/i.test( f.name || '' )
 		);
+		// Converted once, here (lib/heic.js): the preview, the duplicate
+		// check and the upload then all work with a JPEG.
+		const files = [];
+		for ( const f of picked ) {
+			try {
+				files.push( await normalizeImageFile( f ) );
+			} catch ( e ) {
+				extras.toasts.error( e.message );
+			}
+		}
 		if ( ! files.length ) {
 			return;
 		}
@@ -2661,7 +2674,10 @@ export function MediaLibraryDialog( { onClose, extras, pick = null } ) {
 									{ __( 'Upload', 'wunderpaint' ) }
 									<input
 										type="file"
-										accept="image/*,application/pdf"
+										accept={
+											'image/*,application/pdf,' +
+											HEIC_ACCEPT
+										}
 										multiple
 										style={ { display: 'none' } }
 										onChange={ ( e ) => {

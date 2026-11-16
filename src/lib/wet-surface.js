@@ -27,6 +27,20 @@
  * capped; noise comes from fixed periodic tiles so a grow is a pure array
  * copy - regenerating unique noise per grow caused a visible hitch on every
  * stroke that left the old box.
+ *
+ * THE FILM AT REST (analysis of 09.11.2026). The levelling of one step was
+ * several times what an explicit scheme carries, and for as long as a film
+ * stood its water rocked between neighbouring cells by four tenths of its
+ * depth - a weave four pixels apart in every dried wash, and the noise
+ * everything else had been tuned in. Since then the levelling follows the
+ * SMOOTHED head (FLOWD), and the rules that leaned on the rocking were
+ * set again, each with its test below in wet-surface.test.js: how the
+ * pigment rides the water (MOB, CROWD, TIP_FROM), that a tip dries like
+ * an edge (EDGE_DRY), that thin water hardly flows (THIN), that the sog
+ * pulls from the wash to its rim only, and that ink stains (opts.stain).
+ * This file is where those rules are proven; wet-surface-gl.js runs the
+ * same numbers and adds what only the island has (an unevenly sized
+ * sheet, six bands of colour, the contour drawn by coverage).
  */
 
 const SC = 2; // cell size in document pixels
@@ -46,6 +60,52 @@ const MAX_CELLS = 1200000; // memory guard: beyond this the wash force-dries
  * dry-out, lift) never scale - depth is measured in paint, not in cells.
  */
 const FLOW = 0.44; // conductance between neighbours (diffusion-like)
+// The share of FLOW that works on the plain difference of two neighbours.
+// The rest works on the SMOOTHED head (substep, 2): 0.44 over eight
+// neighbours is several times what an explicit step carries - a cell
+// above its neighbours overshot to below them and back, the water rocked
+// between neighbouring cells by four tenths of its depth for as long as a
+// film stood, and dried into a weave four pixels apart (analysis of
+// 09.11.2026). The alternating mode gets no drive at all from the
+// smoothed head; this small plain term is what damps it. Slopes longer
+// than a few cells level exactly as fast as they always did.
+const FLOWD = 0.03;
+// The edge sog works on a film that still flows; in the last film it
+// would only herd the pigment around every hole that opens.
+const SOG_THIN = 0.02;
+const SOG_FULL = 0.12;
+// How much of its pigment the water carries along (times the depth
+// grading in paar). It stood at 1.4 - a compensation measured while the
+// water still rocked from cell to cell and shuffled the pigment back as
+// fast as it carried it. With the film at rest the same number emptied
+// the middle of a wash by a quarter, drew the outline of a hard-edged
+// wash at 2.8 times its tone and ended every stub in a black bead. At
+// 1.2, with thin water held back (THIN), a stroke dries with the rim it
+// always had (a third darker after three passes) and its middle level.
+const MOB = 1.2;
+// THIN WATER HARDLY FLOWS. Below this depth the levelling between two
+// cells falls off with the depth of the shallower one (down to a floor):
+// a film a hair deep does not run across half the sheet. It used to, as
+// freely as a puddle - so the last film of a wash dragged whatever it
+// still carried towards the far rim: a charge dropped wet in wet wandered
+// off, stubs filled to beads, a backrun ended in a slope instead of the
+// dark line where its water gives out.
+const THIN = 0.3;
+const THIN_FLOOR = 0.03;
+// ... and a cell that already carries more pigment than the one the
+// water comes from takes less of it: 1 / ( 1 + CROWD x excess^2 ), the
+// excess being how many times more. A rim fills to about half again the
+// wash and then lets the pigment lie where it is - without this a hard
+// edge (a frisket, a hard tip) still drew itself at 2.3 times the wash.
+const CROWD = 6;
+// A cell counts as an edge for evaporation up to this many dry
+// neighbours: the tip of a stub and a lone island dry like an edge, not
+// three times as fast - that thirst is what drew the wash into them.
+const EDGE_DRY = 2;
+// ... and what still flows into a cell standing out that far (more than
+// three dry neighbours: a tip, a corner, a lone cell) leaves most of its
+// pigment behind: 1 / ( 1 + ( dry neighbours - 3 )^2 ).
+const TIP_FROM = 3;
 const EVAP = 0.000275; // base evaporation per step (a depth)
 const EDGEK = 0.35; // extra evaporation per dry neighbour (8-neighbourhood)
 const DEP = 0.002; // settling rate, applied quadratically to dryness
@@ -53,7 +113,10 @@ const LIFT = 0.06; // resuspension of settled pigment under deep water
 const REWET = 0.35; // saturation above which paper floods again
 const FLUT = 0.12; // flood pressure threshold (a DEPTH - never scaled)
 const SKRIECH = 0.02; // capillary creep of saturation through the fibres
-const PDIFF = 0.007; // pigment diffusion in standing water
+// Pigment diffusion in standing water. It stood at 0.007: over the life
+// of a deep wash that alone carried a charge fifteen cells from where it
+// was dropped. A dab in a level puddle still softens at its edge.
+const PDIFF = 0.002;
 const TRINK = 0.0025; // paper drinking rate (costs water, stops at s = 1)
 const SOG = 0.09; // Curtis' flowOutward: water pulled toward the mask edge
 const RUECK = 1 - Math.pow( 0.65, SC / 4 ); // retreat share per cell death
@@ -194,8 +257,21 @@ const paperQAt = ( gx, gy ) =>
  * The surface
  * ------------------------------------------------------------------ */
 
-export function createWetSurface() {
+/**
+ * @param {Object} opts         Options.
+ * @param {number} opts.stain   How much of the settling does not wait for
+ *                              the water to go (0 = none, the watercolour
+ *                              of the calibration). INK stains: it takes
+ *                              to the fibres where it lands, so a line
+ *                              stays the line that was drawn - the flow
+ *                              along a fine line (a staircase on the grid,
+ *                              all of it rim) sorted floating ink into a
+ *                              bead per step.
+ * @return {Object} The surface.
+ */
+export function createWetSurface( opts = {} ) {
 	buildTiles();
+	const STAIN = opts.stain > 0 ? opts.stain : 0;
 
 	const S = {
 		// Region in grid cells, origin in ABSOLUTE grid coordinates
@@ -211,6 +287,7 @@ export function createWetSurface() {
 	// Field arrays, all region-sized. Allocated in ensure().
 	let w, s, M, eF, pR, pG, pB, pGr, dR, dG, dB, dGr;
 	let fw, fs, fpR, fpG, fpB, fpGr; // flux deltas (order-independent pairs)
+	let hs; // the smoothed head of the step (scratch, see substep)
 	let cDenR, cDenG, cDenB, cGran; // per-cell render precomputes
 	let pq; // regional copy of the paper tile, so the hot loops never mod
 
@@ -253,6 +330,7 @@ export function createWetSurface() {
 		fpG = new Float32Array( n );
 		fpB = new Float32Array( n );
 		fpGr = new Float32Array( n );
+		hs = new Float32Array( n );
 		cDenR = new Float32Array( n );
 		cDenG = new Float32Array( n );
 		cDenB = new Float32Array( n );
@@ -274,7 +352,7 @@ export function createWetSurface() {
 		S.rh = 0;
 		S.wet = 0;
 		w = s = M = eF = pR = pG = pB = pGr = dR = dG = dB = dGr = null;
-		fw = fs = fpR = fpG = fpB = fpGr = null;
+		fw = fs = fpR = fpG = fpB = fpGr = hs = null;
 		cDenR = cDenG = cDenB = cGran = null;
 	};
 
@@ -524,8 +602,28 @@ export function createWetSurface() {
 		// Curtis' flowOutward: water is actively pulled toward the mask
 		// edge while BOTH sides are wet - that carries the pigment into
 		// the rim without drying the rim shut.
-		const eb = mj ? eF[ j ] - eF[ i ] : 0;
-		if ( 0 === diff && 0 === eb ) {
+		// A real edge only: a single hole in the film (one dry neighbour)
+		// is no edge to pull towards - while the last film broke up, every
+		// hole drew the pigment around itself like a tiny stroke edge.
+		// And only FROM THE WASH TO ITS RIM: between two cells that are
+		// both rim there is nothing to pull. A fine line is rim from end to
+		// end - on the grid a staircase, one cell wide here and two there -
+		// and the sog read every step of it as more rim than the next cell.
+		const ei = eF[ i ] >= 2 ? eF[ i ] : 0;
+		const ej = mj && eF[ j ] >= 2 ? eF[ j ] : 0;
+		const eb = mj && ( 0 === ei || 0 === ej ) ? ej - ei : 0;
+		// Between two wet cells the SMOOTHED head drives the levelling
+		// (FLOWD); flooding dry paper keeps the plain step it climbs.
+		let drive = mj
+			? ( FLOW - FLOWD ) * ( hs[ i ] - hs[ j ] ) + FLOWD * diff
+			: FLOW * diff;
+		if ( mj ) {
+			const depth = Math.min( w[ i ], wj ) / THIN;
+			if ( depth < 1 ) {
+				drive *= depth > THIN_FLOOR ? depth : THIN_FLOOR;
+			}
+		}
+		if ( 0 === drive && 0 === eb ) {
 			return;
 		}
 		// Quiet modulation plus a fixed per-pair jitter, keyed to ABSOLUTE
@@ -536,13 +634,15 @@ export function createWetSurface() {
 		const gyi = S.ry + y;
 		const ph = ( pq[ i ] + pq[ j ] ) * 0.5;
 		let f =
-			diff *
-			FLOW *
+			drive *
 			lw *
 			( 0.75 + 0.5 * ( 1 - ph ) ) *
 			( 0.7 + 0.6 * hash( 2 * gxi + dxn, 2 * gyi + dyn ) );
 		if ( 0 !== eb ) {
-			f += SOG * eb * lw * Math.min( w[ i ], wj );
+			const thin = Math.min( w[ i ], wj );
+			let u = ( thin - SOG_THIN ) / ( SOG_FULL - SOG_THIN );
+			u = u < 0 ? 0 : u > 1 ? 1 : u;
+			f += SOG * eb * lw * thin * u * u * ( 3 - 2 * u );
 		}
 		const cap = capk * ( f > 0 ? w[ i ] : wj );
 		if ( f > cap ) {
@@ -588,7 +688,20 @@ export function createWetSurface() {
 		// stayed at 1.34 instead of falling to 0.77 and the ring never
 		// formed; with the full factor the interior emptied to 0.41.
 		const dryn = 1 - Math.min( 1, ws );
-		amt *= ( 0.55 + 0.4 * dryn ) * 1.4;
+		amt *= ( 0.55 + 0.4 * dryn ) * MOB;
+		const have = pR[ dst ] + pG[ dst ] + pB[ dst ];
+		const give = pR[ src ] + pG[ src ] + pB[ src ];
+		if ( have > give ) {
+			const more = have / ( give + 1e-6 ) - 1;
+			amt /= 1 + CROWD * more * more;
+		}
+		// (The more exposed of the two: between two cells of a fine line
+		// the gate holds both ways alike, or it sorts the pigment into the
+		// cells that stand out less.)
+		const out = Math.max( eF[ dst ], eF[ src ] ) - TIP_FROM;
+		if ( out > 0 ) {
+			amt /= 1 + out * out;
+		}
 		if ( amt > capk ) {
 			amt = capk;
 		}
@@ -712,6 +825,40 @@ export function createWetSurface() {
 			fpB.fill( 0, a, b );
 			fpGr.fill( 0, a, b );
 		}
+		// The head the levelling follows: the water of each wet cell
+		// averaged with its wet neighbours (1-2-1 both ways). The mode that
+		// alternates from cell to cell is exactly what this average cannot
+		// see, so the levelling no longer feeds it.
+		for ( let y = py0; y <= py1; y++ ) {
+			for ( let x = px0; x <= px1; x++ ) {
+				const i = y * RW + x;
+				if ( ! M[ i ] ) {
+					hs[ i ] = 0;
+					continue;
+				}
+				let sum = 0;
+				let wt = 0;
+				for ( let dy = -1; dy <= 1; dy++ ) {
+					const yy = y + dy;
+					if ( yy < 0 || yy >= RH ) {
+						continue;
+					}
+					for ( let dx = -1; dx <= 1; dx++ ) {
+						const xx = x + dx;
+						if ( xx < 0 || xx >= RW ) {
+							continue;
+						}
+						const j = yy * RW + xx;
+						if ( M[ j ] ) {
+							const k = ( dx ? 1 : 2 ) * ( dy ? 1 : 2 );
+							sum += k * w[ j ];
+							wt += k;
+						}
+					}
+				}
+				hs[ i ] = sum / wt;
+			}
+		}
 		for ( let y = ay0; y <= ay1; y++ ) {
 			for ( let x = ax0; x <= ax1; x++ ) {
 				const i = y * RW + x;
@@ -780,7 +927,7 @@ export function createWetSurface() {
 					// settle early and neither ring nor granulation exist,
 					// because nothing redistributes any more.
 					const dry = 1 - Math.min( 1, wi );
-					let dep = DEP * dry * dry * wgt;
+					let dep = DEP * ( dry * dry + STAIN ) * wgt;
 					if ( dep > 0.5 ) {
 						dep = 0.5;
 					}
@@ -849,7 +996,7 @@ export function createWetSurface() {
 				w[ i ] -=
 					EVAP *
 					EVAPK *
-					( 1 + EDGEK * dryN ) *
+					( 1 + EDGEK * Math.min( dryN, EDGE_DRY ) ) *
 					( 0.7 + 0.4 * pqi + 0.2 * hash( gax, gay ) );
 				if ( w[ i ] <= 0.004 ) {
 					// The water film RETREATS: part of the leftover pigment
@@ -1229,6 +1376,7 @@ export function createWetSurface() {
 		return {
 			w: w[ i ],
 			dep: dR[ i ] + dG[ i ] + dB[ i ],
+			depR: dR[ i ],
 			susp: pR[ i ] + pG[ i ] + pB[ i ],
 		};
 	};

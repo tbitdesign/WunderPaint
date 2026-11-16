@@ -157,6 +157,63 @@ export function fixSeam( data, w, h, { ramp = 0.08, band = 4 } = {} ) {
 	return data;
 }
 
+/**
+ * The seam fix on a canvas, touching only what it changes (19.10.2026).
+ * fixSeam works on the two wrap edges - a ramp of 8% of the width on
+ * either side - but the dialog read and wrote the whole picture for it:
+ * at 8192 x 4096 that is 128 MB of pixels each way. Here only the two
+ * edge strips are read, laid side by side (left strip, right strip) so the
+ * wrap seam sits at the strip's own edges, fixed with the same fixSeam,
+ * and written back. The result is identical to the full-picture pass.
+ *
+ * @param {HTMLCanvasElement} canvas    Equirectangular picture, changed.
+ * @param {Object}            opts      As fixSeam.
+ * @param {number}            opts.ramp Ramp width as a share of the width.
+ * @param {number}            opts.band Columns blurred on each side.
+ * @return {HTMLCanvasElement} The same canvas.
+ */
+export function fixSeamOnCanvas( canvas, { ramp = 0.08, band = 4 } = {} ) {
+	const w = canvas.width;
+	const h = canvas.height;
+	const ctx = canvas.getContext( '2d' );
+	const R = Math.max( 2, Math.round( w * ramp ) );
+	if ( 4 * R + 8 >= w || R < band + 2 ) {
+		const px = ctx.getImageData( 0, 0, w, h );
+		fixSeam( px.data, w, h, { ramp, band } );
+		ctx.putImageData( px, 0, 0 );
+		return canvas;
+	}
+	const left = ctx.getImageData( 0, 0, R, h );
+	const right = ctx.getImageData( w - R, 0, R, h );
+	const sw = 2 * R;
+	const strip = new Uint8ClampedArray( sw * h * 4 );
+	for ( let y = 0; y < h; y++ ) {
+		strip.set(
+			left.data.subarray( y * R * 4, ( y + 1 ) * R * 4 ),
+			y * sw * 4
+		);
+		strip.set(
+			right.data.subarray( y * R * 4, ( y + 1 ) * R * 4 ),
+			( y * sw + R ) * 4
+		);
+	}
+	// Half of the strip is the same ramp of R columns on each side.
+	fixSeam( strip, sw, h, { ramp: 0.5, band } );
+	for ( let y = 0; y < h; y++ ) {
+		left.data.set(
+			strip.subarray( y * sw * 4, ( y * sw + R ) * 4 ),
+			y * R * 4
+		);
+		right.data.set(
+			strip.subarray( ( y * sw + R ) * 4, ( y + 1 ) * sw * 4 ),
+			y * R * 4
+		);
+	}
+	ctx.putImageData( left, 0, 0 );
+	ctx.putImageData( right, w - R, 0 );
+	return canvas;
+}
+
 /** True when a size is close enough to equirectangular 2:1. */
 export function panoramaAspectOk( w, h, tol = 0.1 ) {
 	return h > 0 && Math.abs( w / ( 2 * h ) - 1 ) <= tol;
@@ -170,32 +227,41 @@ export function panoramaAspectOk( w, h, tol = 0.1 ) {
  * projects onto the floor plane and samples the logo (nearest neighbor);
  * a soft alpha ramp at the rim blends into the scene.
  *
- * @param {Uint8ClampedArray} img  RGBA pixels of the panorama, mutated.
+ * @param {Uint8ClampedArray} img  RGBA pixels of the panorama, mutated -
+ *                                  all of it, or only the rows from `top`.
  * @param {number} w    Panorama width.
  * @param {number} h    Panorama height.
  * @param {Uint8ClampedArray} logo RGBA pixels of the (square) logo tile.
  * @param {number} lw   Logo width.
  * @param {number} lh   Logo height.
  * @param {number} capDeg Cap radius in degrees below the nadir (10-45).
+ * @param {number} top  First panorama row `img` holds (0 = the whole image).
  * @return {Uint8ClampedArray} The same panorama array.
  */
-export function applyNadirCap( img, w, h, logo, lw, lh, capDeg = 25 ) {
-	const capStart = h - Math.round( ( capDeg / 180 ) * h );
+export function applyNadirCap( img, w, h, logo, lw, lh, capDeg = 25, top = 0 ) {
+	const capStart = nadirCapStart( h, capDeg );
 	const rim = Math.max( 2, Math.round( ( 2 / 180 ) * h ) );
-	for ( let y = capStart; y < h; y++ ) {
+	// The azimuth only depends on the column (20.10.2026).
+	const sin = new Float64Array( w );
+	const cos = new Float64Array( w );
+	for ( let x = 0; x < w; x++ ) {
+		const az = ( x / w ) * 2 * Math.PI;
+		sin[ x ] = Math.sin( az );
+		cos[ x ] = Math.cos( az );
+	}
+	for ( let y = Math.max( capStart, top ); y < h; y++ ) {
 		// 0 at the cap rim, 1 straight down.
 		const depth = ( y - capStart ) / Math.max( 1, h - 1 - capStart );
 		// Radius on the floor plane: rim of the cap = logo edge.
 		const radius = 1 - depth;
 		const blend = Math.min( 1, ( y - capStart ) / rim );
 		for ( let x = 0; x < w; x++ ) {
-			const az = ( x / w ) * 2 * Math.PI;
 			const lx = Math.min(
 				lw - 1,
 				Math.max(
 					0,
 					Math.round(
-						( 0.5 + ( radius * Math.sin( az ) ) / 2 ) * ( lw - 1 )
+						( 0.5 + ( radius * sin[ x ] ) / 2 ) * ( lw - 1 )
 					)
 				)
 			);
@@ -204,12 +270,12 @@ export function applyNadirCap( img, w, h, logo, lw, lh, capDeg = 25 ) {
 				Math.max(
 					0,
 					Math.round(
-						( 0.5 + ( radius * Math.cos( az ) ) / 2 ) * ( lh - 1 )
+						( 0.5 + ( radius * cos[ x ] ) / 2 ) * ( lh - 1 )
 					)
 				)
 			);
 			const s = ( ly * lw + lx ) * 4;
-			const d = ( y * w + x ) * 4;
+			const d = ( ( y - top ) * w + x ) * 4;
 			const a = ( logo[ s + 3 ] / 255 ) * blend;
 			img[ d ] = img[ d ] * ( 1 - a ) + logo[ s ] * a;
 			img[ d + 1 ] = img[ d + 1 ] * ( 1 - a ) + logo[ s + 1 ] * a;
@@ -217,6 +283,42 @@ export function applyNadirCap( img, w, h, logo, lw, lh, capDeg = 25 ) {
 		}
 	}
 	return img;
+}
+
+/**
+ * The first row of the nadir cap.
+ *
+ * @param {number} h      Panorama height.
+ * @param {number} capDeg Cap radius in degrees.
+ * @return {number} Row index.
+ */
+export function nadirCapStart( h, capDeg = 25 ) {
+	return h - Math.round( ( capDeg / 180 ) * h );
+}
+
+/**
+ * The nadir cap on a canvas (20.10.2026): only the band below the cap rim
+ * is read and written back - the logo used to read and rewrite the whole
+ * panorama for the bottom seventh of it. The result is the same.
+ *
+ * @param {HTMLCanvasElement} canvas Panorama, changed in place.
+ * @param {Uint8ClampedArray} logo   RGBA pixels of the logo tile.
+ * @param {number}            lw     Logo width.
+ * @param {number}            lh     Logo height.
+ * @param {number}            capDeg Cap radius in degrees.
+ * @return {HTMLCanvasElement} The same canvas.
+ */
+export function applyNadirCapOnCanvas( canvas, logo, lw, lh, capDeg = 25 ) {
+	const { width: w, height: h } = canvas;
+	const top = Math.max( 0, nadirCapStart( h, capDeg ) );
+	if ( top >= h || ! w ) {
+		return canvas;
+	}
+	const ctx = canvas.getContext( '2d' );
+	const band = ctx.getImageData( 0, top, w, h - top );
+	applyNadirCap( band.data, w, h, logo, lw, lh, capDeg, top );
+	ctx.putImageData( band, 0, top );
+	return canvas;
 }
 
 /* --------------------------- shared shaders ---------------------------- */

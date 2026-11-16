@@ -204,25 +204,43 @@ const tracePart = ( ctx, sel ) => {
  * @param {Object} sel    Selection.
  * @param {number} w      Document width.
  * @param {number} h      Document height.
- * @param {Object} [opts] { feather } override.
+ * @param {Object} [opts] { feather, scale } overrides; scale is for small previews.
  * @return {HTMLCanvasElement} Mask canvas.
  */
 export function selectionToMaskCanvas( sel, w, h, opts = {} ) {
+	const scale =
+		Number.isFinite( opts.scale ) && opts.scale > 0
+			? Math.min( 1, opts.scale )
+			: 1;
 	const canvas = createCanvas(
-		Math.max( 1, Math.round( w ) ),
-		Math.max( 1, Math.round( h ) )
+		Math.max( 1, Math.round( w * scale ) ),
+		Math.max( 1, Math.round( h * scale ) )
 	);
 	const ctx = canvas.getContext( '2d' );
 	if ( ! sel ) {
 		return canvas;
 	}
 
+	ctx.scale( scale, scale );
 	const parts = 'combo' === sel.kind ? sel.ops : [ { sel, op: 'add' } ];
 	ctx.fillStyle = '#ffffff';
 	for ( const { sel: part, op } of parts ) {
 		ctx.globalCompositeOperation =
 			'subtract' === op ? 'destination-out' : 'source-over';
-		if ( 'mask' === part.kind && part.canvas ) {
+		if ( 'combo' === part.kind ) {
+			// Isolate nested boolean operations before subtracting their result.
+			const nested = selectionToMaskCanvas( part, w, h, {
+				scale,
+				feather: 0,
+			} );
+			ctx.drawImage(
+				nested,
+				0,
+				0,
+				nested.width / scale,
+				nested.height / scale
+			);
+		} else if ( 'mask' === part.kind && part.canvas ) {
 			ctx.drawImage( part.canvas, 0, 0 );
 		} else {
 			tracePart( ctx, part );
@@ -236,7 +254,7 @@ export function selectionToMaskCanvas( sel, w, h, opts = {} ) {
 		const blurred = createCanvas( canvas.width, canvas.height );
 		const bctx = blurred.getContext( '2d' );
 		if ( 'filter' in bctx ) {
-			bctx.filter = `blur(${ feather }px)`;
+			bctx.filter = `blur(${ feather * scale }px)`;
 			bctx.drawImage( canvas, 0, 0 );
 			return blurred;
 		}

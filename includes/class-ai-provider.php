@@ -39,12 +39,18 @@ class AI_Provider {
 				'caption'  => 'gemini-3.1-flash-lite',
 				'design'   => 'gemini-3-flash-preview',
 			),
+			// GPT Image 2.5 (08.09.2026) comes as two models: Flare, "the
+			// fastest model for high-quality, everyday image generation", and
+			// Sunburst, slower and more precise for detailed creative work.
+			// Flare is the default; Sunburst can be set under Settings ->
+			// AI Providers -> Models. Same per-token prices as gpt-image-2,
+			// and the free "WxH" sizes below match the gpt-image-2 prefix.
 			'openai'    => array(
-				'generate'   => 'gpt-image-2',
-				'edit'       => 'gpt-image-2',
-				'inpaint'    => 'gpt-image-2',
-				'outpaint'   => 'gpt-image-2',
-				'variations' => 'gpt-image-2',
+				'generate'   => 'gpt-image-2.5-flare',
+				'edit'       => 'gpt-image-2.5-flare',
+				'inpaint'    => 'gpt-image-2.5-flare',
+				'outpaint'   => 'gpt-image-2.5-flare',
+				'variations' => 'gpt-image-2.5-flare',
 				'caption'    => 'gpt-5.4-mini',
 				'design'     => 'gpt-5.5',
 			),
@@ -971,7 +977,10 @@ class AI_Provider {
 	private function gemini( $action, \WP_REST_Request $request ) {
 		$key    = Helpers::get_api_key( 'gemini' );
 		$models = self::models();
-		$model  = $models['gemini']['generate'];
+		// The action's own slot: an edit used to run on the generate model,
+		// so a per-call model for edits (and its billing tier) never
+		// reached Gemini. Inpaint and outpaint have no slot of their own.
+		$model  = $models['gemini'][ $action ] ?? $models['gemini']['generate'];
 		$prompt = (string) $request->get_param( 'prompt' );
 
 		// Explicit aspect ratio (v1.5): the Gemini image models support

@@ -437,6 +437,19 @@ function sampleContour( kind, N ) {
 /* -------------------------------- drawing -------------------------------- */
 
 const LINEAR_STYLES = [ 'bars', 'line', 'fill', 'dots', 'pulse', 'led' ];
+/** v2.5: styles drawn from the frequencies rather than the loudness. */
+export const SPECTRAL_STYLES = [ 'spectrogram', 'mandala' ];
+
+const smooth = ( a, b, x ) => {
+	const t = Math.max( 0, Math.min( 1, ( x - a ) / ( b - a ) ) );
+	return t * t * ( 3 - 2 * t );
+};
+
+/** '#rrggbb' or 'rgb(r,g,b)' to [r, g, b]. */
+function rgbOf( c ) {
+	const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec( c );
+	return m ? [ +m[ 1 ], +m[ 2 ], +m[ 3 ] ] : hexRgb( c );
+}
 
 /**
  * Render the waveform.
@@ -464,6 +477,11 @@ const LINEAR_STYLES = [ 'bars', 'line', 'fill', 'dots', 'pulse', 'led' ];
  *   brights   Float32Array 0..1 per bucket for 'spectral'.
  *   peaksFull High-res peaks for ridgeline (falls back to peaks).
  *   rows      Ridgeline row count (default 24).
+ *   spectrum  v2.5: { data, cols, bands } from spectrum.js, for the
+ *             'spectrogram' and 'mandala' styles.
+ *   petals    Mandala symmetry (default 8).
+ *   reveal    0..1: the part of the song after this shows faint (the
+ *             video's progress mode for the spectral styles).
  *   createCanvas Optional (w,h)=>canvas for node rendering.
  */
 export function drawWave( ctx, w, h, opts ) {
@@ -485,11 +503,15 @@ export function drawWave( ctx, w, h, opts ) {
 		brights = null,
 		peaksFull = null,
 		rows = 0,
+		spectrum = null,
+		petals = 8,
+		reveal = 1,
 	} = opts;
 	const pal = wavePalette( theme, overrides );
 	const grad = gradientById( gradientId );
 	const stops = 'solid' === colorMode ? [ pal.wave ] : grad.stops;
 	const n = peaks ? peaks.length : 0;
+	const spectral = SPECTRAL_STYLES.includes( style );
 
 	ctx.save();
 	maskPathOn( ctx, mask, w, h );
@@ -498,7 +520,7 @@ export function drawWave( ctx, w, h, opts ) {
 		ctx.fillStyle = pal.bg;
 		ctx.fillRect( 0, 0, w, h );
 	}
-	if ( ! n ) {
+	if ( spectral ? ! spectrum : ! n ) {
 		ctx.restore();
 		return;
 	}
@@ -553,7 +575,7 @@ export function drawWave( ctx, w, h, opts ) {
 
 	/* ------------------------- paint resolution ------------------------- */
 
-	const isRound = [ 'circle', 'spiral', 'sunburst', 'heart', 'hexagon' ].includes( style );
+	const isRound = [ 'circle', 'spiral', 'sunburst', 'heart', 'hexagon', 'mandala' ].includes( style );
 	// One canvas gradient where it works; per-element colors elsewhere.
 	const xGradient = () => {
 		const g = ctx.createLinearGradient( 0, 0, w, 0 );
@@ -617,7 +639,150 @@ export function drawWave( ctx, w, h, opts ) {
 
 	/* --------------------------- style renderers ------------------------ */
 
+	/* ------------------ spectral styles (v2.5): pixels -------------------- */
+
+	// How a cell of the spectrum looks: loud cells opaque in their colour,
+	// quiet ones fading out, so the frequencies read as light on the
+	// background (or on the page, with a transparent background).
+	const spectralLut = ( () => {
+		const lut = new Uint8ClampedArray( 256 * 3 );
+		for ( let i = 0; i < 256; i++ ) {
+			const c = rgbOf( stopColor( 'solid' === colorMode ? [ pal.wave ] : stops, i / 255 ) );
+			lut.set( c, i * 3 );
+		}
+		return lut;
+	} )();
+	const paintCell = ( d, at, level, posU, bandU, dim ) => {
+		const v = Math.min( 1, level * amp );
+		const a = smooth( 0.06, 0.6, v ) * dim;
+		// Which colour: solid one colour, gradient along the song or by
+		// loudness, sound colour by frequency (bass first stop, treble last).
+		const u =
+			'spectral' === colorMode ? bandU : 'gradient' === colorMode && 'amp' === gradientMap ? v : posU;
+		const k = Math.round( Math.max( 0, Math.min( 1, u ) ) * 255 ) * 3;
+		d[ at ] = spectralLut[ k ];
+		d[ at + 1 ] = spectralLut[ k + 1 ];
+		d[ at + 2 ] = spectralLut[ k + 2 ];
+		d[ at + 3 ] = Math.round( a * 255 );
+	};
+	const makeCanvas = ( cw, ch ) => {
+		const c = opts.createCanvas
+			? opts.createCanvas( cw, ch )
+			: document.createElement( 'canvas' );
+		c.width = cw;
+		c.height = ch;
+		return c;
+	};
+	const cell = ( col, band ) => {
+		const { data, cols, bands } = spectrum;
+		const c = Math.max( 0, Math.min( cols - 1, col ) );
+		const b = Math.max( 0, Math.min( bands - 1, band ) );
+		const c0 = Math.floor( c );
+		const b0 = Math.floor( b );
+		const c1 = Math.min( cols - 1, c0 + 1 );
+		const b1 = Math.min( bands - 1, b0 + 1 );
+		const fc = c - c0;
+		const fb = b - b0;
+		const v00 = data[ c0 * bands + b0 ];
+		const v01 = data[ c0 * bands + b1 ];
+		const v10 = data[ c1 * bands + b0 ];
+		const v11 = data[ c1 * bands + b1 ];
+		return (
+			( v00 * ( 1 - fb ) + v01 * fb ) * ( 1 - fc ) +
+			( v10 * ( 1 - fb ) + v11 * fb ) * fc
+		);
+	};
+
+	// The glow passes draw the style again; the pixels are worked out once.
+	let spectralImg = null;
+
 	const renderers = {
+		// The song as an image of its frequencies: time to the right, bass
+		// at the bottom, loudness as light.
+		spectrogram() {
+			if ( spectralImg ) {
+				ctx.imageSmoothingEnabled = rounded;
+				ctx.drawImage( spectralImg, 0, 0, w, h );
+				ctx.imageSmoothingEnabled = true;
+				return;
+			}
+			const { cols, bands, data } = spectrum;
+			const img = makeCanvas( cols, bands );
+			spectralImg = img;
+			const g = img.getContext( '2d' );
+			const id = g.createImageData( cols, bands );
+			for ( let c = 0; c < cols; c++ ) {
+				const posU = c / Math.max( 1, cols - 1 );
+				const dim = posU <= reveal ? 1 : 0.28;
+				for ( let b = 0; b < bands; b++ ) {
+					const at = ( ( bands - 1 - b ) * cols + c ) * 4;
+					paintCell( id.data, at, data[ c * bands + b ], posU, b / ( bands - 1 ), dim );
+				}
+			}
+			g.putImageData( id, 0, 0 );
+			// Rounded caps = a soft, continuous image; square caps keep
+			// the cells crisp, like an old analyser display.
+			ctx.imageSmoothingEnabled = rounded;
+			if ( rounded ) {
+				ctx.imageSmoothingQuality = 'high';
+			}
+			ctx.drawImage( img, 0, 0, w, h );
+			ctx.imageSmoothingEnabled = true;
+		},
+
+		// The song grown in rings from the centre outwards, each ring one
+		// moment; around each ring the frequencies, mirrored into petals.
+		// A beat becomes a ring, a held chord a band of colour.
+		mandala() {
+			const S = Math.min( w, h );
+			if ( spectralImg ) {
+				ctx.drawImage( spectralImg, ( w - S ) / 2, ( h - S ) / 2, S, S );
+				return;
+			}
+			const size = Math.max( 64, Math.min( 1400, Math.round( S ) ) );
+			const img = makeCanvas( size, size );
+			spectralImg = img;
+			const g = img.getContext( '2d' );
+			const id = g.createImageData( size, size );
+			const R = ( size / 2 ) * 0.96;
+			const r0 = R * 0.08;
+			const k = Math.max( 3, Math.round( petals ) );
+			const seg = ( Math.PI * 2 ) / k;
+			const half = seg / 2;
+			const { cols, bands } = spectrum;
+			const c = size / 2;
+			for ( let y = 0; y < size; y++ ) {
+				for ( let x = 0; x < size; x++ ) {
+					const dx = x + 0.5 - c;
+					const dy = y + 0.5 - c;
+					const r = Math.hypot( dx, dy );
+					if ( r > R || r < r0 ) {
+						continue;
+					}
+					let a = Math.atan2( dy, dx ) + Math.PI / 2;
+					a = ( ( a % seg ) + seg ) % seg;
+					const fold = a > half ? seg - a : a;
+					const t = ( r - r0 ) / ( R - r0 );
+					const bandU = fold / half;
+					const level = cell( t * ( cols - 1 ), bandU * ( bands - 1 ) );
+					// Soft rim, so the circle ends like a print, not a cut.
+					const rim = Math.min( 1, ( R - r ) / ( R * 0.03 ) );
+					paintCell(
+						id.data,
+						( y * size + x ) * 4,
+						level,
+						t,
+						bandU,
+						( t <= reveal ? 1 : 0.28 ) * rim
+					);
+				}
+			}
+			g.putImageData( id, 0, 0 );
+			ctx.imageSmoothingEnabled = true;
+			ctx.imageSmoothingQuality = 'high';
+			ctx.drawImage( img, ( w - S ) / 2, ( h - S ) / 2, S, S );
+		},
+
 		circle() {
 			const cx = w / 2;
 			const cy = h / 2;

@@ -63,6 +63,7 @@ const FALLBACK_PLACE = {
 };
 
 import { t, LOCALE, INTL_LOCALE } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 
 const CARD_MAP = {
@@ -197,6 +198,8 @@ async function openStudio( { editor, extras, layer } ) {
 		layer.generator &&
 		layer.generator.id === GEN_ID
 	);
+	// Set by the text section; Ctrl+Z repaints the anchor tiles with it.
+	let syncTextAnchor = () => {};
 	const params = {
 		...DEFAULTS,
 		...( editing ? layer.generator.params : {} ),
@@ -747,6 +750,7 @@ async function openStudio( { editor, extras, layer } ) {
 				tile.classList.toggle( 'sel', id === params.textAnchor )
 			);
 		syncAnchorSel();
+		syncTextAnchor = syncAnchorSel;
 		const syncTextRows = () => {
 			anchorRow.style.display =
 				'corner' === layoutSelect.value ? '' : 'none';
@@ -1135,6 +1139,7 @@ async function openStudio( { editor, extras, layer } ) {
 		}
 	};
 	function close() {
+		history.dispose();
 		window.removeEventListener( 'resize', onResize );
 		document.removeEventListener( 'keydown', onKey );
 		Object.values( colorControls ).forEach( ( c ) => {
@@ -1152,6 +1157,21 @@ async function openStudio( { editor, extras, layer } ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: place,
+	// date, look and texts; the fields follow through their own handlers.
+	const history = studioUndo( {
+		backdrop,
+		read: () => params,
+		write: ( data ) => {
+			Object.assign( params, data );
+			syncThemeSel();
+			syncGrads();
+			syncColorInputs();
+			syncShapeSel();
+			syncTextAnchor();
+			paint();
+		},
+	} );
 
 	/* -------------------------------- insert ----------------------------- */
 

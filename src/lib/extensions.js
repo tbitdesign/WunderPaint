@@ -74,8 +74,20 @@ import { logEvent } from './debug-log';
  Also dsm-rows, the class
  * for a group of rows inside a section: a plain wrapper div is a block
  * box, so its controls touch and the section reads as gapless.
+ * 2.25.0 (v1.431.0): bridge.api.templates keeps an extension's own recipes
+ * apart from document templates - list( { extension } ) reads that
+ * collection, create( { ..., extension } ) saves into it, and a plain
+ * list() still returns document templates only. An older core ignores the
+ * extension field and files the record among document templates, so a
+ * package that uses it requires 2.25.0. Additive: docs/extending.md.
+ * 2.26.0 (v1.433.0): `ml.subjectMap( source )` and `ml.subjectWatch()` -
+ * where the subject of a picture is, as one grayscale channel
+ * ({ w, h, subject, top }). It is the bundled U2-Netp the editor cuts out
+ * backgrounds with, so it needs no download; a studio just had no way to
+ * ask it. subjectWatch() keeps the model loaded for a caller that looks
+ * again and again (a camera). Additive: docs/extending.md.
  */
-export const API_VERSION = '2.24.0';
+export const API_VERSION = '2.26.0';
 
 const NS_RE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
 
@@ -724,24 +736,26 @@ export const getExtensionGenerator = ( id ) =>
 export const registerBuiltinGenerator = registerGenerator;
 
 /**
- * The curated extension-menu categories (v1.310). A fixed, host-owned
- * vocabulary - like every mature extension ecosystem - so fifty
- * extensions from twenty developers still sort into a handful of
- * translated groups instead of a typo zoo. Extensions pick one via
- * `"category"` in manifest.json (generator-based packages) or the
- * `category` field on registerMenuItem items; anything unknown lands
- * in Other. Ids are stable API, labels translate centrally.
- * Menu labels live in the menubar so they ride the normal i18n flow.
+ * The curated extension-menu categories (v1.310, regrouped v1.433 by what
+ * the user wants to make). A fixed, host-owned vocabulary - like every
+ * mature extension ecosystem - so fifty extensions from twenty developers
+ * still sort into a handful of translated groups instead of a typo zoo.
+ * A package picks one via `"category"` in manifest.json; a menu item that
+ * belongs to no package may name one in its own `category` field.
+ * Anything unknown (including the retired `tools`) lands in Other. The
+ * order is the menu order; names, icons and the divider blocks live in
+ * lib/extension-menu.js.
  */
 export const EXTENSION_MENU_CATEGORIES = [
-	'photo',
-	'motion',
-	'3d',
 	'art',
+	'photo',
+	'text',
+	'3d',
+	'motion',
+	'posters',
+	'print',
 	'data',
 	'marketing',
-	'print',
-	'tools',
 	'other',
 ];
 
@@ -750,6 +764,55 @@ const CATEGORY_SET = new Set( EXTENSION_MENU_CATEGORIES );
 /** Validate a category id; unknown or empty falls back to 'other'. */
 export const extensionCategoryId = ( value ) =>
 	CATEGORY_SET.has( String( value || '' ) ) ? String( value ) : 'other';
+
+/**
+ * The installed package a namespace belongs to: its slug, or an older
+ * prefix listed in the manifest's `generatorPrefixes`.
+ *
+ * @param {string} prefix    Id namespace or package slug.
+ * @param {Array}  installed window.WPIE.extensions package descriptors.
+ * @return {Object|undefined} The package descriptor.
+ */
+const packageOf = ( prefix, installed = [] ) =>
+	prefix
+		? ( installed || [] ).find(
+				( ext ) =>
+					ext.slug === prefix ||
+					( ext.generatorPrefixes || [] ).includes( prefix )
+		  )
+		: undefined;
+
+/**
+ * The menu category of a loose Extensions-menu item (v1.433). The manifest
+ * is the one place a package keeps its category, so an item of an
+ * installed package files where the manager, the catalog and the website
+ * file it; the item's own `category` only counts for items that belong to
+ * no package (theme or plugin code). Before, Font Finder and Handwriting
+ * Fonts could say "tools" in their bundle while their manifests said
+ * something else.
+ *
+ * @param {Object} item      Registered item or lazy placeholder.
+ * @param {Array}  installed window.WPIE.extensions package descriptors.
+ * @return {string} A valid category id.
+ */
+export const menuItemCategoryId = ( item, installed = [] ) =>
+	extensionCategoryId(
+		menuItemPackage( item, installed )?.category || item?.category
+	);
+
+/**
+ * The installed package a loose Extensions-menu item belongs to, by its lazy
+ * placeholder slug or the namespace of its id.
+ *
+ * @param {Object} item      Registered item or lazy placeholder.
+ * @param {Array}  installed window.WPIE.extensions package descriptors.
+ * @return {Object|undefined} The package descriptor.
+ */
+export function menuItemPackage( item, installed = [] ) {
+	const prefix =
+		item?.lazy || ( item?.id ? String( item.id ).split( '/' )[ 0 ] : '' );
+	return packageOf( prefix, installed );
+}
 
 /**
  * Group generators by their id namespace (the extension slug) for the
@@ -766,11 +829,7 @@ export function groupGenerators( generators, installed = [] ) {
 	for ( const gen of generators || [] ) {
 		const slug = String( gen.id ).split( '/' )[ 0 ];
 		if ( ! groups.has( slug ) ) {
-			const pkg = installed.find(
-				( ext ) =>
-					ext.slug === slug ||
-					( ext.generatorPrefixes || [] ).includes( slug )
-			);
+			const pkg = packageOf( slug, installed );
 			groups.set( slug, {
 				slug,
 				name:

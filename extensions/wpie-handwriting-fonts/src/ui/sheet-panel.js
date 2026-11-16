@@ -39,13 +39,16 @@ const MAX_PHOTO = 3000;
 export class SheetPanel {
 	/**
 	 * @param {HTMLElement} root Container.
-	 * @param {Object}      opts `{ project, t, ui, onImport, onStatus }`.
+	 * @param {Object}      opts `{ project, t, ui, icons, onImport, onStatus }`.
 	 */
 	constructor( root, opts ) {
 		this.root = root;
 		this.project = opts.project;
 		this.t = opts.t || ( ( s ) => s );
 		this.ui = opts.ui;
+		// The section heads take the SVG itself; a name here was printed
+		// as text in front of the title ("PRINTPRINT THE SHEET").
+		this.icons = opts.icons || {};
 		this.onImport = opts.onImport || ( () => {} );
 		this.onStatus = opts.onStatus || ( () => {} );
 		this.pageIndex = 0;
@@ -67,7 +70,7 @@ export class SheetPanel {
 		this.root.innerHTML = '';
 		this.onlyMissing = true;
 
-		const step1 = ui.section( this.root, { icon: 'print', title: t( 'Print the sheet' ) } );
+		const step1 = ui.section( this.root, { icon: this.icons.print, title: t( 'Print the sheet' ) } );
 		ui.el(
 			'p',
 			'dsm-note wpiehw-hint',
@@ -99,7 +102,7 @@ export class SheetPanel {
 		ui.btn( printRow, { label: t( 'Print' ), primary: true, onClick: () => this.print() } );
 		ui.btn( printRow, { label: t( 'Download as image' ), onClick: () => this.downloadPage() } );
 
-		const step2 = ui.section( this.root, { icon: 'image', title: t( 'Read the photo back' ) } );
+		const step2 = ui.section( this.root, { icon: this.icons.image, title: t( 'Read the photo back' ) } );
 		ui.el(
 			'p',
 			'dsm-note wpiehw-hint',
@@ -335,7 +338,7 @@ export class SheetPanel {
 		if ( ! this.results || ! this.results.length ) {
 			return;
 		}
-		const sec = this.ui.section( this.resultBox, { icon: 'check', title: t( 'What was found' ) } );
+		const sec = this.ui.section( this.resultBox, { icon: this.icons.check, title: t( 'What was found' ) } );
 		this.ui.el(
 			'p',
 			'dsm-note wpiehw-hint',

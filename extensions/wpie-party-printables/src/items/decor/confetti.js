@@ -11,7 +11,7 @@ export const CONFETTI_SHAPES = [
 export const ITEM = {
 	id: 'confetti',
 	label: 'Confetti sheet',
-	hint: 'A sheet of small circles, stars or hearts in the theme colours to punch out for the table.',
+	hint: 'A sheet of small circles, stars or hearts in the theme colors to punch out for the table.',
 	group: 'decor',
 	uses: { text: false, names: false, photo: 'none', event: [] },
 	sizes: [

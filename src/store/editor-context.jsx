@@ -1,3 +1,5 @@
+import { colorPanelState } from '../lib/color-panel-layout';
+import { CLONE_HISTORY_LIMIT } from '../lib/clone-source';
 /**
  * Editor state store: reducer + context (spec 02.3) with the history stack
  * (04.6) attached. Continuous gestures mutate state freely and call
@@ -5,6 +7,11 @@
  */
 
 import { readLocal, siteStorage } from '../lib/local-storage';
+import {
+	patchFxBrushSettings,
+	readFxBrushSettings,
+	saveFxBrushSettings,
+} from '../lib/fxbrush-settings';
 import {
 	createContext,
 	useContext,
@@ -17,13 +24,17 @@ import {
 import { flushSync } from 'react-dom';
 
 import { DEFAULT_TOOL_OPTS, ZOOM_MIN, ZOOM_MAX } from './constants';
-import { serializeLayers, hydrateLayers } from './document';
+import { hydrateLayers, restoreLayers, snapshotLayers } from './document';
 import { scalePathD } from '../lib/path';
 import { measureTextHeight } from '../lib/raster';
 import * as History from './history';
 import * as SharedClipboard from './shared-clipboard';
 import { setDrawnTips } from '../lib/brush-tips';
 import { runWetFlush } from '../lib/wet-hooks';
+import { withRepeatSync } from './repeat-sync';
+import { withColorSync } from './color-sync';
+import { detachPatchedColorLinks, syncColorLinks } from '../lib/color-links';
+import { numberCommit } from '../lib/number-transaction';
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -37,7 +48,48 @@ const clamp = ( v, min, max ) => Math.min( max, Math.max( min, v ) );
  * (and the stroke width) proportionally, Photoshop-style transform.
  */
 function patchLayer( layer, patch ) {
+	patch = detachPatchedColorLinks( layer, patch );
 	const next = { ...layer, ...patch };
+	// Gradient endpoints use document coordinates. Carry their local position
+	// with the layer, including group moves and clipping-mask groups. Explicit
+	// endpoint patches (drawing, crop/document transforms) remain authoritative.
+	if (
+		layer.type === 'gradient' &&
+		( next.x !== layer.x ||
+			next.y !== layer.y ||
+			next.w !== layer.w ||
+			next.h !== layer.h )
+	) {
+		const sx = layer.w > 0 ? next.w / layer.w : 1,
+			sy = layer.h > 0 ? next.h / layer.h : 1;
+		for ( const key of [ 'from', 'to' ] ) {
+			if ( layer[ key ] && ! ( key in patch ) ) {
+				next[ key ] = {
+					x: next.x + ( layer[ key ].x - layer.x ) * sx,
+					y: next.y + ( layer[ key ].y - layer.y ) * sy,
+				};
+			}
+		}
+	}
+	// An ordinary outline edit detaches the editable pen recipe. Native pen
+	// edits supply a new recipe; affine resizing keeps its reference space.
+	if (
+		layer.penPath &&
+		! ( 'penPath' in patch ) &&
+		'pathD' in patch &&
+		patch.pathD !== layer.pathD
+	) {
+		const resized =
+			layer.w > 0 &&
+			layer.h > 0 &&
+			( next.w !== layer.w || next.h !== layer.h )
+				? scalePathD( layer.pathD, next.w / layer.w, next.h / layer.h )
+				: layer.pathD;
+		if ( patch.pathD !== resized ) {
+			next.penPath = null;
+		}
+	}
+
 	// A free-transform quad lives in absolute doc coords, so a plain move
 	// (x/y change, same size) must carry the quad along or the layer looks
 	// frozen in place (v1.43 fix). Resize/own-quad patches are left alone.
@@ -283,6 +335,7 @@ const scrubChildren = ( layers, removed ) =>
 /* ------------------------------- reducer ------------------------------- */
 
 export function initialState( { doc, layers, WPIE } ) {
+	layers = syncColorLinks( layers );
 	const theme =
 		readLocal( 'wpie-theme' ) ||
 		( 'system' === ( WPIE?.theme || 'dark' )
@@ -295,7 +348,7 @@ export function initialState( { doc, layers, WPIE } ) {
 	const snapshot = {
 		label: doc.source?.isNew ? 'New Document' : `Open “${ doc.name }”`,
 		doc,
-		layers: serializeLayers( layers ),
+		layers: snapshotLayers( layers ),
 		selection: null,
 	};
 
@@ -305,22 +358,34 @@ export function initialState( { doc, layers, WPIE } ) {
 		activeId: layers.length ? layers[ layers.length - 1 ].id : null,
 		selectedIds: [],
 		tool: 'move',
-		toolOpts: JSON.parse( JSON.stringify( DEFAULT_TOOL_OPTS ) ),
+		toolOpts: {
+			...JSON.parse( JSON.stringify( DEFAULT_TOOL_OPTS ) ),
+			fxbrush: readFxBrushSettings(),
+		},
 		zoom: 1,
 		pan: { x: 0, y: 0 },
 		// A visible starting colour. The near-black ink default read as
 		// "almost black" in the brush panel and first strokes vanished on
 		// dark documents (Thomas, v1.408.2).
+		paintTarget: 'fill',
+		colorTarget: 'auto',
+		colorSelectionRevision: 0,
+		gradientStop: 0,
 		fgColor: '#ff0000',
 		bgColor: '#ffffff',
 		selection: null,
 		savedSelections: [],
+		lastSelection: null,
+		selectionPreview: 'outline',
 		// Seed from the page-level shared clipboard so a tab switch (which
 		// remounts this provider) or a freshly opened editor still offers the
 		// last copied layer / style (v1.226.0).
 		clipboard: SharedClipboard.getLayerClip(),
 		styleClipboard: SharedClipboard.getStyleClip(),
 		crop: null,
+		// Straighten during a crop (lib/straighten.js): what Cancel restores
+		// and the rectangle to grow back to. Dropped with the crop.
+		cropStraighten: null,
 		showGrid: false,
 		gridSize: 50,
 		showRulers: true,
@@ -337,6 +402,13 @@ export function initialState( { doc, layers, WPIE } ) {
 			null === ( readLocal( 'wpie-navigator' ) ?? null )
 				? !! WPIE?.demo
 				: '1' === readLocal( 'wpie-navigator' ),
+		// Like panel pins, Color visibility belongs to this open editor.
+		// Do not restore an old open flag into the Create dialog.
+		showColorPanel: false,
+		colorPanelMode: 'panel',
+		colorPanelDetached: false,
+		showHistoryPanel: false,
+		showThemePanel: false,
 		// The brush panel is ON by default: it is the whole point of the
 		// brush rebuild, and a panel nobody finds is a panel nobody uses.
 		// It only SHOWS for paint tools, so it costs nothing elsewhere.
@@ -348,6 +420,17 @@ export function initialState( { doc, layers, WPIE } ) {
 		// and tuned like a brush, not configured once in a dialog. It only
 		// SHOWS in shape context - the shape tool, or a shape layer picked
 		// up with move/select - so it costs nothing elsewhere.
+		showPenPanel: readLocal( 'wpie-pen-panel' ) !== '0',
+		showRepeatPanel: readLocal( 'wpie-repeat-panel' ) !== '0',
+		stampSources: [],
+		showSelectionPanel: readLocal( 'wpie-selection-panel' ) !== '0',
+		showStampPanel: readLocal( 'wpie-stamp-panel' ) !== '0',
+		showFxBrushPanel: readLocal( 'wpie-fxbrush-panel' ) !== '0',
+		showCropPanel: readLocal( 'wpie-crop-panel' ) !== '0',
+		showBucketPanel: readLocal( 'wpie-bucket-panel' ) !== '0',
+		showTextPanel: readLocal( 'wpie-text-panel' ) !== '0',
+		showMaskPanel: readLocal( 'wpie-mask-panel' ) !== '0',
+		maskPreview: 'overlay',
 		showShapePanel:
 			null === ( readLocal( 'wpie-shape-panel' ) ?? null )
 				? true
@@ -374,55 +457,101 @@ export function initialState( { doc, layers, WPIE } ) {
  * the adjustment layers and the new brush layer already followed: directly
  * above what is selected.
  *
- * Two deliberate limits:
- * - A selection INSIDE a group anchors on the whole group, not on the
- *   member. Landing between two members would silently change a group the
- *   user did not mean to touch (Thomas' call, 11.08.2026).
+ * - A selection INSIDE a group puts the new layer into that same group,
+ *   right above the selected member (Thomas, 19.10.2026; until then it
+ *   anchored on the whole group, his call of 11.08.2026).
+ * - Except a group something else keeps: one a generator owns (a diagram,
+ *   a showcase), the Repeat wrapper around a source and its copies, or a
+ *   locked one. A studio rebuilds its group from its own settings and would
+ *   silently drop a stranger, Repeat is one unit, and locked means hands
+ *   off. There the new layer goes above the whole closed group.
  * - A layer that already names a `parent` is a studio building a group,
  *   child by child. Those keep appending, so no extension has to change.
+ * - With several layers selected the topmost decides.
  *
  * @param {Object} state Editor state.
  * @param {Object} layer The layer about to be added.
- * @return {number} Index to splice at.
+ * @return {{index: number, parent: (string|null)}} Where to splice it, and
+ *                                                  the group it joins.
  */
-function insertPoint( state, layer ) {
+export function insertPlace( state, layer ) {
 	const layers = state.layers || [];
 	if ( ! layer || layer.parent ) {
-		return layers.length;
+		return { index: layers.length, parent: null };
 	}
 	const anchors =
 		state.selectedIds && state.selectedIds.length
 			? state.selectedIds
 			: [ state.activeId ];
-	// Up to the outermost ancestor: that entry sits ABOVE its own members
-	// in flat order, so one past it is "above the whole group".
-	const rootOf = ( id ) => {
-		let cur = layers.find( ( l ) => l.id === id );
+	const byId = new Map( layers.map( ( l ) => [ l.id, l ] ) );
+	const closed = ( g ) =>
+		!! g && ( !! g.generator || !! g.repeatGroup || !! g.locked );
+	// The layer the new one sits right above: the selected one, or the
+	// outermost closed group around it.
+	const anchorOf = ( id ) => {
+		let anchor = byId.get( id );
 		const seen = new Set();
-		while ( cur && cur.parent && ! seen.has( cur.id ) ) {
+		for ( let cur = anchor; cur && cur.parent && ! seen.has( cur.id );  ) {
 			seen.add( cur.id );
-			const up = layers.find( ( l ) => l.id === cur.parent );
+			const up = byId.get( cur.parent );
 			if ( ! up ) {
 				break;
 			}
+			if ( closed( up ) ) {
+				anchor = up;
+			}
 			cur = up;
 		}
-		return cur;
+		return anchor;
 	};
+	let best = null;
 	let at = -1;
 	for ( const id of anchors ) {
-		const root = id ? rootOf( id ) : null;
-		if ( root ) {
-			at = Math.max(
-				at,
-				layers.findIndex( ( l ) => l.id === root.id )
-			);
+		const anchor = id ? anchorOf( id ) : null;
+		const i = anchor ? layers.indexOf( anchor ) : -1;
+		if ( i > at ) {
+			at = i;
+			best = anchor;
 		}
 	}
-	return at < 0 ? layers.length : at + 1;
+	if ( ! best ) {
+		return { index: layers.length, parent: null };
+	}
+	return {
+		index: at + 1,
+		parent: best.parent && byId.has( best.parent ) ? best.parent : null,
+	};
 }
 
 export function reducer( state, action ) {
+	const next = reduceEditorState( state, action );
+	const reselectObject =
+		[ 'SET_ACTIVE', 'SET_SELECTED' ].includes( action.type ) &&
+		next.activeId &&
+		[ 'fg', 'bg', 'gradientTool' ].includes( next.colorTarget );
+	if (
+		next.activeId === state.activeId &&
+		action.type !== 'LOAD_DOCUMENT' &&
+		! reselectObject
+	) {
+		return next;
+	}
+	// A new selection shows its own paint immediately. Explicit stroke/stop
+	// choices remain stable while editing that same object, including Undo.
+	const layer = next.layers.find( ( item ) => item.id === next.activeId );
+	return {
+		...next,
+		colorTarget: 'auto',
+		paintTarget:
+			layer?.type === 'shape' && layer.shape === 'line'
+				? 'stroke'
+				: 'fill',
+		gradientStop: 0,
+		colorSelectionRevision: ( state.colorSelectionRevision || 0 ) + 1,
+	};
+}
+
+function reduceEditorState( state, action ) {
 	switch ( action.type ) {
 		// The brush panel follows the Navigator's pattern exactly: a stored
 		// preference, toggled from the View menu. It is not a seventh tab
@@ -454,6 +583,170 @@ export function reducer( state, action ) {
 				);
 			} catch ( e ) {}
 			return { ...state, showShapePanel };
+		}
+		case 'TOGGLE_SELECTION_PANEL': {
+			const showSelectionPanel =
+				action.show ?? ! state.showSelectionPanel;
+			try {
+				siteStorage.setItem(
+					'wpie-selection-panel',
+					showSelectionPanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showSelectionPanel };
+		}
+		case 'TOGGLE_STAMP_PANEL': {
+			const showStampPanel = action.show ?? ! state.showStampPanel;
+			try {
+				siteStorage.setItem(
+					'wpie-stamp-panel',
+					showStampPanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showStampPanel };
+		}
+		case 'STAMP_CAPTURE_SOURCE':
+		case 'STAMP_SELECT_SOURCE':
+		case 'STAMP_CLEAR_HISTORY': {
+			const source =
+				action.type === 'STAMP_CAPTURE_SOURCE'
+					? action.source
+					: action.type === 'STAMP_SELECT_SOURCE'
+					? state.stampSources.find(
+							( item ) => item.id === action.id
+					  )
+					: null;
+			if ( action.type === 'STAMP_SELECT_SOURCE' && ! source ) {
+				return state;
+			}
+			const stampSources =
+				action.type === 'STAMP_CAPTURE_SOURCE'
+					? [ source, ...state.stampSources ].slice(
+							0,
+							CLONE_HISTORY_LIMIT
+					  )
+					: action.type === 'STAMP_CLEAR_HISTORY'
+					? []
+					: state.stampSources;
+			return {
+				...state,
+				stampSources,
+				toolOpts: {
+					...state.toolOpts,
+					stamp: {
+						...state.toolOpts.stamp,
+						source,
+						offset: null,
+						pickingSource: false,
+					},
+				},
+			};
+		}
+		case 'TOGGLE_BUCKET_PANEL':
+		case 'TOGGLE_TEXT_PANEL':
+		case 'TOGGLE_MASK_PANEL': {
+			const name = {
+				TOGGLE_BUCKET_PANEL: 'Bucket',
+				TOGGLE_TEXT_PANEL: 'Text',
+				TOGGLE_MASK_PANEL: 'Mask',
+			}[ action.type ];
+			const key = `show${ name }Panel`;
+			const show = action.show ?? ! state[ key ];
+			try {
+				siteStorage.setItem(
+					`wpie-${ name.toLowerCase() }-panel`,
+					show ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return {
+				...state,
+				[ key ]: show,
+				...( name === 'Mask' && ! show
+					? { maskPreview: 'image' }
+					: {} ),
+			};
+		}
+		case 'SET_MASK_PREVIEW':
+			return [ 'image', 'overlay', 'mask' ].includes( action.value )
+				? { ...state, maskPreview: action.value }
+				: state;
+		case 'TOGGLE_CROP_PANEL': {
+			const showCropPanel = action.show ?? ! state.showCropPanel;
+			try {
+				siteStorage.setItem(
+					'wpie-crop-panel',
+					showCropPanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showCropPanel };
+		}
+		case 'TOGGLE_FXBRUSH_PANEL': {
+			const showFxBrushPanel = action.show ?? ! state.showFxBrushPanel;
+			try {
+				siteStorage.setItem(
+					'wpie-fxbrush-panel',
+					showFxBrushPanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showFxBrushPanel };
+		}
+		case 'TOGGLE_REPEAT_PANEL': {
+			const showRepeatPanel = action.show ?? ! state.showRepeatPanel;
+			try {
+				siteStorage.setItem(
+					'wpie-repeat-panel',
+					showRepeatPanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showRepeatPanel };
+		}
+		// Compatibility entry point used by existing theme cards and extensions.
+		// Gradient and Color share a window, pin and visibility state.
+		case 'TOGGLE_GRADIENT_PANEL': {
+			const showColorPanel = action.show ?? ! state.showColorPanel;
+			return {
+				...state,
+				...colorPanelState( state, { show: showColorPanel } ),
+				colorTarget: 'gradientTool',
+				gradientPanelReveal: ( state.gradientPanelReveal || 0 ) + 1,
+			};
+		}
+		case 'TOGGLE_PEN_PANEL': {
+			const showPenPanel = action.show ?? ! state.showPenPanel;
+			try {
+				siteStorage.setItem(
+					'wpie-pen-panel',
+					showPenPanel ? '1' : '0'
+				);
+			} catch ( e ) {}
+			return { ...state, showPenPanel };
+		}
+		case 'TOGGLE_THEME_PANEL': {
+			const showThemePanel = action.show ?? ! state.showThemePanel;
+			return {
+				...state,
+				showThemePanel,
+				themePanelReveal:
+					( state.themePanelReveal || 0 ) +
+					( showThemePanel ? 1 : 0 ),
+			};
+		}
+		case 'TOGGLE_COLOR_PANEL':
+			return { ...state, ...colorPanelState( state, action ) };
+		case 'TOGGLE_HISTORY_PANEL':
+			return {
+				...state,
+				showHistoryPanel: action.show ?? ! state.showHistoryPanel,
+			};
+		case 'SET_COLOR_PANEL_DETACHED': {
+			const next = { ...state, colorPanelDetached: !! action.detached };
+			return {
+				...next,
+				...colorPanelState( next, { show: true, fromSwatch: true } ),
+				...( action.detached && state.rightTab === 'color'
+					? { rightTab: 'layers' }
+					: {} ),
+			};
 		}
 		case 'TOGGLE_NAVIGATOR': {
 			const showNavigator = ! state.showNavigator;
@@ -509,20 +802,36 @@ export function reducer( state, action ) {
 				timeline: { ...state.timeline, ...action.timeline },
 			};
 		case 'SET_DOC':
-			return { ...state, doc: { ...state.doc, ...action.doc } };
+			return {
+				...state,
+				doc: { ...state.doc, ...action.doc },
+				// A remembered selection belongs to the previous canvas geometry.
+				lastSelection:
+					'w' in action.doc || 'h' in action.doc
+						? null
+						: state.lastSelection,
+			};
 		case 'SET_LAYERS':
 			return { ...state, layers: action.layers };
 		case 'ADD_LAYER': {
 			const layers = [ ...state.layers ];
-			const index = action.index ?? insertPoint( state, action.layer );
-			layers.splice( index, 0, action.layer );
+			let layer = action.layer;
+			let index = action.index;
+			if ( undefined === index || null === index ) {
+				const place = insertPlace( state, layer );
+				index = place.index;
+				if ( place.parent ) {
+					layer = { ...layer, parent: place.parent };
+				}
+			}
+			layers.splice( index, 0, layer );
 			let out = {
 				...state,
 				layers,
-				activeId: action.layer.id,
-				selectedIds: [ action.layer.id ],
+				activeId: layer.id,
+				selectedIds: [ layer.id ],
 			};
-			if ( action.layer.parent ) {
+			if ( layer.parent ) {
 				// Idempotent membership (v1.335): a caller that inserts a
 				// group whose `children` is already filled and then sends one
 				// ADD_LAYER per child used to list every child twice, and the
@@ -532,17 +841,14 @@ export function reducer( state, action ) {
 				out = reducer( out, {
 					type: 'SET_LAYERS',
 					layers: out.layers.map( ( l ) =>
-						l.id === action.layer.parent && 'group' === l.type
+						l.id === layer.parent && 'group' === l.type
 							? {
 									...l,
 									children: ( l.children || [] ).includes(
-										action.layer.id
+										layer.id
 									)
 										? l.children
-										: [
-												...( l.children || [] ),
-												action.layer.id,
-										  ],
+										: [ ...( l.children || [] ), layer.id ],
 							  }
 							: l
 					),
@@ -619,6 +925,8 @@ export function reducer( state, action ) {
 			return {
 				...state,
 				activeId: action.id,
+				maskEditId:
+					action.id === state.maskEditId ? state.maskEditId : null,
 				selectedIds,
 				layers: autoDiscloseGroups( state.layers, selectedIds ),
 			};
@@ -628,15 +936,66 @@ export function reducer( state, action ) {
 			return {
 				...state,
 				selectedIds,
+				maskEditId:
+					selectedIds[ selectedIds.length - 1 ] === state.maskEditId
+						? state.maskEditId
+						: null,
 				activeId: selectedIds.length
 					? selectedIds[ selectedIds.length - 1 ]
 					: null,
 				layers: autoDiscloseGroups( state.layers, selectedIds ),
 			};
 		}
-		case 'SET_TOOL':
-			return { ...state, tool: action.tool, prevTool: state.tool };
+		case 'SET_TOOL': {
+			// Explicitly choosing a selection tool starts a fresh selection.
+			// Space-hold panning restores the current mode instead.
+			const resetSelectionMode =
+				[ 'marquee', 'lasso', 'wand' ].includes( action.tool ) &&
+				! action.preserveSelectionMode;
+			return {
+				...state,
+				tool: action.tool,
+				...( action.tool === 'gradient'
+					? {
+							...colorPanelState( state, { show: true } ),
+							colorTarget: 'gradientTool',
+							gradientPanelReveal:
+								( state.gradientPanelReveal || 0 ) + 1,
+							colorPanelReveal:
+								( state.colorPanelReveal || 0 ) + 1,
+					  }
+					: state.colorTarget === 'gradientTool' &&
+					  action.tool !== 'eyedropper'
+					? { colorTarget: 'auto' }
+					: {} ),
+				prevTool: state.tool,
+				toolOpts: resetSelectionMode
+					? {
+							...state.toolOpts,
+							[ action.tool ]: {
+								...state.toolOpts[ action.tool ],
+								combine: 'replace',
+							},
+					  }
+					: state.toolOpts,
+			};
+		}
 		case 'SET_TOOL_OPTS':
+			if ( action.tool === 'stamp' ) {
+				const stamp = { ...state.toolOpts.stamp, ...action.patch };
+				if ( 'aligned' in action.patch || 'source' in action.patch ) {
+					stamp.offset = null;
+				}
+				return { ...state, toolOpts: { ...state.toolOpts, stamp } };
+			}
+			if ( action.tool === 'fxbrush' ) {
+				const fxbrush = patchFxBrushSettings(
+					state.toolOpts.fxbrush,
+					action.patch
+				);
+				saveFxBrushSettings( fxbrush );
+				return { ...state, toolOpts: { ...state.toolOpts, fxbrush } };
+			}
 			return {
 				...state,
 				toolOpts: {
@@ -659,14 +1018,87 @@ export function reducer( state, action ) {
 				zoom: clamp( action.zoom ?? state.zoom, ZOOM_MIN, ZOOM_MAX ),
 				pan: action.pan ?? state.pan,
 			};
+		case 'SET_PAINT_TARGET':
+			return {
+				...state,
+				paintTarget: action.target === 'stroke' ? 'stroke' : 'fill',
+				colorTarget: 'auto',
+				gradientStop:
+					action.target === state.paintTarget
+						? state.gradientStop
+						: 0,
+			};
+		case 'SET_GRADIENT_STOP':
+			return {
+				...state,
+				gradientStop: Math.max( 0, Math.floor( action.index ) || 0 ),
+			};
+		case 'SET_COLOR_TARGET': {
+			const paintTarget = [ 'stroke', 'outline' ].includes(
+				action.target
+			)
+				? 'stroke'
+				: [ 'fill', 'text' ].includes( action.target )
+				? 'fill'
+				: state.paintTarget;
+			return {
+				...state,
+				colorTarget: action.target,
+				paintTarget,
+				gradientStop:
+					paintTarget === state.paintTarget ? state.gradientStop : 0,
+			};
+		}
 		case 'SET_FG':
 			return { ...state, fgColor: action.color };
 		case 'SET_BG':
 			return { ...state, bgColor: action.color };
 		case 'SWAP_COLORS':
 			return { ...state, fgColor: state.bgColor, bgColor: state.fgColor };
+		case 'SET_SELECTION_FEATHER': {
+			if ( ! Number.isFinite( action.feather ) ) {
+				return state;
+			}
+			const feather = Math.max( 0, action.feather );
+			const toolOpts = { ...state.toolOpts };
+			for ( const tool of [
+				'marquee',
+				'lasso',
+				'wand',
+				'smartselect',
+			] ) {
+				toolOpts[ tool ] = { ...toolOpts[ tool ], feather };
+			}
+			return {
+				...state,
+				toolOpts,
+				selection:
+					state.selection &&
+					( state.selection.feather || 0 ) !== feather
+						? { ...state.selection, feather }
+						: state.selection,
+			};
+		}
 		case 'SET_SELECTION':
-			return { ...state, selection: action.selection };
+			return {
+				...state,
+				selection: action.selection,
+				// Only explicit Deselect remembers a selection. Internal clears
+				// after cropping/imports must not restore obsolete coordinates.
+				lastSelection:
+					action.remember && state.selection && ! action.selection
+						? state.selection
+						: state.lastSelection,
+			};
+		case 'RESTORE_SELECTION':
+			return ! state.selection && state.lastSelection
+				? { ...state, selection: state.lastSelection }
+				: state;
+		case 'SET_SELECTION_PREVIEW':
+			return {
+				...state,
+				selectionPreview: action.mode === 'mask' ? 'mask' : 'outline',
+			};
 		case 'SAVE_SELECTION':
 			return state.selection
 				? {
@@ -679,6 +1111,13 @@ export function reducer( state, action ) {
 						],
 				  }
 				: state;
+		case 'DELETE_SAVED_SELECTION':
+			return {
+				...state,
+				savedSelections: state.savedSelections.filter(
+					( item ) => item.name !== action.name
+				),
+			};
 		case 'LOAD_SELECTION': {
 			const found = state.savedSelections.find(
 				( s ) => s.name === action.name
@@ -690,7 +1129,13 @@ export function reducer( state, action ) {
 		case 'SET_STYLE_CLIPBOARD':
 			return { ...state, styleClipboard: action.style };
 		case 'SET_CROP':
-			return { ...state, crop: action.crop };
+			return {
+				...state,
+				crop: action.crop,
+				cropStraighten: action.crop ? state.cropStraighten : null,
+			};
+		case 'SET_CROP_STRAIGHTEN':
+			return { ...state, cropStraighten: action.value || null };
 		case 'TOGGLE_GRID':
 			return { ...state, showGrid: ! state.showGrid };
 		case 'SET_GRID_SIZE':
@@ -706,20 +1151,59 @@ export function reducer( state, action ) {
 		case 'SET_ACCENT':
 			return { ...state, accent: action.accent };
 		case 'SET_RIGHT_TAB':
-			return { ...state, rightTab: action.tab };
+			// Existing commands for History now open its independent window.
+			if ( action.tab === 'history' ) {
+				return { ...state, showHistoryPanel: true };
+			}
+			if ( action.tab === 'color' ) {
+				return {
+					...state,
+					...colorPanelState( state, { show: true } ),
+				};
+			}
+			return {
+				...state,
+				rightTab: action.tab,
+				showColorPanel:
+					state.colorPanelMode === 'picker'
+						? state.showColorPanel
+						: !! state.colorPanelDetached && state.showColorPanel,
+			};
 		case 'SET_MASK_EDIT':
-			return { ...state, maskEditId: action.id };
+			return {
+				...state,
+				maskEditId: action.id,
+				showMaskPanel: action.id ? true : state.showMaskPanel,
+				maskPreview:
+					action.id && action.id !== state.maskEditId
+						? 'overlay'
+						: state.maskPreview,
+			};
 		case 'LOAD_DOCUMENT': {
 			// Replace the whole document (Create dialog / PSD import) and
 			// reset the history stack (spec 13.1).
 			const snapshot = {
 				label: action.label || 'New Document',
 				doc: action.doc,
-				layers: serializeLayers( action.layers ),
+				layers: snapshotLayers( action.layers ),
 				selection: null,
 			};
 			return {
 				...state,
+				// Saved masks belong to this document; keep them only on its page switches.
+				savedSelections: action.keepPages ? state.savedSelections : [],
+				stampSources: [],
+				lastSelection: null,
+				selectionPreview: 'outline',
+				toolOpts: {
+					...state.toolOpts,
+					stamp: {
+						...state.toolOpts.stamp,
+						source: null,
+						offset: null,
+						pickingSource: false,
+					},
+				},
 				doc: action.doc,
 				layers: action.layers,
 				activeId: action.layers.length
@@ -728,6 +1212,7 @@ export function reducer( state, action ) {
 				selectedIds: [],
 				selection: null,
 				crop: null,
+				cropStraighten: null,
 				maskEditId: null,
 				// Page switches keep the pages strip; real document loads
 				// (template, PSD, attachment) leave pages mode (v1.11).
@@ -760,10 +1245,13 @@ export function reducer( state, action ) {
 
 		/* ---- history ---- */
 		case 'COMMIT': {
+			// The pixels freeze now and encode in the background
+			// (snapshotLayers) - a PNG per changed raster on the spot was
+			// the hitch after every stroke.
 			const snapshot = {
 				label: action.label,
 				doc: state.doc,
-				layers: serializeLayers( state.layers ),
+				layers: snapshotLayers( state.layers ),
 				selection: state.selection,
 			};
 			return {
@@ -788,8 +1276,17 @@ export function reducer( state, action ) {
 				...state,
 				history,
 				doc: snap.doc,
-				layers: snap.layers,
+				layers: restoreLayers( snap.layers ),
+				maskEditId: snap.layers.some(
+					( layer ) => layer.id === state.maskEditId && layer.mask
+				)
+					? state.maskEditId
+					: null,
 				selection: snap.selection,
+				lastSelection:
+					snap.doc.w !== state.doc.w || snap.doc.h !== state.doc.h
+						? null
+						: state.lastSelection,
 				activeId: snap.layers.some( ( l ) => l.id === state.activeId )
 					? state.activeId
 					: snap.layers.length
@@ -822,9 +1319,12 @@ export function reducer( state, action ) {
 
 const EditorContext = createContext( null );
 
+const repeatReducer = withRepeatSync( withColorSync( reducer ) );
+
 export function EditorProvider( { doc, layers, WPIE, children } ) {
 	const [ state, dispatch ] = useReducer(
-		reducer,
+		// Repeat layers derive box, parent and z order from their source (v1.431).
+		repeatReducer,
 		{ doc, layers, WPIE },
 		initialState
 	);
@@ -851,7 +1351,10 @@ export function EditorProvider( { doc, layers, WPIE, children } ) {
 	}, [ state.layers ] );
 
 	const commit = useCallback(
-		( label ) => dispatch( { type: 'COMMIT', label } ),
+		( label ) =>
+			numberCommit( dispatch, () =>
+				dispatch( { type: 'COMMIT', label } )
+			),
 		[]
 	);
 
@@ -885,7 +1388,9 @@ export function EditorProvider( { doc, layers, WPIE, children } ) {
 			},
 			dispatch: ( action ) => flushSync( () => dispatch( action ) ),
 			commit: ( label ) =>
-				flushSync( () => dispatch( { type: 'COMMIT', label } ) ),
+				numberCommit( dispatch, () =>
+					flushSync( () => dispatch( { type: 'COMMIT', label } ) )
+				),
 			// Wet watercolour dries into its layer BEFORE history moves, so
 			// undo takes back the whole wash instead of leaving a half-wet
 			// overlay pointing at a layer state that no longer exists.

@@ -9,6 +9,7 @@ import {
 import { obstacleControls } from './obstacle-controls.js';
 import { mountToolDeck } from './tool-deck.js';
 import { restoreSimulation } from './state.js';
+import { packLab } from './pack.js';
 import {
 	MATERIALS,
 	MAX_EXPERIMENT_BYTES,
@@ -65,11 +66,10 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			sim = restoreSimulation( draft.snapshot );
 			settings = cleanSettings( draft.settings );
 		} else if ( draft?.settings ) {
-			// A layer saved in the document carries the SETTINGS but not the
-			// grid: the grid is megabytes and belongs in an experiment file,
-			// not in every copy of the design (see insertLayer). Rebuild the
-			// bath from the settings - the same bath, one run of the
-			// simulation away, and the person keeps every value they set.
+			// Settings without a grid: a layer stored between 11.09. and
+			// 21.10.2026, or a bath too large to pack (see insertLayer).
+			// Rebuild the bath from the settings; the person keeps every
+			// value they set.
 			( { sim } = createExperiment( 'islands', aspect ) );
 			settings = cleanSettings( draft.settings );
 		} else {
@@ -106,6 +106,7 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 		statusTime = -1;
 	let renderer,
 		observer,
+		thumbObserver,
 		activeRecorder,
 		recordRaf = 0,
 		recordTimer = 0;
@@ -149,8 +150,35 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			'Experiment with liquids, stir the bath and catch the light.'
 		),
 		onClose: cleanup,
-		closeOnBackdrop: true,
+		closeOnBackdrop: false,
+		escapeCloses: false,
 	} );
+	// Floating core pickers are portalled into the backdrop beside the dialog.
+	modal.backdrop.addEventListener( 'click', ( event ) => {
+		if ( event.target === modal.backdrop ) {
+			close();
+		}
+	} );
+	const onEscape = ( event ) => {
+		if ( event.key !== 'Escape' || event.defaultPrevented || closed ) {
+			return;
+		}
+		const dialogs = [
+			...document.querySelectorAll( '#wpie-root .modal-backdrop' ),
+		];
+		if (
+			dialogs.at( -1 ) !== modal.backdrop ||
+			modal.backdrop.querySelector(
+				'.wpie-color-swatch button[aria-expanded="true"], .color-popover'
+			)
+		) {
+			return;
+		}
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		close();
+	};
+	document.addEventListener( 'keydown', onEscape, true );
 	modal.dialog.classList.add( 'wpiemb-dialog', 'wpiemb-lab-dialog' );
 	ui.badge( modal.head );
 	const body = ui.el( 'div', 'wpiemb-body', modal.body );
@@ -234,15 +262,25 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 		onClick: insertLayer,
 	} );
 	const modes = ui.el( 'div', 'wpiemb-lab-modes', left );
+	let leaving = false;
 	const classicButton = ui.btn( modes, {
 		label: t( 'Classic' ),
-		onClick: () => {
-			if ( recording ) {
+		onClick: async () => {
+			if ( recording || leaving ) {
 				return;
 			}
+			// The session keeps the exact bath for the way back; a Classic
+			// layer stores the lab state packed, like insertLayer.
+			leaving = true;
 			const state = save();
+			const stored = await packLab( state ).catch( () => ( {
+				settings: state.settings,
+			} ) );
+			if ( closed ) {
+				return;
+			}
 			close();
-			onClassic( state );
+			onClassic( state, stored );
 		},
 	} );
 	classicButton.dataset.mode = 'classic';
@@ -382,7 +420,11 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 		}
 		const boundary = settings.boundary;
 		( { sim, settings } = createExperiment( id, sim.aspect, seed ) );
-		settings.boundary = boundary;
+		// A water-tank recipe needs walls to retain its carrier liquid. Other
+		// recipes keep the user's edge preference, as before; edges stay editable.
+		settings.boundary =
+			EXPERIMENTS.find( ( recipe ) => recipe.id === id )?.boundary ||
+			boundary;
 		materialTab = MATERIALS.find( ( m ) => m.id === settings.material )
 			.reagent
 			? 'chemistry'
@@ -424,7 +466,11 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			// A different experiment can reuse an ID for another kind of source.
 			if ( marker.dataset.kind !== source.type ) {
 				marker.dataset.kind = source.type;
-				marker.innerHTML = icons[ source.type ];
+				marker.innerHTML =
+					icons[
+						{ rotor: 'vortex', jet: 'wave' }[ source.type ] ||
+							source.type
+					];
 			}
 			const point = renderer.projectSource( source.x, source.y );
 			marker.style.left =
@@ -569,6 +615,8 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 					sourceRadius: 'radius',
 					sourcePower: 'power',
 					magnetGap: 'gap',
+					sourceAngle: 'angle',
+					sourceSpin: 'spin',
 				}[ key ];
 				if ( source && property ) {
 					source[ property ] = value;
@@ -662,7 +710,7 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 				icon: icons.tool,
 			} );
 			options.parentElement.classList.add( 'wpiemb-lab-tool-settings' );
-			if ( [ 'heat', 'cool', 'magnet' ].includes( settings.tool ) ) {
+			if ( SOURCE_TYPES.includes( settings.tool ) ) {
 				slider(
 					options,
 					'Source size',
@@ -726,6 +774,8 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 				heat: 'Heat source',
 				cool: 'Cold source',
 				magnet: 'Magnet',
+				rotor: 'Vortex source',
+				jet: 'Current jet',
 			};
 			const selection = ui.select(
 				ui.row( sources, t( 'Selected source' ) ),
@@ -750,6 +800,8 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 							settings.sourceRadius = source.radius;
 							settings.sourcePower = source.power;
 							settings.magnetGap = source.gap;
+							settings.sourceAngle = source.angle ?? 0;
+							settings.sourceSpin = source.spin ?? 1;
 						}
 						renderControls();
 						sync();
@@ -758,6 +810,39 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			);
 			selection.dataset.setting = 'selectedSource';
 			if ( SOURCE_TYPES.includes( settings.tool ) ) {
+				if ( settings.tool === 'jet' ) {
+					slider(
+						sources,
+						'Flow direction',
+						'sourceAngle',
+						-180,
+						180,
+						5
+					);
+				}
+				if ( settings.tool === 'rotor' ) {
+					const direction = ui.select(
+						ui.row( sources, t( 'Rotation direction' ) ),
+						{
+							value: String( settings.sourceSpin ),
+							options: [
+								{ value: '1', label: t( 'Clockwise' ) },
+								{ value: '-1', label: t( 'Counterclockwise' ) },
+							],
+							onChange: ( value ) => {
+								settings.sourceSpin = Number( value );
+								const source = sim.sources.find(
+									( item ) => item.id === selectedSource
+								);
+								if ( source?.type === 'rotor' ) {
+									source.spin = settings.sourceSpin;
+								}
+								dirty = true;
+							},
+						}
+					);
+					direction.dataset.setting = 'sourceSpin';
+				}
 				if ( settings.tool === 'magnet' ) {
 					slider(
 						sources,
@@ -938,7 +1023,21 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 				1
 			);
 		}
-		if ( selected.volume ) {
+		if ( selected.id === 'ink' ) {
+			slider( liquid, 'Ink density', 'inkDensity', 0.8, 1.8, 0.02 );
+		} else if ( selected.id === 'glycerin' ) {
+			slider(
+				liquid,
+				'Solution viscosity',
+				'glycerinViscosity',
+				0.1,
+				30,
+				0.1
+			);
+		}
+		if ( selected.id === 'ink' || selected.id === 'glycerin' ) {
+			slider( liquid, 'Concentration', 'reagentStrength', 0.1, 2, 0.05 );
+		} else if ( selected.volume ) {
 			slider(
 				liquid,
 				'Reagent concentration',
@@ -1045,6 +1144,7 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			slider( bath, 'Injection depth', 'injectionDepth', 0, 1, 0.02 );
 			slider( bath, 'Drop height', 'dropHeight', 0, 0.5, 0.01 );
 			slider( bath, 'Gravity', 'gravity', 0, 4, 0.05 );
+			slider( bath, 'Swirl detail', 'vorticity', 0, 1, 0.05 );
 			slider( bath, 'Tilt left / right', 'tiltX', -35, 35, 1 );
 			slider( bath, 'Tilt front / back', 'tiltY', -35, 35, 1 );
 			slider( bath, 'Crystal growth', 'crystalRate', 0, 4, 0.05 );
@@ -1239,37 +1339,35 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			h: ratio >= 1 ? Math.max( 2, Math.round( 1600 / ratio ) ) : 1600,
 		};
 	}
-	function insertLayer() {
-		if ( recording || ! renderer ) {
+	async function insertLayer() {
+		if ( recording || ! renderer || leaving ) {
 			return;
 		}
+		leaving = true;
+		insert.disabled = true;
 		try {
 			renderer.update( settings );
-			// The DOCUMENT gets the settings, not the grid.
-			//
-			// save() carries `snapshot`, and that is the entire simulation
-			// grid as base64: every field of every cell, four bytes each. The
-			// package's own example file measures it - dist/qa-fluid-
-			// experiment.json is 4.35 MB and 4.35 MB of that is one base64
-			// string. Two or three such layers and a save runs into the 32 MB
-			// ceiling of /designs and comes back 413, with the work
-			// unsaveable. It is the shape EXTZUSTAND-02 described, only as a
-			// raw grid instead of an image copy: the IMPORT has had a 12 MB
-			// cap since then, the way INTO the document had none.
-			//
-			// The settings are what a person edits and they are small, so
-			// reopening the layer rebuilds the bath from them. The exact grid
-			// still travels through "Save experiment", which is a file the
-			// person chooses to write.
+			// The document gets the bath PACKED (pack.js): constant fields
+			// as one value, the rest as half floats, deflated. 0.3 to 0.6 MB
+			// where the raw grid is 6 to 8 MB of base64, which ran a save
+			// into the 32 MB ceiling of /designs and made the audit of
+			// 11.09.2026 keep the settings only. Then an edited layer
+			// reopened at the starting point of a new one. A bath that still
+			// packs too large is stored with its settings, as then.
 			const state = save();
-			delete state.snapshot;
 			const { w, h } = outSize();
 			const src = renderer
 				.still( w, h, settings.output )
 				.toDataURL( 'image/png' );
+			const lab = await packLab( state ).catch( () => ( {
+				settings: state.settings,
+			} ) );
+			if ( closed ) {
+				return;
+			}
 			const generator = {
 				id: GEN_ID,
-				params: { mode: 'fluid', lab: state, classic },
+				params: { mode: 'fluid', lab, classic },
 			};
 			if ( layer ) {
 				editor.dispatch( {
@@ -1297,6 +1395,8 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			);
 			close();
 		} catch ( e ) {
+			leaving = false;
+			insert.disabled = false;
 			toast.error( t( 'Could not insert.' ) );
 		}
 	}
@@ -1497,6 +1597,8 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			settings.sourceRadius = source.radius;
 			settings.sourcePower = source.power;
 			settings.magnetGap = source.gap;
+			settings.sourceAngle = source.angle ?? 0;
+			settings.sourceSpin = source.spin ?? 1;
 			renderControls();
 			sync();
 			return;
@@ -1699,6 +1801,7 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 			return;
 		}
 		closed = true;
+		document.removeEventListener( 'keydown', onEscape, true );
 		toolDeck.dispose();
 		recordAbort = true;
 		window.cancelAnimationFrame( recordRaf );
@@ -1707,6 +1810,7 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 		window.cancelAnimationFrame( raf );
 		window.clearTimeout( thumbTimer );
 		observer?.disconnect();
+		thumbObserver?.disconnect();
 		window.removeEventListener( 'blur', blur );
 		document.removeEventListener( 'visibilitychange', blur );
 		for ( const mount of colorMounts ) {
@@ -1737,19 +1841,24 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 		fit();
 		sync();
 		raf = window.requestAnimationFrame( frame );
-		// Cards use the very same simulation and optical renderer. Only one
-		// temporary thumbnail context exists, and is disposed when finished.
-		let index = 0;
+		// Render only cards near the visible library, using the real simulation.
+		// One temporary WebGL context is reused for a batch, then released.
+		const pendingThumbs = new Set();
 		const nextThumb = () => {
-			if ( closed || index >= thumbnails.length ) {
+			thumbTimer = 0;
+			if ( closed || ! pendingThumbs.size ) {
 				thumbRenderer?.dispose();
 				thumbRenderer = null;
 				return;
 			}
-			if ( recording ) {
+			if ( recording || gesture || document.hidden ) {
 				thumbTimer = window.setTimeout( nextThumb, 200 );
 				return;
 			}
+			const itemToRender = pendingThumbs.values().next().value;
+			pendingThumbs.delete( itemToRender );
+			const { recipe, thumb } = itemToRender;
+			thumbObserver?.unobserve( thumb );
 			try {
 				if ( ! thumbRenderer ) {
 					thumbRenderer = new FluidRenderer(
@@ -1757,7 +1866,6 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 					);
 					thumbRenderer.resize( 160, 120 );
 				}
-				const { recipe, thumb } = thumbnails[ index++ ];
 				const item = createExperiment( recipe.id, 4 / 3, 17, 56 );
 				thumbRenderer.setSimulation( item.sim );
 				thumbRenderer.update( item.settings );
@@ -1771,13 +1879,47 @@ export function openFluidLab( ctx, { draft, classic, onClassic, icons } ) {
 				cached.height = 120;
 				cached.getContext( '2d' ).drawImage( thumb, 0, 0 );
 				thumbnailCache.set( recipe.id, cached );
-				thumbTimer = window.setTimeout( nextThumb, 60 );
 			} catch ( e ) {
 				thumbRenderer?.dispose();
 				thumbRenderer = null;
 			}
+			thumbTimer = window.setTimeout( nextThumb, 120 );
 		};
-		thumbTimer = window.setTimeout( nextThumb, 250 );
+		if ( window.IntersectionObserver ) {
+			const byCanvas = new Map(
+				thumbnails.map( ( item ) => [ item.thumb, item ] )
+			);
+			thumbObserver = new IntersectionObserver(
+				( entries ) => {
+					if ( closed ) {
+						return;
+					}
+					for ( const entry of entries ) {
+						const item = byCanvas.get( entry.target );
+						if (
+							entry.isIntersecting &&
+							! item.thumb.dataset.ready
+						) {
+							pendingThumbs.add( item );
+						} else {
+							pendingThumbs.delete( item );
+						}
+					}
+					if ( ! thumbTimer && pendingThumbs.size ) {
+						thumbTimer = window.setTimeout( nextThumb, 250 );
+					}
+				},
+				{ root: libraryScroll, rootMargin: '120px' }
+			);
+			for ( const { thumb } of thumbnails ) {
+				thumbObserver.observe( thumb );
+			}
+		} else {
+			for ( const item of thumbnails ) {
+				pendingThumbs.add( item );
+			}
+			thumbTimer = window.setTimeout( nextThumb, 250 );
+		}
 		if ( restoreError ) {
 			paused = true;
 			insert.disabled = true;

@@ -180,6 +180,7 @@ async function openFormatPack( { editor, extras } ) {
 		const gHead = el( 'label', 'wpiefp-fmtgroup', fmtList );
 		const gbox = el( 'input', 'wpiefp-fmtbox', gHead );
 		gbox.type = 'checkbox';
+		gbox.dataset.checkbox = 'selection';
 		el( 'span', 'wpiefp-groupname', gHead, t( group.label ) );
 		const gcount = el( 'span', 'wpiefp-fmtdim', gHead, '' );
 		gbox.onchange = () => {
@@ -197,6 +198,7 @@ async function openFormatPack( { editor, extras } ) {
 			const line = el( 'label', 'wpiefp-fmtrow', fmtList );
 			const box = el( 'input', 'wpiefp-fmtbox', line );
 			box.type = 'checkbox';
+			box.dataset.checkbox = 'selection';
 			box.checked = opts.selected.has( format.id );
 			el( 'span', 'wpiefp-fmtname', line, t( format.label ) );
 			el(

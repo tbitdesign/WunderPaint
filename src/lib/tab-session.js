@@ -16,7 +16,7 @@
  * boots new (the window id survives a reload). An active tab of any OTHER
  * identity used to be dropped here too, on the strength of the sentence
  * above - its autosave lay under a key nobody read, and the work was gone
- * from every offer (Codex C02). It comes back from its tab snapshot now.
+ * from every offer (audit C02). It comes back from its tab snapshot now.
  *
  * @param {Object} record       The stored tabs record.
  * @param {number} attachmentId The page's own attachment (0 for new).

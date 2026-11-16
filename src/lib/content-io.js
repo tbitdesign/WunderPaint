@@ -13,7 +13,7 @@ import { sanitizeSpanStyle } from './rich-text';
 import { serializeLayers } from '../store/document';
 import { reassignIds, slugify } from './template-io';
 import { scalePathD } from './path';
-import { scaleRadius } from './corner-radii';
+import { scaleLayer, FX_METRICS, STYLE_METRICS } from './layer-scale';
 
 /** Text layers with their run and line styles scrubbed (see hydrateLayers). */
 function scrubSpans( layers ) {
@@ -50,9 +50,10 @@ export function bboxOf( layers ) {
 }
 
 /**
- * Uniformly scale a layer set by `f` (geometry + type-specific fields), the
- * same way Resize Design scales a document. Used to fit a bundled combo into
- * its target document / preview.
+ * Uniformly scale a layer set by `f` (geometry and every pixel metric), the
+ * same way Resize Design scales a document: all three paths share
+ * scaleLayer() since 24.09.2026. Used to fit a bundled combo into its
+ * target document / preview.
  *
  * @param {Array}  layers Layers.
  * @param {number} f      Scale factor.
@@ -62,167 +63,12 @@ export function scaleLayers( layers, f ) {
 	if ( 1 === f ) {
 		return layers.map( ( l ) => ( { ...l } ) );
 	}
-	return layers.map( ( layer ) => {
-		const l = {
-			...layer,
-			x: layer.x * f,
-			y: layer.y * f,
-			w: layer.w * f,
-			h: layer.h * f,
-		};
-		if ( 'text' === l.type ) {
-			l.fontSize = ( layer.fontSize || 0 ) * f;
-			l.letterSpacing = ( layer.letterSpacing || 0 ) * f;
-			// Rich spans (v1.46) carry their own sizes — scale them along.
-			if ( Array.isArray( layer.spans ) ) {
-				l.spans = layer.spans.map( ( run ) =>
-					run && run.s
-						? {
-								...run,
-								s: {
-									...run.s,
-									...( run.s.size
-										? { size: run.s.size * f }
-										: {} ),
-									...( run.s.ls ? { ls: run.s.ls * f } : {} ),
-								},
-						  }
-						: run
-				);
-			}
-		}
-		if ( layer.strokeW ) {
-			l.strokeW = layer.strokeW * f;
-		}
-		// Explicit dash metrics scale with the stroke they decorate (text
-		// outlineW is deliberately NOT scaled here, so its dash isn't either).
-		for ( const k of [ 'strokeDashLen', 'strokeDashGap' ] ) {
-			if ( layer[ k ] ) {
-				l[ k ] = layer[ k ] * f;
-			}
-		}
-		if ( layer.radius ) {
-			// Keeps the number-or-[tl,tr,br,bl] shape; an array multiplied
-			// as a number would have turned into NaN.
-			l.radius = scaleRadius( layer.radius, f );
-		}
-		if ( 'shape' === l.type && layer.pathD ) {
-			l.pathD = scalePathD( layer.pathD, f, f );
-		}
-		// Layer styles and text FX carry pixel metrics of their own
-		// (v1.287): a word-art mark scaled 2-3x into a large document kept
-		// its 8px offset shadow and 10px echo gap, so every effect shrank
-		// relative to the glyphs it decorates.
-		if ( layer.styles ) {
-			l.styles = scaleStyleMetrics( layer.styles, f );
-		}
-		if ( layer.textFX ) {
-			l.textFX = scaleFxMetrics( layer.textFX, f );
-		}
-		return l;
-	} );
+	return layers.map( ( layer ) => scaleLayer( layer, { sx: f, sy: f } ) );
 }
 
-/* Pixel-metric keys per layer-style effect. Opacity/strength stay put. */
-const STYLE_METRICS = {
-	dropShadow: [ 'distance', 'blur', 'spread' ],
-	innerShadow: [ 'distance', 'blur' ],
-	outerGlow: [ 'blur', 'spread' ],
-	innerGlow: [ 'blur' ],
-	satin: [ 'distance', 'blur' ],
-	stroke: [ 'size' ],
-	bevel: [ 'size' ],
-};
-
-/* Pixel-metric keys per text FX. Percent/roughness/count/seed params stay put.
- *
- * This list covered 17 of the 73 effects until the 2026-07-25 inventory, so
- * the other 56 kept their pixel values through a resize and came out at the
- * wrong size: a 12 px dot grid stayed 12 px on a document twice as large.
- * Nothing said so, which is why it survived. content-io.test.js now walks
- * FX_PARAMS and fails if a pixel-named parameter is missing here, so the
- * next effect cannot arrive unscaled. */
-export const FX_METRICS = {
-	echo: [ 'gap' ],
-	extrude: [ 'depth' ],
-	longShadow: [ 'length' ],
-	outline: [ 'size' ],
-	dashedOutline: [ 'width', 'gap' ],
-	neonTube: [ 'width', 'glow' ],
-	neon: [ 'size' ],
-	glow: [ 'size' ],
-	offsetPrint: [ 'offset', 'width' ],
-	dotShadow: [ 'offset' ],
-	splice: [ 'offset' ],
-	threeD: [ 'depth' ],
-	scanlines: [ 'gap' ],
-	// 'gap' was in this list for a parameter rings does not have. Harmless
-	// (the scaler skips absent keys) but it is how a list stops describing
-	// what it claims to.
-	rings: [ 'size' ],
-	chromatic: [ 'offset' ],
-	motionBlur: [ 'length' ],
-	drip: [ 'length' ],
-	reflection: [ 'gap' ],
-	bevel: [ 'depth' ],
-	letterpress: [ 'depth' ],
-	shine: [ 'width' ],
-	groundShadow: [ 'blur' ],
-	innerGlow: [ 'size' ],
-	paperCut: [ 'radius' ],
-	pixelate: [ 'size' ],
-	sketch: [ 'width' ],
-	confetti: [ 'size' ],
-	stripesFill: [ 'width' ],
-	comicDots: [ 'size' ],
-	highlight: [ 'radius' ],
-	underlineFx: [ 'thickness', 'offset' ],
-	sticker: [ 'size' ],
-	burst: [ 'length', 'gap' ],
-	stackShadow: [ 'offset' ],
-	sparkle: [ 'size' ],
-	inline: [ 'width' ],
-	contour: [ 'gap', 'width' ],
-	marquee: [ 'size', 'gap', 'glow' ],
-	knockout: [ 'radius' ],
-	checker: [ 'size' ],
-	halftone: [ 'size' ],
-	dotMatrix: [ 'size', 'glow' ],
-	wireframe: [ 'width' ],
-	waves: [ 'size' ],
-	motifFill: [ 'size' ],
-	camo: [ 'size' ],
-	circuit: [ 'size' ],
-	plaid: [ 'size' ],
-	bubbles: [ 'size' ],
-	ripple: [ 'size' ],
-	seal: [ 'depth' ],
-	hatchShadow: [ 'offset', 'gap' ],
-	gradientOutline: [ 'width' ],
-};
-
-function scaleMetricMap( obj, keysByEffect, f ) {
-	const out = {};
-	for ( const [ effect, cfg ] of Object.entries( obj ) ) {
-		const keys = keysByEffect[ effect ];
-		if ( ! cfg || 'object' !== typeof cfg || ! keys ) {
-			out[ effect ] = cfg;
-			continue;
-		}
-		const scaled = { ...cfg };
-		for ( const key of keys ) {
-			if ( 'number' === typeof scaled[ key ] ) {
-				scaled[ key ] = scaled[ key ] * f;
-			}
-		}
-		out[ effect ] = scaled;
-	}
-	return out;
-}
-
-const scaleStyleMetrics = ( styles, f ) =>
-	scaleMetricMap( styles, STYLE_METRICS, f );
-const scaleFxMetrics = ( fx, f ) => scaleMetricMap( fx, FX_METRICS, f );
+// The metric lists live in layer-scale.js with the one scaler that reads
+// them; re-exported so `FX_METRICS from './content-io'` keeps working.
+export { FX_METRICS, STYLE_METRICS };
 
 /* ---------------------------- text combinations ------------------------- */
 

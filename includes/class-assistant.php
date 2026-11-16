@@ -107,14 +107,13 @@ class Assistant {
 
 	/**
 	 * Interactive tours the client can start; ids mirror HELP_GUIDES in
-	 * src/help/guides.js plus the 'welcome' onboarding tour. Keep both
+	 * src/help/guides.js. The editor overview is menu-only. Keep both
 	 * lists in sync when adding a guide.
 	 *
 	 * @return array id => description for the prompt.
 	 */
 	private static function tours() {
 		return array(
-			'welcome'          => 'A general tour of the editor: tool rail, canvas, panels, menus, asset library, automation and saving.',
 			'add-text'         => 'Add a text layer and style it: text tool, typing on the canvas, character settings, styles and effects.',
 			'crop'             => 'Crop an image with ratios and social-media safe zones.',
 			'remove-bg'        => 'Remove an image background locally via the AI Studio panel.',
@@ -266,7 +265,7 @@ class Assistant {
 			. 'Base your answer ONLY on the CONTEXT. If the context does not cover the question, say so briefly and point to Help > Handbook - never invent features, buttons or settings. '
 			. 'A heading or a term may carry a tier in square brackets, e.g. [Pro] or [Extension]. When your answer relies on such an item, say in one short clause that it needs Pro or that extension, so nobody goes looking for a menu entry their installation does not have. Items without a bracket are part of the free plugin. Never print the brackets themselves. '
 			. 'Plain text only (no markdown headings or links); short paragraphs or simple "-" lists. '
-			. 'Set "tour" to a tour id ONLY when that tour covers exactly the workflow the user asked about (e.g. the crop tour for a cropping question). General questions, definition questions and anything without a precisely matching tour get an empty string - never suggest "welcome" unless the user asks for an overview or where to find things in general. '
+			. 'Set "tour" to a tour id ONLY when that tour covers exactly the workflow the user asked about (e.g. the crop tour for a cropping question). General questions, definition questions and anything without a precisely matching tour get an empty string. For a general editor overview, point to Help > Show Tour; that overview starts only from the menu. '
 			. 'Never mention tour ids or the word "tour id" in the answer text itself - when you set one, the UI shows a "Show me" button by itself; the answer should simply explain the steps.';
 		$transcript = '';
 		foreach ( $clean as $m ) {

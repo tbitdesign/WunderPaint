@@ -1,0 +1,239 @@
+/*
+ * AI Studio Buttons dialog (spec 2026-09-16): View > AI Studio Buttons.
+ * Two columns inside the standard dsm shell: the sortable rows of the
+ * panel's two sections on the left, the form of the own button being
+ * edited on the right. Rows and icon buttons have fixed sizes; the
+ * columns scroll inside a dialog of fixed height.
+ */
+
+#wpie-root .wpie-aib-dialog {
+	display: flex;
+	flex-direction: column;
+	width: min( 1060px, 96vw );
+	height: min( 780px, 92vh );
+}
+
+#wpie-root .wpie-aib-body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+#wpie-root .wpie-aib-side {
+	flex: 0 0 440px;
+	padding: 12px 14px;
+	overflow-y: auto;
+	background: var(--bg-app);
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .wpie-aib-main {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+	padding: 14px 16px;
+	overflow-y: auto;
+}
+
+#wpie-root .wpie-aib-sect + .wpie-aib-sect { margin-top: 14px; }
+
+#wpie-root .wpie-aib-sect-head {
+	margin: 0 0 6px;
+	font-size: 11px;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+	text-transform: uppercase;
+}
+
+#wpie-root .wpie-aib-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+#wpie-root .wpie-aib-row {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	box-sizing: border-box;
+	height: 34px;
+	padding: 0 6px 0 4px;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .wpie-aib-row.is-hidden { opacity: 0.45; }
+
+#wpie-root .wpie-aib-row.is-selected {
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .wpie-aib-grip {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 16px;
+	height: 24px;
+	color: var(--text-muted);
+	cursor: grab;
+}
+
+#wpie-root .wpie-aib-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 0 4px;
+	overflow: hidden;
+	font: inherit;
+	font-size: var(--fs-sm);
+	color: var(--text-primary);
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	background: none;
+	border: 0;
+}
+
+#wpie-root .wpie-aib-name.is-own { cursor: pointer; }
+
+#wpie-root .wpie-aib-name.is-own:hover { text-decoration: underline; }
+
+#wpie-root .wpie-aib-kind {
+	flex: none;
+	width: 52px;
+	font-size: 10px;
+	letter-spacing: 0.4px;
+	color: var(--text-muted);
+	text-transform: uppercase;
+}
+
+#wpie-root .wpie-aib-icon {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	color: var(--text-muted);
+	cursor: pointer;
+	background: none;
+	border: 0;
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .wpie-aib-icon:hover:not( :disabled ) {
+	color: var(--text-primary);
+	background: var(--surface-input);
+}
+
+#wpie-root .wpie-aib-icon:disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+
+#wpie-root .wpie-aib-icon[aria-pressed="true"] { color: var(--text-primary); }
+
+#wpie-root .wpie-aib-start {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: 100%;
+	max-width: 520px;
+	margin: 8px auto 0;
+}
+
+#wpie-root .wpie-aib-start-head {
+	font-size: 11px;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+	text-transform: uppercase;
+}
+
+#wpie-root .wpie-aib-starters .dgs-preset {
+	height: 72px;
+	font-size: 11.5px;
+}
+
+#wpie-root .wpie-aib-start-note {
+	font-size: var(--fs-sm);
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+#wpie-root .wpie-aib-field {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+#wpie-root .wpie-aib-field .dsm-input { width: 100%; box-sizing: border-box; }
+
+#wpie-root .wpie-aib-cards {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: 6px;
+}
+
+#wpie-root .wpie-aib-note {
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--text-muted);
+}
+
+#wpie-root .wpie-aib-ref {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+#wpie-root .wpie-aib-ref-thumb {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 48px;
+	height: 48px;
+	overflow: hidden;
+	color: var(--text-muted);
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+/* A reference image that is not in the library any more (16.09.2026). */
+#wpie-root .wpie-aib-ref-thumb.is-gone {
+	color: var(--status-warn, #e0a03a);
+	border-color: var(--status-warn, #e0a03a);
+}
+
+#wpie-root .wpie-aib-note.is-warn {
+	color: var(--status-warn, #e0a03a);
+}
+
+#wpie-root .wpie-aib-warnmark {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	color: var(--status-warn, #e0a03a);
+}
+
+#wpie-root .wpie-aib-ref-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+#wpie-root .wpie-aib-danger {
+	padding-top: 6px;
+	margin-top: auto;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .wpie-aib-hint { font-size: 12px; color: var(--text-secondary); }
+
+#wpie-root .wpie-aib-error { color: var(--status-error, #e5484d); }

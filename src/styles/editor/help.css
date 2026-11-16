@@ -565,10 +565,31 @@
 }
 
 #wpie-root .effect-dialog-body {
+	grid-template-columns: minmax(0, 1fr);
 	padding: 10px 12px 12px;
 	overflow-y: auto;
 	display: grid;
 	gap: 6px;
+}
+
+/* Long, translated effect labels keep the controls inside the compact dialog. */
+#wpie-root .effect-dialog .slider-row {
+	grid-template-columns: minmax(0, 1fr) 34px;
+	row-gap: 3px;
+}
+
+#wpie-root .effect-dialog .slider-row > label {
+	grid-column: 1 / -1;
+	line-height: 1.3;
+}
+
+#wpie-root .effect-dialog .field > label {
+	line-height: 1.3;
+}
+
+#wpie-root .effect-dialog select {
+	min-width: 0;
+	max-width: 100%;
 }
 
 #wpie-root .effect-live-note {

@@ -31,6 +31,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { I } from '../icons';
 import { useEscape } from '../components/use-escape';
 import { uploadMediaFile, request } from '../lib/api';
+import { HEIC_ACCEPT, normalizeImageFile } from '../lib/heic';
 import { fmtBytes } from '../lib/media-usage';
 import { CropBox } from './crop-box';
 import {
@@ -120,8 +121,16 @@ export function ReplaceDialog( { id, current, onClose, onDone, toasts } ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ file ] );
 
-	const pick = ( f ) => {
-		if ( ! f ) {
+	const pick = async ( picked ) => {
+		if ( ! picked ) {
+			return;
+		}
+		let f = picked;
+		try {
+			// HEIC first: browsers often give it no type at all.
+			f = await normalizeImageFile( picked );
+		} catch ( err ) {
+			toasts?.error( err.message );
 			return;
 		}
 		if ( ! /^image\//.test( f.type ) ) {
@@ -291,7 +300,7 @@ export function ReplaceDialog( { id, current, onClose, onDone, toasts } ) {
 					<input
 						ref={ inputRef }
 						type="file"
-						accept="image/*"
+						accept={ 'image/*,' + HEIC_ACCEPT }
 						hidden
 						onChange={ ( e ) => pick( e.target.files?.[ 0 ] ) }
 					/>
@@ -625,7 +634,7 @@ function CropPane( { loaded, crop, ratio, current, onChange, onReset } ) {
 							: '' }
 					</span>
 					<button className="wpie-mlm-link-btn" onClick={ onReset }>
-						{ __( 'Centre and maximise', 'wunderpaint' ) }
+						{ __( 'Center and maximize', 'wunderpaint' ) }
 					</button>
 				</div>
 			</div>

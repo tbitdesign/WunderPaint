@@ -44,9 +44,22 @@ class Templates {
 	 *
 	 * @return array[]
 	 */
-	public static function index() {
+	private static function all_records() {
 		$index = get_option( self::OPTION, array() );
 		return is_array( $index ) ? $index : array();
+	}
+
+	/**
+	 * Templates in one collection, with legacy callers seeing project templates.
+	 * Elementor also reads this method directly, outside the REST route.
+	 *
+	 * @param string $extension Optional extension collection.
+	 * @return array[]
+	 */
+	public static function index( $extension = '' ) {
+		return array_values( array_filter( self::all_records(), static function ( $record ) use ( $extension ) {
+			return ( $record['extension'] ?? '' ) === $extension;
+		} ) );
 	}
 
 	/**
@@ -56,7 +69,7 @@ class Templates {
 	 * @return array|null
 	 */
 	public static function record( $id ) {
-		foreach ( self::index() as $record ) {
+		foreach ( self::all_records() as $record ) {
 			if ( ( $record['id'] ?? '' ) === $id ) {
 				return $record;
 			}
@@ -119,13 +132,20 @@ class Templates {
 	/**
 	 * GET /templates, list with gated preview URLs.
 	 */
-	public function list_templates() {
+	public function list_templates( $request = null ) {
+		$extension = self::extension_name( $request );
+		if ( is_wp_error( $extension ) ) {
+			return $extension;
+		}
 		$out = array();
-		foreach ( self::index() as $record ) {
+		foreach ( self::index( $extension ) as $record ) {
+			// Extension recipes share the backed-up file store, not the design tray.
+			// WPIE-004 still applies: shared reading, owner/admin management.
 			$out[] = array(
 				'id'      => $record['id'],
 				'name'    => $record['name'],
 				'created' => $record['created'],
+				'canEdit' => Helpers::can_manage_owned( $record ),
 				'preview' => file_exists( self::dir() . '/' . $record['id'] . '.png' )
 					? self::preview_url( $record['id'] )
 					: null,
@@ -135,12 +155,33 @@ class Templates {
 	}
 
 	/**
+	 * Optional extension collection. Existing project templates have no collection.
+	 *
+	 * @param \WP_REST_Request|null $request Request.
+	 * @return string|\WP_Error
+	 */
+	private static function extension_name( $request ) {
+		$name = $request ? $request->get_param( 'extension' ) : null;
+		if ( null === $name || '' === $name ) {
+			return '';
+		}
+		if ( ! is_string( $name ) || ! preg_match( '/^[a-z0-9][a-z0-9-]{2,63}$/D', $name ) ) {
+			return new \WP_Error( 'wpie_bad_template_collection', __( 'Malformed project data.', 'wunderpaint' ), array( 'status' => 400 ) );
+		}
+		return $name;
+	}
+
+	/**
 	 * POST /templates, save the current project as a template.
 	 *
 	 * @param \WP_REST_Request $request Request.
 	 * @return array|\WP_Error
 	 */
 	public function create_template( \WP_REST_Request $request ) {
+		$extension = self::extension_name( $request );
+		if ( is_wp_error( $extension ) ) {
+			return $extension;
+		}
 		$name    = sanitize_text_field( (string) $request->get_param( 'name' ) );
 		$project = (string) $request->get_param( 'projectJson' );
 		if ( '' === $name || '' === $project ) {
@@ -173,7 +214,7 @@ class Templates {
 			}
 		}
 
-		$index   = self::index();
+		$index   = self::all_records();
 		$index[] = array(
 			'id'       => $id,
 			'name'     => $name,
@@ -184,6 +225,7 @@ class Templates {
 			// Kit assignment (v1.91.0): rides in the index so pickers can
 			// group/filter templates per client kit without loading them.
 			'brandKit' => sanitize_key( (string) ( $decoded['doc']['brandKitId'] ?? '' ) ),
+			'extension' => $extension,
 		);
 		update_option( self::OPTION, $index, false );
 
@@ -231,7 +273,7 @@ class Templates {
 		}
 		$me  = get_current_user_id();
 		$own = 0;
-		foreach ( self::index() as $record ) {
+		foreach ( self::all_records() as $record ) {
 			if ( (int) ( $record['owner'] ?? 0 ) === $me ) {
 				++$own;
 			}
@@ -293,7 +335,7 @@ class Templates {
 				}
 				return $record;
 			},
-			self::index()
+			self::all_records()
 		);
 		update_option( self::OPTION, $index, false );
 
@@ -339,7 +381,7 @@ class Templates {
 		}
 		update_option(
 			self::OPTION,
-			array_values( array_filter( self::index(), fn( $record ) => $record['id'] !== $id ) ),
+			array_values( array_filter( self::all_records(), fn( $record ) => $record['id'] !== $id ) ),
 			false
 		);
 		return array( 'deleted' => $id );

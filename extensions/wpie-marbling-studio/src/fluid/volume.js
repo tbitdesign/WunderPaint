@@ -1,5 +1,8 @@
 import { Obstacles } from './obstacles.js';
 import { waxMelt, waxMobility } from './materials.js';
+import { aqueousProperties } from './aqueous.js';
+import { applyFlowSources, FLOW_SOURCES } from './flow-sources.js';
+import { confineVorticity } from './vorticity.js';
 /**
  * Three-dimensional equal-volume particles with mass-weighted position-based
  * incompressibility. Pressure, collisions and pigment exchange act on positions
@@ -19,7 +22,7 @@ import { reactParticle, updateBubbles, cleanBubbles } from './reactions.js';
 import { encodePigment, PIGMENT_SUFFIXES, decodePigment } from './pigment.js';
 
 export const VOLUME_LIMIT = 2400;
-export const VOLUME_FIELDS = [
+export const VOLUME_V2_FIELDS = [
 	'x',
 	'y',
 	'z',
@@ -48,6 +51,7 @@ export const VOLUME_FIELDS = [
 	'fuel',
 	...PIGMENT_SUFFIXES.map( ( key ) => 'pigment' + key ),
 ];
+export const VOLUME_FIELDS = [ ...VOLUME_V2_FIELDS, 'ink', 'glycerin' ];
 export const RELATIVE_DENSITY = {
 	water: 1,
 	oil: 0.83,
@@ -255,11 +259,25 @@ export class VolumeSimulation {
 				if ( q < 0.02 ) {
 					continue;
 				}
-				const dose = q * amount * ( info.reagent ? strength : 1 );
+				const dose =
+					q *
+					amount *
+					( info.reagent ||
+					material === 'ink' ||
+					material === 'glycerin'
+						? strength
+						: 1 );
 				if ( pigment ) {
-					this.dye[ i ] += dose * 0.15;
+					const tint =
+						dose *
+						( material === 'ink'
+							? 1
+							: material === 'glycerin'
+							? 0.08
+							: 0.15 );
+					this.dye[ i ] += tint;
 					for ( let k = 0; k < 12; k++ ) {
-						this.fields[ k ][ i ] += pigment[ k ] * dose * 0.15;
+						this.fields[ k ][ i ] += pigment[ k ] * tint;
 					}
 				}
 				if ( material === 'reactive' ) {
@@ -436,6 +454,9 @@ export class VolumeSimulation {
 			radius: p.sourceRadius,
 			power: p.sourcePower,
 			gap: p.magnetGap,
+			...( FLOW_SOURCES.includes( type )
+				? { angle: p.sourceAngle, spin: p.sourceSpin }
+				: {} ),
 		};
 		this.sources.push( source );
 		return source;
@@ -454,7 +475,11 @@ export class VolumeSimulation {
 		const nx = Math.ceil( this.aspect / cell ) + 1,
 			ny = Math.ceil( 1 / cell ) + 1,
 			nz = Math.ceil( this.maxZ / cell ) + 2;
-		const heads = new Int32Array( nx * ny * nz ).fill( -1 );
+		if ( this.cellHeads?.length !== nx * ny * nz ) {
+			this.cellHeads = new Int32Array( nx * ny * nz );
+		}
+		const heads = this.cellHeads;
+		heads.fill( -1 );
 		for ( let i = 0; i < this.count; i++ ) {
 			if ( this.outside( i ) ) {
 				aNext[ i ] = -1;
@@ -683,10 +708,19 @@ export class VolumeSimulation {
 		const tiltX = ( ( settings.tiltX || 0 ) * Math.PI ) / 180,
 			tiltY = ( ( settings.tiltY || 0 ) * Math.PI ) / 180;
 		const gravity = settings.gravity ?? 1.6;
+		applyFlowSources( this, dt );
 		for ( let i = 0; i < n; i++ ) {
 			const oil = aPhase[ i ] === 1;
 			const silicone = aPhase[ i ] === 3,
 				wax = aPhase[ i ] === 4;
+			const solution =
+				aPhase[ i ] === 0 && ( this.ink[ i ] || this.glycerin[ i ] )
+					? aqueousProperties(
+							this.ink[ i ],
+							this.glycerin[ i ],
+							settings
+					  )
+					: null;
 			const melt = wax
 				? waxMelt( aTemperature[ i ], settings.waxMeltingPoint )
 				: 1;
@@ -700,7 +734,7 @@ export class VolumeSimulation {
 				? aThin[ i ] * density.oil +
 				  aThick[ i ] * density.thick +
 				  aFerro[ i ] * density.ferro
-				: density.water;
+				: solution?.density ?? density.water;
 			aInverseMass[ i ] =
 				aCrystal[ i ] > 0.85
 					? 0
@@ -719,7 +753,7 @@ export class VolumeSimulation {
 				? aThin[ i ] * settings.viscosities.oil +
 				  aThick[ i ] * settings.viscosities.thick +
 				  aFerro[ i ] * settings.viscosities.ferro
-				: settings.viscosities.water;
+				: solution?.viscosity ?? settings.viscosities.water;
 			aViscosity[ i ] =
 				nu *
 					Math.exp(
@@ -853,6 +887,7 @@ export class VolumeSimulation {
 				this.neighbors();
 			}
 		}
+		confineVorticity( this, settings.vorticity, dt );
 		this.exchange( settings, dt );
 		this.influences( settings, dt );
 		updateBubbles( this, dt );
@@ -871,6 +906,8 @@ export class VolumeSimulation {
 			aExcitation = this.excitation,
 			aReactive = this.reactive;
 		const aqueous = [
+			'ink',
+			'glycerin',
 			'dye',
 			...PIGMENT_SUFFIXES.map( ( key ) => 'pigment' + key ),
 			'acid',
@@ -1119,7 +1156,7 @@ export class VolumeSimulation {
 		}
 		return {
 			kind: 'volume',
-			version: 2,
+			version: 3,
 			aspect: this.aspect,
 			spacing: this.spacing,
 			count: this.count,
@@ -1138,7 +1175,7 @@ export class VolumeSimulation {
 		if (
 			! raw ||
 			raw.kind !== 'volume' ||
-			! [ 1, 2 ].includes( raw.version ) ||
+			! [ 1, 2, 3 ].includes( raw.version ) ||
 			! Number.isInteger( raw.count ) ||
 			raw.count < 0 ||
 			raw.count > VOLUME_LIMIT ||
@@ -1159,7 +1196,8 @@ export class VolumeSimulation {
 		) {
 			throw new Error( 'Invalid volume snapshot' );
 		}
-		const length = raw.count * VOLUME_FIELDS.length * 4;
+		const fields = raw.version < 3 ? VOLUME_V2_FIELDS : VOLUME_FIELDS;
+		const length = raw.count * fields.length * 4;
 		if (
 			typeof raw.data !== 'string' ||
 			raw.data.length !== Math.ceil( length / 3 ) * 4
@@ -1209,7 +1247,7 @@ export class VolumeSimulation {
 		sim.customObstacles = new Obstacles( sim, raw.customObstacles );
 		sim.escapedGas = raw.escapedGas;
 		sim.bubbles = cleanBubbles( raw.bubbles, sim.aspect );
-		VOLUME_FIELDS.forEach( ( key, k ) => {
+		fields.forEach( ( key, k ) => {
 			const field = values.subarray(
 				k * raw.count,
 				( k + 1 ) * raw.count

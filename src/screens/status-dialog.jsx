@@ -52,6 +52,8 @@ const MODEL_LABELS = {
 	'caption-translate': 'Alt Text Translation (Opus-MT)',
 	salience: 'Layout (MiniLM)',
 	'image-search': 'Image Search (SigLIP)',
+	'object-removal': 'Object removal (MI-GAN)',
+	cutout: 'Better cutouts (BiRefNet lite)',
 };
 
 /** Human size (GB above 1 GB, else MB/KB), values stay text tokens. */

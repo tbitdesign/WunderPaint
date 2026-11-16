@@ -71,6 +71,7 @@ export function SmartRefineBar( { editor, extras, onClose } ) {
 					value={ feather }
 					onChange={ ( e ) => setFeather( +e.target.value ) }
 				/>
+				<output className="wpie-number-output">{ feather }</output>
 			</label>
 			<label className="smart-refine-field">
 				<span>{ __( 'Grow / shrink', 'wunderpaint' ) }</span>
@@ -81,6 +82,7 @@ export function SmartRefineBar( { editor, extras, onClose } ) {
 					value={ expand }
 					onChange={ ( e ) => setExpand( +e.target.value ) }
 				/>
+				<output className="wpie-number-output">{ expand }</output>
 			</label>
 			<button
 				className="ai-btn primary smart-refine-cta"

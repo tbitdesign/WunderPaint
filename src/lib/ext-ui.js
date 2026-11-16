@@ -5,6 +5,10 @@
  * matches the studio CI without per-extension CSS. Bridged as `ui.*`.
  */
 
+import { registerNumericControl } from './numeric-controls';
+
+export { registerNumericControl as numeric } from './numeric-controls';
+
 let fieldSeq = 0;
 
 /**
@@ -52,7 +56,9 @@ export function el( tag, cls, parent, text ) {
  * @param {string}   [opts.subtitle]        Subtitle line.
  * @param {number}   [opts.width]           Max width in px (0 = dsm default).
  * @param {Function} [opts.onClose]         Called when the dialog closes itself.
- * @param {boolean}  [opts.closeOnBackdrop] Backdrop click closes (default false).
+ * @param {boolean}  [opts.closeOnBackdrop] A click on the dim area itself closes
+ *                                          (default false; the editor's
+ *                                          modal-drag swallows those).
  * @param {boolean}  [opts.escapeCloses]    Escape closes (default true).
  * @return {Object} { backdrop, dialog, head, body, foot, close }.
  */
@@ -118,8 +124,16 @@ export function dialog( {
 	const closeBtn = el( 'button', 'dsm-close', head, '×' );
 	closeBtn.type = 'button';
 	closeBtn.onclick = dismiss;
+	// Only a click ON the dim area counts. The colour editor of a swatch in
+	// the dialog is portalled into this backdrop next to the box, so its
+	// clicks bubble here too; dismissing on those closed a whole studio the
+	// moment a colour was picked (Solar System Studio, 20.10.2026).
 	if ( closeOnBackdrop ) {
-		backdrop.addEventListener( 'click', dismiss );
+		backdrop.addEventListener( 'click', ( e ) => {
+			if ( e.target === backdrop ) {
+				dismiss();
+			}
+		} );
 	}
 
 	const body = el( 'div', 'dsm-body', box );
@@ -168,7 +182,7 @@ export function slider( parent, opts = {} ) {
 	const { label, min, max, step = 1, value, onInput, format = String } = opts;
 	const wrap = el( 'div', 'dsm-sliderrow', parent );
 	const head = el( 'div', 'dsm-sliderrow-head', wrap );
-	el( 'span', null, head, label );
+	const caption = el( 'span', null, head, label );
 	const out = el( 'span', 'dsm-sliderrow-val', head, format( value ) );
 	const input = el( 'input', 'dsm-range', wrap );
 	input.type = 'range';
@@ -186,6 +200,14 @@ export function slider( parent, opts = {} ) {
 		input.value = String( v );
 		out.textContent = format( Number( v ) );
 	};
+	registerNumericControl( input, {
+		...opts,
+		onInput: undefined,
+		labelElement: caption,
+		valueElement: out,
+		format,
+	} );
+	input.setAttribute( 'aria-label', label || '' );
 	return { input, set };
 }
 
@@ -215,17 +237,22 @@ export function select( parent, opts = {} ) {
 }
 
 /**
- * Checkbox row.
+ * Boolean switch row; selection: true keeps a square selection checkbox.
  *
  * @param {Element} parent Parent element.
- * @param {Object}  opts   { label, checked, onChange }.
+ * @param {Object}  opts   { label, checked, onChange, selection?: boolean }.
  * @return {Element} The checkbox input.
  */
 export function check( parent, opts = {} ) {
-	const { label, checked = false, onChange } = opts;
+	const { label, checked = false, onChange, selection = false } = opts;
 	const line = el( 'label', 'dsm-checkrow', parent );
 	const input = el( 'input', null, line );
 	input.type = 'checkbox';
+	if ( selection ) {
+		input.dataset.checkbox = 'selection';
+	} else {
+		input.setAttribute( 'role', 'switch' );
+	}
 	input.checked = !! checked;
 	el( 'span', null, line, label );
 	if ( onChange ) {

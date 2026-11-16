@@ -564,6 +564,10 @@
 #wpie-root .wpie-tour-box {
 	position: fixed;
 	width: 320px;
+	max-width: calc(100vw - 32px);
+	max-height: calc(100vh - 32px);
+	box-sizing: border-box;
+	overflow-y: auto;
 	background: var(--ed-panel);
 	color: var(--ed-text);
 	border: 1px solid var(--ed-border-strong);

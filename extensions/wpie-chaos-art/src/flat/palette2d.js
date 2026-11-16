@@ -252,7 +252,10 @@ export function pickMode( own, borrow, rng, avoid = [] ) {
 }
 
 /** Warm or cool the whole list a little, and widen or tighten its values. */
-export function tunePalette( hexes, { temperature = 0, contrast = 1 } = {} ) {
+export function tunePalette(
+	hexes,
+	{ temperature = 0, contrast = 1, key = 0 } = {}
+) {
 	const list = ( hexes || [] ).map( hexRgb ).filter( Boolean );
 	if ( ! list.length ) {
 		return ( hexes || [] ).slice();
@@ -274,6 +277,10 @@ export function tunePalette( hexes, { temperature = 0, contrast = 1 } = {} ) {
 			const want = mean + ( l - mean ) * contrast;
 			out = shade( out, clamp01( want ) - l );
 		}
+		if ( key ) {
+			// The value key: the whole palette lighter or darker (a song).
+			out = shade( out, key );
+		}
 		return toHex( out );
 	} );
 }
@@ -293,6 +300,7 @@ export function pickPalette( school, signature, rng, avoidModes = [] ) {
 		colors: tunePalette( raw, {
 			temperature: sig.temperature || 0,
 			contrast: sig.contrast || 1,
+			key: sig.key || 0,
 		} ),
 	};
 }

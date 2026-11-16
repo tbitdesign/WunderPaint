@@ -4,6 +4,7 @@
  * (bridge.ui, three columns); the picture comes from renderSheet() in
  * items.js. Photos are rendered by the editor and cut to shape here.
  */
+import { captureAround } from '../../shared/doc-preview.js';
 import { t } from './i18n.js';
 import { ITEMS, renderSheet, itemById } from './items.js';
 import { normalizeParams, itemDefaults } from './model.js';
@@ -15,6 +16,7 @@ import { buildLeft } from './ui/left.js';
 import { buildView } from './ui/view.js';
 import { buildMaterial } from './ui/material.js';
 import { buildSide } from './ui/side.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 export const GEN_ID = 'wpie-party-printables/sheet';
 const SLUG = 'wpie-party-printables';
@@ -413,34 +415,28 @@ function openStudio( ctx ) {
 			view.setDoc( null );
 			return;
 		}
-		const doc = editor.state.doc;
-		bridge.raster
-			.renderToCanvas(
-				doc,
-				( editor.state.layers || [] ).filter(
-					( l ) =>
-						! (
-							S.editing &&
-							( l.id === layer.id || l.parent === layer.id )
-						)
-				),
-				{
-					scale: Math.min( 1, 1400 / Math.max( doc.w, doc.h ) ),
-					cache: bridge.raster.sharedImageCache,
-				}
+		// v3.5.6: split at the sheet's layer, placed where it lands (an
+		// update fits the old box; a new sheet fills the page it sets, or
+		// 96 % of the open one).
+		captureAround( bridge.raster, editor.state, S.editing ? layer.id : null )
+			.then( ( around ) =>
+				view.setDoc( {
+					around,
+					doc: editor.state.doc,
+					region: ( w, h ) => {
+						const doc = editor.state.doc;
+						if ( S.editing ) {
+							return fitBox( boundsOf( layer, editor.state.layers ), w, h );
+						}
+						return S.setDoc
+							? { x: 0, y: 0, w: doc.w, h: doc.h }
+							: fitBox( { x: 0, y: 0, w: doc.w, h: doc.h }, w, h, 0.96 );
+					},
+				} )
 			)
-			.then( ( c ) => {
-				const bg = document.createElement( 'canvas' );
-				bg.width = c.width;
-				bg.height = c.height;
-				const g = bg.getContext( '2d' );
-				g.fillStyle = doc.bg || '#ffffff';
-				g.fillRect( 0, 0, bg.width, bg.height );
-				g.drawImage( c, 0, 0 );
-				view.setDoc( bg.toDataURL() );
-			} )
 			.catch( () => view.setDoc( null ) );
 	}
+
 
 	/* ------------------------------- insert ------------------------------- */
 
@@ -644,12 +640,24 @@ function openStudio( ctx ) {
 
 	function cleanup() {
 		clearTimeout( S.timer );
+		history.dispose();
 		S.token++;
 		matUi.unmountAll();
 		sideUi.unmountAll();
 		window.__wpieppState = null;
 		window.__wpieppProof = null;
 	}
+
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: item,
+	// theme, sheet and the event's texts.
+	const history = studioUndo( {
+		backdrop: modal.backdrop,
+		read: () => S.params,
+		write: ( data ) => {
+			S.params = normalizeParams( data );
+			refreshAll();
+		},
+	} );
 
 	window.__wpieppState = () => ( {
 		params: S.params,

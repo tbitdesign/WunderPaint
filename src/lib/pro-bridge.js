@@ -77,7 +77,11 @@ import { applyWatermark } from './watermark';
 import { listExportPresets } from './export-presets';
 import { exportSvg, importSvg } from './svg-io';
 import { rng, EASINGS } from './seeded';
-import { removeBackgroundLocal } from './local-image-ops';
+import {
+	removeBackgroundLocal,
+	subjectMap,
+	watchSubject,
+} from './local-image-ops';
 import { depthMap } from './depth-blur';
 import {
 	recordCanvas,
@@ -104,6 +108,7 @@ import {
 	section as uiSection,
 	row as uiRow,
 	slider as uiSlider,
+	numeric as uiNumeric,
 	select as uiSelect,
 	check as uiCheck,
 	btn as uiBtn,
@@ -129,6 +134,7 @@ import {
 import { createElement, createRoot } from '@wordpress/element';
 import { HelpLink } from '../screens/help-dialog';
 import { SwatchButton } from '../components/color-popover';
+import { ColorField } from '../components/color-field';
 import { mountColorWheel } from './mount-color-wheel';
 import { VarButton } from '../components/var-picker';
 import { StyleButton } from '../components/style-picker';
@@ -143,6 +149,8 @@ import { API_VERSION as EXT_API_VERSION, apiSatisfies } from './extensions';
 import * as stampDoc from './stamp-doc';
 import { openStampMaker } from './stamp-maker';
 import { shapeToPathD, isParametricShape } from './shape-path';
+import { maskContours } from './mask-contour';
+import { selectionToMaskCanvas } from '../store/selection';
 import { SHAPE_CHOICES } from '../components/shape-picker';
 
 export const proBridge = Object.freeze( {
@@ -180,12 +188,14 @@ export const proBridge = Object.freeze( {
 	// timing (additive, P07): a background-tab-proof sleep; Pro's own
 	// pollers use it so long batches keep their pace in hidden tabs.
 	timing: { sleep },
-	// buildPdf (additive, v1.234): wraps JPEG bytes into a one-page PDF;
-	// the Pro automation uses it for "Also save as PDF".
+	// Selection geometry for studios; feature-detect on older cores.
+	selection: { toMask: selectionToMaskCanvas },
 	raster: {
+		traceAlpha: maskContours,
 		renderToBlob,
 		renderToCanvas,
 		sharedImageCache,
+		// Wrap JPEG bytes as a PDF; shared with Pro export.
 		buildPdf,
 		// registerUserTile (additive, v1.287.1): pre-decode a custom
 		// pattern-fill tile so the first paint after an insert already
@@ -256,6 +266,7 @@ export const proBridge = Object.freeze( {
 		section: uiSection,
 		row: uiRow,
 		slider: uiSlider,
+		numeric: uiNumeric,
 		select: uiSelect,
 		check: uiCheck,
 		btn: uiBtn,
@@ -364,6 +375,16 @@ export const proBridge = Object.freeze( {
 		// falls back to brightness bands when the model is not installed,
 		// so this stays a nice-to-have, never a requirement.
 		depthMap,
+		// subjectMap / subjectWatch (API 2.26, additive): where the subject
+		// of a picture is, as ONE grayscale channel - the bundled U2-Netp,
+		// so it needs no download and works in the free plugin. The editor
+		// has cut out backgrounds with it since v0.4, but a studio could
+		// not ask it anything. subjectMap( source ) answers once.
+		// subjectWatch() keeps the model loaded and answers look after
+		// look - a studio that reads a camera asks several times a second,
+		// and loading the model each time would cost more than the look.
+		subjectMap,
+		subjectWatch: watchSubject,
 	},
 	watermark: { applyWatermark },
 	exportPresets: { listExportPresets },
@@ -459,7 +480,7 @@ export const proBridge = Object.freeze( {
 		// mountColorButton (v1.145, additive): the editor's color swatch +
 		// popover rendered into a plain DOM node, for framework-free
 		// extension packs. Returns { set( color ), unmount() }.
-		mountColorButton( node, { color, onChange, title } ) {
+		mountColorButton( node, { color, onChange, title, field = false } ) {
 			const root = createRoot( node );
 			// Self-updating (v1.335), same contract as mountFontPicker: the
 			// swatch is a controlled React component, so the mount re-renders
@@ -470,7 +491,7 @@ export const proBridge = Object.freeze( {
 			// do call set() are unaffected: it renders the same value twice.
 			const render = ( value ) =>
 				root.render(
-					createElement( SwatchButton, {
+					createElement( field ? ColorField : SwatchButton, {
 						color: value,
 						onChange: ( next ) => {
 							render( next );

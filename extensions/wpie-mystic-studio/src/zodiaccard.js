@@ -69,6 +69,18 @@ export function projectConstellation( code, boxW, boxH ) {
 	};
 }
 
+/**
+ * How visible a field star may be at ( x, y ) on the size x size art. The
+ * catalog brings the stars around a figure too, and the figure is fitted
+ * by its lines, so the field reaches past the square: it thins out over
+ * the last stretch instead of being cut by the layer's edge. `foot` is
+ * the star's own reach (radius or spikes).
+ */
+export function edgeFade( x, y, foot, size ) {
+	const room = Math.min( x, y, size - x, size - y ) - foot - size * 0.01;
+	return Math.max( 0, Math.min( 1, room / ( size * 0.06 ) ) );
+}
+
 function drawConstellation( ctx, proj, cx, cy, theme, foil, size, faint ) {
 	ctx.save();
 	ctx.translate( cx, cy );
@@ -85,13 +97,23 @@ function drawConstellation( ctx, proj, cx, cy, theme, foil, size, faint ) {
 	for ( const s of proj.stars ) {
 		const r =
 			Math.max( 0.6, ( 5.8 - s.mag ) * 0.42 ) * ( size / 1000 ) * 2.2;
-		ctx.globalAlpha = faint ? 0.35 : 1;
+		const spikes = ! faint && s.mag < 1.6;
+		const fade = edgeFade(
+			cx + s.x,
+			cy + s.y,
+			( spikes ? r * 3.2 : r ) + 1,
+			size
+		);
+		if ( fade <= 0 ) {
+			continue;
+		}
+		ctx.globalAlpha = ( faint ? 0.35 : 1 ) * fade;
 		ctx.fillStyle = theme.star;
 		ctx.beginPath();
 		ctx.arc( s.x, s.y, r, 0, TAU );
 		ctx.fill();
 		// Diffraction spikes on the brightest.
-		if ( ! faint && s.mag < 1.6 ) {
+		if ( spikes ) {
 			ctx.strokeStyle = theme.star;
 			ctx.lineWidth = Math.max( 0.8, size * 0.0008 );
 			ctx.beginPath();
@@ -112,7 +134,7 @@ function drawConstellation( ctx, proj, cx, cy, theme, foil, size, faint ) {
  * @param {CanvasRenderingContext2D} ctx  Context.
  * @param {number} size Canvas size (square).
  * @param {number} sign Sign index 0..11.
- * @param {Object} opts { theme, layout: 'constellation'|'glyph'|'split',
+ * @param {Object} opts { theme, layout: 'constellation'|'glyph'|'split'|'medallion',
  *   transparent }.
  */
 export function drawZodiacCard( ctx, size, sign, opts ) {
@@ -141,6 +163,53 @@ export function drawZodiacCard( ctx, size, sign, opts ) {
 			);
 		}
 		drawGlyph( ctx, key, size / 2, size / 2, size * 0.42, foil );
+		return;
+	}
+
+	if ( 'medallion' === layout ) {
+		const cx = size / 2;
+		const cy = size / 2;
+		const R = size * 0.34;
+		// The figure inside a double ring.
+		ctx.strokeStyle = foil;
+		ctx.lineWidth = Math.max( 1.6, size * 0.0035 );
+		ctx.beginPath();
+		ctx.arc( cx, cy, R, 0, TAU );
+		ctx.stroke();
+		ctx.lineWidth = Math.max( 1, size * 0.0015 );
+		ctx.beginPath();
+		ctx.arc( cx, cy, R * 0.955, 0, TAU );
+		ctx.stroke();
+		const proj = projectConstellation( code, R * 1.25, R * 1.25 );
+		if ( proj ) {
+			drawConstellation( ctx, proj, cx, cy, theme, foil, size, false );
+		}
+		// The twelve signs around it on a faint orbit, this one lit.
+		ctx.strokeStyle = theme.faint;
+		ctx.lineWidth = Math.max( 1, size * 0.0013 );
+		ctx.beginPath();
+		ctx.arc( cx, cy, R * 1.24, 0, TAU );
+		ctx.stroke();
+		for ( let s = 0; s < 12; s++ ) {
+			const a = -Math.PI / 2 + ( ( s - sign ) / 12 ) * TAU;
+			const x = cx + Math.cos( a ) * R * 1.24;
+			const y = cy + Math.sin( a ) * R * 1.24;
+			const on = s === sign;
+			if ( on ) {
+				ctx.fillStyle = theme.accent;
+				ctx.beginPath();
+				ctx.arc( x, y, size * 0.036, 0, TAU );
+				ctx.fill();
+			}
+			drawGlyph(
+				ctx,
+				SIGN_KEYS[ s ],
+				x,
+				y,
+				size * ( on ? 0.042 : 0.03 ),
+				on ? ( theme.dark ? theme.bg[ 0 ] : '#ffffff' ) : theme.dim
+			);
+		}
 		return;
 	}
 

@@ -268,7 +268,7 @@ export async function setLocale( locale, options = {} ) {
 		// still fail (a full quota, a blocked store), and writeNow() then
 		// resolves false after its one-time notice. Reloading anyway took
 		// the unsaved work with it, while the comment above promised the
-		// opposite (Codex C15). Null means there was nothing to save and
+		// opposite (audit C15). Null means there was nothing to save and
 		// is not a failure.
 		const saved = await snapshot();
 		if ( false === saved ) {

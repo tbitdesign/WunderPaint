@@ -11,6 +11,7 @@ import {
 	paintStarDust,
 	foilStyle,
 	fillCentered,
+	spacedLabel,
 } from './themes.js';
 
 const TAU = Math.PI * 2;
@@ -221,11 +222,16 @@ export function drawNameCard( ctx, size, nn, opts ) {
 			fontFamily
 		) }`;
 		fillCentered( ctx, m.value || '-', mx, my );
-		ctx.fillStyle = theme.dim;
-		ctx.font = `500 ${ Math.round( size * 0.02 ) }px ${ fontStack(
-			fontFamily
-		) }`;
-		ctx.fillText( m.label, mx, my + mr + size * 0.035 );
+		spacedLabel(
+			ctx,
+			String( m.label || '' ).toUpperCase(),
+			mx,
+			my + mr + size * 0.05,
+			Math.round( size * 0.026 ),
+			theme.muted || theme.dim,
+			"'Inter', system-ui, sans-serif",
+			0.16
+		);
 	} );
 }
 
@@ -291,4 +297,121 @@ export function drawAngelCard( ctx, size, num, opts ) {
 	star4( ctx, cx - size * 0.3, cy - size * 0.26, size * 0.014 );
 	star4( ctx, cx + size * 0.32, cy - size * 0.18, size * 0.01 );
 	star4( ctx, cx + size * 0.26, cy + size * 0.3, size * 0.013 );
+}
+
+/**
+ * Personal Year: the nine-year cycle as a ring of nodes, the path so far
+ * drawn in foil, this year's node lit, its number large in the centre and
+ * the calendar year above it.
+ *
+ * @param {CanvasRenderingContext2D} ctx  Context.
+ * @param {number} size Canvas size (square).
+ * @param {Object} py   From personalYear(): { value, year }.
+ * @param {Object} opts { theme, fontFamily, transparent }.
+ */
+export function drawPersonalYearCard( ctx, size, py, opts ) {
+	const { theme, fontFamily = 'Playfair Display', transparent = true } = opts;
+	const foil = foilStyle( ctx, size, size, theme );
+	if ( ! transparent ) {
+		paintBackground( ctx, size, size, theme );
+		paintStarDust( ctx, size, size, theme );
+	}
+	const cx = size / 2;
+	const cy = size / 2;
+	const R = size * 0.38;
+	const nodeR = size * 0.05;
+	const at = ( n ) => {
+		const a = -Math.PI / 2 + ( ( n - 1 ) / 9 ) * TAU;
+		return { x: cx + Math.cos( a ) * R, y: cy + Math.sin( a ) * R, a };
+	};
+
+	// The cycle ring: faint all round, foil from 1 up to this year.
+	ctx.lineWidth = Math.max( 1, size * 0.0016 );
+	ctx.strokeStyle = theme.faint;
+	ctx.beginPath();
+	ctx.arc( cx, cy, R, 0, TAU );
+	ctx.stroke();
+	if ( py.value > 1 ) {
+		ctx.strokeStyle = foil;
+		ctx.lineWidth = Math.max( 1.6, size * 0.004 );
+		ctx.beginPath();
+		ctx.arc( cx, cy, R, -Math.PI / 2, at( py.value ).a );
+		ctx.stroke();
+	}
+	// Inner guide rings.
+	ctx.strokeStyle = foil;
+	ctx.lineWidth = Math.max( 1.2, size * 0.0025 );
+	ctx.beginPath();
+	ctx.arc( cx, cy, R * 0.62, 0, TAU );
+	ctx.stroke();
+	ctx.strokeStyle = theme.faint;
+	ctx.lineWidth = Math.max( 1, size * 0.0014 );
+	ctx.beginPath();
+	ctx.arc( cx, cy, R * 0.58, 0, TAU );
+	ctx.stroke();
+
+	// The nine nodes.
+	for ( let n = 1; n <= 9; n++ ) {
+		const p = at( n );
+		const on = n === py.value;
+		const past = n < py.value;
+		if ( on ) {
+			const halo = ctx.createRadialGradient(
+				p.x,
+				p.y,
+				0,
+				p.x,
+				p.y,
+				nodeR * 2.4
+			);
+			halo.addColorStop(
+				0,
+				theme.dark ? 'rgba(255,240,200,0.35)' : 'rgba(255,255,255,0.6)'
+			);
+			halo.addColorStop( 1, 'rgba(255,255,255,0)' );
+			ctx.fillStyle = halo;
+			ctx.beginPath();
+			ctx.arc( p.x, p.y, nodeR * 2.4, 0, TAU );
+			ctx.fill();
+			ctx.fillStyle = foil;
+			ctx.beginPath();
+			ctx.arc( p.x, p.y, nodeR * 1.2, 0, TAU );
+			ctx.fill();
+		} else {
+			ctx.fillStyle = theme.dark ? theme.bg[ 0 ] : theme.bg[ 0 ];
+			ctx.beginPath();
+			ctx.arc( p.x, p.y, nodeR, 0, TAU );
+			ctx.fill();
+			ctx.strokeStyle = past ? foil : theme.dim;
+			ctx.lineWidth = Math.max( 1, size * 0.0022 );
+			ctx.stroke();
+		}
+		ctx.textAlign = 'center';
+		ctx.fillStyle = on
+			? theme.dark
+				? theme.bg[ 0 ]
+				: '#ffffff'
+			: past
+			? theme.ink
+			: theme.dim;
+		ctx.font = `600 ${ Math.round(
+			nodeR * ( on ? 1.25 : 1.05 )
+		) }px ${ fontStack( fontFamily ) }`;
+		fillCentered( ctx, n, p.x, p.y );
+	}
+
+	// The number itself, and the year it belongs to.
+	ctx.fillStyle = foil;
+	ctx.font = `600 ${ Math.round( size * 0.26 ) }px ${ fontStack(
+		fontFamily
+	) }`;
+	fillCentered( ctx, py.value, cx, cy + size * 0.02 );
+	ctx.fillStyle = theme.accent;
+	ctx.font = `600 ${ Math.round( size * 0.034 ) }px ${ fontStack(
+		fontFamily
+	) }`;
+	fillCentered( ctx, String( py.year ), cx, cy - R * 0.4 );
+	ctx.fillStyle = theme.accent;
+	star4( ctx, cx - size * 0.075, cy - R * 0.4, size * 0.008 );
+	star4( ctx, cx + size * 0.075, cy - R * 0.4, size * 0.008 );
 }

@@ -75,8 +75,19 @@ class Media_Recrop {
 	 * @return bool
 	 */
 	public function can_recrop( $request ) {
-		$id = (int) $request['id'];
-		return $id > 0 && current_user_can( 'edit_post', $id ) && wp_attachment_is_image( $id );
+		// The central check, not a local one: the editor capability from the
+		// settings, the attachment, and edit_post on it. This callback used
+		// to ask only the last two, so an author kept recropping their own
+		// uploads after the editor had been restricted to administrators
+		// (audit 11.09.2026, reproduced with a real author account).
+		$ok = REST_Controller::can_edit_attachment( $request );
+		if ( true !== $ok ) {
+			return $ok;
+		}
+		if ( ! wp_attachment_is_image( (int) $request->get_param( 'id' ) ) ) {
+			return new \WP_Error( 'wpie_not_found', __( 'Attachment not found or not an image.', 'wunderpaint' ), array( 'status' => 404 ) );
+		}
+		return true;
 	}
 
 	/**

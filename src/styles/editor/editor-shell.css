@@ -22,7 +22,7 @@
 
 	/* 280 → 312px (v1.5.1): the AI format chips fit on one row. Variable
 	   since v1.78.6: auto-grows when translations overflow, drag-resizable. */
-	grid-template-columns: 60px 1fr var(--wpie-right-w, 312px);
+	grid-template-columns: var(--wpie-toolbar-width, 60px) 1fr var(--wpie-right-w, 312px);
 	font-size: 13px;
 }
 
@@ -175,11 +175,30 @@
 	overflow: hidden;
 }
 
+/* Keep the panel opener reachable after long tool-option rows. */
+#wpie-root .ed-tool-fields {
+	display: flex;
+	align-items: center;
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+}
+
+#wpie-root .ed-tool-opts .ed-tool-panel-opener {
+	flex-shrink: 0;
+	border-left: 1px solid var(--ed-border);
+}
+
 #wpie-root .ed-tool-opts .label {
 	font-size: 11px;
 	color: var(--ed-text-muted);
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
+}
+
+/* Keep the leading tool name on one line, including combined size labels. */
+#wpie-root .ed-tool-fields > .group:first-child > .label {
+	white-space: nowrap;
 }
 
 /* The separator sits between equal paddings (v1.429, user report): the
@@ -492,43 +511,159 @@
 }
 
 /* Rulers */
+#wpie-root .ed-rulers {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
 #wpie-root .ed-ruler {
 	position: absolute;
 	background: var(--ed-panel-alt);
-	color: var(--ed-text-muted);
-	font-size: 9px;
+	color: var(--text-secondary);
+	font-size: 10px;
 	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
 	overflow: hidden;
 	border-color: var(--ed-border);
+	pointer-events: auto;
 	z-index: 5;
 }
 
 #wpie-root .ed-ruler.h {
 	top: 0;
-	left: 16px;
+	left: var(--ed-ruler-size);
 	right: 0;
-	height: 16px;
+	height: var(--ed-ruler-size);
 	border-bottom: 1px solid var(--ed-border);
+	cursor: row-resize;
 }
 
 #wpie-root .ed-ruler.v {
-	top: 16px;
+	top: var(--ed-ruler-size);
 	left: 0;
 	bottom: 0;
-	width: 16px;
+	width: var(--ed-ruler-size);
 	border-right: 1px solid var(--ed-border);
+	cursor: col-resize;
 }
 
 #wpie-root .ed-ruler-corner {
+	appearance: none;
 	position: absolute;
 	top: 0;
 	left: 0;
-	width: 16px;
-	height: 16px;
+	width: var(--ed-ruler-size);
+	min-width: 0;
+	height: var(--ed-ruler-size);
+	min-height: var(--ed-ruler-size);
+	padding: 0;
+	margin: 0;
 	background: var(--ed-panel-alt);
+	color: var(--text-secondary);
+	font: 9px var(--font-mono);
+	text-align: center;
+	text-align-last: center;
+	border: 0;
+	border-radius: 0;
 	border-right: 1px solid var(--ed-border);
 	border-bottom: 1px solid var(--ed-border);
+	cursor: pointer;
+	pointer-events: auto;
 	z-index: 6;
+}
+
+#wpie-root .ed-ruler-corner:hover,
+#wpie-root .ed-ruler-corner:focus {
+	background: var(--ed-hover);
+	color: var(--text-primary);
+	outline: none;
+	box-shadow: none;
+}
+
+#wpie-root .ed-ruler-scale,
+#wpie-root .ed-ruler-selection,
+#wpie-root .ed-ruler-selection-edge,
+#wpie-root .ed-ruler-cursor {
+	position: absolute;
+	pointer-events: none;
+}
+
+#wpie-root .ed-ruler-scale {
+	inset: 0;
+}
+
+#wpie-root .ed-ruler-document {
+	fill: var(--surface-panel);
+}
+
+#wpie-root .ed-ruler-document-edge {
+	stroke: var(--ed-border);
+	shape-rendering: crispedges;
+}
+
+#wpie-root .ed-ruler-ticks {
+	fill: none;
+	stroke: var(--text-muted);
+	shape-rendering: crispedges;
+}
+
+#wpie-root .ed-ruler-ticks.minor {
+	opacity: 0.65;
+}
+
+#wpie-root .ed-ruler-ticks.major {
+	stroke: var(--text-secondary);
+}
+
+#wpie-root .ed-ruler-scale text {
+	fill: currentcolor;
+}
+
+#wpie-root .ed-ruler-selection {
+	background: var(--accent-soft);
+}
+
+#wpie-root .ed-ruler-selection-edge {
+	background: var(--accent);
+}
+
+#wpie-root .ed-ruler.h .ed-ruler-selection {
+	bottom: 0;
+	height: 3px;
+}
+
+#wpie-root .ed-ruler.v .ed-ruler-selection {
+	right: 0;
+	width: 3px;
+}
+
+#wpie-root .ed-ruler.h .ed-ruler-selection-edge {
+	bottom: 0;
+	width: 1px;
+	height: 6px;
+}
+
+#wpie-root .ed-ruler.v .ed-ruler-selection-edge {
+	right: 0;
+	height: 1px;
+	width: 6px;
+}
+
+#wpie-root .ed-ruler-cursor {
+	background: var(--accent);
+}
+
+#wpie-root .ed-ruler.h .ed-ruler-cursor {
+	top: 0;
+	bottom: 0;
+	width: 1px;
+}
+
+#wpie-root .ed-ruler.v .ed-ruler-cursor {
+	left: 0;
+	right: 0;
+	height: 1px;
 }
 
 /* Selection handles */
@@ -1033,12 +1168,37 @@
 	background: var(--ed-hover);
 }
 
+#wpie-root .ed-float-pin,
+#wpie-root .ed-float-pin:hover {
+	color: var(--ed-text-muted);
+}
+
 #wpie-root .ed-float-body {
 	display: flex;
 	flex: 1;
 	flex-direction: column;
 	min-height: 0;
 	overflow-y: auto;
+}
+
+#wpie-root .ed-float-panel.is-collapsed {
+
+	/* Override the inline height, including native resize, without losing it. */
+	height: auto !important;
+	min-height: 0;
+	resize: none;
+}
+
+#wpie-root .ed-float-panel.is-collapsed .ed-float-head {
+	border-bottom: 0;
+}
+
+#wpie-root .ed-float-body[hidden] {
+	display: none;
+}
+
+#wpie-root .ed-float-collapse[aria-expanded="true"] svg {
+	transform: rotate(180deg);
 }
 
 #wpie-root .ed-right-body {
@@ -1063,7 +1223,7 @@
 	justify-content: space-between;
 	padding: 8px 12px;
 	font-size: var(--fs-xs);
-	font-weight: var(--fw-semibold);
+	font-weight: var(--fw-medium);
 	color: var(--text-primary);
 	text-transform: uppercase;
 	letter-spacing: var(--ls-caps);
@@ -1106,12 +1266,26 @@
 	border-top: 0;
 }
 
-/* Blending Options style picker (v1.373): two columns instead of a ten
-   row list, so the section reads at a glance. */
-#wpie-root .blend-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 1px 10px;
+/* Shared inline effect settings, requested by Thomas on 21.09.2026. */
+#wpie-root .blend-list .blend-item {
+	padding: 10px 0;
+	border-bottom: 1px solid var(--ed-border);
+}
+
+#wpie-root .blend-list .blend-item:first-child {
+	padding-top: 0;
+}
+
+#wpie-root .blend-list .blend-item:last-child {
+	border-bottom: 0;
+}
+
+#wpie-root .blend-list .blend-inline-settings {
+	padding-top: 10px;
+}
+
+#wpie-root .blend-list .style-params {
+	padding-left: 0 !important;
 }
 
 #wpie-root .blend-check {
@@ -1126,9 +1300,11 @@
 
 #wpie-root .panel-group-head {
 	margin: 0 0 7px;
-	font-size: var(--fs-2xs);
+	font-size: var(--fs-xs);
 	font-weight: var(--fw-semibold);
-	color: var(--ed-text-muted);
+
+	/* Try-out (Thomas, 16.09.2026): the group head in white. */
+	color: var(--text-primary);
 	text-transform: uppercase;
 	letter-spacing: var(--ls-caps);
 }
@@ -1186,6 +1362,41 @@
 	grid-template-columns: 1fr 1fr;
 	gap: 6px;
 	margin-bottom: 6px;
+}
+
+/* One shared column grid keeps X/Y aligned with W/chain/H. */
+#wpie-root .row2.props-transform-row {
+	grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+	align-items: start;
+}
+
+#wpie-root .props-transform-row > .field {
+	position: relative;
+	min-width: 0;
+}
+
+#wpie-root .props-transform-row .field-label {
+	position: absolute;
+	z-index: 1;
+	left: 8px;
+	top: 0;
+	display: flex;
+	align-items: center;
+	height: 26px;
+}
+
+#wpie-root .props-transform-row .field input[data-number-input] {
+	padding-left: 24px;
+}
+
+#wpie-root .props-transform-row > .field:last-child {
+	grid-column: 3;
+}
+
+#wpie-root .props-transform-row > .icon-btn {
+	width: 22px;
+	height: 26px;
+	min-width: 0;
 }
 
 #wpie-root .slider-row {
@@ -2299,6 +2510,14 @@
 	opacity: 0.45;
 }
 
+/* Every button in the right panels at 11px (Thomas, 16.09.2026):
+ * Generate, Edit Layer, Outline Stroke, Reset, the quick fixes, all of
+ * them - one rule instead of a size on each. */
+#wpie-root .ed-right .ai-btn,
+#wpie-root .ed-right .ai-btn.sm {
+	font-size: 11px;
+}
+
 #wpie-root .ai-btn.sm {
 	gap: 6px;
 	height: 26px;
@@ -2792,9 +3011,13 @@
 }
 
 #wpie-root .create-tabs button {
+
+	/* The tabs share the width evenly (Thomas, 16.09.2026). */
+	flex: 1;
 	padding: 8px 14px;
 	font-size: 13px;
 	color: var(--ed-text-dim);
+	text-align: center;
 	border-bottom: 2px solid transparent;
 	font-weight: 500;
 }
@@ -2811,6 +3034,16 @@
 	gap: 12px;
 	margin-bottom: 10px;
 	font-size: 13px;
+}
+
+/* Every row label reads like Dimensions and Background, the dsm-label
+ * shape: small caps, semibold, muted (Thomas, 16.09.2026). */
+#wpie-root .create-form .row > label {
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semibold);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-caps);
 }
 
 #wpie-root .create-form .dims {
@@ -3179,6 +3412,142 @@
 	object-fit: cover;
 }
 
+/* My Archive (v1.431.0): a folder on the visitor's own computer. Fixed
+   120px tiles that flow over the width, the rest goes into the gaps. */
+#wpie-root .archive-grid {
+	grid-template-columns: repeat(auto-fill, 120px);
+	justify-content: space-between;
+}
+
+#wpie-root .archive-tile {
+	width: 120px;
+	padding: 0;
+	cursor: pointer;
+}
+
+#wpie-root .archive-ph {
+	display: grid;
+	place-items: center;
+	width: 100%;
+	height: 100px;
+	color: var(--ed-text-dim);
+	background: var(--ed-panel);
+}
+
+#wpie-root .archive-ph.is-broken {
+	background: var(--ed-panel-alt);
+}
+
+/* The same folder in the tray: the placeholder fills the tile preview. */
+#wpie-root .tray-tile-preview .archive-ph {
+	height: 100%;
+}
+
+#wpie-root .archive-head {
+	flex-wrap: wrap;
+}
+
+#wpie-root .archive-head input[type="search"] {
+	flex: 1 1 160px;
+	min-width: 120px;
+}
+
+#wpie-root .archive-head .archive-pick {
+	max-width: 220px;
+	padding: 0 8px;
+}
+
+#wpie-root .archive-name {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	max-width: 220px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+#wpie-root .archive-name span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#wpie-root .archive-actions {
+	display: flex;
+	gap: 6px;
+	margin-left: auto;
+}
+
+#wpie-root .archive-status {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+	align-items: center;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .archive-access {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 6px 10px;
+	align-items: center;
+}
+
+/* Empty state: plain left-aligned lines like the other sections, the
+   button on its own row and the drop hint clearly below it. */
+#wpie-root .archive-empty {
+	display: grid;
+	gap: 10px;
+	justify-items: start;
+	padding: 18px 20px 20px;
+	border: 1px dashed var(--ed-border-strong);
+	border-radius: 8px;
+}
+
+#wpie-root .archive-empty strong {
+	font-size: 13px;
+}
+
+#wpie-root .archive-empty p {
+	max-width: 52em;
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .archive-empty-actions {
+	margin-top: 4px;
+}
+
+#wpie-root .archive-empty .library-hint {
+	margin-top: 8px;
+}
+
+/* The tray strip before a folder is connected: one line and the button,
+   vertically centred in the strip's height. */
+#wpie-root .archive-tray-empty {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 14px;
+	align-items: center;
+	align-self: center;
+	padding: 0 4px;
+}
+
+#wpie-root .tray-strip.archive-over {
+	outline: 2px dashed var(--ed-accent);
+	outline-offset: -3px;
+}
+
+#wpie-root .archive-empty.is-over,
+#wpie-root .library-content.archive-over {
+	outline: 2px dashed var(--ed-accent);
+	outline-offset: -4px;
+}
+
 /* Design cards (v1.10): action row + modified date. */
 #wpie-root .library-tpl-actions {
 	position: absolute;
@@ -3205,11 +3574,15 @@
 }
 
 /* Library sub-section heading (v1.7). */
+
+/* Same shape as .dsm-label (Thomas, 16.09.2026): the subheads of the
+ * library and the create dialog read like Dimensions and AI Image Provider. */
 #wpie-root .library-subhead {
-	font-size: 11px;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semibold);
 	color: var(--ed-text-muted);
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	letter-spacing: var(--ls-caps);
 	margin: 4px 0 8px;
 }
 
@@ -3382,19 +3755,40 @@
 
 /* Sectioned canvas menu (v1.429): small headlines instead of dividers,
    icon rows for the moves that read better as pictures. */
+
+/* Section heads as labelled dividers (try-out, Thomas 16.09.2026): the
+ * small label sits at the LEFT in a thin outline, the rule runs on to the
+ * right of it, like the section labels some WordPress admin menus carry.
+ * The rule is the divider, so a head has no border of its own. */
 #wpie-root .ctx-menu .ctx-head {
-	padding: 5px 10px 2px;
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 4px 6px 2px;
+	white-space: nowrap;
+}
+
+#wpie-root .ctx-menu .ctx-head span {
+	padding: 1px 6px;
 	font-size: 10px;
-	font-weight: 700;
+	font-weight: 600;
+	line-height: 1.4;
 	letter-spacing: 0.06em;
 	color: var(--ed-text-dim);
 	text-transform: uppercase;
+	border: 1px solid var(--ed-border);
+	border-radius: 3px;
+}
+
+#wpie-root .ctx-menu .ctx-head::after {
+	flex: 1;
+	height: 1px;
+	content: "";
+	background: var(--ed-border);
 }
 
 #wpie-root .ctx-menu .ctx-head:not(:first-child) {
 	margin-top: 4px;
-	padding-top: 7px;
-	border-top: 1px solid var(--ed-border);
 }
 
 #wpie-root .ctx-menu .ctx-row {
@@ -3452,4 +3846,206 @@
 	color: var(--ed-text-dim);
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+/* Replace Colors (v1.431.0): a table of the page's colors on the left,
+   each with the color it becomes, the real design before/after on the
+   right. Rows, swatches and buttons are fixed sizes. */
+#wpie-root .replace-colors-dialog {
+	width: 900px;
+	height: auto;
+	max-height: 90vh;
+	grid-template-rows: auto 1fr auto;
+}
+
+#wpie-root .rc-body {
+	display: grid;
+	grid-template-columns: 360px 1fr;
+	gap: 16px;
+	min-height: 0;
+	padding: 14px 16px;
+	overflow: hidden;
+}
+
+#wpie-root .rc-side {
+	display: grid;
+	gap: 8px;
+	align-content: start;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+#wpie-root .rc-label {
+	margin-top: 6px;
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	color: var(--ed-text-dim);
+	text-transform: uppercase;
+}
+
+#wpie-root .rc-head-row {
+	display: grid;
+	grid-template-columns: 1fr 108px;
+	align-items: end;
+}
+
+#wpie-root .rc-label-target {
+	padding-left: 24px;
+}
+
+#wpie-root .rc-rows {
+	display: grid;
+	gap: 2px;
+	max-height: 260px;
+	overflow-y: auto;
+}
+
+#wpie-root .rc-row {
+	display: grid;
+	grid-template-columns: 22px 1fr 32px 14px 26px 22px 22px;
+	gap: 6px;
+	align-items: center;
+	height: 32px;
+	padding: 0 6px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--ed-text);
+	border: 1px solid transparent;
+	border-radius: 6px;
+}
+
+#wpie-root .rc-row:hover {
+	background: var(--ed-panel-alt);
+}
+
+#wpie-root .rc-row.is-set {
+	background: var(--ed-panel-alt);
+	border-color: var(--ed-border-strong);
+}
+
+#wpie-root .rc-swatch {
+	width: 22px;
+	height: 22px;
+	border: 1px solid var(--ed-border-strong);
+	border-radius: 4px;
+}
+
+#wpie-root .rc-count {
+	color: var(--ed-text-dim);
+	text-align: right;
+}
+
+#wpie-root .rc-arrow {
+	color: var(--ed-text-dim);
+	text-align: center;
+}
+
+#wpie-root .rc-target-cell {
+	position: relative;
+	display: inline-flex;
+}
+
+#wpie-root .rc-target {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	color: var(--ed-text-dim);
+	background: transparent;
+	border: 1px dashed var(--ed-border-strong);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+#wpie-root .rc-target.is-set {
+	border-style: solid;
+}
+
+#wpie-root .rc-icon {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	color: var(--ed-text-dim);
+	border-radius: 4px;
+}
+
+#wpie-root .rc-icon:hover:not(:disabled) {
+	color: var(--ed-text);
+	background: var(--ed-panel);
+}
+
+#wpie-root .rc-icon:disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+
+#wpie-root .rc-kinds {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+}
+
+#wpie-root .rc-kind {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	font-size: 12px;
+}
+
+#wpie-root .rc-skipped {
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--ed-text-dim);
+}
+
+#wpie-root .rc-preview {
+	display: grid;
+	grid-template-rows: auto 1fr;
+	gap: 8px;
+	min-height: 0;
+}
+
+#wpie-root .rc-preview-tabs {
+	display: flex;
+	gap: 6px;
+}
+
+#wpie-root .rc-preview-tabs .ai-btn.active {
+	color: var(--ed-text);
+	border-color: var(--ed-accent);
+}
+
+#wpie-root .rc-preview-stage {
+	display: grid;
+	place-items: center;
+	min-height: 320px;
+	background: var(--ed-canvas-bg);
+	border-radius: 6px;
+}
+
+#wpie-root .rc-preview-stage img {
+	display: block;
+	max-width: 100%;
+	max-height: 400px;
+	box-shadow: 0 4px 16px rgb(0 0 0 / 25%);
+}
+
+#wpie-root .adjust-compare-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+#wpie-root .adjust-compare {
+	min-width: 88px;
+	text-transform: none;
+	letter-spacing: normal;
+	touch-action: none;
+}
+
+#wpie-root .adjust-compare[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--text-primary);
 }

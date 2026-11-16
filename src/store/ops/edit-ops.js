@@ -7,19 +7,18 @@
  * uses - so every existing `from './ops'` import is unchanged.
  */
 
-import { pivotPoint, radialLayout, hasPivot } from '../../lib/pivot';
 import { __, sprintf } from '@wordpress/i18n';
 import { makeRaster, makeGroup } from '../document';
 import { selectAll, invertSelection } from '../selection';
 import * as DocOps from '../doc-ops';
 import * as SharedClipboard from '../shared-clipboard';
-import { confirmDialog, promptDialog } from '../../lib/dialogs';
+import { promptDialog } from '../../lib/dialogs';
+import { captureLayerStyle, layerStylePatch } from '../../lib/layer-style';
 import {
 	selectionUnits,
 	unitRoots,
 	unitsBounds,
 	effectiveIds,
-	unitFor,
 } from '../../lib/selection-units';
 
 /** Index of the active layer in the flat array (or -1). */
@@ -80,79 +79,6 @@ export function pasteLayers( editor ) {
 
 /* ---- copy / paste styles (v1.226.0) ---- */
 
-// Applied to ANY paste target regardless of its type.
-const UNIVERSAL_STYLE_KEYS = [
-	'opacity',
-	'blend',
-	'filter',
-	'adjust',
-	'styles',
-];
-// Applied only when the target shares the source layer's type, so text
-// character styling never lands on an image, etc.
-const TYPE_STYLE_KEYS = {
-	text: [
-		'fontFamily',
-		'weight',
-		'fontSize',
-		'color',
-		'italic',
-		'underline',
-		'letterSpacing',
-		'lineHeight',
-		'curve',
-		// The whole Text Effects set (warp, arc, 3D, neon, …) travels with the
-		// styles so Copy/Paste Styles reproduces the look, not just the paint.
-		'textFX',
-		'align',
-		'valign',
-		'outlineColor',
-		'outlineW',
-		'shadowOn',
-		'shadowColor',
-		'bgColor',
-		'bgRadius',
-		'fillType',
-		'gradientStops',
-		'gradientAngle',
-		'pattern',
-		'patternData',
-	],
-	shape: [
-		'fill',
-		'stroke',
-		'strokeW',
-		'radius',
-		'fillType',
-		'gradientStops',
-		'gradientAngle',
-		'gradientKind',
-		'pattern',
-		'patternData',
-	],
-};
-
-const cloneStyleVal = ( v ) =>
-	v && 'object' === typeof v ? JSON.parse( JSON.stringify( v ) ) : v;
-
-const pickStyle = ( layer, keys ) => {
-	const out = {};
-	for ( const k of keys ) {
-		if ( k in layer ) {
-			out[ k ] = cloneStyleVal( layer[ k ] );
-		}
-	}
-	return out;
-};
-
-const cloneStyleMap = ( map ) => {
-	const out = {};
-	for ( const k of Object.keys( map ) ) {
-		out[ k ] = cloneStyleVal( map[ k ] );
-	}
-	return out;
-};
-
 /** Remember the active layer's whole appearance (effects, blend, paint). */
 export function copyLayerStyles( editor ) {
 	const { state, dispatch } = editor;
@@ -160,11 +86,7 @@ export function copyLayerStyles( editor ) {
 	if ( ! layer ) {
 		return;
 	}
-	const style = {
-		sourceType: layer.type,
-		universal: pickStyle( layer, UNIVERSAL_STYLE_KEYS ),
-		typed: pickStyle( layer, TYPE_STYLE_KEYS[ layer.type ] || [] ),
-	};
+	const style = captureLayerStyle( layer );
 	dispatch( { type: 'SET_STYLE_CLIPBOARD', style } );
 	SharedClipboard.setStyleClip( style );
 }
@@ -193,12 +115,7 @@ export function pasteLayerStyles( editor ) {
 		ids,
 		// Fresh clones per target so multiple layers never share a styles or
 		// adjust object.
-		patchFor: ( l ) => ( {
-			...cloneStyleMap( clip.universal || {} ),
-			...( l.type === clip.sourceType
-				? cloneStyleMap( clip.typed || {} )
-				: {} ),
-		} ),
+		patchFor: ( l ) => layerStylePatch( l, clip ),
 	} );
 	commit( __( 'Paste styles', 'wunderpaint' ) );
 }
@@ -276,8 +193,20 @@ export function selectAllOp( editor ) {
 
 export function deselectOp( editor ) {
 	if ( editor.state.selection ) {
-		editor.dispatch( { type: 'SET_SELECTION', selection: null } );
+		editor.dispatch( {
+			type: 'SET_SELECTION',
+			selection: null,
+			remember: true,
+		} );
 		editor.commit( __( 'Deselect', 'wunderpaint' ) );
+	}
+}
+
+/** Restore just the last explicitly cleared selection, preserving later edits. */
+export function restoreSelectionOp( editor ) {
+	if ( ! editor.state.selection && editor.state.lastSelection ) {
+		editor.dispatch( { type: 'RESTORE_SELECTION' } );
+		editor.commit( __( 'Restore last selection', 'wunderpaint' ) );
 	}
 }
 
@@ -309,8 +238,8 @@ export async function featherSelectionOp( editor, extras ) {
 		return;
 	}
 	dispatch( {
-		type: 'SET_SELECTION',
-		selection: { ...state.selection, feather },
+		type: 'SET_SELECTION_FEATHER',
+		feather,
 	} );
 	commit( __( 'Feather Selection', 'wunderpaint' ) );
 	extras?.toasts?.success?.(
@@ -568,248 +497,5 @@ export function distributeLayersOp( editor, horizontal ) {
 		editor,
 		offsets,
 		__( 'Distribute layers', 'wunderpaint' )
-	);
-}
-
-/**
- * Repeat a layer around its pivot (v1.370).
- *
- * The pivot is the whole point: a copy every so many degrees around a
- * chosen centre is how a rosette, a clock face, a compass rose or a
- * mandala is built, and doing it by hand means duplicating and nudging
- * once per copy. With the pivot left in the middle this would produce a
- * pile of layers on the same spot, so the command says so instead of
- * quietly making a mess.
- *
- * @param {Object}  editor  Editor context.
- * @param {number}  count   Copies INCLUDING the original.
- * @param {number}  span    Total angle in degrees.
- * @param {boolean} upright Keep every copy at the original angle.
- * @return {number} How many copies were added.
- */
-export function radialRepeat( editor, count, span, upright ) {
-	const { state, dispatch, commit } = editor;
-	const roots = unitRoots( state.layers, effectiveIds( state ) );
-	const root = roots[ 0 ];
-	if ( ! root || 'group' === root.type ) {
-		return 0;
-	}
-	const pivot = pivotPoint( root );
-	const places = radialLayout( root, pivot, count, span, upright );
-	if ( ! places.length ) {
-		return 0;
-	}
-	let layers = [ ...state.layers ];
-	const made = [];
-	places.forEach( ( place, i ) => {
-		const { copies, idMap } = DocOps.cloneLayerTree( layers, [ root.id ] );
-		const rootId = idMap.get( root.id );
-		const dx = place.x - root.x;
-		const dy = place.y - root.y;
-		const placed = copies.map( ( c ) => {
-			const moved = DocOps.offsetLayer( c, dx, dy );
-			return c.id === rootId
-				? {
-						...moved,
-						rot: place.rot,
-						name: `${ root.name } ${ i + 2 }`,
-				  }
-				: moved;
-		} );
-		let insertAt = layers.findIndex( ( l ) => l.id === root.id );
-		layers.forEach( ( l, n ) => {
-			if ( idMap.has( l.id ) ) {
-				insertAt = Math.max( insertAt, n );
-			}
-		} );
-		layers.splice( insertAt + 1, 0, ...placed );
-		if ( root.parent ) {
-			layers = layers.map( ( l ) =>
-				l.id === root.parent && 'group' === l.type
-					? { ...l, children: [ ...( l.children || [] ), rootId ] }
-					: l
-			);
-		}
-		made.push( rootId );
-	} );
-	dispatch( { type: 'SET_LAYERS', layers } );
-	dispatch( { type: 'SET_SELECTED', ids: [ root.id, ...made ] } );
-	commit( __( 'Radial repeat', 'wunderpaint' ) );
-	return made.length;
-}
-
-/**
- * Grid Repeat (v1.429): copies of the selected unit in rows and columns
- * with a gap, the original top left. Groups repeat as a whole.
- *
- * @param {Object} editor Editor context.
- * @param {number} cols   Columns (>= 1).
- * @param {number} rows   Rows (>= 1).
- * @param {number} gapX   Horizontal gap in px.
- * @param {number} gapY   Vertical gap in px.
- * @return {number} How many copies were made.
- */
-export function gridRepeat( editor, cols, rows, gapX, gapY ) {
-	const { state, dispatch, commit } = editor;
-	const roots = unitRoots( state.layers, effectiveIds( state ) );
-	const root = roots[ 0 ];
-	if ( ! root ) {
-		return 0;
-	}
-	const nx = Math.max( 1, Math.min( 50, Math.round( cols ) || 1 ) );
-	const ny = Math.max( 1, Math.min( 50, Math.round( rows ) || 1 ) );
-	if ( nx * ny < 2 ) {
-		return 0;
-	}
-	const box = unitFor( state.layers, root ).box;
-	const stepX = box.w + ( Number( gapX ) || 0 );
-	const stepY = box.h + ( Number( gapY ) || 0 );
-	let layers = [ ...state.layers ];
-	const made = [];
-	let n = 2;
-	for ( let row = 0; row < ny; row++ ) {
-		for ( let col = 0; col < nx; col++ ) {
-			if ( ! row && ! col ) {
-				continue;
-			}
-			const { copies, idMap } = DocOps.cloneLayerTree( layers, [
-				root.id,
-			] );
-			const rootId = idMap.get( root.id );
-			const placed = copies.map( ( c ) => {
-				const moved = DocOps.offsetLayer( c, col * stepX, row * stepY );
-				return c.id === rootId
-					? { ...moved, name: `${ root.name } ${ n }` }
-					: moved;
-			} );
-			n++;
-			let insertAt = layers.findIndex( ( l ) => l.id === root.id );
-			layers.forEach( ( l, k ) => {
-				if ( idMap.has( l.id ) ) {
-					insertAt = Math.max( insertAt, k );
-				}
-			} );
-			layers.splice( insertAt + 1, 0, ...placed );
-			if ( root.parent ) {
-				layers = layers.map( ( l ) =>
-					l.id === root.parent && 'group' === l.type
-						? {
-								...l,
-								children: [ ...( l.children || [] ), rootId ],
-						  }
-						: l
-				);
-			}
-			made.push( rootId );
-		}
-	}
-	dispatch( { type: 'SET_LAYERS', layers } );
-	dispatch( { type: 'SET_SELECTED', ids: [ root.id, ...made ] } );
-	commit( __( 'Grid repeat', 'wunderpaint' ) );
-	return made.length;
-}
-
-/**
- * Ask for columns, rows and gaps, then repeat.
- *
- * @param {Object} editor Editor context.
- */
-export async function gridRepeatPrompt( editor ) {
-	const answer = await promptDialog( {
-		title: __( 'Grid Repeat', 'wunderpaint' ),
-		fields: [
-			{
-				key: 'cols',
-				label: __( 'Columns', 'wunderpaint' ),
-				type: 'number',
-				defaultValue: '3',
-			},
-			{
-				key: 'rows',
-				label: __( 'Rows', 'wunderpaint' ),
-				type: 'number',
-				defaultValue: '3',
-			},
-			{
-				key: 'gapX',
-				label: __( 'Horizontal gap (px)', 'wunderpaint' ),
-				type: 'number',
-				defaultValue: '20',
-			},
-			{
-				key: 'gapY',
-				label: __( 'Vertical gap (px)', 'wunderpaint' ),
-				type: 'number',
-				defaultValue: '20',
-			},
-		],
-		confirmLabel: __( 'Repeat', 'wunderpaint' ),
-	} );
-	if ( ! answer || ! answer.fields ) {
-		return;
-	}
-	const f = answer.fields;
-	gridRepeat(
-		editor,
-		parseInt( f.cols, 10 ) || 1,
-		parseInt( f.rows, 10 ) || 1,
-		parseFloat( f.gapX ) || 0,
-		parseFloat( f.gapY ) || 0
-	);
-}
-
-/**
- * Ask for the numbers and repeat the layer around its pivot (v1.370).
- *
- * The pivot has to have been moved off centre first: copies arranged
- * around the middle of a layer all land on the same spot. Saying so is
- * better than silently producing a stack nobody asked for.
- *
- * @param {Object} editor Editor context.
- * @return {Promise<void>} Resolves once the copies are placed or the user
- *                         has backed out.
- */
-export async function radialRepeatPrompt( editor ) {
-	const layer = editor.state.layers.find(
-		( l ) => l.id === editor.state.activeId
-	);
-	if ( ! layer ) {
-		return;
-	}
-	if ( ! hasPivot( layer ) ) {
-		await confirmDialog( {
-			title: __( 'Move the pivot first', 'wunderpaint' ),
-			message: __(
-				'Radial repeat arranges copies around the point the layer turns on. That point is still in the middle of the layer, so every copy would land on top of the original. Drag the small crosshair out of the middle first, to where the centre of the ring should be.',
-				'wunderpaint'
-			),
-			confirmLabel: __( 'Got it', 'wunderpaint' ),
-		} );
-		return;
-	}
-	const answer = await promptDialog( {
-		title: __( 'Radial Repeat', 'wunderpaint' ),
-		label: __( 'How many copies in total', 'wunderpaint' ),
-		type: 'number',
-		defaultValue: '8',
-		select: {
-			label: __( 'Spread over', 'wunderpaint' ),
-			options: [ '360°', '270°', '180°', '120°', '90°' ],
-		},
-		check: { label: __( 'Keep every copy upright', 'wunderpaint' ) },
-		confirmLabel: __( 'Repeat', 'wunderpaint' ),
-	} );
-	if ( ! answer ) {
-		return;
-	}
-	const count = Math.max(
-		2,
-		Math.min( parseInt( answer.value, 10 ) || 8, 120 )
-	);
-	radialRepeat(
-		editor,
-		count,
-		parseInt( answer.select, 10 ) || 360,
-		!! answer.check
 	);
 }

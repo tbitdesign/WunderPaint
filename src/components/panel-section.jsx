@@ -9,25 +9,33 @@ import { I } from '../icons';
 export function PanelSection( {
 	title,
 	defaultOpen = true,
+	collapsible = true,
 	right,
 	wsKey,
 	children,
 } ) {
 	const [ open, setOpen ] = useState( defaultOpen );
+	const expanded = ! collapsible || open;
 	return (
 		<div
-			className={ `panel-section ${ ! open ? 'collapsed' : '' }` }
+			className={ `panel-section ${ ! expanded ? 'collapsed' : '' }` }
 			{ ...( wsKey ? { 'data-ws': wsKey } : {} ) }
 		>
 			<div
-				className={ `panel-head ${ ! open ? 'collapsed' : '' }` }
-				role="button"
-				tabIndex={ 0 }
-				aria-expanded={ open }
-				onClick={ () => setOpen( ! open ) }
-				onKeyDown={ ( e ) =>
-					( 'Enter' === e.key || ' ' === e.key ) && setOpen( ! open )
-				}
+				className={ `panel-head ${ ! expanded ? 'collapsed' : '' }${
+					! collapsible ? ' panel-head-static' : ''
+				}` }
+				{ ...( collapsible
+					? {
+							role: 'button',
+							tabIndex: 0,
+							'aria-expanded': expanded,
+							onClick: () => setOpen( ! open ),
+							onKeyDown: ( e ) =>
+								( 'Enter' === e.key || ' ' === e.key ) &&
+								setOpen( ! open ),
+					  }
+					: { role: 'heading', 'aria-level': 3 } ) }
 			>
 				<span
 					style={ {
@@ -36,7 +44,11 @@ export function PanelSection( {
 						gap: 6,
 					} }
 				>
-					<span className="chev">{ I.chevDown( { size: 12 } ) }</span>
+					{ collapsible && (
+						<span className="chev">
+							{ I.chevDown( { size: 12 } ) }
+						</span>
+					) }
 					{ title }
 				</span>
 				{ right }

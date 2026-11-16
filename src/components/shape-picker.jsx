@@ -18,6 +18,7 @@ import { __ } from '@wordpress/i18n';
 import { shapeToPathD } from '../lib/shape-path';
 import { EXTRA_SHAPES } from '../lib/shape-library';
 import { DYNAMIC_SHAPE_MAP } from '../lib/shape-dynamics';
+import { CATALOG_SHAPES } from '../lib/shape-catalog';
 
 /**
  * The ones still defined as maths in `drawShape`. The heart used to be
@@ -158,6 +159,7 @@ export const SHAPE_CHOICES = [
 	dyn( 'filmstrip' ),
 	dyn( 'tornstrip' ),
 	dyn( 'hatching' ),
+	...CATALOG_SHAPES.map( ( s ) => dyn( s.id ) ),
 ];
 
 /** Preview edge, the same 28px the Shape Studio's tiles use. */

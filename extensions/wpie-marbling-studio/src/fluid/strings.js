@@ -1,3 +1,4 @@
+import { FLOW_STRINGS } from './flow-strings.js';
 import { EXTRA_TOOL_STRINGS } from './extra-tool-strings.js';
 import { FEATURE_STRINGS } from './feature-strings.js';
 import { TOOL_STRINGS } from './tool-strings.js';
@@ -8,6 +9,7 @@ import { VOLUME_STRINGS } from './volume-strings.js';
 import { FORCE_STRINGS } from './forces-strings.js';
 // English keys; German, Spanish, French, Italian, Brazilian Portuguese, Dutch.
 export const FLUID_STRINGS = {
+	...FLOW_STRINGS,
 	...EXTRA_TOOL_STRINGS,
 	...FEATURE_STRINGS,
 	...TOOL_STRINGS,

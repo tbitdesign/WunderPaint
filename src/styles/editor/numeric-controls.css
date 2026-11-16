@@ -1,0 +1,175 @@
+/* A single numeric interaction across panels, modals and extension controls. */
+#wpie-root .wpie-number-label,
+#wpie-root [data-number-scrub],
+#wpie-root .wpie-number-value {
+	cursor: ew-resize;
+	user-select: none;
+	touch-action: none;
+}
+
+#wpie-root .wpie-number-control[type="range"] {
+	touch-action: none;
+}
+
+#wpie-root .wpie-number-value {
+	border-radius: 3px;
+}
+
+#wpie-root .wpie-number-value:hover,
+#wpie-root .wpie-number-value:focus-visible,
+#wpie-root [data-number-scrub]:focus-visible {
+	color: var(--text-primary);
+	background: var(--surface-raised);
+	outline: none;
+	box-shadow: none;
+}
+
+#wpie-root [data-number-scrub][aria-disabled="true"] {
+	cursor: default;
+}
+
+body.wpie-number-dragging,
+body.wpie-number-dragging * {
+	cursor: ew-resize !important;
+	user-select: none !important;
+}
+
+#wpie-root input.wpie-number-editor,
+#wpie-root input.wpie-number-editor:focus {
+	position: fixed;
+	z-index: 2147483000;
+	box-sizing: border-box;
+	height: 28px;
+	min-width: 0;
+	padding: 3px 6px;
+	border: 1px solid var(--border-strong);
+	border-radius: 4px;
+	background: var(--surface-input, var(--ed-input));
+	color: var(--text-primary);
+	font: inherit;
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	outline: none;
+	box-shadow: none;
+}
+
+#wpie-root .wpie-number-readout {
+	position: fixed;
+	z-index: 2147483000;
+	padding: 4px 7px;
+	border: 1px solid var(--border-hairline);
+	border-radius: 4px;
+	background: var(--surface-panel, var(--ed-panel));
+	color: var(--text-primary);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+#wpie-root .wpie-number-marks {
+	position: fixed;
+	z-index: 2147482999;
+	height: 4px;
+	pointer-events: none;
+}
+
+#wpie-root .wpie-number-marks i {
+	position: absolute;
+	width: 1px;
+	height: 3px;
+	background: var(--text-muted);
+}
+
+#wpie-root .wpie-number-marks.is-fine {
+	opacity: 0.3;
+}
+
+#wpie-root .wpie-number-output {
+	min-width: 32px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+#wpie-root .smart-refine-field:has(> .wpie-number-output) {
+	grid-template-columns: 86px minmax(0, 1fr) 36px;
+}
+
+/* The same small chevrons as the shared select, mirrored for increase.
+ * No wrapper: input refs, native spinbutton semantics and row widths stay intact.
+ * This CSS and stepTarget() share the pointer area through this custom property. */
+#wpie-root {
+	--number-stepper-width: 16px;
+	--number-chevrons: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='18'%3E%3Cpath d='M1 5l4-4 4 4M1 13l4 4 4-4' fill='none' stroke='%235b6068' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+#wpie-root[data-theme="dark"] {
+	--number-chevrons: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='18'%3E%3Cpath d='M1 5l4-4 4 4M1 13l4 4 4-4' fill='none' stroke='%23a8acae' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+#wpie-root input.wpie-number-control:is([type="number"], [data-number-input]) {
+	appearance: textfield;
+	padding-left: 4px;
+	padding-right: calc(var(--number-stepper-width) + 4px) !important;
+	border: 1px solid var(--border-strong);
+	border-radius: var(--r-sm);
+	background-color: var(--surface-input);
+	background-image: var(--number-chevrons),
+		linear-gradient(var(--border-hairline), var(--border-hairline)) !important;
+	background-repeat: no-repeat !important;
+	background-position:
+		right 3px center,
+		right calc(var(--number-stepper-width) + 1px) center !important;
+	background-size:
+		10px 18px,
+		1px calc(100% - 8px) !important;
+	color: var(--text-primary);
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	box-shadow: none;
+}
+
+#wpie-root input[type="number"].wpie-number-control::-webkit-inner-spin-button,
+#wpie-root input[type="number"].wpie-number-control::-webkit-outer-spin-button {
+	appearance: none;
+	margin: 0;
+}
+
+#wpie-root
+	input.wpie-number-control:is(
+		[type="number"],
+		[data-number-input]
+	):hover:not(:disabled, [readonly], :focus) {
+	border-color: var(--text-muted);
+}
+
+#wpie-root
+	input.wpie-number-control:is([type="number"], [data-number-input]):focus,
+#wpie-root input[type="text"][inputmode="decimal"]:focus {
+	border-color: var(--border-strong);
+	outline: none;
+	box-shadow: none;
+}
+
+#wpie-root
+	input.wpie-number-control:is([type="number"], [data-number-input]):disabled,
+#wpie-root
+	input.wpie-number-control:is(
+		[type="number"],
+		[data-number-input]
+	)[readonly] {
+	background-image: none !important;
+	color: var(--text-disabled);
+	cursor: default;
+}
+
+#wpie-root input.wpie-number-control.is-number-step-target {
+	cursor: default;
+}
+
+body.wpie-number-stepping,
+body.wpie-number-stepping * {
+	cursor: default !important;
+	user-select: none !important;
+}

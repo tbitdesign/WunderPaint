@@ -1,42 +1,66 @@
-/** Left column: the seven sheet types, the starters of the active one, the material. */
+/** Left column: the sheet types, the starters of the active one, the material. */
 import { CARDS } from '../cards.js';
 import { STARTERS } from '../starters.js';
 import { ICONS } from './icons.js';
 import { NOTE_NAMES_SHARP } from '../engine/chords.js';
 import { SCALES, ARPEGGIOS, SCALE_LABELS } from '../engine/scales.js';
 import { FLASH_CLEFS, FLASH_RANGES, NAME_SYSTEMS } from '../engine/notation.js';
+import { ROOTS } from '../engine/workshop.js';
 
 export function buildLeft(
 	left,
-	{ S, ui, bridge, t, onCard, onStarter, onChange, onImport }
+	{
+		S,
+		ui,
+		bridge,
+		t,
+		onCard,
+		onStarter,
+		onChange,
+		onImport,
+		materialParent,
+		previewStarter,
+		onRebuild,
+	}
 ) {
-	// The seven sheet types (v0.3): a section of cards with the hint in
-	// the card, the way the starters read - seven tiles in a four-wide
-	// grid always left a hole.
+	// Use the shared type cards, as in Math Figures, with visible descriptions.
 	const typeCard = ui.section( left, {
 		icon: ICONS.score,
 		title: t( 'Sheet type' ),
 	} );
-	const list0 = ui.el( 'div', 'wpiesm-cards', typeCard );
+	const list0 = ui.picklist( typeCard, 'wpiesm-cards' );
 	const tiles = new Map();
 	for ( const c of CARDS ) {
-		const b = ui.el( 'button', 'dsm-pickrow wpiesm-card', list0 );
-		b.type = 'button';
-		b.dataset.card = c.id;
-		const ic = ui.el( 'span', 'dsm-pickrow-icon wpiesm-card-ic', b );
-		ic.innerHTML = ICONS[ c.id ];
-		const main = ui.el( 'span', 'dsm-pickrow-text wpiesm-card-main', b );
-		ui.el( 'b', null, main, t( c.label ) );
-		ui.el( 'small', null, main, t( c.hint ) );
-		b.onclick = () => onCard( c.id );
-		tiles.set( c.id, b );
+		const card = ui.pickrow( list0, {
+			title: t( c.label ),
+			text: t( c.hint ),
+			icon: ICONS[ c.id ],
+			cls: 'wpiesm-card',
+			onClick: () => onCard( c.id ),
+		} );
+		card.node.dataset.card = c.id;
+		tiles.set( c.id, card.node );
 	}
 	const startersCard = ui.section( left, {
 		icon: ICONS.starters,
 		title: t( 'Starters' ),
 	} );
 	const list = ui.el( 'div', 'wpiesm-starters', startersCard );
-	const materialCard = ui.section( left, {
+	const search = ui.el( 'input', 'dsm-input wpiesm-search', startersCard );
+	search.type = 'search';
+	search.placeholder = t( 'Search presets' );
+	search.setAttribute( 'aria-label', t( 'Search presets' ) );
+	startersCard.insertBefore( search, list );
+	const categories = ui.select( startersCard, {
+		options: [ { value: '', label: t( 'All categories' ) } ],
+		value: '',
+	} );
+	startersCard.insertBefore( categories, list );
+	search.oninput = () => fillStarters();
+	categories.onchange = () => fillStarters();
+	let observer = null,
+		generation = 0;
+	const materialCard = ui.section( materialParent || left, {
 		icon: ICONS.material,
 		title: t( 'Material' ),
 	} );
@@ -46,20 +70,89 @@ export function buildLeft(
 
 	function refresh() {
 		for ( const [ id, b ] of tiles ) {
-			b.classList.toggle( 'is-on', id === S.card );
+			ui.pressed( b, id === S.card );
 		}
+		categories.replaceChildren();
+		for ( const value of [
+			'',
+			...new Set( STARTERS.map( ( s ) => s.category || 'Classics' ) ),
+		] ) {
+			const o = ui.el(
+				'option',
+				null,
+				categories,
+				value ? t( value ) : t( 'All categories' )
+			);
+			o.value = value;
+		}
+		fillStarters();
+		buildMaterial();
+	}
+
+	function fillStarters() {
+		observer?.disconnect();
+		const my = ++generation;
 		list.innerHTML = '';
-		for ( const s of STARTERS.filter( ( x ) => x.card === S.card ) ) {
+		const query = search.value.trim().toLocaleLowerCase();
+		const matches = STARTERS.filter(
+			( s ) =>
+				( query || s.card === S.card ) &&
+				( ! categories.value ||
+					( s.category || 'Classics' ) === categories.value ) &&
+				( ! query ||
+					[ t( s.name ), t( s.subtitle ), s.name, s.category ]
+						.join( ' ' )
+						.toLocaleLowerCase()
+						.includes( query ) )
+		);
+		let chain = Promise.resolve();
+		const schedule = ( img, id ) => {
+			chain = chain.then( async () => {
+				if ( my !== generation ) return;
+				await new Promise( ( ok ) => setTimeout( ok, 24 ) );
+				if ( my !== generation ) return;
+				try {
+					const src = await previewStarter( id );
+					if ( my === generation && src ) img.src = src;
+				} catch ( e ) {
+					img.remove();
+				}
+			} );
+		};
+		if ( typeof IntersectionObserver !== 'undefined' )
+			observer = new IntersectionObserver(
+				( entries ) => {
+					for ( const entry of entries )
+						if ( entry.isIntersecting ) {
+							observer.unobserve( entry.target );
+							schedule(
+								entry.target,
+								entry.target.dataset.starter
+							);
+						}
+				},
+				{ root: left, rootMargin: '150px' }
+			);
+		for ( const s of matches ) {
 			const b = ui.el( 'button', 'dsm-listrow wpiesm-starter', list );
 			b.type = 'button';
 			b.dataset.id = s.id;
 			b.classList.toggle( 'is-on', S.starter === s.id );
-			b.innerHTML = '<b></b><small></small>';
-			b.querySelector( 'b' ).textContent = s.name;
-			b.querySelector( 'small' ).textContent = s.subtitle;
+			b.setAttribute( 'aria-pressed', String( S.starter === s.id ) );
+			const image = ui.el( 'img', 'wpiesm-thumb', b );
+			image.alt = '';
+			image.dataset.starter = s.id;
+			image.decoding = 'async';
+			ui.el( 'b', null, b, t( s.name ) );
+			ui.el( 'small', null, b, t( s.subtitle ) );
 			b.onclick = () => onStarter( s.id );
+			if ( previewStarter ) {
+				if ( observer ) observer.observe( image );
+				else schedule( image, s.id );
+			}
 		}
-		buildMaterial();
+		if ( ! matches.length )
+			ui.el( 'p', 'dsm-note', list, t( 'No matching presets.' ) );
 	}
 
 	function unmountAll() {
@@ -80,6 +173,16 @@ export function buildLeft(
 		material.innerHTML = '';
 		textarea = null;
 		const p = S.params;
+		materialCard.parentNode.hidden = [
+			'melody',
+			'rhythm',
+			'harmony',
+			'lesson',
+			'song',
+			'worksheet',
+			'roadmap',
+		].includes( S.card );
+		if ( materialCard.parentNode.hidden ) return;
 		if ( 'score' === S.card || 'leadsheet' === S.card ) {
 			const key = 'score' === S.card ? 'abc' : 'chordpro';
 			textarea = ui.el( 'textarea', 'dsm-input wpiesm-text', material );
@@ -160,6 +263,23 @@ export function buildLeft(
 				)
 			);
 		} else if ( 'flash' === S.card ) {
+			ui.select( ui.row( material, t( 'Topic' ) ), {
+				value: p.flash.topic,
+				options: [
+					{ value: 'notes', label: t( 'Note names' ) },
+					{ value: 'intervals', label: t( 'Intervals' ) },
+					{ value: 'chords', label: t( 'Chord cards' ) },
+					{ value: 'signatures', label: t( 'Key signature cards' ) },
+					{ value: 'rhythms', label: t( 'Rhythm cards' ) },
+				],
+				onChange: ( v ) => {
+					p.flash.topic = v;
+					buildMaterial();
+					onRebuild();
+					onChange();
+				},
+			} );
+			if ( p.flash.topic !== 'notes' ) return;
 			const sel = ( label, key, opts ) => {
 				ui.select( ui.row( material, label ), {
 					options: opts.map( ( o ) => ( {
@@ -187,7 +307,9 @@ export function buildLeft(
 			);
 		} else {
 			ui.select( ui.row( material, t( 'Root' ) ), {
-				options: NOTE_NAMES_SHARP.map( ( n ) => ( {
+				options: [
+					...new Set( [ ...ROOTS, ...NOTE_NAMES_SHARP ] ),
+				].map( ( n ) => ( {
 					value: n,
 					label: n,
 				} ) ),
@@ -255,5 +377,14 @@ export function buildLeft(
 		}
 	}
 
-	return { refresh, setText, unmountAll };
+	return {
+		refresh,
+		setText,
+		unmountAll,
+		dispose: () => {
+			generation++;
+			observer?.disconnect();
+			unmountAll();
+		},
+	};
 }

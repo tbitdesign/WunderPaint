@@ -113,7 +113,13 @@ function fontProbe( look ) {
 	return { type: 'text', fontFamily: 'Inter', spans: runs };
 }
 
-export function LayoutPopover( { editor, extras, anchor, onClose } ) {
+export function LayoutPopover( {
+	editor,
+	extras,
+	anchor,
+	onClose,
+	embedded = false,
+} ) {
 	const { state } = editor;
 	const layer = state.layers.find( ( l ) => l.id === state.activeId );
 	const ref = useRef( null );
@@ -433,6 +439,78 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 
 	// Leave the context bar's stacking context so other canvas overlays
 	// cannot cover the chooser. Keep the portal inside the editor theme root.
+	const content = (
+		<>
+			<div className="layout-pop-section">
+				<span>{ __( 'Classics', 'wunderpaint' ) }</span>
+			</div>
+			<div className="layout-tiles">{ tiles( 'classic' ) }</div>
+			<div className="layout-pop-section">
+				<span>{ __( 'Generated', 'wunderpaint' ) }</span>
+				<button
+					className="ai-btn secondary"
+					onClick={ () =>
+						setSeeds(
+							seeds.map(
+								( s, i ) =>
+									( s * 31 +
+										( Date.now() % 9973 ) +
+										i * 101 ) %
+									2147483647
+							)
+						)
+					}
+				>
+					{ __( 'Shuffle', 'wunderpaint' ) }
+				</button>
+			</div>
+			<div className="layout-tiles">{ tiles( 'generated' ) }</div>
+			{ aiLooks.length > 0 && (
+				<>
+					<div className="layout-pop-section">
+						<span>{ __( 'Suggestions', 'wunderpaint' ) }</span>
+					</div>
+					<div className="layout-tiles">{ tiles( 'ai' ) }</div>
+				</>
+			) }
+			{ hasCloud && (
+				<div className="layout-pop-ai">
+					<div className="layout-pop-ai-head">
+						{ __( 'New Suggestions', 'wunderpaint' ) }
+					</div>
+					<div className="layout-pop-ai-row">
+						<input
+							type="text"
+							value={ aiStyle }
+							placeholder={ __(
+								'Style, e.g. elegant, loud, playful…',
+								'wunderpaint'
+							) }
+							onChange={ ( e ) => setAiStyle( e.target.value ) }
+							onKeyDown={ ( e ) => {
+								e.stopPropagation();
+								if ( 'Enter' === e.key ) {
+									fetchAi();
+								}
+							} }
+						/>
+						<button
+							className="ai-btn primary"
+							disabled={ aiBusy }
+							onClick={ fetchAi }
+						>
+							{ aiBusy
+								? __( 'Generating', 'wunderpaint' )
+								: __( 'Generate with AI', 'wunderpaint' ) }
+						</button>
+					</div>
+				</div>
+			) }
+		</>
+	);
+	if ( embedded ) {
+		return <div className="layout-popover-embedded">{ content }</div>;
+	}
 	return createPortal(
 		<div
 			ref={ ref }
@@ -455,73 +533,7 @@ export function LayoutPopover( { editor, extras, anchor, onClose } ) {
 				}
 				onClose={ onClose }
 			>
-				<div className="layout-pop-section">
-					<span>{ __( 'Classics', 'wunderpaint' ) }</span>
-				</div>
-				<div className="layout-tiles">{ tiles( 'classic' ) }</div>
-				<div className="layout-pop-section">
-					<span>{ __( 'Generated', 'wunderpaint' ) }</span>
-					<button
-						className="ai-btn secondary"
-						onClick={ () =>
-							setSeeds(
-								seeds.map(
-									( s, i ) =>
-										( s * 31 +
-											( Date.now() % 9973 ) +
-											i * 101 ) %
-										2147483647
-								)
-							)
-						}
-					>
-						{ __( 'Shuffle', 'wunderpaint' ) }
-					</button>
-				</div>
-				<div className="layout-tiles">{ tiles( 'generated' ) }</div>
-				{ aiLooks.length > 0 && (
-					<>
-						<div className="layout-pop-section">
-							<span>{ __( 'Suggestions', 'wunderpaint' ) }</span>
-						</div>
-						<div className="layout-tiles">{ tiles( 'ai' ) }</div>
-					</>
-				) }
-				{ hasCloud && (
-					<div className="layout-pop-ai">
-						<div className="layout-pop-ai-head">
-							{ __( 'New Suggestions', 'wunderpaint' ) }
-						</div>
-						<div className="layout-pop-ai-row">
-							<input
-								type="text"
-								value={ aiStyle }
-								placeholder={ __(
-									'Style, e.g. elegant, loud, playful…',
-									'wunderpaint'
-								) }
-								onChange={ ( e ) =>
-									setAiStyle( e.target.value )
-								}
-								onKeyDown={ ( e ) => {
-									e.stopPropagation();
-									if ( 'Enter' === e.key ) {
-										fetchAi();
-									}
-								} }
-							/>
-							<button
-								className="ai-btn primary"
-								disabled={ aiBusy }
-								onClick={ fetchAi }
-							>
-								{ aiBusy
-									? __( 'Generating…', 'wunderpaint' )
-									: __( 'Generate with AI', 'wunderpaint' ) }
-							</button>
-						</div>
-					</div>
-				) }
+				{ content }
 			</FloatPanel>
 		</div>,
 		document.getElementById( 'wpie-root' )

@@ -7,7 +7,7 @@
  * edge into the sky.
  */
 
-import { paintBackground, paintStarDust } from './themes.js';
+import { paintBackground, paintStarDust, fillCentered } from './themes.js';
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
@@ -144,12 +144,65 @@ export function drawMoonDisc( ctx, cx, cy, r, phase, opts ) {
 }
 
 /**
+ * The soft glow behind a lit disc on dark themes. The art is a square
+ * layer on the poster, so the glow must fade to nothing before the edge
+ * of that square: `reach` is the room from the centre to the nearest
+ * edge, and the falloff is eased so it ends without a visible rim.
+ */
+function moonGlow( ctx, cx, cy, r, illum, theme, reach ) {
+	if ( ! theme.dark || illum <= 0.02 ) {
+		return;
+	}
+	const outer = Math.min( r * 1.7, reach - 1 );
+	if ( outer <= r ) {
+		return;
+	}
+	const inner = r * 0.8;
+	const peak = 0.16 * illum;
+	const glow = ctx.createRadialGradient( cx, cy, inner, cx, cy, outer );
+	glow.addColorStop( 0, 'rgba(240,235,215,' + peak + ')' );
+	// From the rim outwards: (1 - u)^2, sampled so the curve stays smooth.
+	const rim = ( r - inner ) / ( outer - inner );
+	for ( let i = 0; i <= 6; i++ ) {
+		const u = i / 6;
+		const a = peak * 0.8 * ( 1 - u ) * ( 1 - u );
+		glow.addColorStop(
+			rim + ( 1 - rim ) * u,
+			'rgba(240,235,215,' + a + ')'
+		);
+	}
+	ctx.fillStyle = glow;
+	ctx.beginPath();
+	ctx.arc( cx, cy, outer, 0, TAU );
+	ctx.fill();
+}
+
+/** Room from ( x, y ) to the nearest edge of a size x size square. */
+function roomAt( x, y, size ) {
+	return Math.min( x, y, size - x, size - y );
+}
+
+/** A whisper of a ring that holds a disc on light themes. */
+function moonRing( ctx, cx, cy, r, size, theme, color ) {
+	ctx.strokeStyle =
+		color ||
+		( theme.dark ? 'rgba(240,235,215,0.18)' : rgba( '#2f2b24', 0.25 ) );
+	ctx.lineWidth = Math.max( 1, size * 0.0016 );
+	ctx.beginPath();
+	ctx.arc( cx, cy, r + size * 0.004, 0, TAU );
+	ctx.stroke();
+}
+
+/**
  * Draw the moon card.
  *
  * @param {CanvasRenderingContext2D} ctx  Context.
  * @param {number} size  Canvas size (square).
- * @param {Object} phase From moonPhase(): { angle, illum, waxing }.
- * @param {Object} opts  { theme, southern, moonImg, transparent }.
+ * @param {Object} phase From moonPhase(): { angle, illum, waxing, index }.
+ * @param {Object} opts  { theme, southern, moonImg, transparent, layout:
+ *   'single'|'cycle'|'week', week: [ { phase, day } x7 ] (week layout,
+ *   the day itself in the middle), accent (stroke style for highlights),
+ *   fontFamily }.
  */
 export function drawMoonCard( ctx, size, phase, opts ) {
 	const {
@@ -157,42 +210,121 @@ export function drawMoonCard( ctx, size, phase, opts ) {
 		southern = false,
 		moonImg = null,
 		transparent = false,
+		layout = 'single',
+		week = null,
+		fontFamily = 'Playfair Display',
 	} = opts;
-	const cx = size / 2;
-	const cy = size * 0.46;
-	const r = size * 0.31;
-
+	const accent = opts.accent || theme.accent;
 	if ( ! transparent ) {
 		paintBackground( ctx, size, size, theme );
 		paintStarDust( ctx, size, size, theme );
 	}
 
-	/* Glow. */
-	if ( theme.dark && phase.illum > 0.02 ) {
-		const glow = ctx.createRadialGradient(
-			cx,
-			cy,
-			r * 0.8,
-			cx,
-			cy,
-			r * 1.7
-		);
-		glow.addColorStop( 0, 'rgba(240,235,215,' + 0.16 * phase.illum + ')' );
-		glow.addColorStop( 1, 'rgba(240,235,215,0)' );
-		ctx.fillStyle = glow;
+	if ( 'cycle' === layout ) {
+		const cx = size / 2;
+		const cy = size / 2;
+		const r = size * 0.2;
+		moonGlow( ctx, cx, cy, r, phase.illum, theme, roomAt( cx, cy, size ) );
+		drawMoonDisc( ctx, cx, cy, r, phase, { theme, southern, moonImg } );
+		moonRing( ctx, cx, cy, r, size, theme );
+		// The orbit of the eight phases: new at the top, full below.
+		const R = size * 0.38;
+		ctx.strokeStyle = theme.faint;
+		ctx.lineWidth = Math.max( 1, size * 0.0014 );
 		ctx.beginPath();
-		ctx.arc( cx, cy, r * 1.7, 0, TAU );
-		ctx.fill();
+		ctx.arc( cx, cy, R, 0, TAU );
+		ctx.stroke();
+		for ( let k = 0; k < 8; k++ ) {
+			const a = -Math.PI / 2 + ( k / 8 ) * TAU;
+			const x = cx + Math.cos( a ) * R;
+			const y = cy + Math.sin( a ) * R;
+			const small = size * 0.05;
+			const angle = k * 45 || 0.5;
+			drawMoonDisc(
+				ctx,
+				x,
+				y,
+				small,
+				{
+					angle,
+					waxing: angle < 180,
+					illum: ( 1 - Math.cos( ( angle * Math.PI ) / 180 ) ) / 2,
+				},
+				{ theme, southern, moonImg }
+			);
+			if ( k === phase.index ) {
+				ctx.strokeStyle = accent;
+				ctx.lineWidth = Math.max( 1.4, size * 0.0035 );
+				ctx.beginPath();
+				ctx.arc( x, y, small * 1.32, 0, TAU );
+				ctx.stroke();
+			} else {
+				moonRing( ctx, x, y, small, size, theme );
+			}
+		}
+		return;
 	}
 
-	drawMoonDisc( ctx, cx, cy, r, phase, { theme, southern, moonImg } );
+	if ( 'week' === layout && Array.isArray( week ) && week.length ) {
+		const n = week.length;
+		const mid = Math.floor( n / 2 );
+		const big = size * 0.12;
+		const small = size * 0.044;
+		const gap = size * 0.032;
+		// Centre moon, then equal steps outwards; the outermost disc and
+		// its ring keep a margin inside the square, never cut by its edge.
+		const reach = size * 0.47 - small - size * 0.006;
+		const first = big + small + gap;
+		const step =
+			mid > 1
+				? Math.min( size * 0.128, ( reach - first ) / ( mid - 1 ) )
+				: 0;
+		const xs = [];
+		for ( let i = 0; i < n; i++ ) {
+			const k = i - mid;
+			const off =
+				0 === k
+					? 0
+					: Math.sign( k ) * ( first + ( Math.abs( k ) - 1 ) * step );
+			xs.push( size / 2 + off );
+		}
+		week.forEach( ( entry, i ) => {
+			const k = i - mid;
+			const off = ( xs[ i ] - size / 2 ) / size;
+			const x = xs[ i ];
+			const y = size * 0.45 + off * off * size * 0.95;
+			const r = 0 === k ? big : small;
+			if ( 0 === k ) {
+				moonGlow(
+					ctx,
+					x,
+					y,
+					r,
+					entry.phase.illum,
+					theme,
+					roomAt( x, y, size )
+				);
+			}
+			drawMoonDisc( ctx, x, y, r, entry.phase, {
+				theme,
+				southern,
+				moonImg,
+			} );
+			moonRing( ctx, x, y, r, size, theme, 0 === k ? accent : null );
+			ctx.fillStyle = 0 === k ? theme.ink : theme.dim;
+			ctx.textAlign = 'center';
+			ctx.font = `${ 0 === k ? 600 : 500 } ${ Math.round(
+				size * ( 0 === k ? 0.036 : 0.026 )
+			) }px '${ fontFamily }', Georgia, serif`;
+			fillCentered( ctx, String( entry.day ), x, y + r + size * 0.045 );
+		} );
+		return;
+	}
 
-	/* A whisper of a ring holds the disc on light themes. */
-	ctx.strokeStyle = theme.dark
-		? 'rgba(240,235,215,0.18)'
-		: rgba( '#2f2b24', 0.25 );
-	ctx.lineWidth = Math.max( 1, size * 0.0016 );
-	ctx.beginPath();
-	ctx.arc( cx, cy, r + size * 0.004, 0, TAU );
-	ctx.stroke();
+	const cx = size / 2;
+	const cy = size / 2;
+	const r = size * 0.36;
+	moonGlow( ctx, cx, cy, r, phase.illum, theme, roomAt( cx, cy, size ) );
+	drawMoonDisc( ctx, cx, cy, r, phase, { theme, southern, moonImg } );
+	moonRing( ctx, cx, cy, r, size, theme );
 }

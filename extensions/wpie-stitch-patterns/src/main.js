@@ -15,10 +15,36 @@ import {
 	buildGrid,
 	renderChart,
 	renderLegend,
-	buildStringArt,
+	planStringArt,
+	drawStringArt,
+	threadMetres,
+	BOARD_SHAPES,
+	NAIL_INSET_CM,
 	renderStringGuide,
 	buildStringMandala,
+	fairIsle,
+	fitText,
+	pickThreadColors,
+	threadCount,
+	hexOf,
+	CRAFTS,
 } from './stitch-engine.js';
+import {
+	beadWeave,
+	filetCrochet,
+	blackwork,
+	blackworkKey,
+	quilt,
+	hitomezashi,
+	bracelet,
+	WEAVES,
+	NO_PHOTO,
+} from './crafts.js';
+import { renderFinished, FINISHED_MODES } from './finished.js';
+import { nailTemplatePages, pagesToPdf, PAPERS } from './nail-template.js';
+import { YARN_SETS, yarnFor, nearestYarn, yarnLabel } from './threadsets.js';
+import { patternPages } from './pattern-pdf.js';
+import { encodeMp4, encodeGif, mp4Available } from './export.js';
 
 const GEN_ID = 'wpie-stitch-patterns/chart';
 const BAKE_CELL = 18;
@@ -106,17 +132,43 @@ const DEFAULTS = {
 	gauge: 75,
 	boardSize: 29,
 	nails: 288,
-	threads: 1500,
+	threads: 2400,
 	thickness: 'normal',
 	guide: true,
+	board: 'round',
+	boardCm: 40,
+	paper: '',
+	// chart | finished | both: the counted chart, the piece as it looks
+	// once made, or both side by side.
+	view: 'both',
 	factor: 2,
 	paletteId: '', // '' = auto colors from the image
+	// v2.9: the range the legend names its colors in - 'auto' picks the
+	// craft's own (DMC for floss and drills, Hama for beads), '' none.
+	yarn: 'auto',
+	// v2.9: string art in several thread colours (1 = the classic one).
+	threadColors: 1,
+	// v2.9: knitting as Fair Isle - two colours per row, long floats marked.
+	fairIsle: false,
+	maxFloat: 5,
+	// v3.0: the crafts from the proof sheet.
+	weave: 'peyote',
+	filetInvert: false,
+	quiltBlocks: 14,
+	blockCm: 10,
+	hitoAcross: 'SASHIKO',
+	hitoDown: 'HITOMEZASHI',
+	hitoSize: 30,
+	braceletKind: 'alpha',
+	braceletName: 'LOVE',
+	braceletLength: 24,
 	useBrand: false,
 	brandKitId: '',
 	customColors: [],
 };
 
 import { t } from './i18n.js';
+import { studioUndo } from '../../shared/studio-undo.js';
 
 /* -------------------------------- helpers -------------------------------- */
 
@@ -186,8 +238,16 @@ function openStudio( ctx ) {
 		...( editing ? layer.generator.params : {} ),
 	};
 	params.customColors = ( params.customColors || [] ).slice( 0, 4 );
+	if ( ! PAPERS[ params.paper ] ) {
+		params.paper = /^en[-_](us|ca)/i.test(
+			String( ( window.WPIE && window.WPIE.locale ) || '' )
+		)
+			? 'letter'
+			: 'a4';
+	}
 
 	let srcBase = null; // full source canvas (doc, layer or media)
+	let srcVersion = 0; // bumps with every new source: the plan cache key
 	let srcCanvas = null; // cropped to grid aspect
 	let srcToken = 0;
 	let grid = null;
@@ -202,12 +262,7 @@ function openStudio( ctx ) {
 	window.WPIE.bridge.ui.badge( head );
 	const titles = el( 'div', 'dsm-titles', head );
 	el( 'span', 'dsm-title', titles, 'Stitch Patterns' );
-	el(
-		'div',
-		'dsm-sub',
-		titles,
-		t( 'Eight craft sheets - as editable layers.' )
-	);
+	el( 'div', 'dsm-sub', titles, t( 'Craft sheets - as editable layers.' ) );
 	const closeBtn = el( 'button', 'dsm-x', head );
 	closeBtn.innerHTML = '&times;';
 	closeBtn.setAttribute( 'aria-label', t( 'Close' ) );
@@ -234,14 +289,23 @@ function openStudio( ctx ) {
 	/* ----------------------------- craft cards ---------------------------- */
 
 	const modeSec = section( library, ICONS.craft, t( 'Craft' ) );
-	const modeGrid = ui.picks( modeSec, { cell: 110, cls: 'wpiestp-cards' } );
+	// v3.0: fourteen crafts read better in two groups - the ones made from
+	// a picture, and the ones that need none.
+	const modeGrids = new Map();
+	for ( const [ id, label ] of [
+		[ 'photo', 'From a picture' ],
+		[ 'nophoto', 'Without a picture' ],
+	] ) {
+		el( 'div', 'dsm-subhead wpiestp-subhead', modeSec, t( label ) );
+		modeGrids.set( id, ui.picks( modeSec, { cell: 110, cls: 'wpiestp-cards' } ) );
+	}
 	const modeTiles = new Map();
 	for ( const m of MODES ) {
 		const thumb = document.createElement( 'canvas' );
 		thumb.width = 198;
 		thumb.height = 138;
 		thumb.setAttribute( 'aria-hidden', 'true' );
-		const { node: card } = ui.pick( modeGrid, {
+		const { node: card } = ui.pick( modeGrids.get( m.group || 'photo' ), {
 			label: t( m.label ),
 			thumb,
 			cls: 'wpiestp-tcard',
@@ -291,12 +355,19 @@ function openStudio( ctx ) {
 			try {
 				let c;
 				if ( 'stringart' === m.id ) {
-					c = buildStringArt( src, {
-						size: 240,
-						nails: 144,
-						budget: 320,
-						color: accentHex() || '#26292e',
-					} ).canvas;
+					c = drawStringArt(
+						src,
+						planStringArt( src, {
+							nails: 144,
+							threads: 500,
+							grid: 150,
+							board: params.board,
+						} ),
+						{ size: 138, color: accentHex() || '#26292e' }
+					);
+				} else if ( CRAFTS.includes( m.id ) ) {
+					const res = craftResult( m.id, src, 5, true );
+					c = res ? res.finished : null;
 				} else if ( 'mandala' === m.id ) {
 					c = buildStringMandala(
 						document.createElement( 'canvas' ),
@@ -350,6 +421,7 @@ function openStudio( ctx ) {
 
 	const srcSec = section( library, ICONS.source, t( 'Source' ) );
 	const srcSel = el( 'select', 'dsm-select wpiestp-wide', srcSec );
+	srcSel.setAttribute( 'aria-label', t( 'Source' ) );
 	const srcNote = el( 'div', 'dsm-note wpiestp-info', srcSec );
 	library.prepend( srcSec.parentElement );
 
@@ -366,7 +438,7 @@ function openStudio( ctx ) {
 		// l.type und l.name waren undefined, jedes Kind wurde als
 		// "layer:undefined" mit der Beschriftung "undefined" angeboten - und
 		// danach standen dieselben Ebenen noch einmal flach in der Liste,
-		// weil sie dort ohnehin schon drin sind. (Codex F15.)
+		// weil sie dort ohnehin schon drin sind. (Audit F15.)
 		const walk = ( layers ) => {
 			const list = layers || [];
 			for ( const l of list ) {
@@ -496,7 +568,7 @@ function openStudio( ctx ) {
 				if ( target ) {
 					// The layer may be the child of a group: the renderer
 					// starts at roots without a parent and never reached it,
-					// so a grouped photo arrived as an empty canvas (Codex
+					// so a grouped photo arrived as an empty canvas (audit
 					// F15, 10.09.2026). Render a parent-less copy and hand the
 					// renderer its descendants for a group.
 					const byId = new Map(
@@ -532,9 +604,10 @@ function openStudio( ctx ) {
 			c = flattenWhite( c );
 			if ( token === srcToken ) {
 				srcBase = c;
+				srcVersion++;
 				srcCanvas = c ? cropToGrid( c ) : null;
 				gridKey = '';
-				apply.disabled = ! srcCanvas && 'mandala' !== params.mode;
+				apply.disabled = ! srcCanvas && ! NO_PHOTO.includes( params.mode );
 				setStatus( '' );
 				syncInfo();
 				refreshThumbs();
@@ -748,6 +821,38 @@ function openStudio( ctx ) {
 		refreshThumbs();
 		paint();
 	};
+
+	// v2.9: the range the legend names the colors in - the thread, bead
+	// or yarn to buy. The palette snaps to its real colors.
+	const yarnRow = el( 'label', 'wpiestp-row', colSec );
+	el( 'span', 'dsm-rowline-label', yarnRow ).textContent = t( 'Yarn range' );
+	const yarnSel = el( 'select', 'dsm-select', yarnRow );
+	for ( const [ v, l ] of [
+		[ 'auto', t( 'For this craft' ) ],
+		...YARN_SETS.map( ( y ) => [ y.id, t( y.label ) ] ),
+		[ '', t( 'No numbers, colors from the image' ) ],
+	] ) {
+		const o = el( 'option', null, yarnSel );
+		o.value = v;
+		o.textContent = l;
+	}
+	yarnSel.value = params.yarn ?? 'auto';
+	yarnSel.onchange = () => {
+		params.yarn = yarnSel.value;
+		gridKey = '';
+		planKey = '';
+		syncUi();
+		refreshThumbs();
+		paint();
+	};
+	// The data comes with a credit, and it belongs where the numbers show.
+	const yarnCredit = el(
+		'div',
+		'dsm-note wpiestp-credit',
+		colSec,
+		t( 'Thread numbers: nearest color. Color data: craft-color-codes by MakeBead, CC BY 4.0.' )
+	);
+	const activeYarn = () => yarnFor( params.mode, params.yarn );
 
 	// First pinned color as hex - the thread color for string art and
 	// the mandala ('' = default ink).
@@ -984,6 +1089,37 @@ function openStudio( ctx ) {
 		};
 		return row;
 	} )();
+	// v2.9: string art in several thread colours.
+	const threadColorsRow = selectRow(
+		t( 'Thread colors' ),
+		[ 1, 2, 3, 4 ],
+		() => params.threadColors || 1,
+		( v ) => ( params.threadColors = v )
+	);
+	// v2.9: Fair Isle - two colours per row, long floats marked.
+	const fairLbl = el( 'label', 'dsm-checkrow wpiestp-check', setSec );
+	const fairCb = el( 'input', null, fairLbl );
+	fairCb.type = 'checkbox';
+	fairCb.checked = !! params.fairIsle;
+	el( 'span', null, fairLbl ).textContent = t( 'Fair Isle (two colors per row)' );
+	fairCb.onchange = () => {
+		params.fairIsle = fairCb.checked;
+		gridKey = '';
+		syncUi();
+		paint();
+	};
+	const floatRow = sliderRowIn(
+		setSec,
+		t( 'Longest float' ),
+		3,
+		9,
+		() => params.maxFloat || 5,
+		( v ) => {
+			params.maxFloat = v;
+			gridKey = '';
+			paint();
+		}
+	);
 	const guideLbl = el( 'label', 'dsm-checkrow wpiestp-check', setSec );
 	const guideCb = el( 'input', null, guideLbl );
 	guideCb.type = 'checkbox';
@@ -1004,6 +1140,157 @@ function openStudio( ctx ) {
 			paint();
 		}
 	);
+	// A row with a select of named choices (string values).
+	const choiceRow = ( label, choices, get, set ) => {
+		const row = el( 'label', 'wpiestp-row', setSec );
+		el( 'span', 'dsm-rowline-label', row ).textContent = label;
+		const sel = el( 'select', 'dsm-select', row );
+		for ( const [ v, l ] of choices ) {
+			const o = el( 'option', null, sel );
+			o.value = v;
+			o.textContent = l;
+		}
+		sel.value = String( get() );
+		sel.onchange = () => set( sel.value );
+		return row;
+	};
+	// The finished piece next to (or instead of) the counted chart.
+	const viewRow = choiceRow(
+		t( 'Show' ),
+		[
+			[ 'chart', t( 'Counted chart' ) ],
+			[ 'finished', t( 'Finished piece' ) ],
+			[ 'both', t( 'Chart and finished piece' ) ],
+		],
+		() => params.view,
+		( v ) => {
+			params.view = v;
+			paint();
+		}
+	);
+	// String art as a board you can build: its shape and real size, the
+	// thread it takes and a nail template to print.
+	const boardShapeRow = choiceRow(
+		t( 'Board' ),
+		BOARD_SHAPES.map( ( b ) => [ b.id, t( b.label ) ] ),
+		() => params.board,
+		( v ) => {
+			params.board = v;
+			refreshThumbs();
+			paint();
+		}
+	);
+	const boardCmRow = sliderRowIn(
+		setSec,
+		t( 'Board size' ),
+		20,
+		100,
+		() => params.boardCm,
+		( v ) => {
+			params.boardCm = v;
+			showThread();
+		},
+		' cm'
+	);
+	const paperRow = choiceRow(
+		t( 'Paper' ),
+		[
+			[ 'a4', 'A4' ],
+			[ 'letter', 'Letter' ],
+		],
+		() => params.paper,
+		( v ) => ( params.paper = v )
+	);
+	/* v3.0: the settings of the new crafts */
+	const redraw = () => {
+		craftKey = '';
+		refreshThumbs();
+		paint();
+	};
+	const textRow = ( label, get, set ) => {
+		const row = el( 'label', 'wpiestp-text-row', setSec );
+		el( 'span', 'dsm-fieldlabel', row ).textContent = label;
+		const input = el( 'input', 'dsm-input wpiestp-wide', row );
+		input.type = 'text';
+		input.maxLength = 24;
+		input.value = get();
+		input.oninput = () => {
+			set( input.value );
+			redraw();
+		};
+		return row;
+	};
+	const weaveRow = choiceRow(
+		t( 'Technique' ),
+		WEAVES.map( ( w ) => [ w.id, t( w.label ) ] ),
+		() => params.weave,
+		( v ) => {
+			params.weave = v;
+			redraw();
+		}
+	);
+	const filetLbl = el( 'label', 'dsm-checkrow wpiestp-check', setSec );
+	const filetCb = el( 'input', null, filetLbl );
+	filetCb.type = 'checkbox';
+	filetCb.checked = !! params.filetInvert;
+	el( 'span', null, filetLbl ).textContent = t( 'Swap filled and open' );
+	filetCb.onchange = () => {
+		params.filetInvert = filetCb.checked;
+		redraw();
+	};
+	const quiltRow = sliderRowIn( setSec, t( 'Blocks across' ), 6, 30, () => params.quiltBlocks, ( v ) => {
+		params.quiltBlocks = v;
+		redraw();
+	} );
+	const blockCmRow = sliderRowIn(
+		setSec,
+		t( 'Block size' ),
+		5,
+		20,
+		() => params.blockCm,
+		( v ) => {
+			params.blockCm = v;
+			redraw();
+		},
+		' cm'
+	);
+	const hitoAcrossRow = textRow( t( 'Word across' ), () => params.hitoAcross, ( v ) => ( params.hitoAcross = v ) );
+	const hitoDownRow = textRow( t( 'Word down' ), () => params.hitoDown, ( v ) => ( params.hitoDown = v ) );
+	const hitoSizeRow = sliderRowIn( setSec, t( 'Grid size' ), 12, 60, () => params.hitoSize, ( v ) => {
+		params.hitoSize = v;
+		redraw();
+	} );
+	const braceletKindRow = choiceRow(
+		t( 'Pattern' ),
+		[
+			[ 'alpha', t( 'Name in knots' ) ],
+			[ 'chevron', t( 'Chevron' ) ],
+		],
+		() => params.braceletKind,
+		( v ) => {
+			params.braceletKind = v;
+			syncUi();
+			redraw();
+		}
+	);
+	const braceletNameRow = textRow( t( 'Name' ), () => params.braceletName, ( v ) => ( params.braceletName = v ) );
+	const braceletLenRow = sliderRowIn( setSec, t( 'Rows' ), 12, 60, () => params.braceletLength, ( v ) => {
+		params.braceletLength = v;
+		redraw();
+	} );
+
+	const threadNote = el( 'div', 'dsm-note wpiestp-info', setSec );
+	const templateBtn = el( 'button', 'ai-btn secondary', setSec );
+	templateBtn.type = 'button';
+	templateBtn.textContent = t( 'Nail template (PDF)' );
+	// v2.9: the winding as a time-lapse film.
+	const filmBtn = el( 'button', 'ai-btn secondary wpiestp-film', setSec );
+	filmBtn.type = 'button';
+	filmBtn.textContent = t( 'Winding as a video' );
+	// v2.9: the whole pattern as a printable PDF.
+	const pdfBtn = el( 'button', 'ai-btn secondary wpiestp-pdf', setSec );
+	pdfBtn.type = 'button';
+	pdfBtn.textContent = t( 'Pattern as PDF' );
 
 	const syncUi = () => {
 		modeTiles.forEach( ( { card }, id ) =>
@@ -1020,20 +1307,58 @@ function openStudio( ctx ) {
 		void sizeTextRow;
 		const m = params.mode;
 		const stringy = 'stringart' === m || 'mandala' === m;
-		colorsRow.style.display = stringy || resolvedFixed() ? 'none' : '';
-		gridWRow.style.display = stringy ? 'none' : '';
+		const craft = CRAFTS.includes( m );
+		// Colour count: the photo crafts that choose their own palette.
+		colorsRow.style.display =
+			stringy || resolvedFixed() || [ 'filet', 'blackwork', 'hitomezashi', 'bracelet' ].includes( m )
+				? 'none'
+				: '';
+		gridWRow.style.display =
+			stringy || [ 'quilt', 'hitomezashi', 'bracelet' ].includes( m ) ? 'none' : '';
 		gaugeRow.style.display = 'knitting' === m ? '' : 'none';
 		boardRow.style.display = 'beads' === m ? '' : 'none';
 		drillRow.style.display = 'diamond' === m ? '' : 'none';
-		symLbl.style.display = [ 'crossstitch', 'diamond', 'c2c' ].includes( m )
+		symLbl.style.display = [ 'crossstitch', 'diamond', 'c2c', 'beadweave' ].includes( m )
 			? ''
 			: 'none';
+		weaveRow.style.display = 'beadweave' === m ? '' : 'none';
+		filetLbl.style.display = 'filet' === m ? '' : 'none';
+		quiltRow.style.display = 'quilt' === m ? '' : 'none';
+		blockCmRow.style.display = 'quilt' === m ? '' : 'none';
+		for ( const node of [ hitoAcrossRow, hitoDownRow, hitoSizeRow ] ) {
+			node.style.display = 'hitomezashi' === m ? '' : 'none';
+		}
+		braceletKindRow.style.display = 'bracelet' === m ? '' : 'none';
+		braceletNameRow.style.display =
+			'bracelet' === m && 'chevron' !== params.braceletKind ? '' : 'none';
+		braceletLenRow.style.display =
+			'bracelet' === m && 'chevron' === params.braceletKind ? '' : 'none';
 		nailsRow.style.display = stringy ? '' : 'none';
 		threadsRow.style.display = 'stringart' === m ? '' : 'none';
 		thicknessRow.style.display = 'stringart' === m ? '' : 'none';
 		guideLbl.style.display = 'stringart' === m ? '' : 'none';
+		for ( const node of [
+			boardShapeRow,
+			boardCmRow,
+			threadNote,
+			templateBtn,
+			threadColorsRow,
+			filmBtn,
+		] ) {
+			node.style.display = 'stringart' === m ? '' : 'none';
+		}
+		// Paper is for anything printed: the nail template and the pattern.
+		paperRow.style.display = 'mandala' === m || craft ? 'none' : '';
+		pdfBtn.style.display = stringy || craft ? 'none' : '';
+		fairLbl.style.display = 'knitting' === m ? '' : 'none';
+		floatRow.style.display = 'knitting' === m && params.fairIsle ? '' : 'none';
+		// Thread numbers where a craft is worked in floss, beads or yarn.
+		const named = ! [ 'mandala', 'filet', 'quilt', 'hitomezashi' ].includes( m );
+		yarnRow.style.display = named ? '' : 'none';
+		yarnCredit.style.display = activeYarn() && named ? '' : 'none';
+		viewRow.style.display = FINISHED_MODES.includes( m ) || craft ? '' : 'none';
 		factorRow.style.display = 'mandala' === m ? '' : 'none';
-		srcSec.parentElement.style.display = 'mandala' === m ? 'none' : '';
+		srcSec.parentElement.style.display = NO_PHOTO.includes( m ) ? 'none' : '';
 	};
 
 	function onGeometryChange() {
@@ -1070,16 +1395,23 @@ function openStudio( ctx ) {
 		}
 		const rows = gridRows( srcBase.width / srcBase.height );
 		const fixed = resolvedFixed();
+		const yarn = activeYarn();
+		const fair = 'knitting' === params.mode && params.fairIsle;
 		const key = [
 			params.gridW,
 			rows,
 			params.colors,
 			fixed ? fixed.map( ( p ) => p.join( ',' ) ).join( '|' ) : 'auto',
+			yarn,
+			fair ? params.maxFloat : 'off',
 		].join( ':' );
 		if ( grid && key === gridKey ) {
 			return { grid, rows };
 		}
-		grid = buildGrid( srcCanvas, params.gridW, rows, params.colors, fixed );
+		grid = buildGrid( srcCanvas, params.gridW, rows, params.colors, fixed, yarn );
+		if ( fair ) {
+			grid = fairIsle( grid, params.gridW, rows, params.maxFloat || 5 );
+		}
 		gridKey = key;
 		return { grid, rows };
 	}
@@ -1090,11 +1422,16 @@ function openStudio( ctx ) {
 		if ( ! tLines.length ) {
 			return sheet;
 		}
+		// The title grows with the sheet, so a board drawn for a large
+		// layer keeps its proportions.
 		const tPx = Math.round(
-			( 44 * Math.max( 60, Math.min( 160, params.textScale ) ) ) / 100
+			( sheet.width *
+				0.036 *
+				Math.max( 60, Math.min( 160, params.textScale ) ) ) /
+				100
 		);
 		const tLh = Math.round( tPx * 1.22 );
-		const titleH = tLines.length * tLh + 20;
+		const titleH = tLines.length * tLh + Math.round( tPx * 0.45 );
 		const c = document.createElement( 'canvas' );
 		c.width = sheet.width;
 		c.height = sheet.height + titleH;
@@ -1108,15 +1445,362 @@ function openStudio( ctx ) {
 		g.textAlign = 'center';
 		g.textBaseline = 'middle';
 		tLines.forEach( ( ln, i ) =>
-			g.fillText( ln, c.width / 2, 10 + tLh / 2 + i * tLh )
+			g.fillText(
+				ln,
+				c.width / 2,
+				Math.round( tPx * 0.22 ) + tLh / 2 + i * tLh
+			)
 		);
 		g.drawImage( sheet, 0, titleH );
 		return c;
 	}
 
-	let lastArt = null;
-	function bake( cell ) {
-		lastArt = null;
+	/* ---------------------- the crafts of v3.0 (crafts.js) ----------------- */
+
+	let craftCache = null;
+	let craftKey = '';
+	const craftWords = () => ( {
+		filled: t( 'filled' ),
+		open: t( 'open' ),
+		stitches: t( 'stitches' ),
+		knots: t( 'knots' ),
+		squares: t( 'squares' ),
+		halves: t( 'triangle squares' ),
+		beads: t( 'beads' ),
+	} );
+	const toHex = ( p ) => hexOf( p.map( ( v ) => Math.round( v ) ) );
+	/** "DMC 310 Black" for a colour, when the craft names its threads. */
+	function threadName( rgb, yarn ) {
+		const y = yarn ? nearestYarn( rgb, yarn ) : null;
+		const short = yarn ? ( YARN_SETS.find( ( s ) => s.id === yarn ) || {} ).short : '';
+		return y ? yarnLabel( { brand: short, code: y.code, name: y.name } ) : toHex( rgb );
+	}
+	/**
+	 * One craft, drawn: { chart, finished, legend, facts }. Cached per
+	 * source and setting, so retyping the title does not redraw a quilt.
+	 */
+	function craftResult( mode, src, cell, thumb = false ) {
+		const fixed = resolvedFixed();
+		const yarn = yarnFor( mode, params.yarn );
+		const key = JSON.stringify( [
+			mode,
+			srcVersion,
+			cell,
+			fixed,
+			yarn,
+			params.weave,
+			params.gridW,
+			params.colors,
+			params.symbols,
+			params.filetInvert,
+			params.quiltBlocks,
+			params.blockCm,
+			params.hitoAcross,
+			params.hitoDown,
+			params.hitoSize,
+			params.braceletKind,
+			params.braceletName,
+			params.braceletLength,
+		] );
+		if ( ! thumb && craftCache && key === craftKey ) {
+			return craftCache;
+		}
+		const words = craftWords();
+		const like = document.createElement( 'canvas' );
+		let res = null;
+		if ( 'beadweave' === mode && src ) {
+			res = beadWeave( src, {
+				weave: params.weave,
+				cols: thumb ? 22 : params.gridW,
+				colors: params.colors,
+				fixed,
+				yarn,
+				cell,
+				symbols: params.symbols && ! thumb,
+				words,
+			} );
+		} else if ( 'filet' === mode && src ) {
+			const thread = accentHex();
+			res = filetCrochet( src, {
+				cols: thumb ? 28 : params.gridW,
+				cell,
+				invert: params.filetInvert,
+				thread: thread || undefined,
+				words,
+			} );
+		} else if ( 'blackwork' === mode && src ) {
+			const thread = accentHex() || '#1d1f24';
+			res = blackwork( src, {
+				cols: thumb ? 30 : params.gridW,
+				cell,
+				thread,
+				label: threadName( hexToRgb( thread ), yarn ),
+				words,
+			} );
+			res.thread = thread;
+		} else if ( 'quilt' === mode && src ) {
+			res = quilt( src, {
+				blocks: thumb ? 10 : params.quiltBlocks,
+				fabrics: params.colors,
+				fixed,
+				cell: cell * 3,
+				blockCm: params.blockCm,
+				seed: 7,
+				words,
+			} );
+		} else if ( 'hitomezashi' === mode ) {
+			// Pinned colours: the thread, then the fabric (two shades).
+			const pins = fixed ? fixed.map( toHex ) : [];
+			const thread = pins[ 0 ] || '#f4efe4';
+			const fabric = pins.length >= 3 ? [ pins[ 1 ], pins[ 2 ] ] : pins.length === 2 ? [ pins[ 1 ], pins[ 1 ] ] : null;
+			const size = thumb ? 16 : params.hitoSize;
+			res = hitomezashi( like, {
+				across: params.hitoAcross,
+				down: params.hitoDown,
+				cols: size,
+				rows: size,
+				cell: Math.round( cell * 1.2 ),
+				thread,
+				fabric: fabric || undefined,
+				words,
+			} );
+		} else if ( 'bracelet' === mode ) {
+			let colors = fixed && fixed.length >= 2 ? fixed.slice( 0, 5 ) : null;
+			if ( colors && yarn ) {
+				colors = colors.map( ( c ) => nearestYarn( c, yarn ).rgb );
+			}
+			const base = colors || [
+				[ 232, 80, 91 ],
+				[ 249, 213, 110 ],
+				[ 20, 177, 171 ],
+				[ 243, 236, 226 ],
+			];
+			const named = yarn ? base.map( ( c ) => nearestYarn( c, yarn ).rgb ) : base;
+			res = bracelet( like, {
+				kind: params.braceletKind,
+				name: params.braceletName,
+				colors: named,
+				labels: named.map( ( c ) => threadName( c, yarn ) ),
+				cell: Math.round( cell * 1.4 ),
+				length: thumb ? 14 : params.braceletLength,
+				words,
+			} );
+		}
+		if ( ! thumb ) {
+			craftCache = res;
+			craftKey = key;
+		}
+		return res;
+	}
+
+	/** The facts line under a craft sheet: how big, how many. */
+	function craftFacts( mode, res ) {
+		const f = res.facts || {};
+		const cm = ( mm ) => ( mm / 10 ).toFixed( 0 );
+		if ( 'beadweave' === mode ) {
+			return t( '%1 × %2 beads · about %3 × %4 cm with Delica 11/0' )
+				.replace( '%1', f.cols )
+				.replace( '%2', f.rows )
+				.replace( '%3', cm( f.widthMm ) )
+				.replace( '%4', cm( f.heightMm ) );
+		}
+		if ( 'quilt' === mode ) {
+			return t( '%1 × %2 blocks of %3 cm · quilt %4 × %5 cm · cut squares at %6 cm, triangle squares at %7 cm' )
+				.replace( '%1', f.blocks[ 0 ] )
+				.replace( '%2', f.blocks[ 1 ] )
+				.replace( '%3', f.blockCm )
+				.replace( '%4', f.widthCm )
+				.replace( '%5', f.heightCm )
+				.replace( '%6', f.cutSquare.toFixed( 2 ).replace( /\.?0+$/, '' ) )
+				.replace( '%7', f.cutHalf.toFixed( 1 ).replace( /\.0$/, '' ) );
+		}
+		if ( 'bracelet' === mode ) {
+			return t( '%1 strings · %2 knots · about %3 cm long' )
+				.replace( '%1', f.strings )
+				.replace( '%2', f.knots )
+				.replace( '%3', f.lengthCm );
+		}
+		if ( f.cols && f.rows ) {
+			return `${ f.cols } × ${ f.rows }${ f.stitches ? ` · ${ f.stitches } ${ t( 'stitches' ) }` : '' }`;
+		}
+		return '';
+	}
+
+	/** Title, chart and/or finished piece, legend and facts on one sheet. */
+	function craftSheet( mode, res, cell ) {
+		const view = params.view;
+		const parts =
+			'chart' === view ? [ res.chart ] : 'finished' === view ? [ res.finished ] : [ res.chart, res.finished ];
+		const partsW = parts.reduce( ( a, p ) => a + p.width, 0 ) + MARGIN * ( parts.length - 1 );
+		const partsH = Math.max( ...parts.map( ( p ) => p.height ) );
+		const W = Math.max( partsW, 560 ) + MARGIN * 2;
+		const tLines = splitLines( params.title, 2 );
+		const tPx = Math.round( ( cell * 2.6 * Math.max( 60, Math.min( 160, params.textScale ) ) ) / 100 );
+		const tLh = Math.round( tPx * 1.22 );
+		const titleH = tLines.length ? tLines.length * tLh + 18 : 0;
+		const items = 'finished' === view ? [] : res.legend || [];
+		const perRow = Math.max( 1, Math.floor( ( W - MARGIN * 2 ) / 240 ) );
+		const legendH = items.length ? Math.ceil( items.length / perRow ) * 34 + 16 : 0;
+		const key =
+			'blackwork' === mode && 'finished' !== view
+				? blackworkKey( document.createElement( 'canvas' ), Math.round( cell * 1.3 ), res.thread )
+				: null;
+		const keyH = key ? key.height + 12 : 0;
+		const facts = craftFacts( mode, res );
+		const factsH = facts ? 30 : 0;
+		const c = document.createElement( 'canvas' );
+		c.width = W;
+		c.height = MARGIN * 2 + titleH + partsH + ( legendH ? 14 + legendH : 0 ) + keyH + factsH;
+		const g = c.getContext( '2d' );
+		g.fillStyle = '#ffffff';
+		g.fillRect( 0, 0, c.width, c.height );
+		if ( tLines.length ) {
+			g.fillStyle = accentHex() || '#26292e';
+			g.font = `700 ${ tPx }px ${ params.font ? `"${ params.font }", sans-serif` : 'sans-serif' }`;
+			g.textAlign = 'center';
+			g.textBaseline = 'middle';
+			tLines.forEach( ( ln, i ) => g.fillText( ln, c.width / 2, MARGIN - 8 + tLh / 2 + i * tLh ) );
+		}
+		let x = ( W - partsW ) / 2;
+		const y = MARGIN + titleH;
+		for ( const p of parts ) {
+			g.drawImage( p, x, y + ( partsH - p.height ) / 2 );
+			x += p.width + MARGIN;
+		}
+		let ly = y + partsH + 14;
+		if ( items.length ) {
+			const colW = ( W - MARGIN * 2 ) / perRow;
+			items.forEach( ( it, i ) => {
+				const lx = MARGIN + ( i % perRow ) * colW;
+				const yy = ly + 8 + Math.floor( i / perRow ) * 34;
+				g.fillStyle = hexOf( it.rgb.map( ( v ) => Math.round( v ) ) );
+				g.fillRect( lx, yy, 22, 22 );
+				g.strokeStyle = 'rgba(0,0,0,0.35)';
+				g.lineWidth = 1;
+				g.strokeRect( lx + 0.5, yy + 0.5, 21, 21 );
+				if ( it.symbol ) {
+					g.fillStyle = 0.299 * it.rgb[ 0 ] + 0.587 * it.rgb[ 1 ] + 0.114 * it.rgb[ 2 ] > 150 ? '#31353b' : '#ffffff';
+					g.font = '600 12px sans-serif';
+					g.textAlign = 'center';
+					g.textBaseline = 'middle';
+					g.fillText( it.symbol, lx + 11, yy + 12 );
+				}
+				g.fillStyle = '#31353b';
+				g.font = '600 11px sans-serif';
+				g.textAlign = 'left';
+				g.textBaseline = 'top';
+				g.fillText( fitText( g, it.label, colW - 40 ), lx + 30, yy + 1 );
+				g.fillStyle = '#6a7078';
+				g.font = '500 10px sans-serif';
+				g.fillText( fitText( g, it.usage || '', colW - 40 ), lx + 30, yy + 13 );
+			} );
+			ly += legendH;
+		}
+		if ( key ) {
+			g.drawImage( key, MARGIN, ly + 4 );
+			ly += keyH;
+		}
+		if ( facts ) {
+			g.fillStyle = '#4a4f57';
+			g.font = '500 13px sans-serif';
+			g.textAlign = 'left';
+			g.textBaseline = 'middle';
+			g.fillText( fitText( g, facts, W - MARGIN * 2 ), MARGIN, ly + 15 );
+		}
+		return c;
+	}
+
+	// The board is wound once per source and setting; preview and insert
+	// draw the very same winding, only at different sizes.
+	let plan = null;
+	let planKey = '';
+	function ensurePlan() {
+		const src = srcBase || srcCanvas;
+		if ( ! src ) {
+			return null;
+		}
+		const colors = threadColorsFor( src );
+		const key = [
+			srcVersion,
+			params.nails,
+			params.threads,
+			params.thickness,
+			params.board,
+			colors ? colors.map( ( c ) => c.join( ',' ) ).join( '|' ) : 'one',
+		].join( ':' );
+		if ( ! plan || key !== planKey ) {
+			plan = planStringArt( src, {
+				nails: params.nails,
+				threads: params.threads,
+				thickness: params.thickness,
+				board: params.board,
+				colors,
+			} );
+			planKey = key;
+		}
+		showThread();
+		return plan;
+	}
+	// v2.9: the thread colours of a coloured board - pinned colours first,
+	// otherwise the picture's own; named in the yarn range, if one is on.
+	function threadColorsFor( src ) {
+		const k = params.threadColors || 1;
+		if ( k < 2 ) {
+			return null;
+		}
+		const pinned = resolvedFixed();
+		let colors =
+			pinned && pinned.length >= 2 ? pinned.slice( 0, k ) : pickThreadColors( src, k );
+		const yarn = activeYarn();
+		if ( yarn ) {
+			colors = colors.map( ( c ) => nearestYarn( c, yarn ).rgb );
+		}
+		return colors;
+	}
+	function threadLabels() {
+		const yarn = activeYarn();
+		const short = yarn ? YARN_SETS.find( ( y ) => y.id === yarn ).short : '';
+		return ( plan ? plan.layers : [] ).map( ( l ) => {
+			if ( ! l.color ) {
+				return '';
+			}
+			const y = yarn ? nearestYarn( l.color, yarn ) : null;
+			return y ? yarnLabel( { brand: short, code: y.code, name: y.name } ) : hexOf( l.color );
+		} );
+	}
+	const boardLabel = () =>
+		t(
+			(
+				BOARD_SHAPES.find( ( b ) => b.id === params.board ) ||
+				BOARD_SHAPES[ 0 ]
+			).label
+		);
+	function threadFacts() {
+		if ( ! plan ) {
+			return '';
+		}
+		const metres = Math.round( threadMetres( plan, params.boardCm ) );
+		const names = threadLabels();
+		const colours =
+			plan.layers.length > 1
+				? ` · ${ plan.layers
+						.map(
+							( l, i ) =>
+								`${ names[ i ] } ≈ ${ Math.round(
+									threadMetres( plan, params.boardCm, l )
+								) } m`
+						)
+						.join( ', ' ) }`
+				: '';
+		return `${ boardLabel() } · ${ params.boardCm } cm · ${ t(
+			'Thread'
+		) } ≈ ${ metres } m · ${ threadCount( plan ) } ${ t( 'Threads' ) }${ colours }`;
+	}
+	function showThread() {
+		threadNote.textContent = threadFacts();
+	}
+
+	function bake( cell, artSize = 900 ) {
 		if ( 'mandala' === params.mode ) {
 			return withSheetTitle(
 				buildStringMandala( document.createElement( 'canvas' ), {
@@ -1127,25 +1811,24 @@ function openStudio( ctx ) {
 			);
 		}
 		if ( 'stringart' === params.mode ) {
-			if ( ! srcCanvas ) {
+			const wound = ensurePlan();
+			if ( ! wound ) {
 				return null;
 			}
-			// Preview weaves a faster, smaller piece; the insert renders
-			// the full quality.
-			// The preview weaves the FULL thread count (what you see is
-			// what you get) - only the internal resolution is smaller.
-			const full = cell >= BAKE_CELL;
-			const art = buildStringArt( srcBase || srcCanvas, {
-				size: full ? 480 : 380,
-				nails: params.nails,
-				budget: params.threads,
-				alpha: { fine: 0.12, normal: 0.16, bold: 0.22 }[
-					params.thickness
-				],
-				color: accentHex() || '#26292e',
-			} );
-			lastArt = art;
-			return withSheetTitle( art.canvas );
+			return withSheetTitle(
+				drawStringArt( document.createElement( 'canvas' ), wound, {
+					size: artSize,
+					color: accentHex() || '#26292e',
+				} )
+			);
+		}
+		if ( CRAFTS.includes( params.mode ) ) {
+			const src = srcCanvas;
+			if ( ! src && ! NO_PHOTO.includes( params.mode ) ) {
+				return null;
+			}
+			const res = craftResult( params.mode, src, cell );
+			return res ? craftSheet( params.mode, res, cell ) : null;
 		}
 		const built = ensureGrid();
 		if ( ! built ) {
@@ -1153,28 +1836,46 @@ function openStudio( ctx ) {
 		}
 		const { rows } = built;
 		const cols = params.gridW;
+		const view = FINISHED_MODES.includes( params.mode )
+			? params.view
+			: 'chart';
+		// The finished piece alone is a picture, not a working sheet: it
+		// gets bigger stitches.
+		const unit = 'finished' === view ? Math.round( cell * 1.5 ) : cell;
 		const cellH =
 			'knitting' === params.mode
-				? Math.round( ( cell * params.gauge ) / 100 )
-				: cell;
-		const chartW = cols * cell;
+				? Math.round( ( unit * params.gauge ) / 100 )
+				: unit;
+		const chartW = cols * unit;
 		const chartH = rows * cellH;
 		// Sheet title in the accent color and chosen font.
 		const tLines = splitLines( params.title, 2 );
 		const tPx = Math.round(
-			( cell * 2.6 * Math.max( 60, Math.min( 160, params.textScale ) ) ) /
+			( unit * 2.6 * Math.max( 60, Math.min( 160, params.textScale ) ) ) /
 				100
 		);
 		const tLh = Math.round( tPx * 1.22 );
 		const titleH = tLines.length ? tLines.length * tLh + 18 : 0;
-		const legendRows = Math.ceil(
-			built.grid.palette.length /
-				Math.max( 2, Math.floor( chartW / 190 ) )
-		);
-		const legendH = legendRows * 34 + 16;
+		const legendRows =
+			'finished' === view
+				? 0
+				: Math.ceil(
+						built.grid.palette.length /
+							Math.max( 2, Math.floor( chartW / 190 ) )
+				  );
+		const floatNote =
+			'finished' !== view && built.grid.floats && built.grid.floats.length
+				? t( 'Red bars: floats longer than %d stitches - catch them.' ).replace(
+						'%d',
+						String( params.maxFloat || 5 )
+				  )
+				: '';
+		const legendH = legendRows ? legendRows * 34 + 16 + ( floatNote ? 26 : 0 ) : 0;
 		const c = document.createElement( 'canvas' );
-		c.width = chartW + MARGIN * 2;
-		c.height = chartH + MARGIN * 2 + titleH + legendH + 14;
+		c.width =
+			'both' === view ? chartW * 2 + MARGIN * 3 : chartW + MARGIN * 2;
+		c.height =
+			chartH + MARGIN * 2 + titleH + legendH + ( legendH ? 14 : 0 );
 		const g = c.getContext( '2d' );
 		g.fillStyle = '#ffffff';
 		g.fillRect( 0, 0, c.width, c.height );
@@ -1192,9 +1893,22 @@ function openStudio( ctx ) {
 				g.fillText( ln, c.width / 2, MARGIN - 8 + tLh / 2 + i * tLh )
 			);
 		}
+		const finished = ( x ) =>
+			renderFinished( g, built.grid, cols, rows, {
+				mode: params.mode,
+				cell: unit,
+				cellH,
+				drill: params.drill,
+				x,
+				y: MARGIN + titleH,
+			} );
+		if ( 'finished' === view ) {
+			finished( MARGIN );
+			return c;
+		}
 		renderChart( g, built.grid, cols, rows, {
 			mode: params.mode,
-			cell,
+			cell: unit,
 			cellH,
 			symbols: params.symbols,
 			boardSize: 'beads' === params.mode ? params.boardSize : 0,
@@ -1202,13 +1916,26 @@ function openStudio( ctx ) {
 			x: MARGIN,
 			y: MARGIN + titleH,
 		} );
-		renderLegend( g, built.grid, {
+		if ( 'both' === view ) {
+			finished( MARGIN * 2 + chartW );
+		}
+		const legendDrawn = renderLegend( g, built.grid, {
 			mode: params.mode,
 			x: MARGIN,
 			y: MARGIN + titleH + chartH + 14,
 			width: chartW,
 			symbols: params.symbols,
 		} );
+		if ( floatNote ) {
+			const ny = MARGIN + titleH + chartH + 14 + legendDrawn + 4;
+			g.fillStyle = '#e5484d';
+			g.fillRect( MARGIN + 12, ny + 6, 22, 5 );
+			g.fillStyle = '#31353b';
+			g.font = '500 12px sans-serif';
+			g.textAlign = 'left';
+			g.textBaseline = 'middle';
+			g.fillText( floatNote, MARGIN + 42, ny + 9 );
+		}
 		return c;
 	}
 
@@ -1226,7 +1953,7 @@ function openStudio( ctx ) {
 	}
 	function paintNow() {
 		syncUi();
-		if ( ! srcCanvas && 'mandala' !== params.mode ) {
+		if ( ! srcCanvas && ! NO_PHOTO.includes( params.mode ) ) {
 			canvas.width = 10;
 			canvas.height = 10;
 			return;
@@ -1290,6 +2017,7 @@ function openStudio( ctx ) {
 	};
 	function close() {
 		window.clearTimeout( thumbTimer );
+		history.dispose();
 		window.removeEventListener( 'resize', onResize );
 		if ( viewRO ) {
 			viewRO.disconnect();
@@ -1317,19 +2045,50 @@ function openStudio( ctx ) {
 			close();
 		}
 	};
+	// Ctrl+Z / Ctrl+Shift+Z (shared/studio-undo.js), no button: craft,
+	// palette, colours, size and sheet; a changed picture is loaded again.
+	const history = studioUndo( {
+		backdrop,
+		read: () => params,
+		write: ( data ) => {
+			const source = () => JSON.stringify( [ params.source, params.image ] );
+			const before = source();
+			Object.assign( params, data );
+			customCtls.forEach( ( ctl, i ) =>
+				ctl?.set?.( params.customColors[ i ] || '#cccccc' )
+			);
+			gridKey = '';
+			syncUi();
+			if ( source() !== before ) {
+				loadSource();
+			} else {
+				onGeometryChange();
+			}
+		},
+	} );
 
 	/* -------------------------------- insert ------------------------------ */
 
 	apply.onclick = async () => {
-		if ( ! srcCanvas && 'mandala' !== params.mode ) {
+		if ( ! srcCanvas && ! NO_PHOTO.includes( params.mode ) ) {
 			return;
 		}
 		apply.disabled = true;
 		setStatus( t( 'Rendering the chart' ) );
 		try {
-			const baked = bake( BAKE_CELL );
-			const url = baked.toDataURL( 'image/png' );
 			const doc = editor.state.doc;
+			// A board is drawn at the size its layer will have in the
+			// document (a reopened one at its current size), so it is sharp
+			// there - never smaller than a crisp default, never past 4096.
+			const want =
+				editing && layer
+					? Math.max( layer.w || 0, layer.h || 0 )
+					: Math.min( doc.w, doc.h ) * 0.92;
+			const baked = bake(
+				BAKE_CELL,
+				Math.max( 1200, Math.min( 4096, Math.round( want ) ) )
+			);
+			const url = baked.toDataURL( 'image/png' );
 			const fit = Math.min(
 				( doc.w * 0.92 ) / baked.width,
 				( doc.h * 0.92 ) / baked.height
@@ -1366,14 +2125,16 @@ function openStudio( ctx ) {
 				imgLayer.generator = { id: GEN_ID, params: stored };
 				editor.dispatch( { type: 'ADD_LAYER', layer: imgLayer } );
 				// String art: the winding guide as a second layer.
-				if ( 'stringart' === params.mode && params.guide && lastArt ) {
+				if ( 'stringart' === params.mode && params.guide && plan ) {
 					const guideC = renderStringGuide(
 						document.createElement( 'canvas' ),
-						lastArt,
+						plan,
 						{
 							title:
 								splitLines( params.title, 1 )[ 0 ] ||
 								'String Art',
+							facts: threadFacts(),
+							labels: threadLabels(),
 						}
 					);
 					const gfit = Math.min(
@@ -1409,6 +2170,213 @@ function openStudio( ctx ) {
 			apply.disabled = false;
 		}
 	};
+
+	/* ---------------------------- nail template --------------------------- */
+
+	const download = ( blob, name ) => {
+		if ( bridge.util && bridge.util.downloadBlob ) {
+			bridge.util.downloadBlob( blob, name );
+			return;
+		}
+		const a = document.createElement( 'a' );
+		a.href = URL.createObjectURL( blob );
+		a.download = name;
+		document.body.appendChild( a );
+		a.click();
+		a.remove();
+		window.setTimeout( () => URL.revokeObjectURL( a.href ), 4000 );
+	};
+	templateBtn.onclick = async () => {
+		templateBtn.disabled = true;
+		setStatus( t( 'Rendering the chart' ) );
+		try {
+			const pages = nailTemplatePages(
+				document.createElement( 'canvas' ),
+				{
+					shape: params.board,
+					nails: params.nails,
+					boardCm: params.boardCm,
+					insetCm: NAIL_INSET_CM,
+					paper: params.paper,
+					labels: {
+						title: `${
+							splitLines( params.title, 1 )[ 0 ] ||
+							t( 'String art' )
+						} · ${ boardLabel() } · ${ params.boardCm } cm · ${
+							params.nails
+						} ${ t( 'Nails' ) }`,
+						start: t( 'start' ),
+						scale: t( '5 cm - print at 100 %' ),
+						page: t( 'Page' ),
+					},
+				}
+			);
+			download(
+				await pagesToPdf( pages ),
+				`nail-template-${ params.board }-${ params.boardCm }cm.pdf`
+			);
+			setStatus( t( 'Nail template downloaded. Print it at 100 %.' ) );
+		} catch ( e ) {
+			setStatus( t( 'The nail template could not be created.' ), true );
+		}
+		templateBtn.disabled = false;
+	};
+
+	/* ---------------------------- pattern PDF (v2.9) ---------------------- */
+
+	// What a stitcher needs to know before buying: how big it will be.
+	function sizeFact( cols, rows ) {
+		const cm = ( n, mm ) => ( ( n * mm ) / 10 ).toFixed( 0 );
+		const m = params.mode;
+		if ( 'crossstitch' === m ) {
+			// 14-count Aida: 14 stitches to the inch.
+			return t( 'On 14-count Aida: %s × %s cm' )
+				.replace( '%s', cm( cols, 25.4 / 14 ) )
+				.replace( '%s', cm( rows, 25.4 / 14 ) );
+		}
+		if ( 'diamond' === m ) {
+			return t( 'With 2.5 mm drills: %s × %s cm' )
+				.replace( '%s', cm( cols, 2.5 ) )
+				.replace( '%s', cm( rows, 2.5 ) );
+		}
+		if ( 'beads' === m ) {
+			return t( 'With 5 mm beads: %s × %s cm' )
+				.replace( '%s', cm( cols, 5 ) )
+				.replace( '%s', cm( rows, 5 ) );
+		}
+		return '';
+	}
+
+	pdfBtn.onclick = async () => {
+		const built = ensureGrid();
+		if ( ! built ) {
+			return;
+		}
+		pdfBtn.disabled = true;
+		setStatus( t( 'Rendering the chart' ) );
+		try {
+			const cols = params.gridW;
+			const { rows } = built;
+			// The finished piece on the cover, where the craft has one.
+			let finished = null;
+			if ( FINISHED_MODES.includes( params.mode ) ) {
+				const unit = 10;
+				const cellH =
+					'knitting' === params.mode ? Math.round( ( unit * params.gauge ) / 100 ) : unit;
+				finished = document.createElement( 'canvas' );
+				finished.width = cols * unit;
+				finished.height = rows * cellH;
+				renderFinished( finished.getContext( '2d' ), built.grid, cols, rows, {
+					mode: params.mode,
+					cell: unit,
+					cellH,
+					drill: params.drill,
+					x: 0,
+					y: 0,
+				} );
+			}
+			const mode = MODES.find( ( m ) => m.id === params.mode );
+			const pages = patternPages( document.createElement( 'canvas' ), built.grid, cols, rows, {
+				mode: params.mode,
+				gauge: params.gauge,
+				symbols: params.symbols,
+				drill: params.drill,
+				boardSize: 'beads' === params.mode ? params.boardSize : 0,
+				paper: params.paper || 'a4',
+				title: splitLines( params.title, 1 )[ 0 ] || t( mode.label ),
+				finished,
+				facts: [
+					`${ t( mode.label ) } · ${ cols } × ${ rows } · ${ built.grid.palette.length } ${ t( 'Colors' ) }`,
+					sizeFact( cols, rows ),
+				].filter( Boolean ),
+				labels: {
+					page: t( 'Page' ),
+					of: t( 'of' ),
+					columns: t( 'Columns' ),
+					rows: t( 'Rows' ),
+					colors: t( 'Colors' ),
+					stitches: '',
+					overview: t( 'Which page holds which part' ),
+					floats:
+						built.grid.floats && built.grid.floats.length
+							? t( 'Red bars: floats longer than %d stitches - catch them.' ).replace(
+									'%d',
+									String( params.maxFloat || 5 )
+							  )
+							: '',
+				},
+			} );
+			download( await pagesToPdf( pages ), `pattern-${ params.mode }.pdf` );
+			setStatus( t( 'Pattern downloaded. Print it at 100 %.' ) );
+		} catch ( e ) {
+			setStatus( t( 'The pattern could not be created.' ), true );
+		}
+		pdfBtn.disabled = false;
+	};
+
+	/* --------------------------- winding film (v2.9) ----------------------- */
+
+	// The board wound thread by thread - slowly at first, then faster, and
+	// the finished piece held for a moment at the end. Made frame by frame:
+	// an MP4 where the browser encodes H.264, a GIF otherwise.
+	filmBtn.onclick = async () => {
+		const wound = ensurePlan();
+		if ( ! wound ) {
+			return;
+		}
+		filmBtn.disabled = true;
+		apply.disabled = true;
+		try {
+			const mp4 = mp4Available();
+			const size = mp4 ? 1080 : 540;
+			const fps = mp4 ? 30 : 15;
+			const total = threadCount( wound );
+			const winding = 12;
+			const hold = 1.5;
+			const color = accentHex() || '#26292e';
+			const frames = async ( { onFrame } ) => {
+				const n = Math.round( ( winding + hold ) * fps );
+				const c = document.createElement( 'canvas' );
+				c.width = size;
+				c.height = size;
+				for ( let i = 0; i < n; i++ ) {
+					const u = Math.min( 1, i / ( winding * fps ) );
+					// Ease in: the first threads are worth watching.
+					const limit = Math.round( total * u * u * ( 3 - 2 * u ) * 0.5 + total * u * 0.5 );
+					drawStringArt( c, wound, { size, color, limit, canvas: c } );
+					await onFrame( c, i );
+					if ( 0 === i % 10 ) {
+						setStatus( `${ t( 'Rendering the video' ) } ${ Math.round( ( i / n ) * 100 ) }%` );
+						await new Promise( ( r ) => window.setTimeout( r, 0 ) );
+					}
+				}
+			};
+			let out;
+			try {
+				out = mp4
+					? await encodeMp4( { frames, width: size, height: size, fps } )
+					: await encodeGif( { frames, width: size, height: size, fps } );
+			} catch ( e ) {
+				out = await encodeGif( { frames, width: 540, height: 540, fps: 15 } );
+			}
+			download( out.blob, `string-art-winding.${ out.ext }` );
+			lastFilm = { ext: out.ext, bytes: out.blob.size };
+			setStatus( t( 'Video downloaded.' ) );
+		} catch ( e ) {
+			setStatus( t( 'The video could not be made.' ), true );
+		}
+		filmBtn.disabled = false;
+		apply.disabled = false;
+	};
+	let lastFilm = null;
+	if ( window.__wpieQA ) {
+		window.__stitchStudio = {
+			params: () => JSON.parse( JSON.stringify( params ) ),
+			lastFilm: () => lastFilm,
+			plan: () => plan && { layers: plan.layers.length, threads: threadCount( plan ) },
+			grid: () => grid && { colors: grid.palette.length, codes: grid.codes, floats: ( grid.floats || [] ).length },
+		};
+	}
 
 	/* --------------------------------- boot ------------------------------- */
 

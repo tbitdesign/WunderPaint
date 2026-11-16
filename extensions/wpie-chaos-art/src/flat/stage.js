@@ -13,11 +13,22 @@
 
 import { makeTips } from './tips.js';
 import { prepareMark } from './marks.js';
+import { markShare, splitOutside, CALM } from './clear.js';
 import { makePainter } from './paint.js';
 import { SenseMap } from './senses.js';
 import { css } from './palette2d.js';
 
 const TIP_SEED = 7;
+// A broad stroke is styled in one piece of work (flat/paint.js). In the
+// dialog at most one of them runs in a frame, and after it the next waits
+// at least as long as it took (up to REST_MAX), so a normal frame always
+// comes in between: the dialog keeps answering, the sheet keeps moving.
+const REST_MAX = 250; // ms
+const now = () =>
+	'undefined' !== typeof performance ? performance.now() : Date.now();
+
+// The soft edge of a reserved zone, in frame units (sheet heights).
+const RESERVE_FEATHER = 0.035;
 
 export class FlatStage {
 	constructor( {
@@ -45,6 +56,12 @@ export class FlatStage {
 		this.lightAngle = -2.2;
 		this.marks = 0;
 		this.dirtySince = 0;
+		// Set by the dialog: broad strokes wait their turn between frames.
+		// Off (proof sheets, tests) they are styled the moment they are
+		// needed, exactly as before.
+		this.realtime = false;
+		this.broad = [];
+		this.restUntil = 0;
 		// The editor's brush engine, when the host hands it over: brush
 		// and wet commands go through it, everything else is own marks.
 		this.painter = makePainter( {
@@ -60,7 +77,22 @@ export class FlatStage {
 	setGround( spec ) {
 		this.ground = spec;
 		this.groundRgb = spec.color.slice();
-		const g = this.ctx;
+		this.paintGround( this.ctx, spec );
+		this.log.length = 0;
+		this.pending.length = 0;
+		this.broad.length = 0;
+		this.marks = 0;
+		this.senses = new SenseMap( this.aspect, this.senses.rows );
+		// A new ground keeps the page's text zones (flat/clear.js).
+		this.senses.blocked = this.clear || [];
+		this.calmLayer = null;
+		this.sampleSenses();
+		this.senses.rememberGround();
+		this.senses.update( this.groundRgb );
+	}
+
+	/** The ground itself onto any context of the sheet's size. */
+	paintGround( g, spec ) {
 		g.globalCompositeOperation = 'source-over';
 		g.globalAlpha = 1;
 		g.fillStyle = css( spec.color );
@@ -134,13 +166,55 @@ export class FlatStage {
 			g.fillRect( 0, 0, this.W, this.H );
 			g.restore();
 		}
-		this.log.length = 0;
-		this.pending.length = 0;
-		this.marks = 0;
-		this.senses = new SenseMap( this.aspect, this.senses.rows );
-		this.sampleSenses();
-		this.senses.rememberGround();
-		this.senses.update( this.groundRgb );
+	}
+
+	/**
+	 * The page's text, reserved (flat/clear.js) the way a watercolorist
+	 * reserves the white of the paper: from now on the zones show the
+	 * sheet as it stands - ground and the softened underpainting - with
+	 * a soft edge, whatever lands there later. Every mark type, wet paint
+	 * included, on the stage, in every still and in the painters' senses.
+	 * `fromGround` reserves the bare ground instead (zones switched on in
+	 * the middle of a piece). No zones, no reserve.
+	 */
+	reserve( fromGround = false ) {
+		const zones = this.clear && this.clear.length ? this.clear : null;
+		if ( ! zones ) {
+			this.calmLayer = null;
+			return;
+		}
+		const ref = this.createCanvas( this.W, this.H );
+		const rg = ref.getContext( '2d' );
+		if ( fromGround && this.ground ) {
+			this.paintGround( rg, this.ground );
+		} else {
+			rg.drawImage( this.canvas, 0, 0 );
+			this.painter.overlays( rg, 1, 1 );
+		}
+		const c = this.createCanvas( this.W, this.H );
+		const g = c.getContext( '2d' );
+		// The mask: the zones, their edge blurred inward (a shadow cast
+		// from a rectangle drawn off the canvas - portable everywhere).
+		const f = Math.max( 2, RESERVE_FEATHER * this.S );
+		const off = this.W * 2 + f * 4;
+		g.save();
+		g.shadowColor = '#000';
+		g.shadowBlur = f;
+		g.shadowOffsetX = off;
+		g.fillStyle = '#000';
+		for ( const z of zones ) {
+			const x0 = z.x0 * this.S + f * 0.6;
+			const y0 = z.y0 * this.S + f * 0.6;
+			const x1 = z.x1 * this.S - f * 0.6;
+			const y1 = z.y1 * this.S - f * 0.6;
+			if ( x1 > x0 && y1 > y0 ) {
+				g.fillRect( x0 - off, y0, x1 - x0, y1 - y0 );
+			}
+		}
+		g.restore();
+		g.globalCompositeOperation = 'source-in';
+		g.drawImage( ref, 0, 0 );
+		this.calmLayer = c;
 	}
 
 	env() {
@@ -154,26 +228,99 @@ export class FlatStage {
 
 	/**
 	 * Accept a command. With a duration (world seconds) it is drawn
-	 * progressively from `now`; without, at once.
+	 * progressively from `at`; without, at once.
 	 */
-	push( cmd, now = 0 ) {
-		const prep =
+	push( cmd, at = 0 ) {
+		const zones = this.clear && this.clear.length ? this.clear : null;
+		// The page's text (flat/clear.js): a path that crosses it is cut
+		// there - its outside runs land, each running out at the cut.
+		// Underpainting (calm) may cross, softened, and is not cut.
+		if ( zones && ! cmd.calm ) {
+			if ( Array.isArray( cmd.pts ) && cmd.pts.length > 1 ) {
+				const runs = splitOutside( cmd.pts, zones );
+				if ( runs.length !== 1 || runs[ 0 ] !== cmd.pts ) {
+					let any = false;
+					for ( const run of runs ) {
+						any = this._land( { ...cmd, pts: run }, at ) || any;
+					}
+					return any;
+				}
+			} else if ( Array.isArray( cmd.lines ) && cmd.lines.length ) {
+				const lines = cmd.lines.flatMap( ( l ) =>
+					splitOutside( l, zones )
+				);
+				if (
+					lines.length !== cmd.lines.length ||
+					lines.some( ( l, i ) => l !== cmd.lines[ i ] )
+				) {
+					return lines.length
+						? this._land( { ...cmd, lines }, at )
+						: false;
+				}
+			}
+		}
+		return this._land( cmd, at );
+	}
+
+	/** One mark onto the sheet (push does the cutting). */
+	_land( cmd, at ) {
+		const zones = this.clear && this.clear.length ? this.clear : null;
+		// A brush stroke is judged by its points BEFORE it is prepared -
+		// preparing claims wet paper.
+		if (
+			zones &&
+			'brush' === cmd.type &&
+			markShare( cmd.pts, zones ) > 0.5
+		) {
+			if ( ! cmd.calm ) {
+				return false;
+			}
+			cmd.opacity =
+				( cmd.opacity === undefined ? 1 : cmd.opacity ) * CALM;
+		}
+		let prep =
 			'brush' === cmd.type
 				? this.painter.prepare( cmd )
 				: prepareMark( cmd, this.env() );
 		if ( ! prep ) {
 			return false;
 		}
+		// Any other mark by the ground it covers (preparing it is pure).
+		if (
+			zones &&
+			'brush' !== cmd.type &&
+			markShare( prep.bounds, zones ) > 0.5
+		) {
+			if ( ! cmd.calm ) {
+				return false;
+			}
+			cmd.alpha = ( cmd.alpha === undefined ? 1 : cmd.alpha ) * CALM;
+			prep = prepareMark( cmd, this.env() );
+			if ( ! prep ) {
+				return false;
+			}
+		}
 		this.log.push( cmd );
 		this.marks++;
 		for ( const b of prep.bounds || [] ) {
 			this.senses.note( b.x, b.y, Math.max( 0.01, b.w || 0.01 ) );
 		}
-		if ( cmd.duration > 0 && prep.steps > 1 ) {
+		if ( prep.heavy && this.realtime && ! prep.ready() ) {
+			// Its turn comes between frames; its reveal starts then.
+			const entry = {
+				prep,
+				done: 0,
+				start: at,
+				duration: Math.max( cmd.duration || 0, 0.001 ),
+				waiting: true,
+			};
+			this.pending.push( entry );
+			this.broad.push( entry );
+		} else if ( cmd.duration > 0 && prep.steps > 1 ) {
 			this.pending.push( {
 				prep,
 				done: 0,
-				start: now,
+				start: at,
 				duration: cmd.duration,
 			} );
 		} else {
@@ -185,14 +332,37 @@ export class FlatStage {
 		return true;
 	}
 
+	/** Broad strokes still waiting to be styled. */
+	backlog() {
+		return this.broad.length;
+	}
+
+	/** At most one broad stroke per frame, and a rest after it. */
+	styleNext( at ) {
+		if ( ! this.broad.length || now() < this.restUntil ) {
+			return;
+		}
+		const p = this.broad.shift();
+		const t0 = now();
+		p.prep.run();
+		const took = now() - t0;
+		this.restUntil = now() + Math.min( REST_MAX, took );
+		p.waiting = false;
+		p.start = at;
+	}
+
 	/** Draw whatever the clock allows. Returns true when something was drawn. */
-	advance( now ) {
+	advance( at ) {
+		this.styleNext( at );
 		let drew = false;
 		for ( let k = this.pending.length - 1; k >= 0; k-- ) {
 			const p = this.pending[ k ];
+			if ( p.waiting ) {
+				continue;
+			}
 			const frac = Math.min(
 				1,
-				Math.max( 0, ( now - p.start ) / p.duration )
+				Math.max( 0, ( at - p.start ) / p.duration )
 			);
 			const target = Math.min(
 				p.prep.steps,
@@ -213,12 +383,14 @@ export class FlatStage {
 	/** Every pending stroke, finished now. */
 	finishAll() {
 		for ( const p of this.pending ) {
+			p.waiting = false;
 			while ( p.done < p.prep.steps ) {
 				p.prep.draw( this.ctx, p.done );
 				p.done++;
 			}
 		}
 		this.pending.length = 0;
+		this.broad.length = 0;
 	}
 
 	/** Wall time passes: wet paint flows, dries and bakes in. */
@@ -232,6 +404,9 @@ export class FlatStage {
 		const g = this.sampler.getContext( '2d' );
 		g.drawImage( this.canvas, 0, 0, s.cols, s.rows );
 		this.painter.overlays( g, s.cols / this.W, s.rows / this.H );
+		if ( this.calmLayer ) {
+			g.drawImage( this.calmLayer, 0, 0, s.cols, s.rows );
+		}
 		const data = g.getImageData( 0, 0, s.cols, s.rows ).data;
 		for ( let i = 0; i < s.cols * s.rows; i++ ) {
 			s.rgb[ i * 3 ] = data[ i * 4 ] / 255;
@@ -441,6 +616,9 @@ export class FlatStage {
 	render( g, w, h, finishSpec = null ) {
 		g.drawImage( this.canvas, 0, 0, w, h );
 		this.painter.overlays( g, w / this.W, h / this.H );
+		if ( this.calmLayer ) {
+			g.drawImage( this.calmLayer, 0, 0, w, h );
+		}
 		if ( finishSpec ) {
 			this.finish( g, w, h, finishSpec );
 			if (

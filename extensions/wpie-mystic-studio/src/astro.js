@@ -217,7 +217,7 @@ export function heliocentric( body, jd ) {
 	};
 }
 
-/** The eleven chart bodies, in traditional order. */
+/** The ten chart bodies, in traditional order. */
 export const BODIES = [
 	'sun',
 	'moon',

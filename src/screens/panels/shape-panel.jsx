@@ -1,3 +1,4 @@
+import { colorLayerLocked } from '../../lib/color-links';
 /**
  * The shape panel: the whole Shape Studio in reach while you work.
  *
@@ -50,7 +51,9 @@ import {
 export function ShapePanel( { editor } ) {
 	const { state, dispatch, commit } = editor;
 	const active = activeLayerOf( state );
-	const editLayer = active && 'shape' === active.type ? active : null;
+	// Pen centerlines have their own controls; the shape tool configures its next shape.
+	const editLayer =
+		active && 'shape' === active.type && ! active.penPath ? active : null;
 
 	// NOT state. The cfg is read back out of the store on every render, so
 	// the panel, the options bar and the layer can never drift apart - the
@@ -61,6 +64,9 @@ export function ShapePanel( { editor } ) {
 	const box = shapeBox( cfg, state.doc, editLayer );
 
 	const patch = ( p ) => {
+		if ( editLayer && colorLayerLocked( state.layers, editLayer ) ) {
+			return;
+		}
 		const next = { ...cfg, ...p };
 		if ( editLayer ) {
 			dispatch( {
@@ -114,7 +120,7 @@ export function ShapePanel( { editor } ) {
 			/>
 
 			<div className="sp-cols">
-				{ /* All twelve groups in one roll with sticky headings, the
+				{ /* All shape categories in one roll with sticky headings, the
 				     way the modal shows them. A dropdown was quicker to
 				     build and slower to USE: you cannot see what you are
 				     looking for while it is behind a menu (Thomas). */ }
@@ -132,6 +138,25 @@ export function ShapePanel( { editor } ) {
 					</div>
 					<div className="sp-dials">
 						<ShapeDials
+							paintLayer={ editLayer }
+							onPaintChange={ ( p ) => {
+								if ( editLayer ) {
+									if (
+										! colorLayerLocked(
+											state.layers,
+											editLayer
+										)
+									) {
+										dispatch( {
+											type: 'UPDATE_LAYER',
+											id: editLayer.id,
+											patch: p,
+										} );
+									}
+								} else {
+									patch( p );
+								}
+							} }
 							cfg={ cfg }
 							patch={ patch }
 							box={ box }

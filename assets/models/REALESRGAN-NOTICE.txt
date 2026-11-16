@@ -1,0 +1,47 @@
+Real-ESRGAN general x4v3 (realesr-general-x4v3.onnx)
+====================================================
+
+The AI upscaler behind Upscale (2x and 4x). Bundled with the plugin, it never
+downloads anything and runs in the browser on the plugin's own ONNX runtime.
+
+Source weights: the official Real-ESRGAN release v0.2.5.0 by Xintao Wang,
+  https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth
+  SHA-256 of that file: 8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292
+Architecture: SRVGGNetCompact (num_feat 64, num_conv 32, upscale 4, PReLU),
+  as in realesrgan/archs/srvgg_arch.py of the same repository.
+Conversion: exported unchanged to ONNX (opset 17, free height and width)
+  with tools/export-realesrgan.py in the plugin's source repository; the
+  ONNX output matches PyTorch to within 4.3e-6 on a reference input.
+SHA-256 of realesr-general-x4v3.onnx: f788518cc66e302bc9b6946016e989dd9374f1012d5b6c0c7e753904ef3f99e4
+
+License of the weights and the code they come from:
+
+BSD 3-Clause License
+
+Copyright (c) 2021, Xintao Wang
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

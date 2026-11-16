@@ -2,7 +2,11 @@
  * Starters: public-domain material, one finished picture per entry that
  * the user changes. Names are names and stay untranslated.
  */
+import { WORKSHOP_STARTERS } from './workshop-starters.js';
+import { STUDIO_STARTERS } from './studio-starters.js';
 export const STARTERS = [
+	...WORKSHOP_STARTERS,
+	...STUDIO_STARTERS,
 	{
 		id: 'ode-to-joy',
 		card: 'score',

@@ -73,6 +73,8 @@ export function parseGeometry( text ) {
 				points.set( m[ 1 ], {
 					x: num( m[ 2 ] ),
 					y: num( m[ 3 ] ),
+					line: li,
+					derived: false,
 					show: true,
 				} );
 				if ( lab ) {
@@ -89,6 +91,8 @@ export function parseGeometry( text ) {
 				const a = points.get( need( m[ 2 ] ) );
 				const b = points.get( need( m[ 3 ] ) );
 				points.set( m[ 1 ], {
+					line: li,
+					derived: true,
 					x: ( a.x + b.x ) / 2,
 					y: ( a.y + b.y ) / 2,
 					show: true,
@@ -244,8 +248,8 @@ export function renderGeometry( fig, o ) {
 			grow( it.x, it.y );
 		}
 	}
-	if ( opts.range ) {
-		( { xmin, xmax, ymin, ymax } = opts.range );
+	if ( o.range || opts.range ) {
+		( { xmin, xmax, ymin, ymax } = o.range || opts.range );
 	} else {
 		if ( ! Number.isFinite( xmin ) ) {
 			xmin = -1;
@@ -357,7 +361,12 @@ export function renderGeometry( fig, o ) {
 						ax - fs * 0.35,
 						Y( k * step ) + fs * 0.25,
 						fmt( k * step ),
-						{ size: fs * 0.7, font, fill: muted, anchor: 'end' }
+						{
+							size: fs * 0.7,
+							font,
+							fill: muted,
+							anchor: 'end',
+						}
 					)
 				);
 			}
@@ -623,12 +632,22 @@ export function renderGeometry( fig, o ) {
 			);
 		}
 	}
-	// Points and names.
+	// Points and names. Editing handles are metadata, never exported.
+	const handles = [];
 	for ( const [ name, p ] of points ) {
 		if ( opts.hidden.has( name ) || ! p.show ) {
 			continue;
 		}
 		const [ x, y ] = P( name );
+		if ( ! p.derived )
+			handles.push( {
+				kind: 'point',
+				name,
+				x,
+				y,
+				worldX: p.x,
+				worldY: p.y,
+			} );
 		children.push(
 			`<circle cx="${ r( x ) }" cy="${ r( y ) }" r="${ r(
 				fs * 0.22
@@ -638,7 +657,20 @@ export function renderGeometry( fig, o ) {
 		);
 		const lab = opts.labels.has( name ) ? opts.labels.get( name ) : name;
 		if ( lab ) {
-			const [ lx, ly ] = outward( p.x, p.y, fs * 0.95 );
+			const offset = o.labelOffsets?.[ name ];
+			const [ lx, ly ] = offset
+				? [ X( p.x + offset.dx ), Y( p.y + offset.dy ) ]
+				: outward( p.x, p.y, fs * 0.95 );
+			handles.push( {
+				kind: 'label',
+				name,
+				x: lx,
+				y: ly,
+				worldX: p.x + ( lx - x ) / unit,
+				worldY: p.y - ( ly - y ) / unit,
+				pointX: p.x,
+				pointY: p.y,
+			} );
 			children.push(
 				textEl( lx, ly + fs * 0.35, lab, {
 					size: fs,
@@ -667,7 +699,18 @@ export function renderGeometry( fig, o ) {
 		width,
 		height,
 		warnings,
-		view: { xmin, xmax, ymin, ymax, unit },
+		view: {
+			xmin,
+			xmax,
+			ymin,
+			ymax,
+			unit,
+			x: margin,
+			y: margin,
+			w: pw,
+			h: ph,
+		},
+		handles,
 	};
 }
 

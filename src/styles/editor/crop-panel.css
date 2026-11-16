@@ -1,0 +1,189 @@
+#wpie-root .crp {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	font-size: 12px;
+}
+
+#wpie-root .crp-scroll {
+	flex: 1;
+	min-height: 0;
+	padding: 10px;
+	overflow: auto;
+}
+
+#wpie-root .crp-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+#wpie-root .crp-section + .crp-section {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .crp-formats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 6px;
+}
+
+#wpie-root .crp-formats .ai-tile-compact {
+	min-height: 56px;
+}
+
+#wpie-root .crp-formats .ai-tile-name {
+	min-height: 0;
+}
+
+#wpie-root .crp-format-shape {
+	display: block;
+	border: 1px solid currentcolor;
+	border-radius: 2px;
+}
+
+#wpie-root .crp-fields {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+#wpie-root .crp-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .crp-field input {
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .crp-check {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	line-height: 1.4;
+	cursor: pointer;
+}
+
+#wpie-root .crp-check input {
+	flex-shrink: 0;
+	margin: 0;
+	accent-color: var(--accent);
+}
+
+#wpie-root .crp-label,
+#wpie-root .crp-hint {
+	color: var(--ed-text-muted);
+}
+
+#wpie-root .crp-hint {
+	margin: 0;
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+#wpie-root .crp .dsm-seg {
+	display: flex;
+}
+
+#wpie-root .crp .dsm-seg button {
+	flex: 1;
+}
+
+#wpie-root .crp-actions {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	flex-shrink: 0;
+	padding: 10px;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .crp .ai-btn {
+	justify-content: center;
+}
+
+#wpie-root .crp-context {
+	flex-shrink: 0;
+}
+
+#wpie-root .crp-format-select {
+	min-width: 0;
+	padding-right: 24px;
+}
+
+#wpie-root .ed-tool-opts .crp-format-select {
+	width: 130px;
+	padding-right: 24px;
+}
+
+/* The passive overlay never intercepts layer selection or transform handles. */
+#wpie-root .crop-overlay.is-preview .crop-rect {
+	pointer-events: none;
+	cursor: inherit;
+}
+
+#wpie-root .crop-overlay.is-preview .crop-shade {
+	background: rgba(0, 0, 0, 0.3);
+}
+
+#wpie-root .crop-size {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	padding: 3px 6px;
+	border-radius: 3px;
+	background: rgba(0, 0, 0, 0.75);
+	color: #fff;
+	font-size: 11px;
+	line-height: 1.4;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Two-tone guides remain visible over white, dark and photographic content. */
+#wpie-root .crop-rect .third {
+	background: rgba(255, 255, 255, 0.65);
+	box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.4);
+}
+
+/* Straighten: the fine grid is quieter, there are nine lines each way. */
+#wpie-root .crop-rect .third.is-fine {
+	background: rgba(255, 255, 255, 0.4);
+	box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+
+/* The line drawn with Ctrl/Cmd + drag, and its angle. */
+#wpie-root .straighten-line {
+	position: absolute;
+	inset: 0;
+	overflow: visible;
+	pointer-events: none;
+}
+
+#wpie-root .straighten-line line {
+	stroke: #fff;
+	stroke-width: 2;
+	stroke-linecap: round;
+	filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+
+#wpie-root .straighten-angle {
+	position: absolute;
+	padding: 3px 6px;
+	border-radius: 3px;
+	background: rgba(0, 0, 0, 0.75);
+	color: #fff;
+	font-size: 11px;
+	line-height: 1.4;
+	white-space: nowrap;
+	pointer-events: none;
+	transform: translate(10px, -50%);
+}

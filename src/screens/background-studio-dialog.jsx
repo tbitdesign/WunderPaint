@@ -1,14 +1,15 @@
 /**
- * Background Studio (v1.105.0): deterministic background generator with
- * four styles (mesh gradient, organic, geometric, low-poly), a color
- * strip fed by brand kits / saved swatch sets / chance, a seed dice and
- * a grain overlay. Inserts a full-document raster layer at the bottom of
+ * Background Studio (v1.105.0, more styles and looks in v1.433.0):
+ * deterministic background generator (mesh gradient, organic, geometric,
+ * low-poly, topographic, halftone, rings, confetti, gradient, glow,
+ * aurora, bokeh) with ready-made looks, a color strip fed by brand kits /
+ * saved swatch sets / chance, a seed dice and a grain overlay. Inserts a full-document raster layer at the bottom of
  * the stack; all parameters live on the layer, so Edit Background in the
  * context menus reopens the studio with the exact settings.
  */
 
-import { useEffect, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { useEffect, useRef, useState } from '@wordpress/element';
+import { __, sprintf } from '@wordpress/i18n';
 
 import { I } from '../icons';
 import { useEditor } from '../store/editor-context';
@@ -16,12 +17,18 @@ import { useEscape } from '../components/use-escape';
 import { HelpLink } from './help-dialog';
 import { SwatchButton } from '../components/color-popover';
 import { makeImage } from '../store/document';
-import { BG_DEFAULTS, renderBackground } from '../lib/backgrounds';
+import {
+	BG_DEFAULTS,
+	encodeBackground,
+	renderBackground,
+} from '../lib/backgrounds';
+import { BACKGROUND_LOOKS, lookParams } from '../lib/background-looks';
 import { promptDialog } from '../lib/dialogs';
 import { savePattern } from '../lib/user-patterns';
 import { registerUserTile, renderToCanvas } from '../lib/raster';
 import { extractPalette } from '../lib/palette';
 import { buildScheme, randomSchemeInput } from '../lib/color-scheme';
+import '../styles/editor/background-studio.css';
 
 const STYLES = () => [
 	[ 'mesh', __( 'Mesh Gradient', 'wunderpaint' ) ],
@@ -32,6 +39,14 @@ const STYLES = () => [
 	[ 'halftone', __( 'Halftone', 'wunderpaint' ) ],
 	[ 'rings', __( 'Rings', 'wunderpaint' ) ],
 	[ 'confetti', __( 'Confetti', 'wunderpaint' ) ],
+	[ 'gradient', __( 'Gradient', 'wunderpaint' ) ],
+	[ 'glow', __( 'Glow', 'wunderpaint' ) ],
+	[ 'aurora', __( 'Aurora', 'wunderpaint' ) ],
+	[ 'bokeh', __( 'Bokeh', 'wunderpaint' ) ],
+	[ 'stars', __( 'Starfield', 'wunderpaint' ) ],
+	[ 'terrazzo', __( 'Terrazzo', 'wunderpaint' ) ],
+	[ 'plaid', __( 'Plaid', 'wunderpaint' ) ],
+	[ 'scales', __( 'Scales', 'wunderpaint' ) ],
 ];
 
 const styleName = ( style ) => {
@@ -39,37 +54,87 @@ const styleName = ( style ) => {
 	return entry ? entry[ 1 ] : style;
 };
 
+/** One line about each style, inside its card in the list (20.10.2026). */
+const styleBlurb = ( style ) =>
+	( {
+		mesh: __(
+			'Soft color fields that melt into each other.',
+			'wunderpaint'
+		),
+		organic: __(
+			'Flowing blobs or waves, layered like paper.',
+			'wunderpaint'
+		),
+		geo: __(
+			'Dots, grids, stripes or rays in clean lines.',
+			'wunderpaint'
+		),
+		poly: __(
+			'Faceted triangles catching light and shade.',
+			'wunderpaint'
+		),
+		topo: __( 'Contour lines like a hiking map.', 'wunderpaint' ),
+		halftone: __( 'A printed dot screen at any angle.', 'wunderpaint' ),
+		rings: __( 'Concentric rings with a gentle warp.', 'wunderpaint' ),
+		confetti: __( 'Scattered shapes, festive and playful.', 'wunderpaint' ),
+		gradient: __( 'A smooth blend, linear or radial.', 'wunderpaint' ),
+		glow: __( 'A soft light that fades out from a point.', 'wunderpaint' ),
+		aurora: __( 'Glowing ribbons like northern lights.', 'wunderpaint' ),
+		bokeh: __( 'Out-of-focus discs of light.', 'wunderpaint' ),
+		stars: __( 'A night sky with stars and a nebula.', 'wunderpaint' ),
+		terrazzo: __( 'Stone chips set in a smooth floor.', 'wunderpaint' ),
+		plaid: __( 'Woven bands crossing like tartan.', 'wunderpaint' ),
+		scales: __(
+			'Overlapping scales like a fish or a roof.',
+			'wunderpaint'
+		),
+	} )[ style ] || '';
+
 function Slider( { label, value, min, max, onChange } ) {
 	return (
-		<label style={ { display: 'grid', gap: 4, fontSize: 12 } }>
-			<span className="dsm-label">
-				{ label } { value }
-			</span>
+		<div className="dsm-sliderrow">
+			<div className="dsm-sliderrow-head">
+				<span data-number-label>{ label }</span>
+				<span className="dsm-sliderrow-val" data-number-value>
+					{ value }
+				</span>
+			</div>
 			<input
 				type="range"
+				className="dsm-range"
 				min={ min }
 				max={ max }
 				value={ value }
+				aria-label={ label }
 				onChange={ ( e ) => onChange( +e.target.value ) }
 			/>
-		</label>
+		</div>
 	);
 }
 
+/**
+ * A choice inside the settings card: two or three words as a segmented
+ * control, anything longer as the option grid - the studio rule (one
+ * segment that wraps reads as one big button).
+ *
+ * @param {Object}   props          Props.
+ * @param {Array}    props.options  [ key, label ] pairs.
+ * @param {string}   props.value    The chosen key.
+ * @param {Function} props.onChange Gets the new key.
+ */
 function Seg( { options, value, onChange } ) {
-	// Wrapping, not scrolling: the style picker went from four entries to
-	// eight in v1.389.0, and a single flex row simply cut the rest off. A
-	// segmented control that can fall into a second line fits any width,
-	// which matters more here than keeping it on one line.
+	const segment = options.length <= 3;
 	return (
-		<div
-			className="seg-row"
-			style={ { display: 'flex', flexWrap: 'wrap' } }
-		>
+		<div className={ segment ? 'dsm-seg' : 'dsm-opts' }>
 			{ options.map( ( [ key, label ] ) => (
 				<button
 					key={ key }
-					className={ value === key ? 'active' : '' }
+					type="button"
+					className={
+						( segment ? '' : 'dsm-opt ' ) +
+						( value === key ? 'active' : '' )
+					}
+					aria-pressed={ value === key }
 					onClick={ () => onChange( key ) }
 				>
 					{ label }
@@ -153,8 +218,20 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 			},
 		} ) );
 
-	const reseed = () =>
+	// "New variation" used to throw the seed away: a good variation was gone
+	// with the next click. The last ones stay reachable (19.10.2026).
+	const [ seeds, setSeeds ] = useState( [] );
+	const reseed = () => {
+		setSeeds( ( list ) => [ ...list, params.seed ].slice( -20 ) );
 		patch( { seed: 1 + Math.floor( Math.random() * 1e9 ) } );
+	};
+	const previousSeed = () => {
+		if ( ! seeds.length ) {
+			return;
+		}
+		patch( { seed: seeds[ seeds.length - 1 ] } );
+		setSeeds( ( list ) => list.slice( 0, -1 ) );
+	};
 
 	const randomColors = () => {
 		const input = randomSchemeInput();
@@ -205,12 +282,63 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 
 	// Live preview at document aspect (identical geometry to the final
 	// render: the engine works in relative units).
+	// Small previews of every style in the current colors, seed and
+	// settings, rendered a few at a time so the dialog never stalls. A card
+	// is drawn again only when something it shows changed: the shared
+	// colors, seed or grain, or its own settings - a slider of one style
+	// used to redraw all sixteen (19.10.2026).
+	const [ thumbs, setThumbs ] = useState( {} );
+	const drawn = useRef( {} );
+	const cardKey = ( key ) =>
+		JSON.stringify( [
+			params.colors,
+			params.seed,
+			params.grain,
+			params[ key ] || null,
+		] );
+	const thumbKey = STYLES()
+		.map( ( [ key ] ) => cardKey( key ) )
+		.join( '|' );
+	useEffect( () => {
+		const list = STYLES().filter(
+			( [ key ] ) => drawn.current[ key ] !== cardKey( key )
+		);
+		let i = 0;
+		let timer = 0;
+		const step = () => {
+			const batch = {};
+			for ( const end = Math.min( list.length, i + 3 ); i < end; i++ ) {
+				const key = list[ i ][ 0 ];
+				try {
+					batch[ key ] = renderBackground(
+						{ ...params, style: key },
+						156,
+						108
+					).toDataURL( 'image/jpeg', 0.85 );
+					drawn.current[ key ] = cardKey( key );
+				} catch ( e ) {
+					// A card that cannot render keeps its placeholder.
+				}
+			}
+			setThumbs( ( prev ) => ( { ...prev, ...batch } ) );
+			if ( i < list.length ) {
+				timer = setTimeout( step, 0 );
+			}
+		};
+		if ( list.length ) {
+			timer = setTimeout( step, 150 );
+		}
+		return () => clearTimeout( timer );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ thumbKey ] );
+
 	const paramsKey = JSON.stringify( params );
 	useEffect( () => {
 		const t = setTimeout( () => {
 			const aspect = state.doc.w / state.doc.h || 1;
-			const pw = aspect >= 1 ? 420 : Math.round( 420 * aspect );
-			const ph = aspect >= 1 ? Math.round( 420 / aspect ) : 420;
+			// The stage in the middle column is about this big.
+			const pw = aspect >= 1 ? 640 : Math.round( 640 * aspect );
+			const ph = aspect >= 1 ? Math.round( 640 / aspect ) : 640;
 			try {
 				setPreview( renderBackground( params, pw, ph ).toDataURL() );
 			} catch ( e ) {
@@ -221,12 +349,48 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ paramsKey ] );
 
-	const submit = () => {
+	// Inserting renders the picture at full document size and encodes it.
+	// Both used to run in one go on the main thread - at twelve megapixels
+	// with grain about two seconds of a frozen editor in which the button
+	// could not even show that it was working. Now the button says so
+	// first, and the encoding runs off the main thread (19.10.2026).
+	const mounted = useRef( true );
+	useEffect(
+		() => () => {
+			mounted.current = false;
+		},
+		[]
+	);
+	const submit = async () => {
+		if ( busy ) {
+			return;
+		}
 		setBusy( true );
+		await new Promise( ( resolve ) =>
+			requestAnimationFrame( () => setTimeout( resolve, 0 ) )
+		);
 		try {
 			const canvas = renderBackground( params, state.doc.w, state.doc.h );
-			const dataUrl = canvas.toDataURL( 'image/png' );
-			const name = 'Background: ' + styleName( params.style );
+			const dataUrl = await encodeBackground( canvas, params );
+			if ( ! mounted.current ) {
+				return;
+			}
+			// In the editor's language (19.10.2026); a name it gave itself -
+			// English from before, or this one - follows the style.
+			const name = sprintf(
+				/* translators: %s: background style name. */
+				__( 'Background: %s', 'wunderpaint' ),
+				styleName( params.style )
+			);
+			const ownName = ( n ) =>
+				/^Background\b/.test( n ) ||
+				n.startsWith(
+					sprintf(
+						/* translators: %s: background style name. */
+						__( 'Background: %s', 'wunderpaint' ),
+						''
+					)
+				);
 			if ( editLayer ) {
 				dispatch( {
 					type: 'UPDATE_LAYER',
@@ -240,9 +404,7 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 						w: state.doc.w,
 						h: state.doc.h,
 						bg: { ...params },
-						...( /^Background\b/.test( editLayer.name || '' )
-							? { name }
-							: {} ),
+						...( ownName( editLayer.name || '' ) ? { name } : {} ),
 					},
 				} );
 				commit( __( 'Edit background', 'wunderpaint' ) );
@@ -272,7 +434,9 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 				__( 'The background could not be generated.', 'wunderpaint' )
 			);
 		} finally {
-			setBusy( false );
+			if ( mounted.current ) {
+				setBusy( false );
+			}
 		}
 	};
 
@@ -292,6 +456,9 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 		'topo' === style ||
 		'halftone' === style ||
 		'confetti' === style ||
+		'terrazzo' === style ||
+		'plaid' === style ||
+		'scales' === style ||
 		( 'organic' === style && 'blobs' === opts.variant ) ||
 		( 'geo' === style && 'rays' !== opts.variant );
 	const saveAsPattern = async () => {
@@ -332,13 +499,7 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 	return (
 		<div className="modal-backdrop" onClick={ onClose } role="presentation">
 			<div
-				className="stock-dialog"
-				style={ {
-					width: 'min(960px, 94vw)',
-					height: 'auto',
-					maxHeight: '90vh',
-					gridTemplateRows: 'auto 1fr auto',
-				} }
+				className="dsm bgs"
 				onClick={ ( e ) => e.stopPropagation() }
 				role="dialog"
 				aria-modal="true"
@@ -374,515 +535,46 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 					</button>
 				</div>
 
-				<div
-					style={ {
-						display: 'flex',
-						gap: 16,
-						padding: 16,
-						overflow: 'hidden',
-						minHeight: 0,
-					} }
-				>
-					{ /* ------------------------- controls ------------------------ */ }
-					<div
-						style={ {
-							flex: 1,
-							minWidth: 0,
-							display: 'grid',
-							gap: 12,
-							overflowY: 'auto',
-							paddingRight: 4,
-							alignContent: 'start',
-						} }
-					>
-						<Seg
-							options={ STYLES() }
-							value={ style }
-							onChange={ ( v ) => patch( { style: v } ) }
-						/>
-
-						<div style={ { display: 'grid', gap: 6 } }>
-							<span className="dsm-label">
-								{ __( 'Colors', 'wunderpaint' ) }
-							</span>
-							<div
-								style={ {
-									display: 'flex',
-									gap: 6,
-									alignItems: 'center',
-									flexWrap: 'wrap',
-								} }
-							>
-								{ params.colors.map( ( c, i ) => (
-									<SwatchButton
-										key={ i }
-										color={ c }
-										size={ 26 }
-										title={ __( 'Color', 'wunderpaint' ) }
-										onChange={ ( v ) => setColor( i, v ) }
-									/>
-								) ) }
-								<button
-									className="ai-btn secondary"
-									style={ { padding: '3px 9px' } }
-									disabled={ params.colors.length >= 5 }
-									onClick={ addColor }
-								>
-									+
-								</button>
-								<button
-									className="ai-btn secondary"
-									style={ { padding: '3px 9px' } }
-									disabled={ params.colors.length <= 2 }
-									onClick={ removeColor }
-								>
-									−
-								</button>
+				<div className="bgs-body">
+					{ /* --------------------- styles, as cards --------------------- */ }
+					<div className="bgs-left">
+						<section className="dsm-card">
+							<div className="dsm-card-head">
+								{ I.grid( { size: 14 } ) }
+								<span>{ __( 'Style', 'wunderpaint' ) }</span>
 							</div>
-							<div
-								style={ {
-									display: 'flex',
-									gap: 6,
-									alignItems: 'center',
-									flexWrap: 'wrap',
-								} }
-							>
-								{ ( hasDocColors ||
-									kits.length > 0 ||
-									sets.length > 0 ) && (
-									<select
-										className="dsm-select"
-										value=""
-										onChange={ ( e ) =>
-											applySource( e.target.value )
+							<div className="dsm-picklist">
+								{ STYLES().map( ( [ key, label ] ) => (
+									<button
+										key={ key }
+										type="button"
+										className="dsm-pickrow bgs-type"
+										aria-pressed={ style === key }
+										onClick={ () =>
+											patch( { style: key } )
 										}
 									>
-										<option value="">
-											{ __(
-												'Colors from…',
-												'wunderpaint'
+										<span className="dsm-pickrow-icon">
+											{ thumbs[ key ] && (
+												<img
+													src={ thumbs[ key ] }
+													alt=""
+												/>
 											) }
-										</option>
-										{ hasDocColors && (
-											<option value="doc:all">
-												{ __(
-													'Colors from document',
-													'wunderpaint'
-												) }
-											</option>
-										) }
-										{ kits.map( ( k ) => (
-											<option
-												key={ k.id }
-												value={ 'kit:' + k.id }
-											>
-												{ __(
-													'Brand Kit',
-													'wunderpaint'
-												) +
-													': ' +
-													k.name }
-											</option>
-										) ) }
-										{ sets.map( ( s ) => (
-											<option
-												key={ s.id }
-												value={ 'set:' + s.id }
-											>
-												{ __(
-													'Swatch set',
-													'wunderpaint'
-												) +
-													': ' +
-													s.name }
-											</option>
-										) ) }
-									</select>
-								) }
-								<button
-									className="ai-btn secondary"
-									onClick={ randomColors }
-								>
-									{ __( 'Random colors', 'wunderpaint' ) }
-								</button>
-								<button
-									className="ai-btn secondary"
-									style={ {
-										display: 'flex',
-										gap: 6,
-										alignItems: 'center',
-									} }
-									title={ __(
-										'New variation with the same settings',
-										'wunderpaint'
-									) }
-									onClick={ reseed }
-								>
-									{ I.rotateCw( { size: 13 } ) }
-									{ __( 'New variation', 'wunderpaint' ) }
-								</button>
+										</span>
+										<span className="dsm-pickrow-text">
+											<b>{ label }</b>
+											<small>{ styleBlurb( key ) }</small>
+										</span>
+									</button>
+								) ) }
 							</div>
-						</div>
-
-						{ 'mesh' === style && (
-							<div
-								style={ {
-									display: 'grid',
-									gridTemplateColumns: '1fr 1fr',
-									gap: 12,
-								} }
-							>
-								<Slider
-									label={ __(
-										'Color points',
-										'wunderpaint'
-									) }
-									value={ opts.points }
-									min={ 2 }
-									max={ 8 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { points: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Softness', 'wunderpaint' ) }
-									value={ opts.softness }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { softness: v } )
-									}
-								/>
-							</div>
-						) }
-						{ 'organic' === style && (
-							<div style={ { display: 'grid', gap: 12 } }>
-								<Seg
-									options={ [
-										[
-											'blobs',
-											__( 'Blobs', 'wunderpaint' ),
-										],
-										[
-											'waves',
-											__( 'Waves', 'wunderpaint' ),
-										],
-									] }
-									value={ opts.variant }
-									onChange={ ( v ) =>
-										patchStyleOpts( { variant: v } )
-									}
-								/>
-								<div
-									style={ {
-										display: 'grid',
-										gridTemplateColumns: '1fr 1fr',
-										gap: 12,
-									} }
-								>
-									<Slider
-										label={
-											'waves' === opts.variant
-												? __( 'Bands', 'wunderpaint' )
-												: __( 'Count', 'wunderpaint' )
-										}
-										value={ opts.count }
-										min={ 2 }
-										max={
-											'waves' === opts.variant ? 8 : 12
-										}
-										onChange={ ( v ) =>
-											patchStyleOpts( { count: v } )
-										}
-									/>
-									<Slider
-										label={
-											'waves' === opts.variant
-												? __(
-														'Amplitude',
-														'wunderpaint'
-												  )
-												: __(
-														'Roundness',
-														'wunderpaint'
-												  )
-										}
-										value={ opts.shape }
-										min={ 0 }
-										max={ 100 }
-										onChange={ ( v ) =>
-											patchStyleOpts( { shape: v } )
-										}
-									/>
-								</div>
-							</div>
-						) }
-						{ 'geo' === style && (
-							<div style={ { display: 'grid', gap: 12 } }>
-								<Seg
-									options={ [
-										[ 'dots', __( 'Dots', 'wunderpaint' ) ],
-										[ 'grid', __( 'Grid', 'wunderpaint' ) ],
-										[
-											'stripes',
-											__( 'Stripes', 'wunderpaint' ),
-										],
-										[ 'rays', __( 'Rays', 'wunderpaint' ) ],
-									] }
-									value={ opts.variant }
-									onChange={ ( v ) =>
-										patchStyleOpts( { variant: v } )
-									}
-								/>
-								<div
-									style={ {
-										display: 'grid',
-										gridTemplateColumns: '1fr 1fr 1fr',
-										gap: 12,
-									} }
-								>
-									<Slider
-										label={ __( 'Size', 'wunderpaint' ) }
-										value={ opts.size }
-										min={ 0 }
-										max={ 100 }
-										onChange={ ( v ) =>
-											patchStyleOpts( { size: v } )
-										}
-									/>
-									<Slider
-										label={ __( 'Spacing', 'wunderpaint' ) }
-										value={ opts.gap }
-										min={ 0 }
-										max={ 100 }
-										onChange={ ( v ) =>
-											patchStyleOpts( { gap: v } )
-										}
-									/>
-									<Slider
-										label={ __( 'Angle', 'wunderpaint' ) }
-										value={ opts.angle }
-										min={ 0 }
-										max={ 360 }
-										onChange={ ( v ) =>
-											patchStyleOpts( { angle: v } )
-										}
-									/>
-								</div>
-							</div>
-						) }
-						{ 'poly' === style && (
-							<div
-								style={ {
-									display: 'grid',
-									gridTemplateColumns: '1fr 1fr',
-									gap: 12,
-								} }
-							>
-								<Slider
-									label={ __( 'Cell size', 'wunderpaint' ) }
-									value={ opts.cell }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { cell: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Variance', 'wunderpaint' ) }
-									value={ opts.variance }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { variance: v } )
-									}
-								/>
-							</div>
-						) }
-
-						{ 'topo' === style && (
-							<div
-								style={ {
-									display: 'grid',
-									gridTemplateColumns: '1fr 1fr',
-									gap: 12,
-								} }
-							>
-								<Slider
-									label={ __( 'Lines', 'wunderpaint' ) }
-									value={ opts.lines }
-									min={ 3 }
-									max={ 24 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { lines: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Line weight', 'wunderpaint' ) }
-									value={ opts.weight }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { weight: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Roughness', 'wunderpaint' ) }
-									value={ opts.rough }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { rough: v } )
-									}
-								/>
-							</div>
-						) }
-
-						{ 'halftone' === style && (
-							<div
-								style={ {
-									display: 'grid',
-									gridTemplateColumns: '1fr 1fr',
-									gap: 12,
-								} }
-							>
-								<Slider
-									label={ __( 'Dot size', 'wunderpaint' ) }
-									value={ opts.size }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { size: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Spacing', 'wunderpaint' ) }
-									value={ opts.gap }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { gap: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Angle', 'wunderpaint' ) }
-									value={ opts.angle }
-									min={ 0 }
-									max={ 180 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { angle: v } )
-									}
-								/>
-							</div>
-						) }
-
-						{ 'rings' === style && (
-							<div
-								style={ {
-									display: 'grid',
-									gridTemplateColumns: '1fr 1fr',
-									gap: 12,
-								} }
-							>
-								<Slider
-									label={ __( 'Spacing', 'wunderpaint' ) }
-									value={ opts.gap }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { gap: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Line weight', 'wunderpaint' ) }
-									value={ opts.weight }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { weight: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Warp', 'wunderpaint' ) }
-									value={ opts.warp }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { warp: v } )
-									}
-								/>
-							</div>
-						) }
-
-						{ 'confetti' === style && (
-							<div
-								style={ {
-									display: 'grid',
-									gridTemplateColumns: '1fr 1fr',
-									gap: 12,
-								} }
-							>
-								<Slider
-									label={ __( 'Count', 'wunderpaint' ) }
-									value={ opts.count }
-									min={ 8 }
-									max={ 300 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { count: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Size', 'wunderpaint' ) }
-									value={ opts.size }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { size: v } )
-									}
-								/>
-								<Slider
-									label={ __( 'Shape mix', 'wunderpaint' ) }
-									value={ opts.mix }
-									min={ 0 }
-									max={ 100 }
-									onChange={ ( v ) =>
-										patchStyleOpts( { mix: v } )
-									}
-								/>
-							</div>
-						) }
-
-						<Slider
-							label={ __( 'Grain', 'wunderpaint' ) }
-							value={ params.grain }
-							min={ 0 }
-							max={ 100 }
-							onChange={ ( v ) => patch( { grain: v } ) }
-						/>
+						</section>
 					</div>
 
 					{ /* ------------------------- preview ------------------------- */ }
-					<div
-						style={ {
-							width: 300,
-							display: 'grid',
-							gap: 8,
-							alignContent: 'start',
-						} }
-					>
-						<div
-							style={ {
-								width: 300,
-								borderRadius: 8,
-								border: '1px solid var(--ed-border-strong)',
-								overflow: 'hidden',
-								background: 'var(--ed-panel-alt)',
-								display: 'flex',
-								alignItems: 'center',
-								justifyContent: 'center',
-								minHeight: 200,
-							} }
-						>
+					<div className="bgs-main">
+						<div className="bgs-stage">
 							{ preview && (
 								<img
 									src={ preview }
@@ -890,24 +582,1031 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 										'Background preview',
 										'wunderpaint'
 									) }
-									style={ {
-										width: '100%',
-										display: 'block',
-									} }
 								/>
 							) }
 						</div>
-						<div
-							style={ {
-								fontSize: 11,
-								color: 'var(--ed-text-muted)',
-							} }
-						>
+						<p className="bgs-note">
 							{ __(
 								'Rendered at full document size on insert. Same settings, same picture.',
 								'wunderpaint'
 							) }
-						</div>
+						</p>
+					</div>
+
+					{ /* ------------------ colors, settings, looks ------------------ */ }
+					<div className="bgs-right">
+						<section className="dsm-card">
+							<div className="dsm-card-head">
+								{ I.palette( { size: 14 } ) }
+								<span>{ __( 'Colors', 'wunderpaint' ) }</span>
+							</div>
+							<div className="dsm-card-body">
+								<div
+									style={ {
+										display: 'flex',
+										gap: 6,
+										alignItems: 'center',
+										flexWrap: 'wrap',
+									} }
+								>
+									{ params.colors.map( ( c, i ) => (
+										<SwatchButton
+											key={ i }
+											color={ c }
+											size={ 26 }
+											title={ __(
+												'Color',
+												'wunderpaint'
+											) }
+											onChange={ ( v ) =>
+												setColor( i, v )
+											}
+										/>
+									) ) }
+									<button
+										className="ai-btn secondary"
+										style={ { padding: '3px 9px' } }
+										disabled={ params.colors.length >= 5 }
+										onClick={ addColor }
+									>
+										+
+									</button>
+									<button
+										className="ai-btn secondary"
+										style={ { padding: '3px 9px' } }
+										disabled={ params.colors.length <= 2 }
+										onClick={ removeColor }
+									>
+										−
+									</button>
+								</div>
+								<div
+									style={ {
+										display: 'flex',
+										gap: 6,
+										alignItems: 'center',
+										flexWrap: 'wrap',
+									} }
+								>
+									{ ( hasDocColors ||
+										kits.length > 0 ||
+										sets.length > 0 ) && (
+										<select
+											className="dsm-select"
+											value=""
+											onChange={ ( e ) =>
+												applySource( e.target.value )
+											}
+										>
+											<option value="">
+												{ __(
+													'Colors from…',
+													'wunderpaint'
+												) }
+											</option>
+											{ hasDocColors && (
+												<option value="doc:all">
+													{ __(
+														'Colors from document',
+														'wunderpaint'
+													) }
+												</option>
+											) }
+											{ kits.map( ( k ) => (
+												<option
+													key={ k.id }
+													value={ 'kit:' + k.id }
+												>
+													{ __(
+														'Brand Kit',
+														'wunderpaint'
+													) +
+														': ' +
+														k.name }
+												</option>
+											) ) }
+											{ sets.map( ( s ) => (
+												<option
+													key={ s.id }
+													value={ 'set:' + s.id }
+												>
+													{ __(
+														'Swatch set',
+														'wunderpaint'
+													) +
+														': ' +
+														s.name }
+												</option>
+											) ) }
+										</select>
+									) }
+									<button
+										className="ai-btn secondary"
+										onClick={ randomColors }
+									>
+										{ __( 'Random colors', 'wunderpaint' ) }
+									</button>
+									<button
+										className="ai-btn secondary"
+										style={ {
+											display: 'flex',
+											alignItems: 'center',
+											padding: '3px 9px',
+										} }
+										title={ __(
+											'Previous variation',
+											'wunderpaint'
+										) }
+										aria-label={ __(
+											'Previous variation',
+											'wunderpaint'
+										) }
+										disabled={ ! seeds.length }
+										onClick={ previousSeed }
+									>
+										{ I.undo( { size: 13 } ) }
+									</button>
+									<button
+										className="ai-btn secondary"
+										style={ {
+											display: 'flex',
+											gap: 6,
+											alignItems: 'center',
+										} }
+										title={ __(
+											'New variation with the same settings',
+											'wunderpaint'
+										) }
+										onClick={ reseed }
+									>
+										{ I.rotateCw( { size: 13 } ) }
+										{ __( 'New variation', 'wunderpaint' ) }
+									</button>
+								</div>
+							</div>
+						</section>
+						<section className="dsm-card">
+							<div className="dsm-card-head">
+								{ I.sliders( { size: 14 } ) }
+								<span>{ styleName( style ) }</span>
+							</div>
+							<div className="dsm-card-body">
+								{ 'mesh' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Color points',
+												'wunderpaint'
+											) }
+											value={ opts.points }
+											min={ 2 }
+											max={ 8 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { points: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Softness',
+												'wunderpaint'
+											) }
+											value={ opts.softness }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( {
+													softness: v,
+												} )
+											}
+										/>
+									</div>
+								) }
+								{ 'organic' === style && (
+									<div style={ { display: 'grid', gap: 12 } }>
+										<Seg
+											options={ [
+												[
+													'blobs',
+													__(
+														'Blobs',
+														'wunderpaint'
+													),
+												],
+												[
+													'waves',
+													__(
+														'Waves',
+														'wunderpaint'
+													),
+												],
+											] }
+											value={ opts.variant }
+											onChange={ ( v ) =>
+												patchStyleOpts( { variant: v } )
+											}
+										/>
+										<div
+											style={ {
+												display: 'grid',
+												gridTemplateColumns: '1fr',
+												gap: 12,
+											} }
+										>
+											<Slider
+												label={
+													'waves' === opts.variant
+														? __(
+																'Bands',
+																'wunderpaint'
+														  )
+														: __(
+																'Count',
+																'wunderpaint'
+														  )
+												}
+												value={ opts.count }
+												min={ 2 }
+												max={
+													'waves' === opts.variant
+														? 8
+														: 12
+												}
+												onChange={ ( v ) =>
+													patchStyleOpts( {
+														count: v,
+													} )
+												}
+											/>
+											<Slider
+												label={
+													'waves' === opts.variant
+														? __(
+																'Amplitude',
+																'wunderpaint'
+														  )
+														: __(
+																'Roundness',
+																'wunderpaint'
+														  )
+												}
+												value={ opts.shape }
+												min={ 0 }
+												max={ 100 }
+												onChange={ ( v ) =>
+													patchStyleOpts( {
+														shape: v,
+													} )
+												}
+											/>
+										</div>
+									</div>
+								) }
+								{ 'geo' === style && (
+									<div style={ { display: 'grid', gap: 12 } }>
+										<Seg
+											options={ [
+												[
+													'dots',
+													__( 'Dots', 'wunderpaint' ),
+												],
+												[
+													'grid',
+													__( 'Grid', 'wunderpaint' ),
+												],
+												[
+													'stripes',
+													__(
+														'Stripes',
+														'wunderpaint'
+													),
+												],
+												[
+													'rays',
+													__( 'Rays', 'wunderpaint' ),
+												],
+											] }
+											value={ opts.variant }
+											onChange={ ( v ) =>
+												patchStyleOpts( { variant: v } )
+											}
+										/>
+										<div
+											style={ {
+												display: 'grid',
+												gridTemplateColumns: '1fr',
+												gap: 12,
+											} }
+										>
+											<Slider
+												label={ __(
+													'Size',
+													'wunderpaint'
+												) }
+												value={ opts.size }
+												min={ 0 }
+												max={ 100 }
+												onChange={ ( v ) =>
+													patchStyleOpts( {
+														size: v,
+													} )
+												}
+											/>
+											<Slider
+												label={ __(
+													'Spacing',
+													'wunderpaint'
+												) }
+												value={ opts.gap }
+												min={ 0 }
+												max={ 100 }
+												onChange={ ( v ) =>
+													patchStyleOpts( { gap: v } )
+												}
+											/>
+											<Slider
+												label={ __(
+													'Angle',
+													'wunderpaint'
+												) }
+												value={ opts.angle }
+												min={ 0 }
+												max={ 360 }
+												onChange={ ( v ) =>
+													patchStyleOpts( {
+														angle: v,
+													} )
+												}
+											/>
+										</div>
+									</div>
+								) }
+								{ 'poly' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Cell size',
+												'wunderpaint'
+											) }
+											value={ opts.cell }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { cell: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Variance',
+												'wunderpaint'
+											) }
+											value={ opts.variance }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( {
+													variance: v,
+												} )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'topo' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Lines',
+												'wunderpaint'
+											) }
+											value={ opts.lines }
+											min={ 3 }
+											max={ 24 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { lines: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Line weight',
+												'wunderpaint'
+											) }
+											value={ opts.weight }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { weight: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Roughness',
+												'wunderpaint'
+											) }
+											value={ opts.rough }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { rough: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'halftone' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Dot size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Spacing',
+												'wunderpaint'
+											) }
+											value={ opts.gap }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { gap: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Angle',
+												'wunderpaint'
+											) }
+											value={ opts.angle }
+											min={ 0 }
+											max={ 180 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { angle: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'rings' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Spacing',
+												'wunderpaint'
+											) }
+											value={ opts.gap }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { gap: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Line weight',
+												'wunderpaint'
+											) }
+											value={ opts.weight }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { weight: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Warp',
+												'wunderpaint'
+											) }
+											value={ opts.warp }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { warp: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'confetti' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Count',
+												'wunderpaint'
+											) }
+											value={ opts.count }
+											min={ 8 }
+											max={ 300 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { count: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Shape mix',
+												'wunderpaint'
+											) }
+											value={ opts.mix }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { mix: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'gradient' === style && (
+									<div style={ { display: 'grid', gap: 12 } }>
+										<Seg
+											options={ [
+												[
+													'linear',
+													__(
+														'Linear',
+														'wunderpaint'
+													),
+												],
+												[
+													'radial',
+													__(
+														'Radial',
+														'wunderpaint'
+													),
+												],
+											] }
+											value={ opts.kind }
+											onChange={ ( v ) =>
+												patchStyleOpts( { kind: v } )
+											}
+										/>
+										{ 'radial' === opts.kind ? (
+											<div
+												style={ {
+													display: 'grid',
+													gridTemplateColumns: '1fr',
+													gap: 12,
+												} }
+											>
+												<Slider
+													label={ __(
+														'Center X',
+														'wunderpaint'
+													) }
+													value={ opts.x }
+													min={ 0 }
+													max={ 100 }
+													onChange={ ( v ) =>
+														patchStyleOpts( {
+															x: v,
+														} )
+													}
+												/>
+												<Slider
+													label={ __(
+														'Center Y',
+														'wunderpaint'
+													) }
+													value={ opts.y }
+													min={ 0 }
+													max={ 100 }
+													onChange={ ( v ) =>
+														patchStyleOpts( {
+															y: v,
+														} )
+													}
+												/>
+											</div>
+										) : (
+											<Slider
+												label={ __(
+													'Angle',
+													'wunderpaint'
+												) }
+												value={ opts.angle }
+												min={ 0 }
+												max={ 360 }
+												onChange={ ( v ) =>
+													patchStyleOpts( {
+														angle: v,
+													} )
+												}
+											/>
+										) }
+									</div>
+								) }
+
+								{ 'glow' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Center X',
+												'wunderpaint'
+											) }
+											value={ opts.x }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { x: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Center Y',
+												'wunderpaint'
+											) }
+											value={ opts.y }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { y: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'aurora' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Bands',
+												'wunderpaint'
+											) }
+											value={ opts.bands }
+											min={ 1 }
+											max={ 6 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { bands: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Thickness',
+												'wunderpaint'
+											) }
+											value={ opts.width }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { width: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Height',
+												'wunderpaint'
+											) }
+											value={ opts.height }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { height: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'bokeh' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Count',
+												'wunderpaint'
+											) }
+											value={ opts.count }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { count: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Blur',
+												'wunderpaint'
+											) }
+											value={ opts.blur }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { blur: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'stars' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Stars',
+												'wunderpaint'
+											) }
+											value={ opts.count }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { count: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Nebula',
+												'wunderpaint'
+											) }
+											value={ opts.glow }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { glow: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'terrazzo' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Count',
+												'wunderpaint'
+											) }
+											value={ opts.count }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { count: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+										<Slider
+											label={ __( 'Mix', 'wunderpaint' ) }
+											value={ opts.mix }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { mix: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'plaid' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Bands',
+												'wunderpaint'
+											) }
+											value={ opts.bands }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { bands: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Weave',
+												'wunderpaint'
+											) }
+											value={ opts.weave }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { weave: v } )
+											}
+										/>
+									</div>
+								) }
+
+								{ 'scales' === style && (
+									<div
+										style={ {
+											display: 'grid',
+											gridTemplateColumns: '1fr',
+											gap: 12,
+										} }
+									>
+										<Slider
+											label={ __(
+												'Size',
+												'wunderpaint'
+											) }
+											value={ opts.size }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { size: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Rings',
+												'wunderpaint'
+											) }
+											value={ opts.rings }
+											min={ 2 }
+											max={ 8 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { rings: v } )
+											}
+										/>
+										<Slider
+											label={ __(
+												'Line weight',
+												'wunderpaint'
+											) }
+											value={ opts.weight }
+											min={ 0 }
+											max={ 100 }
+											onChange={ ( v ) =>
+												patchStyleOpts( { weight: v } )
+											}
+										/>
+									</div>
+								) }
+
+								<Slider
+									label={ __( 'Grain', 'wunderpaint' ) }
+									value={ params.grain }
+									min={ 0 }
+									max={ 100 }
+									onChange={ ( v ) => patch( { grain: v } ) }
+								/>
+							</div>
+						</section>
+						<section className="dsm-card">
+							<div className="dsm-card-head">
+								{ I.sparkles( { size: 14 } ) }
+								<span>{ __( 'Looks', 'wunderpaint' ) }</span>
+							</div>
+							<div className="dsm-opts">
+								{ BACKGROUND_LOOKS().map( ( look ) => (
+									<button
+										key={ look.id }
+										type="button"
+										className="dsm-opt"
+										title={ look.label }
+										onClick={ () =>
+											setParams( lookParams( look ) )
+										}
+									>
+										{ look.label }
+									</button>
+								) ) }
+							</div>
+						</section>
 					</div>
 				</div>
 
@@ -943,7 +1642,9 @@ export function BackgroundStudioDialog( { onClose, extras, layerId = null } ) {
 							disabled={ busy }
 							onClick={ submit }
 						>
-							{ editLayer
+							{ busy
+								? __( 'Rendering…', 'wunderpaint' )
+								: editLayer
 								? __( 'Update background', 'wunderpaint' )
 								: __( 'Insert background', 'wunderpaint' ) }
 						</button>

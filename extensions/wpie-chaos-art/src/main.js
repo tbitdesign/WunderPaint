@@ -20,6 +20,7 @@ import {
 	ensembleSchools,
 } from './flat/ensemble.js';
 import { aspectOf } from './core/frame.js';
+import { textZones } from './flat/clear.js';
 import { paletteFor } from './flat/palette2d.js';
 import { readPixels, pixelsOf, renderText } from './flat/motif.js';
 import { cutPieces } from './flat/pieces.js';
@@ -28,7 +29,11 @@ import { MEDIA, resolveMedium } from './core/media.js';
 import { PALETTES, generatePalette, hexRgb } from './core/palette.js';
 import { makePool, makeRng } from './core/rng.js';
 import { describePiece } from './core/naming.js';
+import { stillOf } from './core/ring.js';
 import { t } from './i18n.js';
+import { decodeSong } from '../../shared/audio/decode.js';
+import { analyzeSongAsync } from '../../shared/audio/song.js';
+import { heardWords } from './flat/music.js';
 
 const GEN_ID = 'wpie-chaos-art/piece';
 
@@ -76,8 +81,14 @@ const ICONS = {
 	school: tabIcon(
 		'M22 9l-10 -4l-10 4l10 4l10 -4v6 M6 10.6v5.4a6 3 0 0 0 12 0v-5.4'
 	),
+	text: tabIcon(
+		'M4 20h3 M14 20h7 M6.9 15h6.9 M10.2 6.3l5.8 13.7 M5 20l6 -16h2l7 16'
+	),
 	motif: tabIcon(
 		'M15 8h.01 M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12 M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5 M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3'
+	),
+	music: tabIcon(
+		'M3 17a3 3 0 1 0 6 0a3 3 0 0 0 -6 0 M13 17a3 3 0 1 0 6 0a3 3 0 0 0 -6 0 M9 17v-13h10v13 M9 8h10'
 	),
 };
 
@@ -186,6 +197,9 @@ const SPACE_SHARE = 0.12;
 // Pointer events until the piece counts as charged - the bar must be
 // full before the first stroke, the way a key is made.
 const CHARGE_FULL = 200;
+// The longest song the painters follow: long enough for a symphony's
+// movement, short enough that its analysis stays a breath.
+const SONG_MAX_SECONDS = 600;
 const SAVED_LIMIT = 6;
 
 /** The label of whatever owns the id: a school, or a style in space. */
@@ -224,6 +238,21 @@ function openStudio( ctx ) {
 	const doc = editor.state.doc;
 	const aspect = aspectOf( doc.w / doc.h );
 
+	// The page's own text (flat/clear.js): where it sits the painters keep
+	// quiet, and a new picture goes in behind it. Re-editing keeps the
+	// layer's place, so only text in front of it counts.
+	const room = ( () => {
+		const layers = editor.state.layers || [];
+		const own = ownLayer
+			? layers.findIndex( ( l ) => l.id === ownLayer.id )
+			: -1;
+		const L = own >= 0 ? layers[ own ] : null;
+		const box = L
+			? { x: L.x, y: L.y, w: L.w, h: L.h }
+			: { x: 0, y: 0, w: doc.w, h: doc.h };
+		return textZones( layers, box, aspect, { above: own } );
+	} )();
+
 	const first = styleById( ( stored && stored.styleId ) || 'ink' );
 	const state = {
 		// A fresh studio starts SELF-DIRECTED: the society picks style,
@@ -260,6 +289,7 @@ function openStudio( ctx ) {
 			...( stored && stored.motif ),
 		},
 		autoTemper: stored ? !! stored.autoTemper : true,
+		keepText: stored ? false !== stored.keepText : true,
 		mediumId: ( stored && stored.mediumId ) || 'auto',
 		chaos: stored ? stored.chaos : 55,
 		energy: stored ? stored.energy : 55,
@@ -306,6 +336,73 @@ function openStudio( ctx ) {
 	if ( 'file' === state.motif.source ) {
 		// The picture itself does not travel in the settings.
 		state.motif.source = 'none';
+	}
+	// The song: optional, read in this dialog only, never stored with the
+	// piece. `song` is its analysis; the player plays the file itself.
+	const music = { item: null, song: null, status: 'none', error: '' };
+	let musicGeneration = 0;
+	let player = null;
+	let playerFailed = false;
+	let songEnded = false;
+	// The song's clock: the player's time when it plays, our own wall
+	// clock between its (coarse) updates and when it cannot play at all.
+	const songClock = { acc: 0, since: 0, running: false };
+
+	/** A song is chosen for the sheet (ready or still being read). */
+	const songChosen = () => !! music.item;
+	/** Ready to start: charged, and the song (if any) has been read. */
+	const canStart = () =>
+		pool.charge() >= CHARGE_FULL &&
+		( ! songChosen() || 'ready' === music.status );
+
+	function clockStart() {
+		if ( ! songClock.running ) {
+			songClock.since = performance.now();
+			songClock.running = true;
+		}
+	}
+	function clockStop() {
+		if ( songClock.running ) {
+			songClock.acc += ( performance.now() - songClock.since ) / 1000;
+			songClock.running = false;
+		}
+	}
+	function clockReset() {
+		songClock.acc = 0;
+		songClock.running = false;
+	}
+
+	/** Song seconds now: the player is the truth, our clock fills the gaps. */
+	function songNow() {
+		const own =
+			songClock.acc +
+			( songClock.running
+				? ( performance.now() - songClock.since ) / 1000
+				: 0 );
+		if ( player && ! playerFailed && ! player.paused ) {
+			const ct = player.currentTime || 0;
+			if ( Math.abs( own - ct ) > 0.15 ) {
+				// Buffering or a coarse clock: follow the player.
+				songClock.acc = ct;
+				songClock.since = performance.now();
+				songClock.running = true;
+				return ct;
+			}
+		}
+		return own;
+	}
+
+	/** m:ss for the status line and the song row. */
+	function clockText( seconds ) {
+		const s = Math.max( 0, Math.floor( seconds || 0 ) );
+		return Math.floor( s / 60 ) + ':' + String( s % 60 ).padStart( 2, '0' );
+	}
+
+	/** Where in the song a moment was taken, as m:ss; '' without a song. */
+	function songTimeOf( item ) {
+		return item && Number.isFinite( item.songAt )
+			? clockText( item.songAt )
+			: '';
 	}
 
 	function paletteColors( s ) {
@@ -357,6 +454,7 @@ function openStudio( ctx ) {
 			params,
 			cursorMode: state.cursorMode,
 			ground: ( runPick && runPick.ground ) || state.ground,
+			clear: 'flat' === fam && state.keepText ? room.zones : [],
 			fx: {
 				bloom: state.fx.bloom / 100,
 				dof: state.fx.dof / 100,
@@ -718,6 +816,49 @@ function openStudio( ctx ) {
 		renderEnsemble();
 	};
 
+	/* ------------------------------ your text ----------------------------- */
+
+	// Only when the page has text: a switch that says what it does, and
+	// the stage shows the places it keeps (flat-engine drawGestures).
+	function mountTextCard( parent ) {
+		if ( ! room.ids.length && ! room.tooMuch ) {
+			return;
+		}
+		const card = ui.section( parent, {
+			icon: ICONS.text,
+			title: t( 'Text on your page' ),
+		} );
+		if ( room.tooMuch ) {
+			ui.el(
+				'div',
+				'dsm-note',
+				card,
+				t(
+					'Your text covers most of the page, so the painters use all of it.'
+				)
+			);
+			return;
+		}
+		ui.check( card, {
+			label: t( 'Leave room for my text' ),
+			checked: state.keepText,
+			onChange: ( v ) => {
+				state.keepText = v;
+				if ( 'flat' === engineFamily && engine.setClear ) {
+					engine.setClear( v ? room.zones : [] );
+				}
+			},
+		} );
+		ui.el(
+			'div',
+			'dsm-note',
+			card,
+			t(
+				'The painters keep the places where your text sits calm, and the picture goes in behind your text.'
+			)
+		);
+	}
+
 	/* ------------------------------- motif -------------------------------- */
 
 	// The motif: a picture or a text the society paints after - read,
@@ -868,6 +1009,244 @@ function openStudio( ctx ) {
 				},
 			} );
 		}
+	}
+
+	/* The music: a song the painters follow, optional, on the sheet only. */
+	let musicRows = null;
+	function mountMusicCard( parent ) {
+		const card = ui.section( parent, {
+			icon: ICONS.music,
+			title: t( 'Music' ),
+		} );
+		musicRows = ui.el( 'div', 'wpiechaos-motif', card );
+		renderMusicRows();
+	}
+
+	function renderMusicRows() {
+		if ( ! musicRows ) {
+			return;
+		}
+		musicRows.textContent = '';
+		if ( ! music.item ) {
+			ui.el(
+				'div',
+				'dsm-note',
+				musicRows,
+				t(
+					'Optional: the painters follow the song, and the picture is finished when it ends.'
+				)
+			);
+		} else {
+			const row = ui.el( 'div', 'wpiechaos-filerow', musicRows );
+			ui.el( 'span', 'wpiechaos-filename', row, music.item.title );
+			ui.el(
+				'span',
+				'dsm-note wpiechaos-songmeta',
+				row,
+				'ready' === music.status
+					? clockText( music.song.duration )
+					: 'loading' === music.status
+					? t( 'They are listening to the song…' )
+					: music.error
+			);
+			if ( 'ready' === music.status ) {
+				// What the painters heard: the reason the picture looks
+				// the way it does, in the words that bend it.
+				ui.el(
+					'div',
+					'dsm-note wpiechaos-heard',
+					musicRows,
+					t( 'The painters hear: %s' ).replace(
+						'%s',
+						heardWords( music.song )
+							.map( ( w ) => t( w ) )
+							.join( ' · ' )
+					)
+				);
+			}
+		}
+		const actions = ui.el( 'div', 'wpiechaos-filerow', musicRows );
+		ui.btn( actions, {
+			label: t( 'Choose a song' ),
+			onClick: chooseSong,
+		} );
+		if ( music.item ) {
+			ui.btn( actions, {
+				label: t( 'Remove song' ),
+				onClick: removeSong,
+			} );
+		}
+	}
+
+	async function chooseSong() {
+		// The editor's own picker first: it works in the standalone studio
+		// too, where wp.media does not exist.
+		if ( window.WPIE && window.WPIE.pickMedia ) {
+			const picked = await window.WPIE.pickMedia( {
+				multiple: false,
+				title: t( 'Choose a song' ),
+				button: t( 'Use song' ),
+				types: 'audio',
+			} );
+			if ( picked && picked.length ) {
+				takeSong( picked[ 0 ] );
+			}
+			return;
+		}
+		if ( ! window.wp || ! window.wp.media ) {
+			setStatus( t( 'The song could not be read.' ), true );
+			return;
+		}
+		const frame = window.wp.media( {
+			title: t( 'Choose a song' ),
+			library: { type: 'audio' },
+			multiple: false,
+			button: { text: t( 'Use song' ) },
+		} );
+		frame.on( 'select', () =>
+			takeSong( frame.state().get( 'selection' ).first().toJSON() )
+		);
+		frame.open();
+	}
+
+	function dropPlayer() {
+		if ( player ) {
+			player.pause();
+			player.removeEventListener( 'ended', onPlayerEnded );
+			player.removeAttribute( 'src' );
+			player.load();
+			player = null;
+		}
+		playerFailed = false;
+		clockReset();
+	}
+
+	/** A new song is a new piece, the way a new motif is. */
+	async function takeSong( item ) {
+		if ( ! item || ! item.url || closed ) {
+			return;
+		}
+		const generation = ++musicGeneration;
+		dropPlayer();
+		music.item = {
+			id: item.id,
+			url: item.url,
+			title:
+				item.title ||
+				item.filename ||
+				decodeURIComponent( item.url.split( '/' ).pop() || '' ),
+		};
+		music.song = null;
+		music.status = 'loading';
+		music.error = '';
+		hardReset();
+		renderRight();
+		setStatus( t( 'They are listening to the song…' ) );
+		try {
+			const decoded = await decodeSong( item.url, {
+				maxSeconds: SONG_MAX_SECONDS,
+			} );
+			if ( closed || generation !== musicGeneration ) {
+				return;
+			}
+			const song = await analyzeSongAsync(
+				decoded.samples,
+				decoded.sampleRate
+			);
+			if ( closed || generation !== musicGeneration ) {
+				return;
+			}
+			song.title = music.item.title;
+			music.song = song;
+			music.status = 'ready';
+			player = new window.Audio();
+			player.preload = 'auto';
+			player.src = item.url;
+			player.addEventListener( 'ended', onPlayerEnded );
+			setStatus(
+				pool.charge() >= CHARGE_FULL
+					? t( 'Charged - start painting whenever you like.' )
+					: t(
+							'Charge the field until the bar is full, then start painting.'
+					  )
+			);
+		} catch ( e ) {
+			if ( closed || generation !== musicGeneration ) {
+				return;
+			}
+			music.status = 'error';
+			music.error =
+				e && e.tooLong
+					? t( 'Choose a song up to ten minutes long.' )
+					: t( 'The song could not be read.' );
+			setStatus( music.error, true );
+		}
+		renderMusicRows();
+		startBtn.disabled = started || beginning || ! canStart();
+	}
+
+	function removeSong() {
+		musicGeneration++;
+		dropPlayer();
+		music.item = null;
+		music.song = null;
+		music.status = 'none';
+		music.error = '';
+		hardReset();
+		renderRight();
+	}
+
+	/** The song starts with the painters - inside the click, so it may sound. */
+	function startSong() {
+		songEnded = false;
+		clockReset();
+		clockStart();
+		if ( ! player ) {
+			return;
+		}
+		player.currentTime = 0;
+		playerFailed = false;
+		const playing = player.play();
+		if ( playing && playing.catch ) {
+			playing.catch( () => {
+				// No sound (a browser rule, a broken file): the painters
+				// follow the song on our own clock, in silence.
+				playerFailed = true;
+				setStatus(
+					t(
+						'The song could not be played. They paint to it in silence.'
+					),
+					false,
+					5000
+				);
+			} );
+		}
+	}
+
+	function stopSong() {
+		clockStop();
+		if ( player ) {
+			player.pause();
+		}
+	}
+
+	function onPlayerEnded() {
+		if ( engine && engine.endSong ) {
+			engine.endSong();
+		}
+	}
+
+	/** The last note: the piece is finished, the moments come up. */
+	function songFinished() {
+		songEnded = true;
+		stopSong();
+		pause();
+		startBtn.textContent = t( 'Finished' );
+		startBtn.disabled = true;
+		impulseBtn.disabled = true;
+		setStatus(
+			t( 'The song has ended. Choose a moment, insert it or start over.' )
+		);
 	}
 
 	/** How a school reads a motif when the reading is left to them. */
@@ -1105,9 +1484,15 @@ function openStudio( ctx ) {
 		meterFill.style.width = pc + '%';
 		meterPct.textContent = pc + '%';
 		if ( 100 === pc && startBtn.disabled && ! started && ! beginning ) {
-			startBtn.disabled = false;
+			// Charged; with a song still being read, Start waits for it.
+			const listening = songChosen() && 'ready' !== music.status;
+			startBtn.disabled = listening;
 			field.classList.add( 'is-full' );
-			setStatus( t( 'Charged - start painting whenever you like.' ) );
+			setStatus(
+				listening
+					? t( 'They are listening to the song…' )
+					: t( 'Charged - start painting whenever you like.' )
+			);
 		}
 		drawSpark( e );
 	} );
@@ -1258,7 +1643,12 @@ function openStudio( ctx ) {
 				'div',
 				'dsm-note wpiechaos-bio',
 				moments,
-				remembered.w + ' × ' + remembered.h
+				( Number.isFinite( remembered.songAt )
+					? clockText( remembered.songAt ) + ' · '
+					: '' ) +
+					remembered.w +
+					' × ' +
+					remembered.h
 			);
 		} else if ( steck ) {
 			// The piece introduces itself: its own title, its own life.
@@ -1292,6 +1682,16 @@ function openStudio( ctx ) {
 														.id
 												)
 											),
+								  ]
+								: [] ),
+							...( engine.world &&
+							engine.world.music &&
+							engine.world.music.title
+								? [
+										t( 'painted to “%s”' ).replace(
+											'%s',
+											engine.world.music.title
+										),
 								  ]
 								: [] ),
 							f.marks.toLocaleString() + ' ' + t( 'marks' ),
@@ -1330,12 +1730,24 @@ function openStudio( ctx ) {
 					strip
 				);
 				b.type = 'button';
-				b.setAttribute( 'aria-label', t( 'Moment' ) + ' ' + ( i + 1 ) );
+				const when = songTimeOf( item );
+				b.setAttribute(
+					'aria-label',
+					t( 'Moment' ) +
+						' ' +
+						( i + 1 ) +
+						( when ? ', ' + when : '' )
+				);
 				const selected = savedAt === null && i === momentAt;
 				b.setAttribute( 'aria-pressed', String( selected ) );
 				const img = ui.el( 'img', null, b );
-				img.src = item.url;
+				// The small copy: forty-eight full-size pictures in a strip
+				// would decode half a gigabyte.
+				img.src = item.thumb || item.url;
 				img.alt = '';
+				if ( when ) {
+					ui.el( 'span', 'wpiechaos-moment-time', b, when );
+				}
 				b.classList.toggle( 'is-on', selected );
 				b.onclick = () => selectMoment( i );
 			} );
@@ -1372,13 +1784,26 @@ function openStudio( ctx ) {
 				const wrap = ui.el( 'div', 'wpiechaos-saved-item', strip );
 				const b = ui.el( 'button', 'dsm-strip wpiechaos-moment', wrap );
 				b.type = 'button';
-				b.title = item.title + ' · ' + item.w + ' × ' + item.h;
-				b.setAttribute( 'aria-label', item.title );
+				const when = songTimeOf( item );
+				b.title =
+					item.title +
+					( when ? ' · ' + when : '' ) +
+					' · ' +
+					item.w +
+					' × ' +
+					item.h;
+				b.setAttribute(
+					'aria-label',
+					item.title + ( when ? ', ' + when : '' )
+				);
 				b.setAttribute( 'aria-pressed', String( savedAt === item.id ) );
 				b.classList.toggle( 'is-on', savedAt === item.id );
 				const img = ui.el( 'img', null, b );
-				img.src = item.url;
+				img.src = item.thumb || item.url;
 				img.alt = '';
+				if ( when ) {
+					ui.el( 'span', 'wpiechaos-moment-time', b, when );
+				}
 				b.onclick = () => selectMoment( -1, item.id );
 				const remove = ui.btn( wrap, {
 					label: '×',
@@ -1407,21 +1832,31 @@ function openStudio( ctx ) {
 		}
 	}
 
-	function rememberMoment() {
+	let remembering = false;
+	async function rememberMoment() {
 		if (
 			beginning ||
 			inserting ||
 			closed ||
+			remembering ||
 			savedMoments.length >= SAVED_LIMIT ||
 			savedAt !== null
 		) {
 			return;
 		}
-		if ( ! pickedMoment() && ! engine.painted() ) {
+		const picked = pickedMoment();
+		if ( ! picked && ! engine.painted() ) {
 			return;
 		}
+		remembering = true;
 		try {
-			const still = pickedMoment() || engine.renderStill( 2048 );
+			// A moment from the strip is kept at the sheet's full size.
+			const still = picked
+				? await stillOf( picked )
+				: engine.renderStill( 2048 );
+			if ( closed ) {
+				return;
+			}
 			const title = engine.world
 				? describePiece( engine.world ).title
 				: t( 'Chaos Art' );
@@ -1437,6 +1872,8 @@ function openStudio( ctx ) {
 			setStatus( t( 'Moment remembered.' ), false, 2500 );
 		} catch ( error ) {
 			setStatus( t( 'Could not remember this moment.' ), true );
+		} finally {
+			remembering = false;
 		}
 	}
 
@@ -1445,7 +1882,7 @@ function openStudio( ctx ) {
 	}
 
 	async function begin() {
-		if ( beginning || closed || pool.charge() < CHARGE_FULL ) {
+		if ( beginning || closed || ! canStart() ) {
 			return;
 		}
 		const generation = ++startGeneration;
@@ -1456,6 +1893,11 @@ function openStudio( ctx ) {
 				? t( 'Painting…' )
 				: t( 'Reading the motif…' )
 		);
+		// The song starts inside the click (browsers let only a gesture
+		// start sound); the painters join it a moment later.
+		if ( songChosen() && 'space' !== familyNow() ) {
+			startSong();
+		}
 		try {
 			await beginNow( generation );
 		} catch ( error ) {
@@ -1469,7 +1911,10 @@ function openStudio( ctx ) {
 		} finally {
 			if ( currentStart( generation ) ) {
 				beginning = false;
-				startBtn.disabled = pool.charge() < CHARGE_FULL;
+				startBtn.disabled = ! canStart();
+				if ( ! started ) {
+					stopSong();
+				}
 			}
 		}
 	}
@@ -1492,11 +1937,13 @@ function openStudio( ctx ) {
 			// Their choice reaches across both families; space is the
 			// rarer draw, one style among many; now and then the
 			// ensemble on the sheet.
+			// With a song they stay on the sheet: space has no conductor.
+			const space = songChosen() ? 0 : SPACE_SHARE;
 			const roll = draw();
 			styleId =
-				roll < SPACE_SHARE
+				roll < space
 					? STYLES[ Math.floor( draw() * STYLES.length ) ].id
-					: roll < SPACE_SHARE + 0.1
+					: roll < space + 0.1
 					? 'all'
 					: SCHOOLS[ Math.floor( draw() * SCHOOLS.length ) ].id;
 		}
@@ -1533,7 +1980,8 @@ function openStudio( ctx ) {
 			state.colors = cols;
 			syncColors();
 		}
-		if ( state.autoTemper ) {
+		// With a song the dials stay where they are: the song moves them.
+		if ( state.autoTemper && ! songChosen() ) {
 			const base = mv.dials || {};
 			const roll = ( k, lo, hi ) => {
 				let v =
@@ -1566,7 +2014,7 @@ function openStudio( ctx ) {
 			}
 		}
 		params.autoPalette = 'auto' === state.paletteId;
-		params.autoTemper = state.autoTemper;
+		params.autoTemper = state.autoTemper && ! songChosen();
 		params.allowRecast =
 			'auto' === state.styleId ||
 			'all' === runPick.styleId ||
@@ -1590,9 +2038,18 @@ function openStudio( ctx ) {
 		mountEngine( runPick.family );
 		const settings = settingsForEngine();
 		settings.motif = motif;
+		const song =
+			'flat' === runPick.family && 'ready' === music.status
+				? music.song
+				: null;
+		settings.song = song;
 		engine.newWorld( settings, pool );
 		if ( engine.setLikeness ) {
 			engine.setLikeness( state.motif.likeness / 100 );
+		}
+		if ( song ) {
+			engine.songClock = songNow;
+			engine.onSongEnd = songFinished;
 		}
 		engine.start();
 		if ( 'flat' === runPick.family && params.autoPalette ) {
@@ -1642,6 +2099,7 @@ function openStudio( ctx ) {
 	}
 
 	function pause() {
+		stopSong();
 		engine.stop();
 		startBtn.textContent = t( 'Resume' );
 		momentAt = -1;
@@ -1665,7 +2123,22 @@ function openStudio( ctx ) {
 	}
 
 	function resume() {
+		if ( songEnded ) {
+			// After the last note there is nothing to resume to.
+			return;
+		}
 		engine.resume();
+		if ( engine.songClock ) {
+			clockStart();
+			if ( player && ! playerFailed ) {
+				const playing = player.play();
+				if ( playing && playing.catch ) {
+					playing.catch( () => {
+						playerFailed = true;
+					} );
+				}
+			}
+		}
 		momentAt = -1;
 		savedAt = null;
 		syncMomentPreview();
@@ -1678,7 +2151,12 @@ function openStudio( ctx ) {
 		beginning = false;
 		if ( engine ) {
 			engine.stop();
+			engine.songClock = null;
+			engine.onSongEnd = null;
 		}
+		stopSong();
+		clockReset();
+		songEnded = false;
 		runPick = null;
 		started = false;
 		momentAt = -1;
@@ -1686,7 +2164,7 @@ function openStudio( ctx ) {
 		steck = null;
 		liveThumb = '';
 		startBtn.textContent = t( 'Start painting' );
-		startBtn.disabled = pool.charge() < CHARGE_FULL;
+		startBtn.disabled = ! canStart();
 		impulseBtn.disabled = true;
 		overBtn.disabled = true;
 		const eng = mountEngine( familyNow() );
@@ -1743,28 +2221,36 @@ function openStudio( ctx ) {
 		// space; a school brings its own finish and needs neither.
 		moveCard.parentNode.style.display = 'space' === fam ? '' : 'none';
 		if ( 'flat' === fam ) {
+			mountTextCard( side );
 			mountMotifCard( side );
+			mountMusicCard( side );
 		} else {
 			motifRows = null;
+			musicRows = null;
 		}
 
 		const temper = ui.section( side, {
 			icon: ICONS.temper,
 			title: t( 'Temperament' ),
 		} );
-		const temperBox = ui.check( temper, {
-			label: t( 'They set the dials themselves' ),
-			checked: state.autoTemper,
-			onChange: ( v ) => {
-				state.autoTemper = v;
-				params.autoTemper = v;
-			},
-		} );
+		// With a song the song moves the dials; the dials are the base.
+		const temperBox = songChosen()
+			? null
+			: ui.check( temper, {
+					label: t( 'They set the dials themselves' ),
+					checked: state.autoTemper,
+					onChange: ( v ) => {
+						state.autoTemper = v;
+						params.autoTemper = v;
+					},
+			  } );
 		const lockTemper = () => {
 			params.autoTemper = false;
 			if ( state.autoTemper ) {
 				state.autoTemper = false;
-				temperBox.checked = false;
+				if ( temperBox ) {
+					temperBox.checked = false;
+				}
 			}
 		};
 		ui.slider( temper, {
@@ -2016,7 +2502,10 @@ function openStudio( ctx ) {
 
 	function chosenStill() {
 		const selected = pickedMoment();
-		return Promise.resolve( selected || engine.renderStill( 2048 ) );
+		// A moment from the strip goes in at the sheet's full size.
+		return selected
+			? stillOf( selected )
+			: Promise.resolve( engine.renderStill( 2048 ) );
 	}
 
 	/* --------------------------------- foot ------------------------------- */
@@ -2095,7 +2584,18 @@ function openStudio( ctx ) {
 						naturalH: still.h,
 					} );
 					layer.generator = { id: GEN_ID, params: pieceParams };
-					editor.dispatch( { type: 'ADD_LAYER', layer } );
+					// Painted around the page's text: the picture goes in
+					// right behind the lowest of it, so the text stays on top.
+					const behind =
+						'flat' === engineFamily &&
+						state.keepText &&
+						room.zones.length &&
+						room.below >= 0;
+					editor.dispatch(
+						behind
+							? { type: 'ADD_LAYER', layer, index: room.below }
+							: { type: 'ADD_LAYER', layer }
+					);
 					editor.dispatch( { type: 'SET_ACTIVE', id: layer.id } );
 				}
 				editor.commit( t( 'Chaos Art' ) );
@@ -2124,6 +2624,7 @@ function openStudio( ctx ) {
 			custom: state.custom.slice(),
 			colors: params.colors.slice(),
 			autoTemper: state.autoTemper,
+			keepText: state.keepText,
 			ground: state.ground,
 			cursorMode: state.cursorMode,
 			motif: {
@@ -2184,7 +2685,21 @@ function openStudio( ctx ) {
 			return;
 		}
 		if ( engine.running ) {
-			setStatus( activityText() );
+			setStatus(
+				activityText() +
+					( engine.songClock && music.song
+						? ' · ' +
+						  clockText( songNow() ) +
+						  ' / ' +
+						  clockText( music.song.duration )
+						: '' )
+			);
+		} else if ( songEnded ) {
+			setStatus(
+				t(
+					'The song has ended. Choose a moment, insert it or start over.'
+				)
+			);
 		} else if ( started || pickedMoment() ) {
 			setStatus( t( 'Paused - pick a moment, or resume painting.' ) );
 		}
@@ -2206,6 +2721,8 @@ function openStudio( ctx ) {
 			}
 		}
 		colorMounts = [];
+		musicGeneration++;
+		dropPlayer();
 		if ( engine ) {
 			engine.dispose();
 			engine = null;
@@ -2216,6 +2733,12 @@ function openStudio( ctx ) {
 	// test can only say "nothing threw".
 	window.__wpiechaosState = () => ( {
 		styleId: state.styleId,
+		music: {
+			status: music.status,
+			title: music.item ? music.item.title : '',
+			ended: songEnded,
+			conducted: !! ( engine && engine.world && engine.world.music ),
+		},
 		family: engineFamily,
 		movementId: state.movementId,
 		run: runPick,

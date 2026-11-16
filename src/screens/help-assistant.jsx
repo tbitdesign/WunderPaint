@@ -101,10 +101,6 @@ export function HelpAssistant( { open, onClose, extras } ) {
 
 	const startTour = ( id ) => {
 		onClose();
-		if ( 'welcome' === id ) {
-			extras.openTour();
-			return;
-		}
 		const guide = HELP_GUIDES.find( ( g ) => g.id === id );
 		if ( guide ) {
 			extras.startGuide( guide );
@@ -190,7 +186,9 @@ export function HelpAssistant( { open, onClose, extras } ) {
 						}
 					>
 						<div className="wpie-helpbot-bubble">{ m.content }</div>
-						{ !! m.tour && (
+						{ HELP_GUIDES.some(
+							( item ) => item.id === m.tour
+						) && (
 							<button
 								type="button"
 								className="ai-btn sm wpie-helpbot-tourbtn"

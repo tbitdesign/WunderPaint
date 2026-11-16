@@ -1,3 +1,11 @@
+import { applyBucket } from './bucket-tool';
+import { marqueeRect } from '../../store/selection-geometry';
+import { captureCloneSource } from '../../lib/clone-source';
+import {
+	isGradientField,
+	addFreeformPoint,
+	normalizeFreeform,
+} from '../../lib/gradient-fields';
 /**
  * Complete behavior of every tool in TOOLS (spec 05.4). Each handler implements
  * onDown/onMove/onUp (+ onDblClick) in DOCUMENT coordinates; one history
@@ -8,6 +16,12 @@
  *   draft, setDraft, setGuides, zoom, beginTextEdit, imageCache }
  */
 
+import { recordPenSample, penMotion } from '../../lib/pen-creative';
+import {
+	gradientLayerOf,
+	gradientPaint,
+	gradientPoint,
+} from '../../lib/gradient-layer';
 import { CORNERS, withCorner } from '../../lib/corner-radii';
 import { polygonVertices, radiusFromInset } from '../../lib/corner-geometry';
 import {
@@ -27,6 +41,7 @@ import {
 	rotateAbout,
 } from '../../lib/pivot';
 import { __ } from '@wordpress/i18n';
+import { appendPenContinuation } from '../../lib/pen-operations';
 
 import { bindToolHandlerSink } from '../../lib/extensions';
 import {
@@ -34,7 +49,8 @@ import {
 	lineFromEndpoints,
 	snapLineEnd,
 } from '../../lib/line-geometry';
-import { socialCropById } from '../../lib/safe-zones';
+import { cropRatioValue } from '../../lib/crop-geometry';
+export { cropRatioValue } from '../../lib/crop-geometry';
 import { wandMask } from '../../lib/magic-wand';
 import { isModelInstalled } from '../../lib/ml';
 import { createSegmenter } from '../../lib/smart-select';
@@ -46,16 +62,10 @@ import {
 	makeGradient,
 	makeGroup,
 } from '../../store/document';
+import { combine, selectionToMaskCanvas } from '../../store/selection';
 import {
-	combine,
-	pointInSelection,
-	selectionToMaskCanvas,
-} from '../../store/selection';
-import {
-	imageToRaster,
 	paintStroke,
 	paintOnMask,
-	floodFill,
 	layerLocalMask,
 	buildRasterCanvas,
 	cloneStamp,
@@ -64,22 +74,29 @@ import {
 	STAR_SYMMETRY,
 } from '../../lib/raster-layer';
 import {
-	samplePixel,
 	renderToCanvas,
 	sharedImageCache,
 	createCanvas,
 	layerAlphaAt,
 	PIXEL_HIT_ALPHA,
 } from '../../lib/raster';
-import { rgbToHex, colorLuminance } from '../../lib/color';
+import { colorLuminance } from '../../lib/color';
+import { eyedropperTool } from './eyedropper-tool';
+export { eyedropperTool } from './eyedropper-tool';
 import { parsePathAnchors, nearestOnPath } from '../../lib/path-edit';
 import { shapeToPathD } from '../../lib/shape-path';
-import { mirrorPts, stampMaxReach } from '../../lib/brush-tips';
+import { mirrorPts, stampMaxReach, getTip } from '../../lib/brush-tips';
 import { pulledString } from '../../lib/stroke-smoothing';
 import { fitToAnchors } from '../../lib/curve-fit';
 import { ellipsePoints } from '../../lib/ellipse-points';
-import { penTilt } from '../../lib/pen-dynamics';
-import { collectTargets, snapRect } from '../../lib/snap';
+import { penTilt, penPressure } from '../../lib/pen-dynamics';
+import {
+	cleanPenStyle,
+	penDraftD,
+	newPenGeometry,
+	penLayerPatch,
+} from '../../lib/pen-path';
+import { buildSnapScene, frameBox, smartSnap } from '../../lib/snap';
 import { cropDoc, cloneLayerTree } from '../../store/doc-ops';
 import { expandGroupIds } from '../../store/editor-context';
 import {
@@ -103,11 +120,14 @@ import {
 	styleMaxSpread,
 } from '../../lib/paint-engine';
 import {
+	wetLastPoint,
 	wetStrokeDown,
 	wetStrokeMove,
 	wetStrokeUp,
 	WET_STYLE_IDS,
 } from './wet-controller';
+import { ensureRaster } from './ensure-raster';
+import * as RepeatOps from '../../store/ops/repeat-ops';
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -193,6 +213,35 @@ export function ancestorLocked( layers, layer ) {
 	return false;
 }
 
+/** Match the renderer: each group's children occupy that group's stack slot. */
+export function layersInPaintOrder( layers ) {
+	if ( ! layers.some( ( layer ) => layer.type === 'group' ) ) {
+		return layers;
+	}
+	const byId = new Map( layers.map( ( layer ) => [ layer.id, layer ] ) );
+	const order = new Map(
+		layers.map( ( layer, index ) => [ layer.id, index ] )
+	);
+	const visited = new Set();
+	const result = [];
+	const visit = ( layer ) => {
+		if ( visited.has( layer.id ) ) {
+			return;
+		}
+		visited.add( layer.id );
+		result.push( layer );
+		if ( layer.type === 'group' ) {
+			( layer.children || [] )
+				.map( ( id ) => byId.get( id ) )
+				.filter( Boolean )
+				.sort( ( a, b ) => order.get( a.id ) - order.get( b.id ) )
+				.forEach( visit );
+		}
+	};
+	layers.filter( ( layer ) => ! layer.parent ).forEach( visit );
+	return result;
+}
+
 /**
  * Top-most unlocked visible layer at a doc point (walks groups).
  *
@@ -208,8 +257,9 @@ export function ancestorLocked( layers, layer ) {
  * @return {Object|null} The hit layer.
  */
 export function topLayerAt( layers, x, y, opts = {} ) {
-	for ( let i = layers.length - 1; i >= 0; i-- ) {
-		const layer = layers[ i ];
+	const ordered = layersInPaintOrder( layers );
+	for ( let i = ordered.length - 1; i >= 0; i-- ) {
+		const layer = ordered[ i ];
 		if (
 			! layer.visible ||
 			layer.locked ||
@@ -363,43 +413,10 @@ export const topGroupOf = unitTopGroupOf;
 const activeLayer = ( tc ) =>
 	tc.layers.find( ( l ) => l.id === tc.editor.state.activeId ) || null;
 
-/**
- * Promote an image layer to raster for destructive edits
- * (rasterize-on-first-edit, spec 02.2). Returns the (new) raster layer.
- */
-export function ensureRaster( tc, layer ) {
-	if ( 'raster' === layer.type ) {
-		if ( ! layer.canvas ) {
-			const source = layer.dataUrl
-				? tc.imageCache.get( layer.dataUrl )
-				: null;
-			const canvas = buildRasterCanvas( layer, source );
-			const patched = { ...layer, canvas };
-			tc.editor.dispatch( {
-				type: 'UPDATE_LAYER',
-				id: layer.id,
-				patch: { canvas },
-			} );
-			return patched;
-		}
-		return layer;
-	}
-	if ( 'image' === layer.type ) {
-		const img = tc.imageCache.get( layer.src );
-		if ( ! img ) {
-			return null;
-		}
-		const raster = imageToRaster( layer, img );
-		tc.editor.dispatch( {
-			type: 'SET_LAYERS',
-			layers: tc.layers.map( ( l ) =>
-				l.id === layer.id ? raster : l
-			),
-		} );
-		return raster;
-	}
-	return null;
-}
+// Promote a layer to a raster with a live canvas (rasterize-on-first-edit,
+// spec 02.2). Lives in its own module since the wet island needs it too;
+// re-exported so the rest of the editor keeps importing it from here.
+export { ensureRaster };
 
 /** Apply the current selection as a mask on a newly committed vector layer. */
 function maskFromSelection( tc, layer ) {
@@ -704,24 +721,28 @@ export const moveTool = {
 		let dx = p.x - draft.start.x;
 		let dy = p.y - draft.start.y;
 
-		// Snapping + smart guides (spec 05.5).
-		if ( tc.editor.state.snap && 1 === draft.ids.length ) {
-			const layer = tc.layers.find( ( l ) => l.id === draft.ids[ 0 ] );
-			const orig = draft.orig.get( layer.id );
-			const target = {
-				x: orig.x + dx,
-				y: orig.y + dy,
-				w: layer.w,
-				h: layer.h,
-			};
-			const snapped = snapRect(
-				target,
-				collectTargets( tc.editor.state, draft.ids ),
-				6 / tc.zoom
+		// Smart guides (spec 05.5, rebuilt 1.431): the selection FRAME snaps,
+		// so a group or several layers snap as one and a rotated layer by the
+		// corners you see; the drag measures to the nearest edge on every
+		// side, with snapping on or off. Scene and start frame hold for the
+		// whole drag.
+		const scene =
+			draft.scene || buildSnapScene( tc.editor.state, draft.ids );
+		const frame =
+			draft.frame || frameBox( tc.layers, draft.ids, draft.orig );
+		if ( frame ) {
+			const smart = smartSnap(
+				{ ...frame, x: frame.x + dx, y: frame.y + dy },
+				scene,
+				{
+					snap: !! tc.editor.state.snap,
+					threshold: 6 / tc.zoom,
+					eps: Math.min( 0.5, 1 / tc.zoom ),
+				}
 			);
-			dx += snapped.dx;
-			dy += snapped.dy;
-			tc.setGuides( snapped.guides );
+			dx += smart.dx;
+			dy += smart.dy;
+			tc.setGuides( smart );
 		}
 
 		tc.editor.dispatch( {
@@ -732,13 +753,13 @@ export const moveTool = {
 				return orig ? { x: orig.x + dx, y: orig.y + dy } : {};
 			},
 		} );
-		if ( ! draft.moved ) {
-			tc.setDraft( { ...draft, moved: true } );
+		if ( ! draft.moved || ! draft.scene ) {
+			tc.setDraft( { ...draft, moved: true, scene, frame } );
 		}
 	},
 	onUp( tc ) {
 		const draft = tc.draft;
-		tc.setGuides( [] );
+		tc.setGuides( null );
 		if ( ! draft ) {
 			return;
 		}
@@ -892,7 +913,7 @@ export function startTransform( tc, layer, mode, handle, p, e ) {
 			id: layer.id,
 			patch: { pivot: null },
 		} );
-		tc.editor.commit( __( 'Centre pivot', 'wunderpaint' ) );
+		tc.editor.commit( __( 'Center pivot', 'wunderpaint' ) );
 		return;
 	}
 	tc.setDraft( {
@@ -1405,16 +1426,19 @@ const selectionOpFromEvent = ( e, opts ) =>
 		? opts.combine
 		: 'replace';
 
-/** The bar's feather onto a fresh selection (0 = leave it alone). */
-const withFeather = ( sel, opts ) =>
-	sel && opts?.feather > 0 ? { ...sel, feather: opts.feather } : sel;
+/** Use the visible Feather value, including after Undo or restoring a selection. */
+const withFeather = ( sel, opts, current ) => {
+	const feather = current ? current.feather || 0 : opts?.feather || 0;
+	return sel && feather > 0 ? { ...sel, feather } : sel;
+};
 
 export const marqueeTool = {
 	onDown( tc, e, p ) {
 		tc.setDraft( {
 			kind: 'marquee',
 			start: p,
-			rect: { x: p.x, y: p.y, w: 0, h: 0 },
+			rect: marqueeRect( p, p, tc.opts ),
+			sizeMode: tc.opts?.sizeMode,
 			op: selectionOpFromEvent( e, tc.opts ),
 			shape: 'ellipse' === tc.opts?.shape ? 'ellipse' : 'rect',
 		} );
@@ -1426,12 +1450,7 @@ export const marqueeTool = {
 		}
 		tc.setDraft( {
 			...draft,
-			rect: {
-				x: Math.min( draft.start.x, p.x ),
-				y: Math.min( draft.start.y, p.y ),
-				w: Math.abs( p.x - draft.start.x ),
-				h: Math.abs( p.y - draft.start.y ),
-			},
+			rect: marqueeRect( draft.start, p, tc.opts ),
 		} );
 	},
 	onUp( tc ) {
@@ -1440,7 +1459,10 @@ export const marqueeTool = {
 			return;
 		}
 		tc.setDraft( null );
-		if ( draft.rect.w < 3 || draft.rect.h < 3 ) {
+		if (
+			draft.sizeMode !== 'fixed' &&
+			( draft.rect.w < 3 || draft.rect.h < 3 )
+		) {
 			if ( 'replace' === draft.op ) {
 				tc.editor.dispatch( {
 					type: 'SET_SELECTION',
@@ -1449,15 +1471,16 @@ export const marqueeTool = {
 			}
 			return;
 		}
-		const next = withFeather(
-			combine(
-				tc.selection,
+		const next = combine(
+			tc.selection,
+			withFeather(
 				'ellipse' === draft.shape
 					? { kind: 'poly', points: ellipsePoints( draft.rect ) }
 					: { kind: 'rect', ...draft.rect },
-				draft.op
+				tc.opts,
+				tc.selection
 			),
-			tc.opts
+			draft.op
 		);
 		tc.editor.dispatch( { type: 'SET_SELECTION', selection: next } );
 		tc.editor.commit( __( 'Marquee selection', 'wunderpaint' ) );
@@ -1474,13 +1497,14 @@ export function finishPolygonLasso( tc ) {
 	if ( draft.points.length < 3 ) {
 		return true;
 	}
-	const next = withFeather(
-		combine(
-			tc.selection,
+	const next = combine(
+		tc.selection,
+		withFeather(
 			{ kind: 'poly', points: draft.points },
-			draft.op
+			tc.opts,
+			tc.selection
 		),
-		tc.opts
+		draft.op
 	);
 	tc.editor.dispatch( { type: 'SET_SELECTION', selection: next } );
 	tc.editor.commit( __( 'Polygon lasso selection', 'wunderpaint' ) );
@@ -1546,13 +1570,14 @@ export const lassoTool = {
 		if ( draft.points.length < 3 ) {
 			return;
 		}
-		const next = withFeather(
-			combine(
-				tc.selection,
+		const next = combine(
+			tc.selection,
+			withFeather(
 				{ kind: 'poly', points: draft.points },
-				draft.op
+				tc.opts,
+				tc.selection
 			),
-			tc.opts
+			draft.op
 		);
 		tc.editor.dispatch( { type: 'SET_SELECTION', selection: next } );
 		tc.editor.commit( __( 'Lasso selection', 'wunderpaint' ) );
@@ -1564,38 +1589,21 @@ export const lassoTool = {
 
 /* --------------------------------- Crop --------------------------------- */
 
-const RATIOS = {
-	'1:1': 1,
-	'4:3': 4 / 3,
-	'16:9': 16 / 9,
-	'9:16': 9 / 16,
-	'3:2': 3 / 2,
-};
-
-/** Resolve a ratio option (plain or `social:<id>`) to a number or null. */
-export function cropRatioValue( option ) {
-	if ( RATIOS[ option ] ) {
-		return RATIOS[ option ];
-	}
-	if ( String( option ).startsWith( 'social:' ) ) {
-		const preset = socialCropById( option.slice( 7 ) );
-		if ( preset ) {
-			const [ rw, rh ] = preset.ratio.split( ':' ).map( Number );
-			return rw / rh;
-		}
-	}
-	return null;
-}
-
 /* ------------------------------ Magic Wand ------------------------------ */
 
 export const wandTool = {
 	async onDown( tc, e, p ) {
-		const { doc, layers } = tc.editor.state;
+		const editor = tc.editor.live || tc.editor;
+		const { doc, layers } = editor.state;
 		const opts = tc.opts;
+		const op = selectionOpFromEvent( e, opts );
 		const composite = await renderToCanvas( doc, layers, {
 			cache: sharedImageCache,
 		} );
+		// A panel tool switch or document load cancels an unfinished sample.
+		if ( editor.state.doc !== doc || editor.state.tool !== 'wand' ) {
+			return;
+		}
 		const ctx = composite.getContext( '2d' );
 		const img = ctx.getImageData( 0, 0, doc.w, doc.h );
 		const { mask, bounds } = wandMask(
@@ -1606,7 +1614,12 @@ export const wandTool = {
 			opts.contiguous ?? true
 		);
 		if ( ! bounds ) {
-			tc.editor.dispatch( { type: 'SET_SELECTION', selection: null } );
+			if ( op === 'replace' ) {
+				editor.dispatch( {
+					type: 'SET_SELECTION',
+					selection: null,
+				} );
+			}
 			return;
 		}
 		const maskCanvas = createCanvas( doc.w, doc.h );
@@ -1619,11 +1632,19 @@ export const wandTool = {
 			out.data[ i * 4 + 3 ] = mask[ i ];
 		}
 		mctx.putImageData( out, 0, 0 );
-		tc.editor.dispatch( {
+		editor.dispatch( {
 			type: 'SET_SELECTION',
-			selection: { kind: 'mask', canvas: maskCanvas, bounds },
+			selection: combine(
+				editor.state.selection,
+				withFeather(
+					{ kind: 'mask', canvas: maskCanvas, bounds },
+					opts,
+					editor.state.selection
+				),
+				op
+			),
 		} );
-		tc.editor.commit( __( 'Magic Wand', 'wunderpaint' ) );
+		editor.commit( __( 'Magic Wand', 'wunderpaint' ) );
 	},
 };
 
@@ -1768,7 +1789,12 @@ export const smartSelectTool = {
 			if ( id ) {
 				toasts?.remove( id );
 			}
-			const sel = smartMaskToSelection( mask );
+			const current = ( tc.editor.live || tc.editor ).state.selection;
+			const sel = withFeather(
+				smartMaskToSelection( mask ),
+				tc.opts,
+				current
+			);
 			if ( sel ) {
 				// Doc-coord copies of the clicked points for the on-canvas dots.
 				sel.points = smartPoints.map( ( q ) => ( {
@@ -1809,6 +1835,12 @@ export const smartSelectTool = {
 
 export const cropTool = {
 	onDown( tc, e, p ) {
+		// Ctrl/Cmd + drag draws a straighten line (the canvas finishes it,
+		// see 'straightenLine' in editor-canvas.jsx); the crop stays.
+		if ( e?.ctrlKey || e?.metaKey ) {
+			tc.setDraft( { kind: 'straightenLine', a: p, b: p } );
+			return;
+		}
 		tc.setDraft( { kind: 'crop', start: p } );
 		tc.editor.dispatch( {
 			type: 'SET_CROP',
@@ -1822,7 +1854,7 @@ export const cropTool = {
 		}
 		let w = Math.abs( p.x - draft.start.x );
 		let h = Math.abs( p.y - draft.start.y );
-		const ratio = cropRatioValue( tc.opts.ratio );
+		const ratio = cropRatioValue( tc.opts.ratio, tc.doc );
 		if ( ratio ) {
 			if ( w / Math.max( 1, h ) > ratio ) {
 				h = w / ratio;
@@ -1944,15 +1976,18 @@ let seilRaw = null;
 function makePaintTool( toolId ) {
 	return {
 		onDown( tc, e, p ) {
-			// Pen pressure scales the stroke (F16).
-			tc.pressure =
-				e.pressure > 0 && e.pressure < 1 ? 0.35 + e.pressure * 0.65 : 1;
+			// Pen pressure scales the stroke (F16), through the user's
+			// pressure curve.
+			const pr = penPressure( e, tc.opts.pressCurve );
+			tc.pressure = pr > 0 && pr < 1 ? 0.35 + pr * 0.65 : 1;
 			// The wet styles read the RAW pen pressure; a mouse reports a
 			// constant 0.5 while its button is down, so anything that is
 			// not a pen counts as full pressure or mouse strokes would
 			// paint thinner than before.
-			tc.penPressure =
-				'pen' === e.pointerType && e.pressure > 0 ? e.pressure : 1;
+			tc.penPressure = 'pen' === e.pointerType && pr > 0 ? pr : 1;
+			// Whether the pressure is a hand's: the wet media give a mouse
+			// or a finger a virtual pen (taper in and out) instead.
+			tc.penReal = 'pen' === e.pointerType;
 			tc.penTilt = penTilt( e );
 			seilPen = { x: p.x, y: p.y };
 			seilRaw = { x: p.x, y: p.y };
@@ -1968,12 +2003,13 @@ function makePaintTool( toolId ) {
 			// overlay above the target layer is the preview, so no draft
 			// layer is added. wetStrokeDown says no for everything it
 			// cannot serve (stroke-layer mode, unpaintable targets, no
-			// WebGL2), and a live selection keeps the classic pass too -
-			// the wash would ignore the marching ants.
+			// WebGL2). A live selection is honoured as a FRISKET: the
+			// controller clips the wash to it, so the medium keeps its
+			// physics inside the marching ants (it used to fall back to
+			// the static pass here).
 			if (
 				! isPencil &&
 				WET_STYLE_IDS.includes( opts.paintStyle ) &&
-				! tc.selection &&
 				wetStrokeDown( tc, p )
 			) {
 				tc.setDraft( { kind: 'wetpaint', lastPt: p } );
@@ -2052,10 +2088,10 @@ function makePaintTool( toolId ) {
 			} );
 		},
 		onMove( tc, e, p ) {
-			tc.pressure =
-				e.pressure > 0 && e.pressure < 1 ? 0.35 + e.pressure * 0.65 : 1;
-			tc.penPressure =
-				'pen' === e.pointerType && e.pressure > 0 ? e.pressure : 1;
+			const pr = penPressure( e, tc.opts.pressCurve );
+			tc.pressure = pr > 0 && pr < 1 ? 0.35 + pr * 0.65 : 1;
+			tc.penPressure = 'pen' === e.pointerType && pr > 0 ? pr : 1;
+			tc.penReal = 'pen' === e.pointerType;
 			tc.penTilt = penTilt( e );
 			const draft = tc.draft;
 			// The pulled string: the brush point trails the cursor on a
@@ -2084,12 +2120,14 @@ function makePaintTool( toolId ) {
 				return;
 			}
 			if ( draft && 'wetpaint' === draft.kind ) {
-				const from = draft.lastPt;
+				// The controller keeps the stroke's last point itself, per
+				// event; a new draft per pointermove only re-rendered the
+				// whole canvas component for a point nobody read.
+				const from = wetLastPoint() || draft.lastPt;
 				if ( Math.hypot( p.x - from.x, p.y - from.y ) < 2 / tc.zoom ) {
 					return;
 				}
 				wetStrokeMove( tc, from, p );
-				tc.setDraft( { ...draft, lastPt: p } );
 				return;
 			}
 			if ( ! draft || 'paint' !== draft.kind ) {
@@ -2531,6 +2569,10 @@ function makePaintTool( toolId ) {
 					sctx.getImageData( 0, 0, bounds.w, bounds.h ),
 					{
 						style: styleId,
+						tuning: tc.opts.wetTuning?.[ styleId ],
+						// What the tip is made of (leaf size, flakes, wear):
+						// the same material the GPU painter reads.
+						material: getTip( tc.opts.tip || 'round' ).material,
 						colour: p0s.color || '#000000',
 						size: ( p0s.size || 24 ) * pxScale,
 						originX: bounds.x,
@@ -2563,8 +2605,8 @@ export const pencilTool = makePaintTool( 'pencil' );
 
 export const eraserTool = {
 	onDown( tc, e, p ) {
-		tc.pressure =
-			e.pressure > 0 && e.pressure < 1 ? 0.35 + e.pressure * 0.65 : 1;
+		const pr = penPressure( e, tc.opts.pressCurve );
+		tc.pressure = pr > 0 && pr < 1 ? 0.35 + pr * 0.65 : 1;
 		const maskLayer = maskPaintTarget( tc );
 		if ( maskLayer ) {
 			maskStrokeStart( tc, maskLayer, p, '#000000' );
@@ -2651,8 +2693,8 @@ export const eraserTool = {
 		tc.requestRender();
 	},
 	onMove( tc, e, p ) {
-		tc.pressure =
-			e.pressure > 0 && e.pressure < 1 ? 0.35 + e.pressure * 0.65 : 1;
+		const pr = penPressure( e, tc.opts.pressCurve );
+		tc.pressure = pr > 0 && pr < 1 ? 0.35 + pr * 0.65 : 1;
 		const draft = tc.draft;
 		if ( draft && 'maskpaint' === draft.kind ) {
 			maskStrokeMove( tc, p );
@@ -2743,108 +2785,11 @@ function hintIfInvisible( tc, layer ) {
 
 export const bucketTool = {
 	onDown( tc, e, p ) {
-		// Always the foreground color (v1.128.2): the options bar shows a
-		// direct color field now instead of the old fg/bg toggle.
-		const color = tc.fg;
-		// Selection gating: clicks outside an active selection do nothing -
-		// but SAY so, silence reads as "broken" (v1.365.0).
-		if ( tc.selection && ! pointInSelection( tc.selection, p.x, p.y ) ) {
-			noopHint(
-				tc,
-				__(
-					'That click was outside the active selection.',
-					'wunderpaint'
-				)
-			);
-			return;
-		}
-		// Pixel-accurate (v1.127.0): recolor the shape you SEE, not the top
-		// bounding box - crucial for recoloring vectorized artwork.
-		const hit = topLayerAt( tc.layers, p.x, p.y, {
-			pixel: true,
-			cache: tc.imageCache,
+		return applyBucket( tc, p, {
+			topLayerAt,
+			ancestorLocked,
+			ancestorHidden,
 		} );
-
-		if ( hit && 'shape' === hit.type ) {
-			tc.editor.dispatch( {
-				type: 'UPDATE_LAYER',
-				id: hit.id,
-				patch: { fill: color },
-			} );
-			tc.editor.commit( __( 'Recolor shape', 'wunderpaint' ) );
-			return;
-		}
-		if ( hit && 'text' === hit.type ) {
-			tc.editor.dispatch( {
-				type: 'UPDATE_LAYER',
-				id: hit.id,
-				patch: { color },
-			} );
-			tc.editor.commit( __( 'Recolor text', 'wunderpaint' ) );
-			return;
-		}
-		if ( hit && [ 'image', 'raster', 'stroke' ].includes( hit.type ) ) {
-			let target = hit;
-			if ( 'stroke' === hit.type ) {
-				// Flood-filling a vector stroke recolors its paths.
-				tc.editor.dispatch( {
-					type: 'UPDATE_LAYER',
-					id: hit.id,
-					patch: {
-						paths: hit.paths.map( ( path ) => ( {
-							...path,
-							color,
-						} ) ),
-					},
-				} );
-				tc.editor.commit( __( 'Recolor stroke', 'wunderpaint' ) );
-				return;
-			}
-			target = ensureRaster( tc, target );
-			if ( ! target ) {
-				return;
-			}
-			const mask = tc.selection
-				? layerLocalMask( tc.selection, tc.doc, target )
-				: null;
-			const filled = floodFill(
-				target.canvas,
-				p.x - target.x,
-				p.y - target.y,
-				color,
-				{
-					tolerance: tc.opts.tolerance ?? 32,
-					contiguous: tc.opts.contiguous !== false,
-					opacity: ( tc.opts.opacity ?? 100 ) / 100,
-					mask,
-				}
-			);
-			if ( filled ) {
-				tc.editor.dispatch( {
-					type: 'UPDATE_LAYER',
-					id: target.id,
-					patch: {},
-				} );
-				tc.editor.commit( __( 'Flood fill', 'wunderpaint' ) );
-				tc.requestRender();
-			}
-			return;
-		}
-
-		// Miss → full-canvas fill layer at the bottom (or selection-only).
-		let layer = makeShape( {
-			name: __( 'Fill', 'wunderpaint' ),
-			x: 0,
-			y: 0,
-			w: tc.doc.w,
-			h: tc.doc.h,
-			shape: 'rect',
-			fill: color,
-		} );
-		layer.opacity = ( tc.opts.opacity ?? 100 ) / 100;
-		layer = maskFromSelection( tc, layer );
-		tc.editor.dispatch( { type: 'ADD_LAYER', layer, index: 0 } );
-		tc.editor.commit( __( 'Fill', 'wunderpaint' ) );
 	},
 	onMove() {},
 	onUp() {},
@@ -2854,20 +2799,38 @@ export const bucketTool = {
 
 export const gradientTool = {
 	onDown( tc, e, p ) {
-		tc.setDraft( { kind: 'gradient', from: p, to: p } );
+		const layer = gradientLayerOf( tc.editor.state );
+		if ( layer && ( layer.locked || ancestorLocked( tc.layers, layer ) ) ) {
+			return;
+		}
+		if ( layer && isGradientField( layer.kind ) ) {
+			return;
+		}
+		const point = layer ? gradientPoint( layer, p, true ) : p;
+		tc.setDraft( {
+			kind: 'gradient',
+			targetId: layer?.id || null,
+			from: point,
+			to: point,
+		} );
 	},
 	onMove( tc, e, p ) {
 		const draft = tc.draft;
-		if ( ! draft || 'gradient' !== draft.kind ) {
+		if ( ! draft || draft.kind !== 'gradient' ) {
 			return;
 		}
-		let to = p;
+		const layer =
+			draft.targetId &&
+			tc.layers.find( ( l ) => l.id === draft.targetId );
+		let to = layer ? gradientPoint( layer, p, true ) : p;
 		if ( e.shiftKey ) {
-			// Constrain to 45° increments.
-			const angle = Math.atan2( p.y - draft.from.y, p.x - draft.from.x );
-			const step = Math.PI / 4;
-			const snapped = Math.round( angle / step ) * step;
-			const len = Math.hypot( p.x - draft.from.x, p.y - draft.from.y );
+			const angle = Math.atan2(
+					to.y - draft.from.y,
+					to.x - draft.from.x
+				),
+				step = Math.PI / 4,
+				snapped = Math.round( angle / step ) * step,
+				len = Math.hypot( to.x - draft.from.x, to.y - draft.from.y );
 			to = {
 				x: draft.from.x + Math.cos( snapped ) * len,
 				y: draft.from.y + Math.sin( snapped ) * len,
@@ -2877,7 +2840,7 @@ export const gradientTool = {
 	},
 	onUp( tc ) {
 		const draft = tc.draft;
-		if ( ! draft || 'gradient' !== draft.kind ) {
+		if ( ! draft || draft.kind !== 'gradient' ) {
 			return;
 		}
 		tc.setDraft( null );
@@ -2887,50 +2850,75 @@ export const gradientTool = {
 		) {
 			return;
 		}
-		let stops = ( tc.opts.stops || [] ).map( ( s ) => ( { ...s } ) );
-		if ( ! stops.length ) {
-			stops = [
-				{ color: tc.fg, at: 0 },
-				{ color: 'rgba(0,0,0,0)', at: 1 },
-			];
-		}
-		if ( tc.opts.reverse ) {
-			stops = stops
-				.map( ( s ) => ( { ...s, at: 1 - s.at } ) )
-				.sort( ( a, b ) => a.at - b.at );
-		}
-
-		const active = activeLayer( tc );
-		if ( active && 'gradient' === active.type ) {
-			// Update the active gradient layer's direction (spec 05.4).
+		if ( draft.targetId ) {
+			const layer = tc.editor.state.layers.find(
+				( l ) => l.id === draft.targetId
+			);
+			if (
+				! layer ||
+				layer.locked ||
+				ancestorLocked( tc.editor.state.layers, layer )
+			) {
+				return;
+			}
 			tc.editor.dispatch( {
 				type: 'UPDATE_LAYER',
-				id: active.id,
-				patch: {
-					kind: tc.opts.kind || 'linear',
-					from: draft.from,
-					to: draft.to,
-					stops,
-				},
+				id: layer.id,
+				patch: { from: draft.from, to: draft.to },
 			} );
 			tc.editor.commit( __( 'Edit gradient', 'wunderpaint' ) );
 			return;
 		}
-
+		let paint = gradientPaint( tc.opts );
+		if ( ! paint.stops.length ) {
+			paint = {
+				...paint,
+				stops: [
+					{ color: tc.fg, at: 0 },
+					{ color: 'rgba(0,0,0,0)', at: 1 },
+				],
+			};
+		}
 		let layer = makeGradient( {
 			name: __( 'Gradient', 'wunderpaint' ),
 			x: 0,
 			y: 0,
 			w: tc.doc.w,
 			h: tc.doc.h,
-			kind: tc.opts.kind || 'linear',
+			...paint,
 			from: draft.from,
 			to: draft.to,
-			stops,
 		} );
 		layer = maskFromSelection( tc, layer );
 		tc.editor.dispatch( { type: 'ADD_LAYER', layer } );
 		tc.editor.commit( __( 'Gradient', 'wunderpaint' ) );
+	},
+	onDblClick( tc, e, p ) {
+		const layer = gradientLayerOf( tc.editor.state );
+		if (
+			layer?.kind !== 'freeform' ||
+			layer.locked ||
+			ancestorLocked( tc.layers, layer )
+		) {
+			return;
+		}
+		const local = gradientPoint( layer, p, true );
+		const x = ( local.x - layer.x ) / layer.w,
+			y = ( local.y - layer.y ) / layer.h;
+		if ( x < 0 || x > 1 || y < 0 || y > 1 ) {
+			return;
+		}
+		const field = normalizeFreeform( layer.freeform, layer.stops );
+		if ( field.points.length >= 24 ) {
+			return;
+		}
+		tc.editor.dispatch( {
+			type: 'UPDATE_LAYER',
+			id: layer.id,
+			patch: { freeform: addFreeformPoint( field, { x, y } ) },
+		} );
+		tc.selectGradientPoint?.( field.points.length );
+		tc.editor.commit( __( 'Edit gradient', 'wunderpaint' ) );
 	},
 };
 
@@ -3264,6 +3252,11 @@ export const shapeTool = {
 			h: 1,
 			shape: opts.shape || 'rect',
 			fill: tc.fg,
+			fillType: opts.fillType,
+			gradientStops: opts.gradientStops,
+			gradientKind: opts.gradientKind,
+			gradientAngle: opts.gradientAngle,
+			strokeGradient: opts.strokeGradient,
 			stroke: opts.stroke || null,
 			strokeW: opts.strokeW || 0,
 			strokeDash: opts.strokeDash || null,
@@ -3366,18 +3359,114 @@ export function penPathD( anchors, closed ) {
 	return d;
 }
 
+/*
+ * Freehand pen input (Pen Tool round, 19.10.2026).
+ *
+ * - The samples are appended IN PLACE and the draft is re-rendered once
+ *   per frame, not once per pointer event (a pen fires up to 240 a
+ *   second; every one used to copy the whole point list and redraw).
+ * - A pen's coalesced events are taken too, so a fast stroke keeps its
+ *   shape instead of cutting corners between frames.
+ * - The stabilizer is the brush's pulled string (lib/stroke-smoothing):
+ *   the ink point trails the cursor and catches up on release.
+ * Module state, like the brush's string - never React state.
+ */
+let penFlush = null;
+let penSeil = null;
+let penSeilRaw = null;
+// A closure, not the bare function: cancelAnimationFrame called with
+// another receiver throws "Illegal invocation".
+const nextFrame = ( fn ) => {
+	if ( 'function' === typeof requestAnimationFrame ) {
+		const id = requestAnimationFrame( fn );
+		return () => cancelAnimationFrame( id );
+	}
+	const id = setTimeout( fn, 16 );
+	return () => clearTimeout( id );
+};
+function flushPenDraft( tc, draft ) {
+	if ( penFlush ) {
+		return;
+	}
+	penFlush = nextFrame( () => {
+		penFlush = null;
+		tc.setDraft( { ...draft } );
+	} );
+}
+function cancelPenFlush() {
+	if ( penFlush ) {
+		penFlush();
+		penFlush = null;
+	}
+}
+function penFreeSamples( tc, e, p ) {
+	const native = e?.nativeEvent || e;
+	const list =
+		tc.pointOf && 'function' === typeof native?.getCoalescedEvents
+			? native.getCoalescedEvents()
+			: [];
+	return list.length > 1
+		? list.map( ( ev ) => recordPenSample( tc.pointOf( ev ), ev ) )
+		: [ p ];
+}
+
 export const penTool = {
 	onDown( tc, e, p ) {
-		if ( 'freehand' === tc.opts?.mode && ! tc.draft ) {
+		p = recordPenSample( p, e );
+		if (
+			'freehand' === tc.opts?.mode &&
+			( ! tc.draft ||
+				( tc.draft.continuation && tc.draft.anchors?.length === 1 ) )
+		) {
+			cancelPenFlush();
+			penSeil = { x: p.x, y: p.y };
+			penSeilRaw = null;
 			// Freehand pen (v1.429): draw like a pencil, the release fits
 			// smooth Bezier anchors to the stroke.
-			tc.setDraft( { kind: 'penFree', points: [ p ] } );
+			tc.setDraft( {
+				kind: 'penFree',
+				continuation: tc.draft?.continuation,
+				points: tc.draft?.continuation
+					? [ tc.draft.anchors[ 0 ], p ]
+					: [ p ],
+			} );
 			return;
 		}
 		const draft =
 			tc.draft && 'pen' === tc.draft.kind
 				? tc.draft
-				: { kind: 'pen', anchors: [], closed: false };
+				: {
+						kind: 'pen',
+						mode: tc.opts?.mode || 'curve',
+						anchors: [],
+						closed: false,
+				  };
+		// Shift constrains the next segment to 45-degree steps.
+		const last = draft.anchors[ draft.anchors.length - 1 ];
+		if ( last && e.shiftKey ) {
+			const dx = p.x - last.x,
+				dy = p.y - last.y,
+				r = Math.hypot( dx, dy ),
+				angle =
+					( Math.round( Math.atan2( dy, dx ) / ( Math.PI / 4 ) ) *
+						Math.PI ) /
+					4;
+			p = {
+				x: last.x + r * Math.cos( angle ),
+				y: last.y + r * Math.sin( angle ),
+			};
+		}
+		// Existing draft points can be corrected before finishing.
+		const existing = draft.anchors.findIndex(
+			( a ) => Math.hypot( a.x - p.x, a.y - p.y ) < 7 / tc.zoom
+		);
+		if (
+			existing >= 0 &&
+			! ( existing === 0 && draft.anchors.length > 2 )
+		) {
+			tc.setDraft( { ...draft, dragging: true, editing: existing } );
+			return;
+		}
 		// Close when clicking near the first anchor.
 		if ( draft.anchors.length > 2 ) {
 			const first = draft.anchors[ 0 ];
@@ -3395,17 +3484,65 @@ export const penTool = {
 			...draft,
 			anchors: [
 				...draft.anchors,
-				{ x: p.x, y: p.y, hIn: null, hOut: null },
+				{ x: p.x, y: p.y, hIn: null, hOut: null, corner: !! e.altKey },
 			],
 			dragging: true,
+			preview: null,
+			editing: null,
 		} );
 	},
 	onMove( tc, e, p ) {
+		p = recordPenSample( p, e );
 		const draft = tc.draft;
+		if (
+			draft?.kind === 'pen' &&
+			! draft.dragging &&
+			draft.anchors.length &&
+			tc.opts.preview !== false
+		) {
+			const last = draft.anchors.at( -1 );
+			if ( e.shiftKey ) {
+				const angle =
+						( Math.round(
+							Math.atan2( p.y - last.y, p.x - last.x ) /
+								( Math.PI / 4 )
+						) *
+							Math.PI ) /
+						4,
+					r = Math.hypot( p.x - last.x, p.y - last.y );
+				p = {
+					x: last.x + Math.cos( angle ) * r,
+					y: last.y + Math.sin( angle ) * r,
+				};
+			}
+			tc.setDraft( { ...draft, preview: { ...p, corner: !! e.altKey } } );
+			return;
+		}
 		if ( draft && 'penFree' === draft.kind ) {
-			const last = draft.points[ draft.points.length - 1 ];
-			if ( Math.hypot( p.x - last.x, p.y - last.y ) >= 1.5 / tc.zoom ) {
-				tc.setDraft( { ...draft, points: [ ...draft.points, p ] } );
+			const len =
+				( ( tc.opts?.stabilize ?? 0 ) * 0.5 ) / ( tc.zoom || 1 );
+			let added = false;
+			for ( let q of penFreeSamples( tc, e, p ) ) {
+				if ( len > 0 ) {
+					penSeilRaw = q;
+					const zug = pulledString( penSeil, q, len );
+					if ( ! zug ) {
+						continue; // the string is still slack
+					}
+					penSeil = zug;
+					q = { ...q, x: zug.x, y: zug.y };
+				}
+				const last = draft.points[ draft.points.length - 1 ];
+				if (
+					Math.hypot( q.x - last.x, q.y - last.y ) >=
+					1.5 / tc.zoom
+				) {
+					draft.points.push( q );
+					added = true;
+				}
+			}
+			if ( added ) {
+				flushPenDraft( tc, draft );
 			}
 			return;
 		}
@@ -3417,17 +3554,51 @@ export const penTool = {
 		) {
 			return;
 		}
+		if ( draft.editing !== null && draft.editing !== undefined ) {
+			const anchors = draft.anchors.map( ( a ) => ( { ...a } ) );
+			const a = anchors[ draft.editing ],
+				dx = p.x - a.x,
+				dy = p.y - a.y;
+			for ( const key of [ 'hIn', 'hOut' ] ) {
+				if ( a[ key ] ) {
+					a[ key ] = { x: a[ key ].x + dx, y: a[ key ].y + dy };
+				}
+			}
+			a.x = p.x;
+			a.y = p.y;
+			tc.setDraft( { ...draft, anchors } );
+			return;
+		}
+		if ( draft.mode === 'curve' ) {
+			return;
+		}
 		// Dragging after placing an anchor pulls out symmetric handles.
 		const anchors = [ ...draft.anchors ];
 		const anchor = { ...anchors[ anchors.length - 1 ] };
 		anchor.hOut = { x: p.x, y: p.y };
-		anchor.hIn = { x: 2 * anchor.x - p.x, y: 2 * anchor.y - p.y };
+		anchor.hIn = e.altKey
+			? null
+			: { x: 2 * anchor.x - p.x, y: 2 * anchor.y - p.y };
 		anchors[ anchors.length - 1 ] = anchor;
 		tc.setDraft( { ...draft, anchors } );
 	},
 	onUp( tc ) {
 		const draft = tc.draft;
 		if ( draft && 'penFree' === draft.kind ) {
+			cancelPenFlush();
+			// The stabilizer's string catches up: the line ends where the
+			// pen was lifted.
+			if ( penSeilRaw ) {
+				const last = draft.points[ draft.points.length - 1 ];
+				if (
+					Math.hypot( penSeilRaw.x - last.x, penSeilRaw.y - last.y ) >
+					0.5 / ( tc.zoom || 1 )
+				) {
+					draft.points.push( penSeilRaw );
+				}
+			}
+			penSeil = null;
+			penSeilRaw = null;
 			// Fidelity 0..100 -> allowed error 12..0.5 px of the document.
 			const fidelity = Math.max(
 				0,
@@ -3446,15 +3617,17 @@ export const penTool = {
 				Math.hypot( last.x - first.x, last.y - first.y ) < 12 / tc.zoom;
 			tc.setDraft( {
 				kind: 'pen',
+				continuation: draft.continuation,
+				motion: penMotion( draft.points, tc.opts?.style?.dynamics ),
 				anchors,
-				closed,
+				closed: draft.continuation ? false : closed,
 				finalizing: true,
 				at: last,
 			} );
 			return;
 		}
 		if ( draft && 'pen' === draft.kind ) {
-			tc.setDraft( { ...draft, dragging: false } );
+			tc.setDraft( { ...draft, dragging: false, editing: null } );
 		}
 	},
 	onDblClick( tc ) {
@@ -3471,54 +3644,61 @@ export const penTool = {
 /** Finalize the pen path as a stroke outline or a filled shape (spec 05.4). */
 export function finalizePen( tc, mode ) {
 	const draft = tc.draft;
-	if ( ! draft || 'pen' !== draft.kind || draft.anchors.length < 2 ) {
+	if ( ! draft || draft.kind !== 'pen' || draft.anchors.length < 2 ) {
 		tc.setDraft( null );
 		return;
 	}
-	tc.setDraft( null );
-	const d = penPathD( draft.anchors, draft.closed );
-	const xs = draft.anchors.flatMap( ( a ) =>
-		[ a.x, a.hIn?.x, a.hOut?.x ].filter(
-			( v ) => null !== v && undefined !== v
-		)
-	);
-	const ys = draft.anchors.flatMap( ( a ) =>
-		[ a.y, a.hIn?.y, a.hOut?.y ].filter(
-			( v ) => null !== v && undefined !== v
-		)
-	);
-	const pad = 4;
-	const bounds = {
-		x: Math.min( ...xs ) - pad,
-		y: Math.min( ...ys ) - pad,
-		w: Math.max( ...xs ) - Math.min( ...xs ) + 2 * pad,
-		h: Math.max( ...ys ) - Math.min( ...ys ) + 2 * pad,
-	};
-
-	if ( 'fill' === mode ) {
-		const layer = makeShape( {
-			name: __( 'Path', 'wunderpaint' ),
-			...bounds,
-			shape: 'rect',
-			fill: tc.fg,
-			pathD: d,
+	const d = penDraftD( draft, tc.opts ),
+		style = cleanPenStyle( {
+			...tc.opts?.style,
+			motion: draft.motion || [],
 		} );
-		// pathD is in doc coordinates; the renderer draws it inside a layer
-		// whose local origin is (x, y), rebase the path.
-		layer.pathD = rebasePathD( d, -layer.x, -layer.y );
-		tc.editor.dispatch( { type: 'ADD_LAYER', layer } );
-		tc.editor.commit( __( 'Fill Path', 'wunderpaint' ) );
-	} else {
-		const layer = makeStroke( {
-			name: __( 'Pen path', 'wunderpaint' ),
-			...bounds,
-			paths: [ { d, color: tc.fg, size: 3, opacity: 1 } ],
-		} );
-		layer.x0 = layer.x;
-		layer.y0 = layer.y;
-		tc.editor.dispatch( { type: 'ADD_LAYER', layer } );
-		tc.editor.commit( __( 'Stroke Path', 'wunderpaint' ) );
+	if ( mode === 'fill' ) {
+		style.kind = 'fill';
 	}
+	if ( draft.continuation ) {
+		const base = tc.editor.state.layers.find(
+			( l ) => l.id === draft.continuation.id
+		);
+		const continued =
+			base &&
+			! base.locked &&
+			! ancestorLocked( tc.editor.state.layers, base ) &&
+			base.penPath
+				? appendPenContinuation( base, draft.continuation, d )
+				: null;
+		if ( continued ) {
+			tc.editor.dispatch( {
+				type: 'UPDATE_LAYER',
+				id: base.id,
+				patch: penLayerPatch(
+					base,
+					{ ...base.penPath.style, smoothing: 0 },
+					continued
+				),
+			} );
+			tc.editor.commit( __( 'Continue path', 'wunderpaint' ) );
+			tc.beginPenEdit?.( base.id );
+		}
+		tc.setDraft( null );
+		return;
+	}
+	const geometry = newPenGeometry( d, style );
+	if ( ! geometry.pathD ) {
+		tc.setDraft( null );
+		return;
+	}
+	const layer = makeShape( {
+		...geometry,
+		name: __( 'Pen path', 'wunderpaint' ),
+		fill: tc.fg,
+		stroke: null,
+		strokeW: 0,
+	} );
+	tc.setDraft( null );
+	tc.editor.dispatch( { type: 'ADD_LAYER', layer } );
+	tc.editor.commit( __( 'Draw pen path', 'wunderpaint' ) );
+	tc.beginPenEdit?.( layer.id );
 }
 
 /** Shift every coordinate in a path string (M/L/Q/C/Z subset). */
@@ -3538,33 +3718,6 @@ export function rebasePathD( d, dx, dy ) {
 	}
 	return out.join( ' ' );
 }
-
-/* ------------------------------- Eyedropper ----------------------------- */
-
-export const eyedropperTool = {
-	onDown( tc, e, p ) {
-		const alt = e.altKey;
-		samplePixel(
-			tc.doc,
-			tc.layers,
-			p.x,
-			p.y,
-			tc.imageCache,
-			tc.opts?.sample || 1
-		).then( ( { r, g, b, a } ) => {
-			if ( ! a ) {
-				return; // fully transparent, nothing to pick
-			}
-			const hex = rgbToHex( r, g, b );
-			tc.editor.dispatch( {
-				type: alt ? 'SET_BG' : 'SET_FG',
-				color: hex,
-			} );
-		} );
-	},
-	onMove() {},
-	onUp() {},
-};
 
 /* -------------------------------- Hand/Zoom ----------------------------- */
 
@@ -3674,12 +3827,23 @@ export const fxBrushTool = {
 			return;
 		}
 		const mask = tc.selection
-			? layerLocalMask( tc.selection, tc.doc, target )
+			? selectionToMaskCanvas( tc.selection, tc.doc.w, tc.doc.h )
 			: null;
-		tc.setDraft( { kind: 'fxbrush', layerId: target.id, lastPt: p, mask } );
 		if ( 'smudge' !== tc.opts.mode ) {
-			effectStamp( target, p, { ...tc.opts, mask } );
+			target = effectStamp( target, p, { ...tc.opts, docMask: mask } );
+			tc.editor.dispatch( {
+				type: 'UPDATE_LAYER',
+				id: target.id,
+				patch: target,
+			} );
 		}
+		tc.setDraft( {
+			kind: 'fxbrush',
+			layerId: target.id,
+			layer: target,
+			lastPt: p,
+			mask,
+		} );
 		tc.requestRender();
 	},
 	onMove( tc, e, p ) {
@@ -3687,7 +3851,7 @@ export const fxBrushTool = {
 		if ( ! draft || 'fxbrush' !== draft.kind ) {
 			return;
 		}
-		const layer = tc.layers.find( ( l ) => l.id === draft.layerId );
+		let layer = draft.layer;
 		if ( ! layer?.canvas ) {
 			return;
 		}
@@ -3707,9 +3871,19 @@ export const fxBrushTool = {
 				x: draft.lastPt.x + ( ( p.x - draft.lastPt.x ) * i ) / steps,
 				y: draft.lastPt.y + ( ( p.y - draft.lastPt.y ) * i ) / steps,
 			};
-			effectStamp( layer, at, { ...opts, mask: draft.mask, prev } );
+			layer = effectStamp( layer, at, {
+				...opts,
+				docMask: draft.mask,
+				prev,
+			} );
 			prev = at;
 		}
+		draft.layer = layer;
+		tc.editor.dispatch( {
+			type: 'UPDATE_LAYER',
+			id: layer.id,
+			patch: layer,
+		} );
 		draft.lastPt = p;
 		tc.requestRender();
 	},
@@ -3733,14 +3907,53 @@ export const fxBrushTool = {
 export const stampTool = {
 	onDown( tc, e, p ) {
 		const opts = tc.opts;
-		if ( e.altKey ) {
-			// Alt-click sets the clone source (v0.2); a new source also
-			// forgets the aligned offset (v1.429).
-			tc.editor.dispatch( {
-				type: 'SET_TOOL_OPTS',
-				tool: 'stamp',
-				patch: { source: { x: p.x, y: p.y }, offset: null },
-			} );
+		if ( e.altKey || opts.pickingSource ) {
+			const layer = activeLayer( tc );
+			if ( ! layer || ! [ 'image', 'raster' ].includes( layer.type ) ) {
+				tc.extras.toasts.toast(
+					__(
+						'Choose an image or pixel layer as the source.',
+						'wunderpaint'
+					)
+				);
+				return;
+			}
+			const url = layer.type === 'image' ? layer.src : layer.dataUrl;
+			const loaded =
+				layer.canvas || ( url ? tc.imageCache.get( url ) : null );
+			if ( url && ! loaded ) {
+				tc.extras.toasts.toast(
+					__(
+						'The source image is still loading. Try again in a moment.',
+						'wunderpaint'
+					)
+				);
+				return;
+			}
+			// Choosing a source must not rasterize an image or change document history.
+			const pixels =
+				layer.canvas ||
+				buildRasterCanvas(
+					layer,
+					loaded,
+					layer.type === 'image' ? layer.imageFit : null
+				);
+			try {
+				const source = captureCloneSource(
+					layer,
+					pixels,
+					p,
+					opts.size
+				);
+				tc.editor.dispatch( { type: 'STAMP_CAPTURE_SOURCE', source } );
+			} catch ( err ) {
+				tc.extras.toasts.toast(
+					__(
+						'This image cannot be used as a clone source.',
+						'wunderpaint'
+					)
+				);
+			}
 			return;
 		}
 		if ( ! opts.source ) {
@@ -3764,9 +3977,9 @@ export const stampTool = {
 		if ( ! target ) {
 			return;
 		}
-		// Snapshot at stroke start = clone source pixels stay stable.
-		const snapshot = buildRasterCanvas( target, target.canvas );
-		// Aligned (v1.429, on by default like Photoshop): the first stroke
+		// Reuse the selected frozen source, including across strokes and layers.
+		const snapshot = opts.source;
+		// Aligned: the first stroke
 		// fixes the distance between source and brush, later strokes keep
 		// it, so a texture continues seamlessly. Off, every stroke starts
 		// again at the source point.
@@ -3849,7 +4062,27 @@ export const stampTool = {
 
 /* ------------------------------- dispatcher ----------------------------- */
 
+/**
+ * Repeat (v1.431): a click on a layer gives it a live Repeat layer (or
+ * shows the one it has); a click on a Repeat layer selects it. The rule is
+ * edited in the panel and through the overlay's handles, so the tool
+ * itself has no drag.
+ */
+export const repeatTool = {
+	onDown( tc, e, p ) {
+		const hit = topLayerAt( tc.layers, p.x, p.y, {
+			pixel: true,
+			cache: tc.cache,
+		} );
+		if ( ! hit ) {
+			return;
+		}
+		RepeatOps.repeatToolClick( tc.editor, hit );
+	},
+};
+
 export const TOOL_HANDLERS = {
+	repeat: repeatTool,
 	move: moveTool,
 	marquee: marqueeTool,
 	lasso: lassoTool,

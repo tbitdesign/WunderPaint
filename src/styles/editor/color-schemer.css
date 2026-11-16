@@ -1,0 +1,761 @@
+/*
+ * Color Schemer (v1.432.0): three columns like the studios - sources and
+ * saved palettes left, the palette and its variants on the design in the
+ * middle, harmonies right. Sections are the shared .dsm-card; this file
+ * holds only the layout, the palette bar, the wheel and the variant grid.
+ * Small things have fixed sizes (strip cells, icon buttons); only the
+ * palette bar and the variant cards share out the width, like the result
+ * cards of the Design Generator.
+ */
+
+#wpie-root .dsm.csd {
+	position: relative;
+	width: min(1240px, 96vw);
+	height: min(820px, 92vh);
+}
+
+#wpie-root .csd-body {
+	display: grid;
+	flex: 1;
+	grid-template-columns: 272px minmax(0, 1fr) 300px;
+	min-height: 0;
+}
+
+#wpie-root .csd-left,
+#wpie-root .csd-right {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-height: 0;
+	padding: 12px;
+	overflow-y: auto;
+}
+
+#wpie-root .csd-left {
+	border-right: 1px solid var(--border-hairline);
+}
+
+#wpie-root .csd-right {
+	border-left: 1px solid var(--border-hairline);
+}
+
+#wpie-root .csd-left > .dsm-card,
+#wpie-root .csd-right > .dsm-card {
+	flex: none;
+}
+
+#wpie-root .csd-main {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	background: var(--bg-app);
+}
+
+#wpie-root .csd-main-head {
+	display: flex;
+	flex: none;
+	gap: 8px;
+	align-items: center;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--border-hairline);
+}
+
+#wpie-root .csd-main-head .csd-name {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .csd-stage {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 16px;
+	min-height: 0;
+	padding: 14px;
+	overflow-y: auto;
+}
+
+#wpie-root .csd-stage-title {
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--text-primary);
+}
+
+#wpie-root .csd-note {
+	margin: 0;
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--text-muted);
+}
+
+/* ---- The palette bar --------------------------------------------------- */
+
+#wpie-root .csd-bar {
+	position: relative;
+	display: flex;
+	flex: none;
+	height: 112px;
+	overflow: hidden;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+}
+
+#wpie-root .csd-slot {
+	position: relative;
+	flex: 1 1 0;
+	min-width: 0;
+	cursor: grab;
+	touch-action: none;
+}
+
+#wpie-root .csd-slot.is-dragging {
+	opacity: 0.45;
+}
+
+#wpie-root .csd-slot.is-drop-before {
+	box-shadow: inset 3px 0 0 var(--accent);
+}
+
+#wpie-root .csd-slot.is-drop-after {
+	box-shadow: inset -3px 0 0 var(--accent);
+}
+
+#wpie-root .csd-slot-pick {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+}
+
+#wpie-root .csd-slot-pick:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -3px;
+}
+
+#wpie-root .csd-slot-icon {
+	position: absolute;
+	top: 6px;
+	z-index: 1;
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	color: inherit;
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: var(--r-md);
+	opacity: 0;
+	transition:
+		opacity var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .csd-slot-lock {
+	right: 6px;
+}
+
+#wpie-root .csd-slot-remove {
+	left: 6px;
+}
+
+#wpie-root .csd-slot:hover .csd-slot-icon,
+#wpie-root .csd-slot-icon:focus-visible,
+#wpie-root .csd-slot.is-locked .csd-slot-lock {
+	opacity: 0.9;
+}
+
+#wpie-root .csd-slot-icon:hover,
+#wpie-root .csd-slot.is-locked .csd-slot-lock {
+	background: rgba(0, 0, 0, 0.22);
+}
+
+#wpie-root .csd-slot-hex {
+	position: absolute;
+	right: 0;
+	bottom: 8px;
+	left: 0;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: inherit;
+	text-align: center;
+	text-transform: uppercase;
+	pointer-events: none;
+}
+
+#wpie-root .csd-slot-add {
+	display: grid;
+	flex: 0 0 44px;
+	place-items: center;
+	padding: 0;
+	color: var(--text-muted);
+	cursor: pointer;
+	background: var(--surface-input);
+	border: 0;
+	border-left: 1px dashed var(--border-hairline);
+	transition: color var(--dur-fast) var(--ease);
+}
+
+#wpie-root .csd-slot-add:hover {
+	color: var(--accent);
+}
+
+/* ---- The palette on the design ----------------------------------------- */
+
+#wpie-root .csd-variants-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#wpie-root .csd-stage-head {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+}
+
+#wpie-root .csd-stage-head .csd-note {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .csd-variants {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	align-content: start;
+}
+
+#wpie-root .csd-variant {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	padding: 0;
+	overflow: hidden;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	background: var(--surface-panel);
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		box-shadow var(--dur-fast) var(--ease);
+}
+
+#wpie-root .csd-variant:hover {
+	border-color: var(--wp-400);
+}
+
+#wpie-root .csd-variant.is-on,
+#wpie-root .csd-variant:focus-visible {
+	border-color: var(--accent);
+	outline: none;
+	box-shadow: 0 0 0 1px var(--accent);
+}
+
+#wpie-root .csd-variant-img {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	max-height: 230px;
+	padding: 10px;
+	background: var(--surface-raised);
+}
+
+#wpie-root .csd-variant-img img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
+}
+
+#wpie-root .csd-variant-cap {
+	padding: 7px 10px;
+	overflow: hidden;
+	font-size: var(--fs-xs);
+	color: var(--text-secondary);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .csd-variant.is-on .csd-variant-cap {
+	color: var(--text-primary);
+}
+
+#wpie-root .csd-empty {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	align-items: center;
+	padding: 40px 24px;
+	font-size: var(--fs-sm);
+	color: var(--text-muted);
+	text-align: center;
+}
+
+#wpie-root .csd-empty p {
+	max-width: 420px;
+	margin: 0;
+}
+
+/* ---- Strips: a palette in a row of fixed cells --------------------------- */
+
+#wpie-root .csd-strip {
+	display: inline-flex;
+	flex: none;
+	max-width: 100%;
+	height: 16px;
+	overflow: hidden;
+	border-radius: 4px;
+	box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.25);
+}
+
+#wpie-root .csd-strip i {
+	display: block;
+	flex: none;
+	width: 12px;
+	height: 100%;
+}
+
+/* ---- Saved palettes and Brand Kits ------------------------------------- */
+
+#wpie-root .csd-sets {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+#wpie-root .csd-set {
+	position: relative;
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	min-height: 34px;
+	padding: 2px 4px 2px 2px;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-lg);
+	transition:
+		border-color var(--dur-fast) var(--ease),
+		background var(--dur-fast) var(--ease);
+}
+
+#wpie-root .csd-set:hover {
+	border-color: var(--accent);
+}
+
+#wpie-root .csd-set.is-on {
+	background: var(--accent-soft);
+	border-color: var(--accent);
+}
+
+#wpie-root .csd-set.is-dragging {
+	opacity: 0.45;
+}
+
+#wpie-root .csd-set.is-drop-before {
+	box-shadow: 0 -2px 0 var(--accent);
+}
+
+#wpie-root .csd-set-end {
+	display: block;
+	height: 2px;
+	background: var(--accent);
+	border-radius: 1px;
+}
+
+#wpie-root .csd-set-load {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 5px;
+	align-items: flex-start;
+	min-width: 0;
+	padding: 5px 6px;
+	font: inherit;
+	color: var(--text-secondary);
+	text-align: left;
+	cursor: pointer;
+	background: none;
+	border: 0;
+}
+
+#wpie-root .csd-set-load:disabled {
+	cursor: default;
+	opacity: 0.55;
+}
+
+#wpie-root .csd-set-name {
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--fs-sm);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#wpie-root .csd-set:hover .csd-set-name,
+#wpie-root .csd-set.is-on .csd-set-name {
+	color: var(--text-primary);
+}
+
+/* The actions sit over the name line only, so a long palette keeps the
+   full row width for its strip. The name makes room while they show. */
+#wpie-root .csd-set-actions {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	display: flex;
+	gap: 4px;
+	opacity: 0;
+	transition: opacity var(--dur-fast) var(--ease);
+}
+
+#wpie-root .csd-set:hover .csd-set-actions,
+#wpie-root .csd-set:focus-within .csd-set-actions {
+	opacity: 1;
+}
+
+#wpie-root .csd-set:hover .csd-set-name,
+#wpie-root .csd-set:focus-within .csd-set-name {
+	padding-right: calc(var(--csd-actions, 0) * 28px);
+}
+
+#wpie-root .csd-set-actions .dsm-mini {
+	width: 24px;
+	height: 24px;
+}
+
+#wpie-root input.dsm-input.csd-set-name-input {
+	flex: 1;
+	min-width: 0;
+	height: 28px;
+}
+
+/* ---- Harmony ----------------------------------------------------------- */
+
+#wpie-root .csd-wheel-row {
+	display: flex;
+	justify-content: center;
+}
+
+#wpie-root .csd-wheel {
+	position: relative;
+	flex: none;
+	cursor: crosshair;
+	touch-action: none;
+}
+
+#wpie-root .csd-wheel canvas,
+#wpie-root .csd-wheel svg {
+	position: absolute;
+	inset: 0;
+}
+
+#wpie-root .csd-wheel svg {
+	pointer-events: none;
+}
+
+#wpie-root .csd-wheel svg line {
+	stroke: rgba(20, 22, 26, 0.55);
+	stroke-width: 1.25;
+}
+
+#wpie-root .csd-wheel-dot {
+	stroke: #fff;
+	stroke-width: 2;
+	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+#wpie-root .csd-wheel-base {
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	margin: -11px 0 0 -11px;
+	cursor: grab;
+	border: 3px solid #fff;
+	border-radius: 50%;
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.35),
+		0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+#wpie-root .csd-wheel-base:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+#wpie-root .csd-base {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 8px;
+	align-items: center;
+}
+
+#wpie-root .csd-harmony b {
+	flex: 1;
+	min-width: 0;
+}
+
+#wpie-root .csd-harmony .csd-strip {
+	height: 14px;
+}
+
+#wpie-root .csd-dial {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 2px;
+	font-size: 12px;
+}
+
+#wpie-root .csd-dial input[type="range"] {
+	grid-column: 1 / -1;
+	width: 100%;
+	min-width: 0;
+}
+
+#wpie-root .csd-dial-val {
+	justify-self: end;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+/* ---- Color scales and palette contrast -------------------------------- */
+
+#wpie-root .csd-workspace {
+	flex: none;
+	align-self: flex-start;
+}
+
+#wpie-root .csd-scales,
+#wpie-root .csd-contrast {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+#wpie-root .csd-scale-controls {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 64px;
+	gap: 12px;
+	align-items: end;
+}
+
+#wpie-root .csd-scale-controls > label,
+#wpie-root .csd-scale-row,
+#wpie-root .csd-contrast-minimum {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+#wpie-root .csd-scale-controls .wpie-color-field {
+	width: 100%;
+	--color-field-height: 32px;
+}
+
+#wpie-root .csd-scale-shades {
+	display: flex;
+	min-width: 0;
+	overflow: hidden;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .csd-scale-shade {
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	justify-content: space-between;
+	min-width: 0;
+	height: 70px;
+	padding: 7px 2px;
+	font: inherit;
+	text-align: center;
+	cursor: pointer;
+	border: 0;
+}
+
+#wpie-root .csd-scale-shade:disabled {
+	cursor: default;
+	opacity: 1;
+}
+
+#wpie-root .csd-scale-shade:not(:disabled):hover,
+#wpie-root .csd-scale-shade:focus-visible {
+	outline: 2px solid currentcolor;
+	outline-offset: -3px;
+}
+
+#wpie-root .csd-scale-marker {
+	font-size: 10px;
+	font-weight: var(--fw-semibold);
+}
+
+#wpie-root .csd-scale-hex {
+	font-family: var(--font-mono);
+	font-size: 9px;
+}
+
+#wpie-root .csd-scale-heading {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+#wpie-root .csd-contrast {
+	padding-top: 16px;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .csd-contrast-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+#wpie-root .csd-contrast-table {
+	width: 100%;
+	table-layout: fixed;
+	border-spacing: 2px;
+}
+
+#wpie-root .csd-contrast-table caption {
+	padding-bottom: 8px;
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--text-muted);
+	text-align: left;
+}
+
+#wpie-root .csd-contrast-table th,
+#wpie-root .csd-contrast-table td {
+	padding: 0;
+	border: 0;
+}
+
+#wpie-root .csd-contrast-key {
+	display: block;
+	width: 16px;
+	height: 16px;
+	margin: 4px auto;
+	border: 1px solid var(--border-hairline);
+	border-radius: 3px;
+}
+
+#wpie-root .csd-contrast-cell {
+	display: block;
+	width: 100%;
+	min-width: 26px;
+	height: 28px;
+	padding: 0;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	color: var(--text-muted);
+	cursor: pointer;
+	background: var(--surface-input);
+	border: 1px solid var(--border-hairline);
+	border-radius: 3px;
+}
+
+#wpie-root .csd-contrast-cell.is-selected,
+#wpie-root .csd-contrast-cell:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+
+#wpie-root .csd-contrast-sample {
+	padding: 18px;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-md);
+}
+
+#wpie-root .csd-contrast-sample strong {
+	display: block;
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1.3;
+	color: inherit;
+}
+
+#wpie-root .csd-contrast-sample p {
+	margin: 8px 0 0;
+	font-size: 16px;
+	line-height: 1.5;
+	color: inherit;
+}
+
+#wpie-root .csd-contrast-result {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 12px;
+	justify-content: space-between;
+}
+
+/* Gradient suggestions share the Color panel's stop selection. */
+#wpie-root .csd-gradients {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding-top: 16px;
+	border-top: 1px solid var(--border-hairline);
+}
+
+#wpie-root .csd-gradient-grid {
+	max-height: 400px;
+	overflow-y: auto;
+	scrollbar-gutter: stable;
+	align-content: start;
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+}
+
+#wpie-root .csd-gradient-option {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	padding: 8px;
+}
+
+#wpie-root .csd-gradient-preview {
+	height: 58px;
+	flex: none;
+	border: 1px solid var(--border-hairline);
+	border-radius: var(--r-sm);
+}
+
+#wpie-root .csd-gradient-title {
+	flex: 1;
+	font-size: 11px;
+	color: var(--text-primary);
+}
+
+#wpie-root .csd-gradient-option .ai-btn {
+	width: 100%;
+	min-height: 32px;
+	height: auto;
+	padding: 4px 6px;
+	white-space: normal;
+}
+
+#wpie-root .csd-gradient-controls {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+#wpie-root .csd-gradient-controls > label {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}

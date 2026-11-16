@@ -814,17 +814,7 @@
 	background: var(--ed-bg);
 }
 
-/* Easy Mode round 3 (v1.166.2): card icons + nested elements. */
-
-#wpie-root .ed-easy-card-icon {
-	display: inline-grid;
-	place-items: center;
-	width: 22px;
-	height: 22px;
-	color: var(--accent);
-	background: var(--accent-soft, rgb(59 102 255 / 12%));
-	border-radius: 6px;
-}
+/* Easy Mode: nested elements. */
 
 #wpie-root .ed-easy-layer.is-child {
 	margin-left: 22px;

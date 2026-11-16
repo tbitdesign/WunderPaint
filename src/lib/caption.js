@@ -150,6 +150,43 @@ export async function groundPhrase( dataUrl, phrase ) {
 	} ) );
 }
 
+const OD_TASK = '<OD>';
+
+/**
+ * Every object Florence-2 names in a picture, each with its box and label
+ * (20.10.2026). Blur Faces adds the "human face" boxes to the bundled face
+ * finder's when this model is installed: asked to ground "human face" the
+ * model answers with ONE box even on a group photo, its object detection
+ * names the faces one by one.
+ *
+ * @param {string} dataUrl Image data URL.
+ * @return {Promise<Array>} [{ x1, y1, x2, y2, label }] in image pixels.
+ */
+export async function detectObjects( dataUrl ) {
+	const { TF, model, processor, tokenizer } = await ensureSession();
+	const image = await TF.RawImage.fromURL( dataUrl );
+	const ids = await model.generate( {
+		...tokenizer( processor.construct_prompts( OD_TASK ) ),
+		...( await processor( image ) ),
+		max_new_tokens: 1024,
+	} );
+	const raw = tokenizer.batch_decode( ids, {
+		skip_special_tokens: false,
+	} )[ 0 ];
+	const out =
+		processor.post_process_generation( raw, OD_TASK, image.size )?.[
+			OD_TASK
+		] || {};
+	const labels = out.labels || [];
+	return ( out.bboxes || [] ).map( ( b, i ) => ( {
+		x1: b[ 0 ],
+		y1: b[ 1 ],
+		x2: b[ 2 ],
+		y2: b[ 3 ],
+		label: labels[ i ] || '',
+	} ) );
+}
+
 /** Test hook. */
 export const __resetCaptionCache = () => {
 	session = null;
