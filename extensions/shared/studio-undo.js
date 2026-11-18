@@ -181,6 +181,10 @@ export function controlState( root ) {
  * @return {number} Controls set.
  */
 export function restoreControls( root, saved ) {
+	// (a studio that rebuilds its panels itself hands over no controls)
+	if ( ! root ) {
+		return 0;
+	}
 	const list = controlsOf( root );
 	if ( ! saved || list.length !== saved.length ) {
 		return 0;

@@ -373,10 +373,50 @@
 	white-space: pre-wrap;
 	overflow: visible;
 	z-index: 5;
+
+	/* (a length, not a bare zero: it is subtracted in calc() below) */
+	/* stylelint-disable-next-line length-zero-no-unit */
+	--wpie-v: 0px;
 }
 
 #wpie-root .text-edit:focus {
 	outline: 1.5px dashed var(--accent);
+}
+
+/*
+ * Rich text stacks its lines like the canvas.
+ *
+ * The canvas puts a line one ADVANCE below the line above it, the advance
+ * being the largest size-times-leading on that line. CSS shares the leading
+ * out above and below every line instead, so wherever two lines differ in
+ * size the browser puts the second one somewhere else - a lockup of three
+ * sizes stood up to ninety pixels off when it went into edit mode.
+ *
+ * So a run is two boxes (lib/rich-text.js writes them). The outer one has
+ * no font of its own, which makes its line box exactly one advance high and
+ * symmetric; raised by half of that, less --wpie-v, it reaches from
+ * (advance - v) above the baseline to v below it. The inner one holds the
+ * text: it takes no room of its own and is lowered by what the outer one
+ * was raised, back onto the baseline. Every line then ends v below its
+ * baseline and is as high as its largest advance: the canvas's rule, for
+ * wrapped lines and mixed sizes alike, and with no font metric in it.
+ *
+ * --wpie-s  size of the run in document pixels (the field sets the layer's)
+ * --wpie-lh leading of the run (the field sets the layer's)
+ * --wpie-z  zoom
+ * --wpie-v  how far the field's own line reaches below its baseline; the
+ *           field measures it, so that a line of plain typing fits in
+ */
+#wpie-root .text-edit [data-line] {
+	font-size: 0;
+	line-height: calc(var(--wpie-s) * var(--wpie-z) * var(--wpie-lh) * 1px);
+	vertical-align: calc(var(--wpie-s) * var(--wpie-z) * var(--wpie-lh) * 0.5px - var(--wpie-v));
+}
+
+#wpie-root .text-edit [data-run] {
+	font-size: calc(var(--wpie-s) * var(--wpie-z) * 1px);
+	line-height: 0;
+	vertical-align: calc(var(--wpie-v) - var(--wpie-s) * var(--wpie-z) * var(--wpie-lh) * 0.5px);
 }
 
 /* Pen overlay */

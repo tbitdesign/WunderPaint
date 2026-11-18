@@ -563,6 +563,17 @@ export function SelectionBox( {
 								) }
 								onPointerDown={ ( e ) => e.stopPropagation() }
 								onDoubleClick={ ( e ) => {
+									// A pivot in the middle has nothing to be
+									// put back. The double click then belongs
+									// to the layer under the grip and opens
+									// its text, as anywhere else on it: the
+									// first click selects the layer and puts
+									// this grip under the pointer, so a double
+									// click on the middle of a text used to
+									// end here, with a "Center pivot" step.
+									if ( ! hasPivot( single ) ) {
+										return;
+									}
 									e.stopPropagation();
 									onHandleDown(
 										single,

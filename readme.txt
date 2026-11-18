@@ -4,7 +4,7 @@ Tags: photo editor, image editor, image generator, media library, image optimiza
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.433.0
+Stable tag: 1.433.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -283,6 +283,12 @@ that produces it; the FAQ entry "Where is the source code of the compiled
 files?" is the short version.
 
 == Changelog ==
+
+= 1.433.1 =
+* Editing text: a double click opens a text exactly where it stands. It no longer shifts by a few pixels in edit mode, also when it is turned, letter-spaced, wrapped or set in several sizes, and a hand that moves a little during the click no longer nudges the layer or its group.
+* A double click on the middle of a text opens it, and a text typed longer than its box is shown in full: the box grows with the line.
+* File > Export starts without a watermark; choose one from the list when you want it.
+* Starter templates: lines that ran past their box are shown in full.
 
 = 1.433.0 =
 * Repeat, a new tool: a live layer that lays out copies of any layer or group in a row, a grid, a circle or along a path, with a progression for size, opacity, rotation and color. Bake turns the copies into real layers; Grid Repeat and Radial Repeat are folded into it.

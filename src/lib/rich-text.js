@@ -604,7 +604,61 @@ export function styleToCss( s, zoom ) {
 	return parts.join( ';' );
 }
 
-/** The overlay's HTML for a layer (plain text stays a bare text node). */
+/**
+ * The size and leading a run brings of its own, as the custom properties
+ * the stylesheet stacks lines with (editor/overlays.css, "Rich text stacks
+ * its lines like the canvas"). Document units: the zoom is the field's.
+ *
+ * @param {?Object} s Run style.
+ * @return {string} Inline CSS, '' when the run takes the layer's values.
+ */
+function lineVars( s ) {
+	const parts = [];
+	const size = s ? safeNum( s.size ) : null;
+	if ( size && size > 0 ) {
+		parts.push( `--wpie-s:${ size }` );
+	}
+	const lh = s && undefined !== s.lh ? safeNum( s.lh ) : null;
+	if ( lh && lh > 0 ) {
+		parts.push( `--wpie-lh:${ lh }` );
+	}
+	return parts.join( ';' );
+}
+
+// Size and leading live on the outer box; the inner one carries the rest.
+const withoutLine = ( s ) => ( { ...s, size: undefined, lh: undefined } );
+
+/**
+ * A run of the overlay as its two boxes: the outer one makes the line (as
+ * high as the run's advance, ending where every line ends), the inner one
+ * holds the text.
+ *
+ * @param {?Object} s     Run style.
+ * @param {string}  inner Escaped HTML of the run.
+ * @param {number}  zoom  Zoom the px values are scaled to.
+ * @param {string}  mark  Extra attributes for both boxes.
+ * @return {string} HTML.
+ */
+function runPair( s, inner, zoom, mark = '' ) {
+	const vars = lineVars( s );
+	const css = s ? styleToCss( withoutLine( s ), zoom ) : '';
+	return (
+		`<span data-line="1"${ mark }${ vars ? ` style="${ vars }"` : '' }>` +
+		`<span data-run="1"${ mark }${ css ? ` style="${ css }"` : '' }>` +
+		inner +
+		'</span></span>'
+	);
+}
+
+/**
+ * The overlay's HTML for a layer with runs. Every run is written as the
+ * two boxes of runPair(), also one that brings no style: the field's lines
+ * are made by its runs alone.
+ *
+ * @param {Object} layer Text layer (or its edit view).
+ * @param {number} zoom  Zoom the px values are scaled to.
+ * @return {string} HTML.
+ */
 export function spansToHtml( layer, zoom ) {
 	const runs = textRuns( layer );
 	// Fluid Text (v1.429): the k-th newline is a SOFT break when listed in
@@ -624,35 +678,28 @@ export function spansToHtml( layer, zoom ) {
 	return runs
 		.map( ( run ) => {
 			const inner = html( run.text );
-			if ( ! run.s ) {
-				return inner;
-			}
-			if ( Array.isArray( run.d ) ) {
+			if ( run.s && Array.isArray( run.d ) ) {
 				// A fitted view (Fluid Text, Text Looks): the derived part
-				// of the style sits on a marked outer span the commit
-				// ignores; only the user's own overrides ride inside.
+				// of the style sits on marked boxes the commit ignores;
+				// only the user's own overrides ride inside.
 				const derived = {};
 				for ( const key of run.d ) {
 					if ( undefined !== run.s[ key ] ) {
 						derived[ key ] = run.s[ key ];
 					}
 				}
-				const user =
-					run.u && Object.keys( run.u ).length
-						? `<span style="${ styleToCss(
+				let user = inner;
+				if ( run.u && Object.keys( run.u ).length ) {
+					user = lineVars( run.u )
+						? runPair( run.u, inner, zoom )
+						: `<span style="${ styleToCss(
 								run.u,
 								zoom
-						  ) }">${ inner }</span>`
-						: inner;
-				return `<span data-derived="1" style="${ styleToCss(
-					derived,
-					zoom
-				) }">${ user }</span>`;
+						  ) }">${ inner }</span>`;
+				}
+				return runPair( derived, user, zoom, ' data-derived="1"' );
 			}
-			return `<span style="${ styleToCss(
-				run.s,
-				zoom
-			) }">${ inner }</span>`;
+			return runPair( run.s, inner, zoom );
 		} )
 		.join( '' );
 }
@@ -665,6 +712,24 @@ const firstFamily = ( v ) =>
 		.replace( /^["']|["']$/g, '' );
 
 const WEIGHT_WORDS = { bold: 700, normal: 400 };
+
+/**
+ * A run's own size or leading, read from the custom property spansToHtml
+ * wrote. From the attribute's text, not the style object: a custom property
+ * is the one thing every DOM hands back as it was written.
+ *
+ * @param {Element} el   Element.
+ * @param {string}  name 's' or 'lh'.
+ * @return {number} The value, 0 when the element does not set it.
+ */
+function lineVar( el, name ) {
+	const css = ( el.getAttribute && el.getAttribute( 'style' ) ) || '';
+	const found = css.match(
+		new RegExp( '(?:^|;)\\s*--wpie-' + name + '\\s*:\\s*([\\d.]+)' )
+	);
+	const value = found ? parseFloat( found[ 1 ] ) : 0;
+	return value > 0 ? value : 0;
+}
 
 /**
  * Effective run style of a DOM node inside the edit overlay: the closest
@@ -691,8 +756,17 @@ export function effectiveNodeStyle( node, root, layer, zoom ) {
 			if ( undefined === got.family && st.fontFamily ) {
 				got.family = firstFamily( st.fontFamily );
 			}
-			if ( undefined === got.size && st.fontSize ) {
-				got.size = Math.round( parseFloat( st.fontSize ) / zoom );
+			// A run made by spansToHtml brings its size as --wpie-s in
+			// document units; a span the browser or an older session made
+			// has a font-size in px at the zoom. (Anything else - the
+			// stylesheet's own calc() - is not a size somebody set.)
+			if ( undefined === got.size ) {
+				const own = lineVar( el, 's' );
+				if ( own ) {
+					got.size = own;
+				} else if ( /^[\d.]+px$/.test( st.fontSize || '' ) ) {
+					got.size = Math.round( parseFloat( st.fontSize ) / zoom );
+				}
 			}
 			if ( undefined === got.weight && st.fontWeight ) {
 				got.weight =
@@ -728,14 +802,18 @@ export function effectiveNodeStyle( node, root, layer, zoom ) {
 			// Fluid Text or a layout lockup stacks its lines with it, and
 			// losing it on the way back made the lines gap and overlap
 			// after the first edit (v1.429.1).
-			if (
-				undefined === got.lh &&
-				st.lineHeight &&
-				! /px|em|%/.test( st.lineHeight )
-			) {
-				const lh = parseFloat( st.lineHeight );
-				if ( ! Number.isNaN( lh ) && lh > 0 ) {
-					got.lh = Math.round( lh * 1000 ) / 1000;
+			if ( undefined === got.lh ) {
+				const own = lineVar( el, 'lh' );
+				if ( own ) {
+					got.lh = Math.round( own * 1000 ) / 1000;
+				} else if (
+					st.lineHeight &&
+					! /px|em|%|\(/.test( st.lineHeight )
+				) {
+					const lh = parseFloat( st.lineHeight );
+					if ( ! Number.isNaN( lh ) && lh > 0 ) {
+						got.lh = Math.round( lh * 1000 ) / 1000;
+					}
 				}
 			}
 		}
@@ -861,14 +939,94 @@ export function applySelectionStyle( root, patch, zoom ) {
 		range.selectNodeContents( root );
 	}
 	const span = document.createElement( 'span' );
-	span.setAttribute( 'style', styleToCss( patch, zoom ) );
-	span.appendChild( range.extractContents() );
+	let holder = span;
+	if ( root.hasAttribute( 'data-lines' ) && lineVars( patch ) ) {
+		// A new size or leading in a field whose runs make its lines: the
+		// selection becomes a run of its own, two boxes like the others,
+		// so its lines grow with it - and the runs inside that have no
+		// size of their own take the new one from it.
+		span.setAttribute( 'data-line', '1' );
+		span.setAttribute( 'style', lineVars( patch ) );
+		holder = document.createElement( 'span' );
+		holder.setAttribute( 'data-run', '1' );
+		const rest = styleToCss( withoutLine( patch ), zoom );
+		if ( rest ) {
+			holder.setAttribute( 'style', rest );
+		}
+		span.appendChild( holder );
+	} else {
+		span.setAttribute( 'style', styleToCss( patch, zoom ) );
+	}
+	holder.appendChild( range.extractContents() );
 	range.insertNode( span );
 	sel.removeAllRanges();
 	const r = document.createRange();
-	r.selectNodeContents( span );
+	r.selectNodeContents( holder );
 	sel.addRange( r );
 	return true;
+}
+
+/**
+ * Put right what typing can leave behind in a field whose runs make its
+ * lines. The outer box of a run has no font size: a character the browser
+ * puts there, next to the inner box instead of into it, would be invisible.
+ * It goes into the inner box. And a run that has lost all its text still
+ * holds its line open; it is taken out.
+ *
+ * The caret stays where it is (moving a node resets a selection inside it).
+ *
+ * @param {Element} root Overlay root.
+ * @return {boolean} Whether anything was changed.
+ */
+export function tidyLineBoxes( root ) {
+	if ( ! root || ! root.hasAttribute( 'data-lines' ) ) {
+		return false;
+	}
+	const sel = root.ownerDocument.defaultView.getSelection();
+	const at =
+		sel && sel.rangeCount && root.contains( sel.anchorNode )
+			? [
+					sel.anchorNode,
+					sel.anchorOffset,
+					sel.focusNode,
+					sel.focusOffset,
+			  ]
+			: null;
+	let changed = false;
+	for ( const line of Array.from( root.querySelectorAll( '[data-line]' ) ) ) {
+		for ( const child of Array.from( line.childNodes ) ) {
+			if ( 3 !== child.nodeType || ! child.nodeValue ) {
+				continue;
+			}
+			let run = Array.from( line.children ).find( ( el ) =>
+				el.hasAttribute( 'data-run' )
+			);
+			if ( ! run ) {
+				run = root.ownerDocument.createElement( 'span' );
+				run.setAttribute( 'data-run', '1' );
+				line.insertBefore( run, child );
+			}
+			// Text that stood in front of the inner box goes to its start.
+			const before =
+				run.compareDocumentPosition( child ) ===
+				root.DOCUMENT_POSITION_PRECEDING;
+			run.insertBefore( child, before ? run.firstChild : null );
+			changed = true;
+		}
+		if ( ! line.textContent && ! line.querySelector( 'br' ) ) {
+			line.remove();
+			changed = true;
+		}
+	}
+	if (
+		changed &&
+		at &&
+		root.contains( at[ 0 ] ) &&
+		root.contains( at[ 2 ] )
+	) {
+		sel.setBaseAndExtent( at[ 0 ], at[ 1 ], at[ 2 ], at[ 3 ] );
+	}
+	return changed;
 }
 
 /**

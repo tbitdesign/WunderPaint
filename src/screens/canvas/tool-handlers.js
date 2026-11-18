@@ -496,6 +496,14 @@ export function mirrorStrokeTwins( path, docW, docH, mirror ) {
 
 /* --------------------------------- Move -------------------------------- */
 
+/**
+ * How far the pointer has to go from where it went down before a press
+ * becomes a drag, in screen pixels. Four is what the desktop itself uses to
+ * tell the two apart, and as far as the two clicks of a double click may lie
+ * from each other.
+ */
+export const MOVE_CLICK_SLOP = 4;
+
 export const moveTool = {
 	onDown( tc, e, p ) {
 		const hit = topLayerAt( tc.layers, p.x, p.y, {
@@ -720,6 +728,21 @@ export const moveTool = {
 		}
 		let dx = p.x - draft.start.x;
 		let dy = p.y - draft.start.y;
+
+		// A click is not a drag. A hand moves a little between pressing and
+		// letting go, most of all in a double click (which opens a text).
+		// One pixel used to be a move, snapping then pulled the frame to
+		// the nearest guide, and a double click on a text in a template
+		// shifted it or its whole group by a few pixels, with a "Move layer"
+		// undo step for every such click. Nothing moves until the pointer
+		// has left the spot it went down on; from then on the layer follows
+		// it exactly, so the place the hand took hold of stays under it.
+		if (
+			! draft.moved &&
+			Math.hypot( dx, dy ) * ( tc.zoom || 1 ) < MOVE_CLICK_SLOP
+		) {
+			return;
+		}
 
 		// Smart guides (spec 05.5, rebuilt 1.431): the selection FRAME snaps,
 		// so a group or several layers snap as one and a rotated layer by the
@@ -1137,6 +1160,21 @@ export const transformGesture = {
 		// Pivot (v1.370): moved in the layer's own space, so it stays on
 		// the feature it was placed on however the layer is turned.
 		if ( 'pivot' === draft.mode ) {
+			// A click on the grip is not a drag of the pivot (see
+			// MOVE_CLICK_SLOP). The grip sits in the middle of the layer,
+			// exactly where the second click of a double click on a text
+			// lands: one pixel of movement there used to pull the pivot
+			// off the middle.
+			if ( ! draft.moved ) {
+				if (
+					Math.hypot( p.x - draft.start.x, p.y - draft.start.y ) *
+						( tc.zoom || 1 ) <
+					MOVE_CLICK_SLOP
+				) {
+					return;
+				}
+				tc.setDraft( { ...draft, moved: true } );
+			}
 			const at = rotatePoint( p.x, p.y, cx, cy, -o.rot );
 			tc.editor.dispatch( {
 				type: 'UPDATE_LAYER',
@@ -1383,6 +1421,12 @@ export const transformGesture = {
 	},
 	onUp( tc ) {
 		if ( tc.draft && 'transform' === tc.draft.kind ) {
+			// A press on the pivot grip that never became a drag changed
+			// nothing: it gets no undo step.
+			if ( 'pivot' === tc.draft.mode && ! tc.draft.moved ) {
+				tc.setDraft( null );
+				return;
+			}
 			tc.editor.commit(
 				'rotate' === tc.draft.mode || 'unit-rotate' === tc.draft.mode
 					? __( 'Rotate layer', 'wunderpaint' )

@@ -151,14 +151,22 @@ export const getMeasureCtx = () => {
  * `blockH` alone so it matches the canvas render pixel-for-pixel (v1.221.0 -
  * the floor made the overlay centre the text ~0.15x font size too high).
  *
+ * `firstAscent` is the real ascent of the first line AS IT IS LAID OUT: the
+ * first wrapped line, in the characters that are drawn. The renderer sets
+ * its first baseline that far below the vertical anchor.
+ *
  * @param {Object} layer Text layer.
- * @return {{ blockH: number, floor: number }} Heights.
+ * @return {{ blockH: number, floor: number, firstAscent: number }} Heights.
  */
 export function textLayoutBlockH( layer ) {
 	layer = withTextFit( layer );
 	if ( hasSpans( layer ) ) {
-		const { blockH } = layoutRichText( getMeasureCtx(), layer );
-		return { blockH, floor: ( layer.fontSize || 16 ) * 1.3 };
+		const { blockH, lines } = layoutRichText( getMeasureCtx(), layer );
+		return {
+			blockH,
+			floor: ( layer.fontSize || 16 ) * 1.3,
+			firstAscent: lines[ 0 ]?.ascent || 0,
+		};
 	}
 	const perLine =
 		Array.isArray( layer.lineStyles ) && layer.lineStyles.some( Boolean );
@@ -209,6 +217,7 @@ export function textLayoutBlockH( layer ) {
 	return {
 		blockH: first.a + advances + last.d,
 		floor: advances + sty[ 0 ].size * 1.3,
+		firstAscent: first.a,
 	};
 }
 
@@ -256,6 +265,27 @@ export function textCommitHeight( layer ) {
 	}
 	const contentH = measureTextHeight( layer );
 	return layer.fixedWidth ? Math.max( layer.h || 0, contentH ) : contentH;
+}
+
+/**
+ * Where the renderer puts the FIRST baseline of a text layer, in doc px
+ * below the layer's top: the vertical anchor (valign) plus the real ascent of
+ * the first line as it is laid out.
+ *
+ * This is the renderer's own number, read from the same layout drawText
+ * paints from (text-first-baseline.test.js holds the two together). The edit
+ * overlay puts its first baseline on this line; it used to work the line out
+ * a second time from the first RAW line of the stored text, which is another
+ * line as soon as the text wraps, is drawn in capitals or carries runs of
+ * other sizes.
+ *
+ * @param {Object} layer Text layer.
+ * @return {number} Baseline in doc px below the layer's top.
+ */
+export function textFirstBaseline( layer ) {
+	const fitted = withTextFit( layer );
+	const { blockH, firstAscent } = textLayoutBlockH( fitted );
+	return textTopPad( fitted, blockH ) + firstAscent;
 }
 
 /**

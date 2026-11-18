@@ -277,9 +277,10 @@ export function ExportDialog( { mode, onClose, extras } ) {
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
-	const [ wmId, setWmId ] = useState( () =>
-		'export' === mode && wmSources[ 0 ] ? wmSources[ 0 ].id : ''
-	);
+	// No watermark unless it is asked for: the dropdown starts at "None",
+	// also when a Brand Kit carries one. An export used to be stamped with
+	// the first kit's watermark without anyone having chosen it.
+	const [ wmId, setWmId ] = useState( '' );
 	const wm = wmSources.find( ( src ) => src.id === wmId ) || null;
 	const applyWm = !! wm;
 	const [ wmImg, setWmImg ] = useState( null );

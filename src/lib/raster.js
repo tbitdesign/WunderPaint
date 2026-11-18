@@ -42,6 +42,7 @@ export {
 	textCommitHeight,
 	textEditOffset,
 	textFillStyle,
+	textFirstBaseline,
 	textLineStyle,
 } from './raster/text-metrics';
 export { textFxReach } from './raster/text-warp';

@@ -11,10 +11,16 @@
  * DOM back into { text, spans }.
  */
 
-import { useRef, useEffect } from '@wordpress/element';
+import {
+	useRef,
+	useEffect,
+	useLayoutEffect,
+	useState,
+} from '@wordpress/element';
 
 import { docToScreen } from './use-viewport';
-import { textEditOffset } from '../../lib/raster';
+import { textEditOffset, textFirstBaseline } from '../../lib/raster';
+import { textEditPlacement } from './text-edit-place';
 import { withTextFitForEdit } from '../../lib/text-fit';
 import { previewTextColor } from '../../lib/text-color-preview';
 
@@ -36,11 +42,92 @@ import {
 	spansToHtml,
 	domToSpans,
 	applySelectionStyle,
+	tidyLineBoxes,
 	selectionStyle,
 	nodeStyle,
 	hasSpans,
+	textRuns,
+	resolveStyle,
 	caseOf,
 } from '../../lib/rich-text';
+
+/**
+ * A copy of the field that is laid out but neither seen nor reachable.
+ *
+ * @param {HTMLElement} el   The edit field.
+ * @param {boolean}     deep With its content?
+ * @return {HTMLElement} The copy, not yet in the document.
+ */
+function ghostOf( el, deep ) {
+	const copy = el.cloneNode( deep );
+	copy.removeAttribute( 'contenteditable' );
+	copy.removeAttribute( 'role' );
+	copy.removeAttribute( 'tabindex' );
+	copy.setAttribute( 'aria-hidden', 'true' );
+	copy.style.visibility = 'hidden';
+	copy.style.pointerEvents = 'none';
+	// (a turned field would report the box around its corners)
+	copy.style.transform = 'none';
+	return copy;
+}
+
+/**
+ * A point on a line: an inline block without a size.
+ *
+ * @param {Document} doc   Document.
+ * @param {string}   align 'baseline' or 'bottom' of the line.
+ * @return {HTMLElement} The probe.
+ */
+function linePoint( doc, align ) {
+	const probe = doc.createElement( 'span' );
+	probe.style.cssText = `display:inline-block;width:0;height:0;vertical-align:${ align };`;
+	return probe;
+}
+
+/**
+ * Where the field's lines really are, asked of the DOM:
+ *
+ * `v`  - how far the field's OWN line reaches below its baseline. Text with
+ *        runs ends every line there (--wpie-v, see editor/overlays.css), so
+ *        that a line of plain typing fits in with the runs.
+ * `px` - the first baseline, in px below the field's top.
+ *
+ * Asked of the DOM, not worked out. A browser lays a line out with the
+ * font's ascent and descent rounded to whole pixels AT THE SIZE ON SCREEN and
+ * rounds the baseline down; with runs of several sizes the tallest one on the
+ * line decides. A formula in document pixels times the zoom lands beside
+ * that, by a pixel or two and always on the same side, which is why a text
+ * hopped up whenever it went into edit mode.
+ *
+ * A zero-size inline block at the start of a hidden copy of the field sits
+ * exactly on the first line's baseline.
+ *
+ * @param {HTMLElement} el The edit field, with its content in place.
+ * @return {number} Baseline in px below the field's top edge.
+ */
+function measureField( el ) {
+	const doc = el.ownerDocument;
+	// The field's own line, with nothing on it.
+	const bare = ghostOf( el, false );
+	const onLine = linePoint( doc, 'baseline' );
+	const foot = linePoint( doc, 'bottom' );
+	bare.append( onLine, foot );
+	el.parentNode.appendChild( bare );
+	const v =
+		foot.getBoundingClientRect().bottom -
+		onLine.getBoundingClientRect().bottom;
+	bare.remove();
+	// The first line as it stands with that.
+	const copy = ghostOf( el, true );
+	copy.style.setProperty( '--wpie-v', `${ v }px` );
+	const probe = linePoint( doc, 'baseline' );
+	copy.insertBefore( probe, copy.firstChild );
+	el.parentNode.appendChild( copy );
+	const px =
+		probe.getBoundingClientRect().bottom - copy.getBoundingClientRect().top;
+	copy.remove();
+	return { px, v };
+}
 
 // While editing, pointerdowns inside these containers must NOT commit the
 // session — they host the styling controls acting on the selection.
@@ -60,15 +147,31 @@ export function TextEditOverlay( {
 	// Fluid Text (v1.429): the overlay edits the fitted lines and sizes,
 	// with the stored characters (no baked uppercase or list markers).
 	const view = withTextFitForEdit( layer );
-	// The container's own font sets the CSS strut on EVERY line box. With
-	// per-run sizes (Fluid Text, its baked look, layout lockups) a big first
-	// line would inflate every small line below it, so the strut takes the
-	// smallest run; the baseline offset below still reads the first line.
-	const runSizes =
-		hasSpans( view ) && view.spans.every( ( r ) => r.s?.size )
-			? view.spans.map( ( r ) => r.s.size )
-			: null;
-	const domFontSize = runSizes ? Math.min( ...runSizes ) : view.fontSize;
+	// Text with runs (spans, per-line styles, a fitted view): its lines are
+	// made by the runs, each as high as its advance (lib/rich-text.js,
+	// editor/overlays.css). The field's own font still puts a strut on
+	// EVERY line and is what plain typing next to the runs gets, so it must
+	// fit into the smallest of them: the field's line is as high as the
+	// smallest advance. (It used to take the smallest size, and only when
+	// every run had one: a lockup made of per-line styles kept the layer's
+	// size, and its small lines stood ninety pixels too low.)
+	// How the content was WRITTEN holds for the whole session: the field
+	// is filled once per layer, and a layer that gets its runs while it is
+	// open (a layout applied from the bar) still shows the plain text that
+	// was put in.
+	const written = useRef( { id: null, rich: false } );
+	const richNow = hasSpans( view ) || Array.isArray( view.lineStyles );
+	const rich =
+		written.current.id === layer.id ? written.current.rich : richNow;
+	const leading = view.lineHeight || 1.05;
+	const advances = rich
+		? textRuns( view ).map(
+				( run ) => resolveStyle( view, run.s ).lineHeight
+		  )
+		: [];
+	const domFontSize = advances.length
+		? Math.min( ...advances ) / leading
+		: view.fontSize;
 	const ref = useRef( null );
 	// Sizes in the DOM are scaled by the zoom at populate time; keep that
 	// zoom for parsing back so a mid-edit zoom change cannot skew values.
@@ -76,19 +179,28 @@ export function TextEditOverlay( {
 	const lastRange = useRef( null );
 	const doneRef = useRef( false );
 	const colorPreview = useRef( null );
+	// The field's lines as the browser laid them out (measureField), and
+	// what they were measured for: { layer, zoom, fonts, px, v }.
+	const [ domBase, setDomBase ] = useState( null );
+	// Counts the fonts that arrive while the field is open: a face that
+	// lands late changes the line under the text.
+	const [ fonts, setFonts ] = useState( 0 );
 	const clearColorPreview = () => {
 		colorPreview.current?.();
 		colorPreview.current = null;
 	};
 	useEffect( () => clearColorPreview, [ layer.id, zoom, pan ] );
 
-	useEffect( () => {
+	// Before the first paint, so the field never shows empty and the
+	// measuring below finds its content in place.
+	useLayoutEffect( () => {
 		const el = ref.current;
 		if ( ! el ) {
 			return;
 		}
 		zoomRef.current = zoom;
-		if ( hasSpans( view ) || Array.isArray( view.lineStyles ) ) {
+		written.current = { id: layer.id, rich: richNow };
+		if ( richNow ) {
 			el.innerHTML = spansToHtml( view, zoomRef.current );
 		} else {
 			el.textContent = view.text || '';
@@ -102,6 +214,28 @@ export function TextEditOverlay( {
 		sel.addRange( range );
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ layer.id ] );
+
+	useEffect( () => {
+		const set = document.fonts;
+		if ( ! set || ! set.addEventListener ) {
+			return undefined;
+		}
+		const arrived = () => setFonts( ( n ) => n + 1 );
+		set.addEventListener( 'loadingdone', arrived );
+		return () => set.removeEventListener( 'loadingdone', arrived );
+	}, [] );
+
+	// Where the first line really sits in the field. Measured again whenever
+	// something changes that line: the zoom (the browser rounds at the size
+	// on screen), the layer's own type settings (font, size, line height
+	// changed in the panel while the field is open) or a font that arrives.
+	// Typing does not: the field keeps its place while its content changes.
+	useLayoutEffect( () => {
+		const el = ref.current;
+		if ( el && el.parentNode ) {
+			setDomBase( { layer, zoom, fonts, ...measureField( el ) } );
+		}
+	}, [ layer, zoom, fonts ] );
 
 	const serialize = () => domToSpans( ref.current, layer, zoomRef.current );
 	// Read-only access for canvas effect previews, including shape text.
@@ -264,11 +398,25 @@ export function TextEditOverlay( {
 
 	const screen = docToScreen( layer, pan, zoom );
 
-	// Match the renderer's vertical anchor EXACTLY (v1.222.0) so entering edit
-	// mode never shifts the text: the offset aligns the contentEditable's first
-	// baseline (CSS half-leading) with the canvas baseline (topPad + ascent).
-	// Applied to the box top because it can be negative for tight line-heights.
-	const yOffset = textEditOffset( view ) * zoom;
+	// The text must stand where it stood when it goes into edit mode: the
+	// field's first baseline goes onto the line the renderer draws its first
+	// baseline on. Both ends are read, not worked out a second time - the
+	// renderer's from its own layout, the field's from the DOM. Until the
+	// field has been measured (one render, never painted) the old estimate
+	// stands in. Applied to the box top because it can be negative for tight
+	// line-heights.
+	const measured =
+		domBase &&
+		domBase.layer === layer &&
+		domBase.zoom === zoom &&
+		domBase.fonts === fonts;
+	const yOffset = measured
+		? textFirstBaseline( layer ) * zoom - domBase.px
+		: textEditOffset( view ) * zoom;
+
+	// Hung on the edge the text is aligned to, one letter spacing wider than
+	// the box, turning around the centre of the layer: see text-edit-place.js.
+	const place = textEditPlacement( layer, zoom, yOffset );
 
 	return (
 		<div
@@ -280,27 +428,50 @@ export function TextEditOverlay( {
 			aria-multiline="true"
 			tabIndex={ 0 }
 			spellCheck={ false }
+			data-lines={ rich ? 'canvas' : undefined }
+			onInput={ ( e ) => {
+				// (never between the keystrokes of one composed character)
+				if ( rich && ! e.nativeEvent?.isComposing ) {
+					tidyLineBoxes( ref.current );
+				}
+			} }
 			style={ {
 				opacity: previewingEffects ? 0 : undefined,
-				left: screen.x,
+				// What the runs of a text with runs stack their lines
+				// with (editor/overlays.css).
+				...( rich
+					? {
+							'--wpie-s': view.fontSize || 16,
+							'--wpie-z': zoom,
+							'--wpie-lh': leading,
+							'--wpie-v': `${ measured ? domBase.v : 0 }px`,
+					  }
+					: null ),
+				left: screen.x + place.left,
 				top: screen.y + yOffset,
-				minWidth: Math.max( 40, layer.w * zoom ),
-				width:
-					layer.textFit || layer.fixedWidth ? layer.w * zoom : 'auto',
+				minWidth: place.minWidth,
+				width: place.width,
 				// Fluid lines are explicit <br>s; the DOM must not re-wrap
 				// a line the canvas measured to the exact box width.
 				whiteSpace: layer.textFit ? 'pre' : undefined,
 				minHeight: layer.h * zoom,
 				boxSizing: 'border-box',
 				paddingTop: 0,
-				transform: `rotate(${ layer.rot || 0 }deg)`,
-				transformOrigin: 'center',
+				transform:
+					`rotate(${ layer.rot || 0 }deg)` +
+					( place.pull
+						? ` translateX(${ -100 * place.pull }%)`
+						: '' ),
+				transformOrigin: `${ place.pivot.x }px ${ place.pivot.y }px`,
 				fontFamily: `"${ layer.fontFamily }", sans-serif`,
 				fontWeight: layer.weight,
 				fontStyle: layer.italic ? 'italic' : 'normal',
 				fontSize: domFontSize * zoom,
-				lineHeight: layer.lineHeight || 1.05,
-				letterSpacing: ( layer.letterSpacing || 0 ) * zoom,
+				lineHeight: rich ? leading : layer.lineHeight || 1.05,
+				letterSpacing: place.tracking,
+				// The renderer draws letter-spaced text glyph by glyph,
+				// without kerning; the field must not kern it either.
+				fontKerning: place.tracking ? 'none' : undefined,
 				textAlign: layer.textFit ? 'center' : layer.align,
 				textDecoration:
 					[

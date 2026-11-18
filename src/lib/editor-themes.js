@@ -40,6 +40,7 @@ export const EDITOR_THEMES = [
 				studio( 'wpie-image-synth/chain', 'fx' ),
 				studio( 'wpie-growth-decay/sim', 'refresh' ),
 				studio( 'wpie-image-matter/scene', 'grid' ),
+				studio( 'wpie-darkroom/print', 'moon' ),
 				studio( 'wpie-photo-mosaic/mosaic', 'image' ),
 			] ),
 		],

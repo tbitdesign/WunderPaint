@@ -26,7 +26,7 @@ import { flushSync } from 'react-dom';
 import { DEFAULT_TOOL_OPTS, ZOOM_MIN, ZOOM_MAX } from './constants';
 import { hydrateLayers, restoreLayers, snapshotLayers } from './document';
 import { scalePathD } from '../lib/path';
-import { measureTextHeight } from '../lib/raster';
+import { measureTextHeight, measureTextWidth } from '../lib/raster';
 import * as History from './history';
 import * as SharedClipboard from './shared-clipboard';
 import { setDrawnTips } from '../lib/brush-tips';
@@ -39,6 +39,49 @@ import { numberCommit } from '../lib/number-transaction';
 /* ------------------------------- helpers ------------------------------- */
 
 const clamp = ( v, min, max ) => Math.min( max, Math.max( min, v ) );
+
+// What changes how wide a line of text is.
+const LINE_WIDTH_KEYS = [
+	'text',
+	'spans',
+	'lineStyles',
+	'fontSize',
+	'fontFamily',
+	'weight',
+	'italic',
+	'letterSpacing',
+	'textTransform',
+	'listStyle',
+];
+
+/**
+ * A point text box made `w` wide without moving its text: it grows away
+ * from the edge the text is aligned to (to both sides when centred), along
+ * the text's own line when the layer is turned. The renderer turns a layer
+ * around the middle of its box, so that middle is what has to move.
+ *
+ * @param {Object} box Text layer ( x, y, w, h, rot, align ).
+ * @param {number} w   The new width.
+ * @return {Object} { x, y, w }.
+ */
+function widenPointText( box, w ) {
+	const centred = 'center' === box.align;
+	// Whole pixels stay whole: a centred box grows by an even amount.
+	if ( centred && ! box.rot ) {
+		w = box.w + 2 * Math.ceil( ( w - box.w ) / 2 );
+	}
+	const by = w - box.w;
+	let shift = by / 2;
+	if ( centred ) {
+		shift = 0;
+	} else if ( 'right' === box.align ) {
+		shift = -by / 2;
+	}
+	const rad = ( ( box.rot || 0 ) * Math.PI ) / 180;
+	const cx = box.x + box.w / 2 + shift * Math.cos( rad );
+	const cy = box.y + box.h / 2 + shift * Math.sin( rad );
+	return { x: cx - w / 2, y: cy - box.h / 2, w };
+}
 
 /**
  * Apply a patch to one layer. Custom-path shapes (inserted icons, traced
@@ -208,6 +251,43 @@ function patchLayer( layer, patch ) {
 			next.h = layer.fixedWidth ? Math.max( next.h, need ) : need;
 		} catch ( e ) {
 			// Headless without a canvas: keep the height.
+		}
+	}
+	if (
+		// Point text: the box follows its lines in WIDTH too. The height
+		// has always hugged the content, the width never did, so a line
+		// typed longer than its box ran out of the buffer the renderer
+		// draws a text into (the box plus half a font size) and lost its
+		// ends on the canvas. The box only GROWS, and away from the edge
+		// the text is aligned to, so the text stays where it is - where
+		// the edit field showed it while it was typed. A patch that sets
+		// the width itself (handles, scaling) is left alone; area text
+		// wraps, and fluid, path, shape, arc and warped text own their box.
+		// So does a layout lockup: its lines are FITTED to the box, and a
+		// line that comes out two pixels wider by rounding must not move
+		// the box it was fitted to.
+		'text' === layer.type &&
+		! next.fixedWidth &&
+		! next.textFit &&
+		! next.textLayout &&
+		! next.textPath &&
+		! next.shapeBox &&
+		! next.curve &&
+		! next.quad &&
+		! ( 'w' in patch ) &&
+		LINE_WIDTH_KEYS.some( ( key ) => key in patch )
+	) {
+		try {
+			const need = measureTextWidth( next );
+			const has = next.w || 0;
+			// A box that lines were FITTED to (a fluid text that was
+			// frozen) is a hair narrower than a line by rounding. That
+			// is not "too narrow": the same tolerance the fit itself has.
+			if ( need > has + Math.max( 2, has * 0.005 ) ) {
+				Object.assign( next, widenPointText( next, need ) );
+			}
+		} catch ( e ) {
+			// Headless without a canvas: keep the width.
 		}
 	}
 	if (
